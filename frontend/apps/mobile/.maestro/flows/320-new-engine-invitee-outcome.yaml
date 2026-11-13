@@ -7,7 +7,7 @@
 # the new engine, makes the class "E2E New Engine iOS" 3 days out, puts E2E Student on the coach's
 # list for it and runs one engine tick, which invites E2E Student. Run 320 before 321: 321 answers the
 # invitation and removes the class.
-# PAD-933: and no Notificar on it (NOTIFICATIONS-MANUAL-11 on iOS).
+# PAD-932: and Notificar on it, as on an old-engine class (NOTIFICATIONS-MANUAL-11 on iOS).
 # Asserted by testID and server values only (PAD-320). Backend: -e API_BASE=http://localhost:<port>,
 # else :5001. Flow number 320 from the coordinator.
 appId: com.padellevelup.app
@@ -42,14 +42,14 @@ onFlowStart:
     id: "invitee-tier-${output.studentId}"
 - takeScreenshot: .maestro/evidence/320-new-engine-invitee-outcome
 
-# PAD-933 (notifications.manual NM2, owner decision 17): a new-engine class offers no Notificar; the
-# row's other actions (Lembrar) stay. The deep link carries no notify=1 here, so nothing auto-opens.
+# PAD-932 (notifications.manual NM2): a new-engine class offers Notificar again, beside Lembrar. The
+# deep link carries no notify=1 here, so nothing auto-opens.
 - scrollUntilVisible:
     element:
       id: "class-remind"
     direction: DOWN
     timeout: 30000
-- assertNotVisible:
+- assertVisible:
     id: "class-notify"
 - assertNotVisible:
     id: "class-notify-closed"

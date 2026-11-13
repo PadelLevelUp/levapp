@@ -20,7 +20,6 @@
 import {
   engineAlertCopy,
   engineAnswerToast,
-  manualInviteClosed,
   resolveText,
   shortDate,
   validationTier,
@@ -765,11 +764,10 @@ function EmptySeatsCard({ item: it }: { item: DashboardNeedsYouEmptySeats }) {
       onError: () => toast.error(t("dashboard.needsYou.laterFailed")),
     });
 
-  // PAD-933 (dashboard.blocks NA5, DASHBOARD-BLOCKS-60): a new-engine class takes no manual invite
-  // (owner decision 17): no Convidar, and the line says how many invitations the engine has pending
-  // (decision 18). An item without `engineVersion` reads as old.
-  const engineOwned = manualInviteClosed(it.engineVersion);
-  const pending = engineOwned ? it.pendingInvites ?? 0 : 0;
+  // dashboard.blocks NA5 (DASHBOARD-BLOCKS-60): on a new-engine class the line says how many
+  // invitations the engine has pending (decision 18), and Convidar stays (PAD-932). An item without
+  // `engineVersion` reads as old.
+  const pending = it.engineVersion === "new" ? it.pendingInvites ?? 0 : 0;
 
   return (
     <ActionCard accent="attention" testID={`needs-you-empty-seats-${it.id}`}>
@@ -798,17 +796,15 @@ function EmptySeatsCard({ item: it }: { item: DashboardNeedsYouEmptySeats }) {
         </Text>
       </View>
       <View className="mt-3.5 flex-row gap-2">
-        {engineOwned ? null : (
-          <Button
-            className="flex-1"
-            testID={`needs-you-invite-${it.id}`}
-            onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}
-          >
-            <Text className="font-sans-semibold text-primary-foreground">
-              {t("dashboard.needsYou.emptySeats.invite", { count: it.seatsMissing })}
-            </Text>
-          </Button>
-        )}
+        <Button
+          className="flex-1"
+          testID={`needs-you-invite-${it.id}`}
+          onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}
+        >
+          <Text className="font-sans-semibold text-primary-foreground">
+            {t("dashboard.needsYou.emptySeats.invite", { count: it.seatsMissing })}
+          </Text>
+        </Button>
         <Button variant="outline" disabled={snooze.isPending} onPress={later} testID="needs-you-later">
           <Text className="font-sans-semibold text-foreground">
             {t("dashboard.needsYou.later")}

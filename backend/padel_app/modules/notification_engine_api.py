@@ -19,7 +19,6 @@ from padel_app.services.notification_service import (
     already_invited_players,
     send_manual_notifications,
     ClassStartedError,
-    NewEngineClassError,
     class_has_started,
     trigger_invitations,
     process_invitation_batches,
@@ -321,12 +320,15 @@ def manual_notify():
     # nothing about the class; before anything is worked out or sent. The service refuses too.
     if class_has_started(instance):
         return _class_started()
-    # PAD-933 (notifications.manual NM2): after the ownership checks, like rule 10's; an older app
-    # that still shows Notificar on a new-engine class is refused here.
+    # PAD-932 (notifications.manual NM1): on a new-engine class the invitation is the engine's.
     from padel_app.services.engine_switch import engine_for
 
-    if engine_for(instance) == "new":
-        return _new_engine_class()
+    on_new_engine = engine_for(instance) == "new"
+    if on_new_engine:
+        from padel_app.services.engine_entry import has_open_spot
+
+        if not has_open_spot(instance):
+            return jsonify({"error": "NO_OPEN_SPOT", "code": "NO_OPEN_SPOT"}), 409
     # PAD-107 + PAD-112: work out who will be skipped BEFORE sending, so the
     # coach is told by name exactly who could not be reached instead of just
     # seeing a count that is quietly short. Two independent reasons a student is
@@ -346,21 +348,32 @@ def manual_notify():
     for entry in already_invited_players(instance.id, player_ids):
         blocked_by_id.setdefault(entry["playerId"], entry)
     blocked = list(blocked_by_id.values())
+    if on_new_engine:
+        return _engine_manual(instance, [p for p in player_ids if p not in blocked_by_id], blocked)
     try:
         events = send_manual_notifications(instance.id, player_ids, coach.id)
     except ClassStartedError:  # the start came while the lists above were worked out
         return _class_started()
-    except NewEngineClassError:  # the class was adopted while the lists above were worked out
-        return _new_engine_class()
     return jsonify({"sent": len(events), "blocked": blocked})
+
+
+def _engine_manual(instance, player_ids, blocked):
+    """NM1: ``CoachInvites`` for the students the route let through; the engine's refusals join
+    ``blocked`` with their cause and the student's name, as the route's own do."""
+    from padel_app.models.players import Player
+    from padel_app.services.engine_entry import coach_invites
+    from padel_app.sql_db import db
+
+    sent, refused = coach_invites(instance, player_ids)
+    for pid, cause in refused.items():
+        player = db.session.get(Player, pid)
+        blocked.append({"playerId": pid, "name": player.user.name if player and player.user else "",
+                        "cause": cause})
+    return jsonify({"sent": len(sent), "blocked": blocked})
 
 
 def _class_started():
     return jsonify({"error": "CLASS_STARTED", "code": "CLASS_STARTED"}), 409
-
-
-def _new_engine_class():
-    return jsonify({"error": "NEW_ENGINE_CLASS", "code": "NEW_ENGINE_CLASS"}), 409
 
 
 @bp.post("/past_due/send")
