@@ -51,6 +51,17 @@ onFlowComplete:
     element:
       id: "restriction-maxSimultaneous-inc"
     direction: UP
+# PAD-710 (Android lane): the UP scroll stops at a 10 px sliver under the header, so + is mistapped and the value is off screen (nightly 10 Nov, run 42802792484); bring the value row to the centre.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "restriction-maxSimultaneous-value"
+          direction: UP
+          timeout: 15000
+          centerElement: true
 - tapOn:
     id: "restriction-maxSimultaneous-inc"
 - assertVisible:
@@ -94,6 +105,17 @@ onFlowComplete:
     element:
       id: "restriction-maxSimultaneous-value"
     direction: DOWN
+# PAD-710 (Android lane): same sliver trap on the read-back (run 42802792484); centre the value.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "restriction-maxSimultaneous-value"
+          direction: DOWN
+          timeout: 15000
+          centerElement: true
 - assertVisible:
     id: "restriction-maxSimultaneous-value"
     text: "4"

@@ -190,14 +190,28 @@ appId: com.padellevelup.app
     id: "piece-a1"
 - tapOn:
     id: "piece-a2"
+# PAD-710 (Android lane): a flat path between two points on one row (or one column) is a straight
+# line whose Android bounds have zero height (or width), and Maestro never counts it as visible
+# (46 red 6-13 Nov at this step; 41's diagonal path passes). On Android the path is proven by its
+# style handle, which is drawn only for a path; iOS keeps asserting the path itself.
 - runFlow:
     when:
       platform: Android
     file: ../subflows/board-show-court.yaml
     env:
-      TARGET: "ball-path-flat"
-- assertVisible:
-    id: "ball-path-flat"
+      TARGET: "ball-style-handle"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: "ball-style-handle"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: "ball-path-flat"
 - runFlow:
     when:
       platform: Android
@@ -397,14 +411,28 @@ appId: com.padellevelup.app
       TARGET: "court-surface"
 - tapOn:
     id: "court-surface"
+# PAD-710 (Android lane): a flat path between two points on one row (or one column) is a straight
+# line whose Android bounds have zero height (or width), and Maestro never counts it as visible
+# (46 red 6-13 Nov at this step; 41's diagonal path passes). On Android the path is proven by its
+# style handle, which is drawn only for a path; iOS keeps asserting the path itself.
 - runFlow:
     when:
       platform: Android
     file: ../subflows/board-show-court.yaml
     env:
-      TARGET: "ball-path-flat"
-- assertVisible:
-    id: "ball-path-flat"
+      TARGET: "ball-style-handle"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: "ball-style-handle"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: "ball-path-flat"
 
 - runFlow:
     when:
