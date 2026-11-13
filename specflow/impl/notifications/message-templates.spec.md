@@ -184,8 +184,8 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     empty, the connector directly before it goes with it (rule 7's genitives plus `em`, `no`,
     `na`, `in`, `on`, `at`), an empty pair of brackets is removed, and the space/punctuation
     collapse and leading-punctuation rule run. So "aula às {time} no {club}." reads
-    "aula às 19:00." Accepted by every template (rule 3a); no built-in default uses it, and a coach's
-    saved templates are not rewritten (rule 10).
+    "aula às 19:00." Accepted by every template (rule 3a); no built-in default uses it except the two removal
+    notices (rule 24, PAD-928), and a coach's saved templates are not rewritten (rule 10).
 23. **The editor offers both (PAD-836; numbering unconfirmed).** The web settings editor offers
     `{duration}` and `{club}` among the insert-placeholder badges under every field it edits (rule
     3a), and its help table (rule 19) lists them with their meaning, "Duração da aula" / "Class
@@ -372,11 +372,11 @@ test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_club_
 - **Then** they read "aula às 19:00.", "Aula" and "aula às 19:00", with no raw token, no dangling connector and no space before punctuation
 test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_empty_club_and_duration_take_their_connector`
 
-#### NOTIFICATIONS-MESSAGE-TEMPLATES-25: Both work in every template; no default uses them; saved texts stay (rules 3a, 21, 22)
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-25: Both work in every template; no default uses `{duration}`, only the removal notices use `{club}`; saved texts stay (rules 3a, 21, 22, 24)
 - **Given** a coach whose stored text for every template key, `added_to_class` and `added_to_class_coming` included, is "{duration} {club}"
 - **When** each message is rendered for a 60-minute class at "Padel Norte"
 - **Then** each reads "60 min Padel Norte"
-- **And** no default text in either locale contains `{duration}` or `{club}`, and the coach's stored templates are unchanged
+- **And** no default text in either locale contains `{duration}`; only `removed_from_class` and `removed_from_series` (rule 24) contain `{club}`; and the coach's stored templates are unchanged
 test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_both_render_in_every_template_and_no_default_uses_them`
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-26: The preview's examples carry both (rules 19, 23)
