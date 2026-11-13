@@ -12,9 +12,10 @@ import { TemplateHelp, TemplatePreview } from "@/components/settings/TemplateHel
 // notifications.message-templates rule 3a (PAD-670): every template takes the same vocabulary, so a
 // field typed into ANY template is replaced when the message is sent. {type}, {date} (dd/mm) and
 // {court} are PAD-430's; {day} (PAD-549) says the day naturally; {class} (the title) and {when} came
-// with the "added to class" messages (PAD-489).
+// with the "added to class" messages (PAD-489); {duration} ("90 min") and {club} are PAD-836's (rules 21-23).
 const CLASS_VARIABLES = [
-  "{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{class}", "{when}",
+  "{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{duration}", "{club}",
+  "{class}", "{when}",
 ];
 
 // PAD-446 (rule 16): {side} names the spot's side, on the waiting-list invitation only.

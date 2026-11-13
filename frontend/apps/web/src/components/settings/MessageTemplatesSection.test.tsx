@@ -200,7 +200,9 @@ describe("MessageTemplatesSection explains templates and previews them (PAD-549)
 
 describe("MessageTemplatesSection — every placeholder in every field (PAD-670, message-templates rule 3a)", () => {
   const ALL_KEYS = Object.keys(TEMPLATES) as (keyof MessageTemplates)[];
-  const VOCABULARY = ["{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{class}", "{when}"];
+  const VOCABULARY = [
+    "{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{duration}", "{club}", "{class}", "{when}",
+  ];
 
   beforeEach(() => {
     previewTemplate.mockReset().mockImplementation(async (template: string) => ({
@@ -227,6 +229,28 @@ describe("MessageTemplatesSection — every placeholder in every field (PAD-670,
       () => expect(screen.getByTestId("template-preview-reminder_declined").textContent).toContain("amanhã"),
       { timeout: 2000 }
     );
+  });
+});
+
+describe("PAD-836 {duration} and {club} (notifications.message-templates rule 23)", () => {
+  beforeEach(() => {
+    previewTemplate.mockReset().mockImplementation(async (template: string) => ({
+      text: template,
+      examples: { duration: "60 min", club: "Padel Norte" },
+    }));
+  });
+
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-27] offers {duration} and {club} with their examples (PAD-836)", async () => {
+    render(<Wrapper />);
+    for (const key of Object.keys(TEMPLATES) as (keyof MessageTemplates)[]) {
+      const badges = screen.getByTestId(`template-variables-${key}`);
+      expect(within(badges).getByText("{duration}")).toBeTruthy();
+      expect(within(badges).getByText("{club}")).toBeTruthy();
+    }
+    expect(screen.getByTestId("template-help-field-duration").textContent).toContain("settings.templates.help.fields.duration");
+    expect(screen.getByTestId("template-help-field-club").textContent).toContain("settings.templates.help.fields.club");
+    await waitFor(() => expect(screen.getByTestId("template-help-example-duration").textContent).toBe("60 min"));
+    expect(screen.getByTestId("template-help-example-club").textContent).toBe("Padel Norte");
   });
 });
 
