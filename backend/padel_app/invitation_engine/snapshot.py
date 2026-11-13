@@ -164,6 +164,7 @@ class SessionSnapshot:
     waiting_list: tuple[WaitingListEntry, ...] = ()
     pool: tuple[Student, ...] = ()                    # visible club students not in the session
     absent: frozenset[str] = frozenset()              # regulars who said they are not going
+    coach_removed: frozenset[str] = frozenset()       # regulars the coach removed from this session (still in regulars)
     said_no: frozenset[str] = frozenset()             # answered No for this session (a gate, plan §3)
     busy_same_time: frozenset[str] = frozenset()      # going to another session at the same time (a gate)
     blocked: frozenset[str] = frozenset()             # their own settings refuse automatic invitations here (a gate, every tier)

@@ -496,3 +496,13 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - Resetting the approved groups on a switch to automatic (rule 14, PLANNING-36) — S's reading (PAD-913;
   the owner can reverse it): decision 10 keeps a group approved for the session but did not decide
   resets; a coach who leaves semi-automatic and comes back is asked again.
+- **For the owner (a notification-volume decision, the owner's): does one flexible (either-side) counting
+  invitation fill one spot type's budget only, or every type it fits?** (rules 4 and 5.3, D5, D20; found
+  on staging instance 783, PAD-913, 2026-11-12; no amendment until the owner answers.) With N's numbers:
+  - **every type it fits** (today's rule, D5/D20 as the owner confirmed them through Q10 on 2026-11-11):
+    4 invitations for 2 open spots at X = 3, and nothing more when a third spot opens (6 cover 3);
+  - **one type only** (N's proposal, approved by the coordinator for the owner to decide): 6 for 2, then
+    3 more when a third opens (9 for 3).
+  Every scenario from Tomás's PDF passes under both. P10a and P10b (the plan's own scenarios for D20)
+  and PLANNING-12 change under the second; N's failing test `test_a_flexible_invitation_fills_one_types_budget`
+  would become PLANNING-45.

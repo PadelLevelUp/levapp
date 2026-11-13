@@ -116,4 +116,11 @@ def reminder_sent_at_by_presence(presences: Iterable[Presence]) -> Dict[int, Opt
     for event, sent_at in events:
         note(event.player_id, event.lesson_instance_id, sent_at)
 
+    # PAD-918 (swap plan §3.2): a new-engine invitation is dated by its own sending.
+    from padel_app.models import EngineInvitation
+
+    for row in (EngineInvitation.query.filter(EngineInvitation.player_id.in_(player_ids),
+                                              EngineInvitation.lesson_instance_id.in_(instance_ids)).all()):
+        note(row.player_id, row.lesson_instance_id, row.reopened_at or row.sent_at)
+
     return {p.id: latest.get((p.player_id, p.lesson_instance_id)) for p in rows}

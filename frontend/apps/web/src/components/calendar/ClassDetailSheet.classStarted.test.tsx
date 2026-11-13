@@ -14,13 +14,13 @@ vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ token: "t", user: { id: 1, roles: ["coach"] } }) }));
 vi.mock("@/api/events", () => ({ subscribeAppEvents: () => () => undefined }));
 const api = vi.hoisted(() => ({
-  getApprovalSuggestions: vi.fn(),
+  getApprovalState: vi.fn(),
   getClassInstance: vi.fn(),
   getNotificationGroups: vi.fn(),
 }));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getApprovalSuggestions: api.getApprovalSuggestions,
+  getApprovalState: api.getApprovalState,
   getNotificationGroups: api.getNotificationGroups,
 }));
 vi.mock("@/api/classes", async (orig) => ({
@@ -48,7 +48,7 @@ const event = {
 } as unknown as CalendarEvent;
 
 beforeEach(() => {
-  api.getApprovalSuggestions.mockReset().mockResolvedValue({ state: "none" });
+  api.getApprovalState.mockReset().mockResolvedValue({ state: "none" });
   api.getNotificationGroups.mockReset().mockResolvedValue([]);
   api.getClassInstance.mockReset().mockResolvedValue({
     id: 7, date: "2027-07-13", startTime: "19:30", endTime: "21:00", status: "scheduled",

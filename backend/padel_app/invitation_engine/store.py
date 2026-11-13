@@ -66,6 +66,7 @@ class _Session:
     said_no: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)
     excluded: set[str] = field(default_factory=set)
+    coach_removed: set[str] = field(default_factory=set)
     alerted: dict = field(default_factory=dict)
     joined_at: dict[str, datetime] = field(default_factory=dict)
     last_moved_at: dict[str, datetime] = field(default_factory=dict)
@@ -96,8 +97,15 @@ class MemoryStore:
         return nullcontext()
 
     def exclude(self, session: str, student: str) -> None:
-        """A gate the store decides alone (engine-tiers rule 3): the student leaves the pool."""
-        self._sessions[session].excluded.add(student)
+        """A gate the store decides alone (engine-tiers rule 3): the student leaves the pool. Excluding
+        one of the session's regulars is the coach removing them from it (engine-answers rule 14): they
+        stop going, stay a regular, and their seat counts as freed (``coach_removed``)."""
+        s = self._sessions[session]
+        s.excluded.add(student)
+        if student in s.regulars:
+            s.going.pop(student, None)
+            s.absent.discard(student)
+            s.coach_removed.add(student)
 
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
@@ -141,7 +149,7 @@ class MemoryStore:
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,
             regulars=tuple(s.regulars.values()), going=tuple(s.going.values()),
             invitations=tuple(s.invitations), waiting_list=tuple(s.waiting_list), pool=pool,
-            absent=frozenset(s.absent), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
+            absent=frozenset(s.absent), coach_removed=frozenset(s.coach_removed), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
             busy_same_time=frozenset(busy), elsewhere=elsewhere, alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
             joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),

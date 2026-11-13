@@ -15,6 +15,8 @@ flows:
 # file), so scripts/ci-android-maestro.sh excludes the same tag.
 excludeTags:
   - open-defect-probe
+  # PAD-920: flows whose setup is a hand-run backend step (scripts/new-engine-setup.py) run on demand only.
+  - hand-run-setup
 
 executionOrder:
   continueOnFailure: true
@@ -423,6 +425,10 @@ executionOrder:
     # 318 (PAD-799, auth.register rule 2a): signs in as "E2E-Coach" and types a capitalised username
     # into sign-up without submitting; it writes nothing, so its position is not load bearing.
     - 318-username-case
+    # 319-321 (PAD-920, tag hand-run-setup): the new engine on iOS; on demand, after scripts/new-engine-setup.py.
+    - 319-new-engine-settings
+    - 320-new-engine-invitee-outcome
+    - 321-new-engine-invite-bubble
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

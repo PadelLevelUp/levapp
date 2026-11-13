@@ -50,7 +50,11 @@ def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now:
     now = now or utcnow_naive()
     row = db.session.get(EngineInvitation, int(invitation_id))
     if row is None:
+        if _cancelled_bubble(int(invitation_id), user_id):   # its class was removed (INVITATIONS-125)
+            refuse("class_cancelled")
         raise NotFound("unknown invitation")
+    if row.closed_reason == CLASS_REMOVED:                  # its class was cancelled (INVITATIONS-128)
+        refuse("class_cancelled")
     inst = db.session.get(LessonInstance, row.lesson_instance_id)
     if coach_id is not None:
         if coach_id not in {c.id for c in coaches_for(inst)}:
@@ -73,7 +77,7 @@ def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now:
     db.session.expire_all()
     from padel_app.services.engine_runner import send_outbox
 
-    send_outbox(now)
+    send_outbox()
     row = db.session.get(EngineInvitation, int(invitation_id))        # the outcome, as the store wrote it
     return {**out, "action": _answer_state(row, placed())}
 
@@ -94,7 +98,7 @@ def handle(instance, request, now: datetime | None = None) -> list:
     now = now or utcnow_naive()
     effects = engine(now).handle(str(instance.id), request, now)
     db.session.expire_all()
-    send_outbox(now)                        # an answer's sorry or a placement's notice goes out at once
+    send_outbox()                        # an answer's sorry or a placement's notice goes out at once
     return effects
 
 
@@ -236,7 +240,7 @@ def replan(sessions, now: datetime | None = None) -> list:
 
     effects = engine(now).handle(sessions[0], rq.UpdateSettings(EngineSettings(), sessions), now)
     db.session.expire_all()
-    send_outbox(now)
+    send_outbox()
     return effects
 
 
@@ -372,3 +376,48 @@ def coach_added(instance, player_ids, now: datetime | None = None) -> None:
         return
     for player_id in player_ids:
         handle(instance, rq.CoachAdded(str(player_id)), now)
+
+
+CLASS_REMOVED = "class_removed"
+
+
+def withdraw_before_removal(instances, now: datetime | None = None) -> int:
+    """invitations NB1a / NB5, INVITATIONS-125: a coach removes or cancels new-engine classes, and every
+    open invitation of theirs closes first with ``closed_reason`` ``class_removed``; each live bubble's
+    state becomes ``class_cancelled`` (one ``message_edited``, engine-store rule 8), so no student is
+    offered a Yes. Returns how many closed."""
+    from padel_app.models import EngineInvitation
+    from padel_app.services.engine_store import TableStore, _refresh_bubbles
+    from padel_app.services.engine_switch import engine_for
+
+    now = now or utcnow_naive()
+    store, closed = TableStore(clock=lambda: now), 0
+    for instance in instances:
+        if instance is None or engine_for(instance) != "new":
+            continue
+        open_rows = EngineInvitation.query.filter(EngineInvitation.lesson_instance_id == instance.id,
+                                                  EngineInvitation.answer.is_(None),
+                                                  EngineInvitation.closed_at.is_(None)).all()
+        if not open_rows:
+            continue
+        with store.unit((str(instance.id),)):
+            for row in open_rows:
+                row.closed_at, row.closed_reason = now, CLASS_REMOVED
+                _refresh_bubbles(row, "class_cancelled")
+                closed += 1
+    return closed
+
+
+def _cancelled_bubble(invitation_id: int, user_id: int) -> bool:
+    """Whether ``user_id`` holds a bubble for ``invitation_id`` that a class removal settled as
+    ``class_cancelled``: the invitation row went with its class, the bubble stays (INVITATIONS-125)."""
+    from padel_app.models import ConversationParticipant, Message
+
+    conversations = db.session.query(ConversationParticipant.conversation_id).filter(
+        ConversationParticipant.user_id == user_id)
+    for msg in Message.query.filter(Message.conversation_id.in_(conversations),
+                                    Message.message_type == "notification_invite").all():
+        meta = msg.msg_metadata or {}
+        if meta.get("invitationId") == invitation_id and meta.get("state") == "class_cancelled":
+            return True
+    return False

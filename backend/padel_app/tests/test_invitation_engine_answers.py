@@ -414,3 +414,28 @@ def test_an_answer_records_who_gave_it():
     assert [type(e) for e in by_coach] == [type(e) for e in by_student]       # who answered changes nothing else
     no = handle(s, EngineSettings(), Answer("c", False, by="coach"), NOW).effects
     assert [(e.answer, e.by) for e in no if isinstance(e, Answered)] == [("no", "coach")]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-29")
+def test_a_regular_the_coach_removed_is_never_invited_back():
+    """engine-answers rule 14: a regular the coach removed from one session (CoachExcludes) is not
+    invited back to it even when they pass an earlier tier than the other candidates; the spot goes to
+    the next candidate, and they stay a candidate where they are not a regular."""
+    from padel_app.invitation_engine import Engine
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine.requests import CoachExcludes
+    from padel_app.invitation_engine.settings import Tier
+    from padel_app.invitation_engine.store import MemoryStore
+
+    store = MemoryStore()
+    store.add_student(Student("OTHER", 2, frozenset("R")))                      # a later tier: one level better
+    regs = [(_student(sid, side), side) for sid, side in _regs(4, 4)]
+    store.add_session("S", 3, 8, START, regs, SENT)                            # full
+    store.add_session("T", 3, 8, START + timedelta(hours=3), [(_student(sid, side), side) for sid, side in _regs(4, 3)],
+                      SENT)                                                     # another session, R4 not a regular there
+    settings = EngineSettings(tiers=(Tier("pool", "same", 0), Tier("pool", "same", 1)))
+    engine = Engine(store, settings)
+    effects = engine.handle("S", CoachExcludes("R4"), SENT)                    # the coach removes R4 from S
+    invited = {(e.session, e.student) for e in effects if isinstance(e, fx.Invited)}
+    assert ("S", "R4") not in invited and ("S", "OTHER") in invited
+    assert ("T", "R4") in {(e.session, e.student) for e in engine.tick(SENT) if isinstance(e, fx.Invited)}

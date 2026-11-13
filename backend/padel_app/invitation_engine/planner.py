@@ -82,13 +82,13 @@ class SpotCounts:
 
 def freed_spots(snapshot: SessionSnapshot) -> tuple[dict[Side, int], int]:
     """The spots going students freed and nobody has taken since (engine-settings rule 11): per side,
-    and of either side. An absent regular frees a spot of their side, or of either side when they play
-    both; a cancellation after accepting gives back the freed spot it took. Every going student who is
+    and of either side. An absent regular, or one the coach removed from this session, frees a spot of
+    their side, or of either side when they play both; a cancellation after accepting gives back the freed spot it took. Every going student who is
     not a regular takes one, of their side first, else of either side."""
     regulars = {st.id: st for st in snapshot.regulars}
     side: dict[Side, int] = {v: 0 for v in SIDES}
     either = 0
-    for sid in snapshot.absent:
+    for sid in snapshot.absent | snapshot.coach_removed:   # a coach's removal frees the seat too (answers rule 14)
         st = regulars.get(sid)
         if st is None:
             continue

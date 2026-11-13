@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 import type { InvitationMode, NotificationConfig } from "@/types";
+import type { EngineConfig, EngineTimingMethod } from "@levelup/types";
+import { ENGINE_DEFAULT_MAX_AT_A_TIME, perTierAligned } from "@levelup/config";
 import { PAST_DUE_SEND_MAX, getNotificationConfig, sendPastDueReminders, updateNotificationConfig } from "@/api/notificationEngine";
 import type { PastDue, PastDueSendResult } from "@/api/notificationEngine";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +27,7 @@ import { RestrictionsPanel } from "./RestrictionsPanel";
 import { NotificationGroupsSection } from "./NotificationGroupsSection";
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
 import { StandingWaitingListSection } from "./StandingWaitingListSection";
+import { EngineStepper } from "./EngineStepper";
 import { useTabSave } from "@/context/SettingsUnsavedContext";
 
 // settings.explicit-save (PAD-506): the engine settings this card edits and its Save sends.
@@ -39,7 +42,20 @@ const ENGINE_FIELDS = [
   "tiebreakers",
   "restrictions",
   "notificationGroups",
+  // PAD-920 (notifications.config rule 20): the new engine's own settings, sent whole.
+  "engine",
 ] as const satisfies readonly (keyof NotificationConfig)[];
+
+// What a new-engine coach with no `engine` stored sees (the server's column defaults). Never
+// written at load: it enters `config` with the coach's first change.
+const ENGINE_DEFAULTS: EngineConfig = {
+  maxAtATime: null,
+  timing: { method: "fixed", betweenRoundsMinutes: null, betweenGroupsMinutes: null },
+  autoEntryBeforeAttendanceRequest: false,
+  waitingListSideChoice: false,
+};
+
+const TIMING_METHODS: EngineTimingMethod[] = ["fixed", "per_tier", "progressive"];
 
 const TEMPLATE_BLANKS = {
   reminder: "",
@@ -213,11 +229,28 @@ export function NotificationsEngineSection() {
   if (!config) return null;
 
   const disabled = !config.autoNotifyEnabled;
+  // PAD-920 (notifications.config rule 20): the new engine's controls are a new-engine coach's only.
+  const isNewEngine = config.engineVersion === "new";
+  const engine = config.engine ?? ENGINE_DEFAULTS;
+  // A null timer falls back to maxInactiveTime (rule 19), so that is what it shows until stepped.
+  const inactiveMinutes = config.restrictions?.maxInactiveTime?.value ?? 120;
+  const shownPair = {
+    betweenRoundsMinutes: engine.timing.betweenRoundsMinutes ?? inactiveMinutes,
+    betweenGroupsMinutes: engine.timing.betweenGroupsMinutes ?? inactiveMinutes,
+  };
+  const saveEngine = (patch: Partial<EngineConfig>) => save({ engine: { ...engine, ...patch } });
+  // `perTier` is written only with "Por grupo" (the server refuses it otherwise).
+  const timingWith = (patch: Partial<EngineConfig["timing"]>): EngineConfig["timing"] => {
+    const { perTier, ...rest } = { ...engine.timing, ...patch };
+    return rest.method === "per_tier" && perTier !== undefined ? { ...rest, perTier } : rest;
+  };
   // Rule 3a: automatic acceptance does not work in semi-automatic mode, whether or not the engine is on.
   const autoAcceptBlocked = config.invitationMode === "semi_automatic";
 
   function SectionHeader({ sectionKey, icon: Icon, label }: { sectionKey: SectionKey; icon: React.ElementType; label: string }) {
-    const isDisabled = disabled && sectionKey !== "notifyGroups" && sectionKey !== "templates";
+    // PAD-920 (rule 20): a new-engine coach's tiers editor stays open to them with the engine off.
+    const isDisabled =
+      disabled && sectionKey !== "notifyGroups" && sectionKey !== "templates" && !(isNewEngine && sectionKey === "groups");
     return (
       <CollapsibleTrigger
         data-testid={`notification-engine-section-${sectionKey}`}
@@ -341,6 +374,78 @@ export function NotificationsEngineSection() {
           )}
         </div>
 
+        {isNewEngine && (
+          // PAD-920 (notifications.config rule 20): M, the timing method and pair, and the two
+          // toggles. Held like every control here until the tab's Save, sent whole as `engine`.
+          <div className="space-y-4" data-testid="notification-engine-new-engine">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium">{t("settings.engine.newEngine.maxAtATime")}</p>
+              <EngineStepper
+                testId="engine-max-at-a-time"
+                boundKey="maxAtATime"
+                value={engine.maxAtATime ?? ENGINE_DEFAULT_MAX_AT_A_TIME}
+                onStep={(maxAtATime) => saveEngine({ maxAtATime })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{t("settings.engine.newEngine.timingMethod")}</p>
+              <RadioGroup
+                value={engine.timing.method}
+                onValueChange={(value) => {
+                  if (value === engine.timing.method) return;
+                  const method = value as EngineTimingMethod;
+                  // Switching to "Por grupo" starts every tier on the card's pair (null entries).
+                  const perTier =
+                    method === "per_tier" ? perTierAligned(engine.timing.perTier, (config.invitationGroups ?? []).length) : undefined;
+                  saveEngine({ timing: timingWith({ method, perTier }) });
+                }}
+                className="gap-2"
+              >
+                {TIMING_METHODS.map((method) => (
+                  <div key={method} className="flex items-center gap-2">
+                    <RadioGroupItem value={method} id={`engine-timing-method-${method}`} data-testid={`engine-timing-method-${method}`} />
+                    <Label htmlFor={`engine-timing-method-${method}`} className="text-sm font-normal">
+                      {t(`settings.engine.newEngine.method.${method}`)}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {([
+              ["betweenRoundsMinutes", "engine-between-rounds", "settings.engine.newEngine.betweenRounds"],
+              ["betweenGroupsMinutes", "engine-between-groups", "settings.engine.newEngine.betweenGroups"],
+            ] as const).map(([key, testId, labelKey]) => (
+              <div key={key} className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">{t(labelKey)}</p>
+                <EngineStepper
+                  testId={testId}
+                  boundKey={key}
+                  value={shownPair[key]}
+                  unit={t("settings.restrictions.min")}
+                  onStep={(v) => saveEngine({ timing: timingWith({ [key]: v }) })}
+                />
+              </div>
+            ))}
+
+            {([
+              ["autoEntryBeforeAttendanceRequest", "engine-auto-entry", "settings.engine.newEngine.autoEntry"],
+              ["waitingListSideChoice", "engine-side-choice", "settings.engine.newEngine.sideChoice"],
+            ] as const).map(([key, testId, labelKey]) => (
+              <div key={key} className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">{t(labelKey)}</p>
+                <Switch
+                  checked={engine[key]}
+                  onCheckedChange={(on) => saveEngine({ [key]: on })}
+                  aria-label={t(labelKey)}
+                  data-testid={testId}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         <Separator />
 
         {/* Reminders */}
@@ -449,7 +554,23 @@ export function NotificationsEngineSection() {
               <InvitationGroupsSection
                 groups={config.invitationGroups ?? []}
                 onChange={(invitationGroups) => save({ invitationGroups })}
-                disabled={disabled}
+                // PAD-920 (rule 20): a new-engine coach's controls, the tiers editor included, stay
+                // editable with the master switch off; an old-engine coach's groups stay as today.
+                disabled={disabled && !isNewEngine}
+                engine={
+                  isNewEngine
+                    ? {
+                        method: engine.timing.method,
+                        perTier: engine.timing.perTier,
+                        fallback: shownPair,
+                        // A group edit under "Por grupo" moves perTier with it, in the same held change.
+                        onChange: (invitationGroups, perTier) =>
+                          engine.timing.method === "per_tier"
+                            ? save({ invitationGroups, engine: { ...engine, timing: timingWith({ perTier }) } })
+                            : save({ invitationGroups }),
+                      }
+                    : undefined
+                }
               />
             )}
           </CollapsibleContent>

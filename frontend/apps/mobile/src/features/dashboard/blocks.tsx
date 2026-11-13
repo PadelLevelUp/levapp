@@ -17,10 +17,19 @@
  * and opens the class detail screen with the params it needs, the way the
  * calendar does.
  */
-import { shortDate, validationTier, weekdayLong, weekdayShort } from "@levelup/config";
+import {
+  engineAlertCopy,
+  engineAnswerToast,
+  resolveText,
+  shortDate,
+  validationTier,
+  weekdayLong,
+  weekdayShort,
+} from "@levelup/config";
 import type {
   DashboardKpiGridBlock,
   DashboardNeedsYouBlock,
+  DashboardNeedsYouEngineAlert,
   DashboardNeedsYouEmptySeats,
   DashboardNeedsYouInvite,
   DashboardNeedsYouItem,
@@ -58,6 +67,7 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useSnoozeNeedsYouItem } from "@levelup/hooks";
 import {
+  useRespondEngineInvite,
   useRespondInvite,
   useRespondReminder,
   useDeclineFromDashboard,
@@ -501,9 +511,27 @@ function DeclineButton({
 function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
   const { t, i18n } = useTranslation();
   const respond = useRespondInvite();
-  const answer = (action: "yes" | "no") =>
+  const respondEngine = useRespondEngineInvite();
+  const answer = (action: "yes" | "no") => {
+    // PAD-920 (DASHBOARD-BLOCKS-57): a card carrying `invitationId` is the new engine's, answered by that
+    // id; the route's five actions read through the shared helper, one toast each.
+    if (item.invitationId != null) {
+      respondEngine.mutate(
+        { invitationId: item.invitationId, action },
+        {
+          onSuccess: (result) => {
+            const answerToast = engineAnswerToast(result.action);
+            if (!answerToast) toast.error(t("dashboard.answer.failed"));
+            else if (answerToast.tone === "good") toast.success(t(answerToast.key));
+            else toast.error(t(answerToast.key));
+          },
+          onError: () => toast.error(t("dashboard.answer.failed")),
+        },
+      );
+      return;
+    }
     respond.mutate(
-      { notificationEventId: item.notificationEventId, action },
+      { notificationEventId: item.notificationEventId!, action },
       {
         onSuccess: (result) => {
           if (result.action === "confirmed") toast.success(t("dashboard.answer.confirmed"));
@@ -516,6 +544,7 @@ function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
         onError: () => toast.error(t("dashboard.answer.failed")),
       },
     );
+  };
   return (
     <ActionCard accent="attention" testID="dashboard-queue-vacancy-invite">
       <View className="gap-0.5">
@@ -532,7 +561,7 @@ function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
         </Text>
       </View>
       <View className="mt-3.5 flex-row items-center gap-2">
-        <AskButtons busy={respond.isPending} onAnswer={answer} />
+        <AskButtons busy={respond.isPending || respondEngine.isPending} onAnswer={answer} />
         <View className="flex-1" />
         <Pressable
           onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
@@ -769,8 +798,51 @@ function EmptySeatsCard({ item: it }: { item: DashboardNeedsYouEmptySeats }) {
   );
 }
 
+/**
+ * PAD-920 (dashboard.blocks NA1, NA2): the coach alert — nobody left to invite for a spot type of a
+ * new-engine class. Title, line, hint and test id come from the shared `engineAlertCopy`, the same
+ * words the web card shows; the card opens the class, and "Later" snoozes it like its siblings
+ * (rule 3c). The server puts it first and drops that class's `empty_seats` item; no client sort.
+ */
+function EngineAlertCard({ item: it }: { item: DashboardNeedsYouEngineAlert }) {
+  const { t, i18n } = useTranslation();
+  const snooze = useSnoozeNeedsYouItem();
+  const copy = engineAlertCopy(it, i18n.language);
+  const later = () =>
+    snooze.mutate(it.id, {
+      onError: () => toast.error(t("dashboard.needsYou.laterFailed")),
+    });
+
+  return (
+    <ActionCard
+      accent="attention"
+      testID={copy.testId}
+      onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.startTime })}
+    >
+      <View className="gap-0.5">
+        <Text className="text-[15px] font-sans-bold text-foreground">{t(copy.titleKey)}</Text>
+        <Text className="text-[13px] text-muted-foreground">
+          {resolveText((key, params) => String(t(key, params)), copy.line)}
+        </Text>
+        <Text className="mt-1 text-[13px] text-muted-foreground">{t(copy.hintKey)}</Text>
+      </View>
+      <View className="mt-3.5 flex-row justify-end">
+        <Button variant="outline" disabled={snooze.isPending} onPress={later} testID="needs-you-later">
+          <Text className="font-sans-semibold text-foreground">
+            {t("dashboard.needsYou.later")}
+          </Text>
+        </Button>
+      </View>
+    </ActionCard>
+  );
+}
+
 function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
   const { t, i18n } = useTranslation();
+
+  if (item.kind === "engine_alert") {
+    return <EngineAlertCard item={item as DashboardNeedsYouEngineAlert} />;
+  }
 
   if (item.kind === "empty_seats") {
     const it = item as DashboardNeedsYouEmptySeats;

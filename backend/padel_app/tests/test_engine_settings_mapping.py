@@ -446,3 +446,17 @@ def test_a_half_set_tier_pair_falls_back(app):
     with pytest.raises(HTTPException) as refused:
         pairs((10, 20), (0, None))
     assert refused.value.code == 400
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-70")
+def test_switching_back_from_per_tier_without_per_tier_clears_it(app):
+    """A save that changes the method away from per_tier and sends no perTier (the clients drop it then,
+    rule 20) is accepted, and the stored per-tier pairs are cleared."""
+    from padel_app.services.notification_service import get_config_dict, update_config
+
+    coach_id, _ = _coach_on(app, "new")
+    update_config(coach_id, {"engine": {"timing": {"method": "per_tier", "perTier": [None] * 5}}})
+    update_config(coach_id, {"engine": {"timing": {"method": "fixed", "betweenRoundsMinutes": None,
+                                                   "betweenGroupsMinutes": None}}})
+    timing = get_config_dict(coach_id)["engine"]["timing"]
+    assert (timing["method"], timing["perTier"]) == ("fixed", [])
