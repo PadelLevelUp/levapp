@@ -36,6 +36,7 @@ they have behaviour worth specifying.
   copy, refreshed weekly from ECR Public or Docker Hub, never a public registry's anonymous quota)
 - `delivery.backend-ci-lanes` — implementing (PAD-654: SQLite in one job; Postgres as two pytest-split
   shards of 60 min each, plus a job that checks the shards run every test exactly once)
+- `delivery.pre-push-gate` — draft (PAD-930: `git push` runs the frontend checks only on the pinned Node, `.nvmrc` 24.15.0; Node 25+ or a missing pinned version is refused by name).
 - `delivery.android-nightly-lane` — implementing (PAD-710: the nightly Android Maestro suite as
   parallel shards cut by flow name, each under a watchdog that turns a slow flow into a named red)
 - `delivery.database-backup` — implemented (no ticket: the nightly `pg_dump` of both databases to
