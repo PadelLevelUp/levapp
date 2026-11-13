@@ -5,6 +5,8 @@
 # Regenerate, never hand-edit counts.
 # 2026-11-12 (PAD-913): 37, 38, 55, 56, 57, P18a, P19, P20a, P29 re-run against today's engine on
 # feature/pad-913-owner-decisions after the owner's decisions 1 and 12-13 (re-derived files).
+# 2026-11-13 (PAD-931): P10a, P10b re-run and P40 added against today's engine (staging 34ec438e4) after the
+# owner's decision 16.
 01-exemplo-completo:
   outcome: fail
   evaluated: 16
@@ -1014,10 +1016,10 @@ P10a-one-flexible-candidate-two-types:
   - S10
   - D5
   - D6
-  - D20
   class: behavioural
-  note: 'behavioural: today places a both-sides invitee with no side; the plan places them in the hardest type (D6)'
-  first_failure: 2026-11-01 19:10 placed[B1]
+  note: 'behavioural: at 19:00 today sends B1 and 2 left-siders, counting B1 for both sides; the plan as amended
+    (owner decision 16, PAD-931) fills one type''s budget per invitation, so 3 left-siders'
+  first_failure: 2026-11-01 19:00 invitations
 P10b-one-flexible-candidate-two-types:
   outcome: fail
   evaluated: 6
@@ -1026,10 +1028,11 @@ P10b-one-flexible-candidate-two-types:
   - S10
   - D5
   - D17
-  - D20
-  class: structural
-  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
-  first_failure: 2026-11-01 19:10 invitations
+  class: behavioural
+  note: 'behavioural: at 19:00 today sends B1 and 2 left-siders, counting B1 for both sides; the plan as amended
+    (owner decision 16, PAD-931) fills one type''s budget per invitation, so 3 left-siders. Later, today''s groups
+    cannot name the opposite side either (structural)'
+  first_failure: 2026-11-01 19:00 invitations
 P11a-both-regular-fills-other-side:
   outcome: fail
   evaluated: 7
@@ -1312,3 +1315,7 @@ P34-same-hour-yes-closes-the-other:
   note: 'behavioural: at 19:00 today invites S1-S3 to B too while they hold A''s offers at the same hour (noSameDayClass
     off, the PDF never sets it); the plan postpones them (D15)'
   first_failure: 2026-11-01 19:00 invitations
+P40-flexible-candidates-three-spots:
+  outcome: pass
+  evaluated: 4
+  skipped: 0

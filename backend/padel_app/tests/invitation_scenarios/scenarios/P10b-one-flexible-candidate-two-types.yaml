@@ -2,17 +2,19 @@ id: P10
 variant: b
 title: one flexible candidate for two types
 source: {section: "Plano §9.2 Distinct people and flexible students", lines: [247, 252]}
-what_it_tests: a flexible invitation counts for both types, and a flexible Yes goes where nobody else can
+what_it_tests: a flexible invitation fills one type's budget only, and a flexible Yes goes where nobody else can
 tags: [both-sides, groups, other-side]
-derived_from: [S10, D5, D17, D20]
+derived_from: [S10, D5, D17]
 corrections: []
 notes: >
+  Re-derived 2026-11-13 (PAD-931, the owner's decision 16, reversing D20): a flexible invitation fills one
+  type's budget only, so B1 fills the right's and the left gets its own 3 at 19:00 (was 2), 4 in all (was 3).
   Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
   Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
   between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
   4). Branch b (No): the right type has no group 1 candidate left, so group 2 becomes its ideal tier, and the
-  3 left-siders not yet invited are asked to play right, side named. The left type keeps its 2.
+  2 left-siders not yet invited are asked to play right, side named. The left type keeps its 3.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -34,13 +36,13 @@ timeline:
     expect:
       invitations:
         - {who: B1, side_named: null, group: 3}
-        - {cohort: L3L, count: 2, side_named: null, group: 3}
-      invitations_total_sent: 3
+        - {cohort: L3L, count: 3, side_named: null, group: 3}
+      invitations_total_sent: 4
       missing: {L: 1, R: 1}
   - at: 2026-11-01 19:10
     events: [{declines: B1}]
     expect:
-      invitations: [{cohort: L3L, count: 3, side_named: R, group: 4}]
+      invitations: [{cohort: L3L, count: 2, side_named: R, group: 4}]
       missing: {L: 1, R: 1}
 final:
   roster: {L: 3, R: 3}

@@ -58,6 +58,12 @@ the coach's list).
    of `pool` on the coach's list too. The coach decides who is asked, never over the student's own
    "do not ask me". Students still see only the
    classes they are eligible for.
+   **A coach's invitation by hand is the coach's list too** (the owner's decision 17, PAD-932;
+   `notifications.engine-answers` rule 15): an invitation of this tier (or of none, when the coach's
+   tiers have no coach's list), sent at once, with the same
+   exemptions and more: "said No for this session" does not hold it either, since the coach chose the
+   student by hand. Its offer is every open spot type the student's playable sides fit, whatever the bar.
+   The route keeps the student's own blocks (`notifications.manual` NM1).
 5. **Tiers (§2, §5, D12; Q7 closed).** In order: the coach's list, the students' list, then the coach's
    groups in the coach's order.
 6. **The waiting lists have no level rules (D12).** A waiting-list member is a candidate for every spot
@@ -89,7 +95,7 @@ the coach's list).
     (`notifications.invitations` rule 18c, as amended by PAD-911; Tomás calls a counting invitation
     "ativo"), is **not a candidate this run**. For this gate an invitation counts when it counts by
     `notifications.engine-planning` rule 3 (open, not sorry, before its counting-until instant) **and**
-    its offer counts toward a current spot type of its own session by rule 4; so an invitation to a
+    its offer fits a current spot type of its own session by rule 4; so an invitation to a
     full session counts for nothing. An open invitation that does not count stays valid (D4) but
     postpones nobody (owner ruling 2026-11-11 on Tomás's point 2). A postponed student counts for no
     type, so they neither cover a spot nor make their tier the ideal one, and the next tier goes
@@ -302,6 +308,13 @@ Given a student on the coach's list who is going to the same coach's overlapping
 evaluates them for this session, then they are `busy_same_time` and not invited, although the coach's
 list skips the pool gates.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_the_coachs_list_keeps_busy_at_that_time`
+
+#### NOTIFICATIONS-ENGINE-TIERS-23: A coach's invitation by hand skips the bar and offers every type the student's sides fit (rule 4; decision 17)
+Given a session at level 4 with one open left and one open right spot, and a level-2 {left, right}
+student and a level-2 right-sider, neither on any list, when the engine handles `CoachInvites` for both,
+then both are invited in the coach's-list tier: the first with offer {left, right}, no side named; the
+second with offer {right}.
+test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coach_invitation_skips_the_bar_and_offers_what_the_sides_fit`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
