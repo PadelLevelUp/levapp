@@ -8,6 +8,7 @@ import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
+import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import { useAndroidBack } from "@/lib/android-back";
 import { dialogEntering, dialogExiting } from "@/lib/dialog-motion";
 import { dialogMaxHeight } from "@/lib/dialog-size";
@@ -24,11 +25,16 @@ function DialogOverlay({
   className,
   children,
   after,
+  keyboardInset = 0,
   ...props
-}: DialogPrimitive.OverlayProps & { after?: React.ReactNode }) {
+}: DialogPrimitive.OverlayProps & {
+  after?: React.ReactNode;
+  /** PAD-838: the keyboard's overlap; the dialog is centred in the space above it. */
+  keyboardInset?: number;
+}) {
   return (
     <DialogPrimitive.Overlay
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, keyboardInset > 0 ? { paddingBottom: keyboardInset } : null]}
       className={cn(
         "z-50 items-center justify-center bg-black/80 p-2",
         className
@@ -91,17 +97,30 @@ function DialogContent({
   // note on the Animated.View above about measured classes on this subtree. A dialog whose
   // list may shrink (`flexShrink: 1`) then keeps its header and footer on a short screen.
   const { height: windowHeight } = useWindowDimensions();
-  const maxHeight = dialogMaxHeight(windowHeight, useSafeAreaInsets());
+  const insets = useSafeAreaInsets();
+  const maxHeight = dialogMaxHeight(windowHeight, insets);
+  // PAD-838 (rule 15): with the keyboard up the dialog sits in the space above it, and that space
+  // also bounds a caller's own height. A hook, not a KeyboardAvoidingView: the overlay always
+  // fills the window, so the overlap is known without measuring, and rule 12's screen guard
+  // counts KeyboardAvoidingViews.
+  const keyboard = useKeyboardHeight();
+  const own = StyleSheet.flatten(props.style)?.maxHeight;
+  const aboveKeyboard = dialogMaxHeight(windowHeight, insets, keyboard);
+  const keyboardBound =
+    keyboard > 0 ? { maxHeight: typeof own === "number" ? Math.min(own, aboveKeyboard) : aboveKeyboard } : null;
   return (
     <DialogPortal hostName={portalHost}>
-      <DialogOverlay after={innerPortalHost ? <PortalHost name={innerPortalHost} /> : null}>
+      <DialogOverlay
+        keyboardInset={keyboard}
+        after={innerPortalHost ? <PortalHost name={innerPortalHost} /> : null}
+      >
         <DialogPrimitive.Content
           className={cn(
             "z-50 w-full max-w-lg gap-4 rounded-lg border border-border bg-background p-6 shadow-lg shadow-black/20",
             className
           )}
           {...props}
-          style={[{ maxHeight }, props.style]}
+          style={[{ maxHeight }, props.style, keyboardBound]}
         >
           {children}
           <DialogPrimitive.Close

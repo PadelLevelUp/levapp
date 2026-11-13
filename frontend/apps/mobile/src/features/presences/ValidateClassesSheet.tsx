@@ -999,7 +999,9 @@ function ClassDetail({
   });
 
   return (
-    <View testID="presences-class-detail">
+    // PAD-838: shrinks with the dialog when the keyboard is up, so the detail's list gives way
+    // and its buttons stay above the keyboard (mobile.android-runtime rule 15).
+    <View testID="presences-class-detail" className="shrink">
       <DialogHeader>
         <View className="flex-row items-center gap-1">
           <Pressable

@@ -24,4 +24,12 @@ describe("dialogMaxHeight", () => {
   it("never answers a height too small to show a header, one row and a footer", () => {
     expect(dialogMaxHeight(300, { top: 60, bottom: 40 })).toBe(240);
   });
+
+  it("[MOBILE-ANDROID-RUNTIME-21] with the keyboard up, fits the space above it", () => {
+    // iPhone SE (3rd gen): 667 pt, status bar 20, no home indicator; keyboard with the
+    // predictive bar covers 260 pt. Centred above it, the top inset is kept at both ends.
+    expect(dialogMaxHeight(667, { top: 20, bottom: 0 }, 260)).toBe(667 - 260 - 2 * 20 - DIALOG_WINDOW_MARGIN);
+    // iPhone 17 Pro Max: 956 pt, notch 62, home indicator 34 (under the keyboard), keyboard 336.
+    expect(dialogMaxHeight(956, { top: 62, bottom: 34 }, 336)).toBe(956 - 336 - 2 * 62 - DIALOG_WINDOW_MARGIN);
+  });
 });

@@ -9,14 +9,23 @@
  * at BOTH ends, because the dialog is centred; subtracting each once would let a full-height
  * dialog start inside the larger one. The overlay's own margin comes off as well.
  *
- * The keyboard is not part of this. A dialog with a text field keeps its own height limits
- * (the notify dialog's list stays capped): nothing here moves a dialog above the keyboard.
+ * PAD-838: with the keyboard up the dialog is centred in what is left above it (the overlay is
+ * padded by the keyboard's overlap), so the bound is that space: the keyboard replaces the bottom
+ * safe area, and the top one is left free at both ends for the same centring reason.
  */
 export const DIALOG_WINDOW_MARGIN = 16;
 
 /** Below this a header, one row and a footer no longer fit; the dialog is not squeezed further. */
 const SMALLEST = 240;
 
-export function dialogMaxHeight(windowHeight: number, insets: { top: number; bottom: number }): number {
-  return Math.max(SMALLEST, windowHeight - 2 * Math.max(insets.top, insets.bottom) - DIALOG_WINDOW_MARGIN);
+export function dialogMaxHeight(
+  windowHeight: number,
+  insets: { top: number; bottom: number },
+  keyboardHeight = 0
+): number {
+  const free =
+    keyboardHeight > 0
+      ? windowHeight - keyboardHeight - 2 * insets.top
+      : windowHeight - 2 * Math.max(insets.top, insets.bottom);
+  return Math.max(SMALLEST, free - DIALOG_WINDOW_MARGIN);
 }
