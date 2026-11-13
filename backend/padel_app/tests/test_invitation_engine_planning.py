@@ -124,18 +124,18 @@ def test_lower_tier_gets_one_per_spot_then_x_once_ideal():
     assert len([i for i in store.snapshot("A").invitations if i.student.startswith("L")]) == 6
 
 
-def test_a_flexible_invitation_counts_for_both_types():
-    # S10 / PLANNING-12 with the No applied as a store effect.
+def test_a_flexible_invitation_is_offered_both_types_but_fills_one():
+    # S10 / PLANNING-12 (decision 16) with the No applied as a store effect.
     settings = EngineSettings(tiers=PLAN_TIERS, timing=Timing("fixed", HOUR, HOUR))
     store = _store(4, 4, pool=[_student("B1", "both")] + [_student(f"L{i}", "L") for i in range(1, 6)])
     store.apply([fx.Left("A", T0, "L-1", "regular_no"), fx.Left("A", T0, "R-1", "regular_no")])
     first = _engine_run(store, settings, T0)
     assert first[0] == ("B1", None, 0)                                              # the right type first
     assert {t.side for t in store.snapshot("A").invitation("B1").offer} == {"L", "R"}
-    assert sorted(s for s, _, _ in first) == ["B1", "L1", "L2"] and len(first) == 3   # group 2 not reached
+    assert sorted(s for s, _, _ in first) == ["B1", "L1", "L2", "L3"]               # B1 fills the right only
     store.apply([fx.Answered("A", T0 + timedelta(minutes=10), "B1", "no", "invitation")])
     after = _engine_run(store, settings, T0 + timedelta(minutes=10))
-    assert sorted(after) == [("L3", "R", 1), ("L4", "R", 1), ("L5", "R", 1)]       # asked to play right
+    assert sorted(after) == [("L4", "R", 1), ("L5", "R", 1)]                       # asked to play right
 
 
 # --- wave W7: the coach alert ------------------------------------------------------------------
