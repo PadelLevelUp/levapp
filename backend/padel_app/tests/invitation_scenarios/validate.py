@@ -59,7 +59,7 @@ SETTINGS_KEYS = {
 
 STATES = {"uninvited", "invited", "accepted", "declined", "placed", "on_waiting_list"}
 HOW = {"invitation", "direct", "auto_from_waiting_list", "regular_returns"}
-MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer", "side_moved"}
+MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer", "side_moved", "invite"}
 ABSENCE_KINDS = {"justified", "unjustified", "none"}
 SIDES = {"L", "R"}
 STUDENT_SIDES = {"L", "R", "both"}
@@ -77,6 +77,7 @@ EVENTS: dict[str, dict[str, bool]] = {
     "coach_adds_to_waiting_list": {"side": True},
     "coach_removes_from_waiting_list": {},
     "coach_excludes": {},
+    "coach_invites": {},
     "regular_no": {},
     "regular_returns": {},
     "cancels": {},
@@ -92,7 +93,7 @@ EXPECT_KEYS = {
     "reminders", "absences", "missing", "roster", "nothing_sent", "waiting_list", "other_class",
     "refused", "open_in_round", "coach_alert",
 }
-REFUSED_ACTIONS = {"direct_join", "waiting_list"}
+REFUSED_ACTIONS = {"direct_join", "waiting_list", "coach_invite"}
 
 AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
@@ -534,7 +535,8 @@ def check_expect(node, path: str, rep: Report, people: People, class_ids: set[st
         elif k == "absences":
             check_records(v, p, rep, people, {"who", "kind"}, {"kind": ABSENCE_KINDS})
         elif k == "refused":
-            check_records(v, p, rep, people, {"who", "action"}, {"action": REFUSED_ACTIONS})
+            check_records(v, p, rep, people, {"who", "action", "reason"}, {"action": REFUSED_ACTIONS},
+                          required={"who", "action"})
         elif k == "reminders":
             if not isinstance(v, dict):
                 rep.err(p, "expected {to: [...], not_to: [...]}")
@@ -572,7 +574,8 @@ def check_expect(node, path: str, rep: Report, people: People, class_ids: set[st
                 check_expect(sub, f"{p}.{cid}", rep, people, class_ids, {}, nested=True)
 
 
-def check_records(v, p: str, rep: Report, people: People, keys: set[str], enums: dict[str, set[str]]) -> None:
+def check_records(v, p: str, rep: Report, people: People, keys: set[str], enums: dict[str, set[str]],
+                  required: set[str] | None = None) -> None:
     if not isinstance(v, list):
         rep.err(p, "expected a list")
         return
@@ -581,7 +584,7 @@ def check_records(v, p: str, rep: Report, people: People, keys: set[str], enums:
         if not isinstance(item, dict):
             rep.err(ip, f"expected {{{', '.join(sorted(keys))}}}")
             continue
-        check_keys(item, ip, rep, keys, keys)
+        check_keys(item, ip, rep, keys, keys if required is None else required)
         if "who" in item:
             check_who(item["who"], f"{ip}.who", rep, people)
         for key, allowed in enums.items():
