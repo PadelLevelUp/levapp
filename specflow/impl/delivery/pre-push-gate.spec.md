@@ -1,6 +1,6 @@
 ---
 id: delivery.pre-push-gate
-status: draft
+status: implemented
 depends_on: []
 serves: [P-DELIVERY-4]
 ---
