@@ -29,7 +29,7 @@ import { ActionCard, Eyebrow } from "./primitives";
 import { AnswerButtons } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
 import { useAnswerEngineInvite, useAnswerVacancyInvite, useAnswerWaitingListOffer } from "./useAnswerAsk";
-import { engineAlertCopy, resolveText, shortDate, validationTier } from "@levelup/config";
+import { engineAlertCopy, manualInviteClosed, resolveText, shortDate, validationTier } from "@levelup/config";
 import { PresencesBadge } from "@/components/layout/PresencesBadge";
 
 export function NeedsYouQueue({
@@ -170,6 +170,9 @@ function EmptySeatsCard({
     }
   };
 
+  const manualClosed = manualInviteClosed(item.engineVersion);
+  const pending = manualClosed ? item.pendingInvites ?? 0 : 0;
+
   return (
     <ActionCard
       accent="attention"
@@ -190,14 +193,28 @@ function EmptySeatsCard({
             filled: item.filled,
             capacity: item.capacity,
           })}
+          {/* PAD-933 (DASHBOARD-BLOCKS-59): on a new-engine class, the engine's pending invitations. */}
+          {pending > 0 && (
+            <span data-testid={`needs-you-pending-${item.id}`}>
+              {" · "}
+              {t("dashboard.needsYou.emptySeats.pending", { count: pending })}
+            </span>
+          )}
         </span>
       </div>
       {/* PAD-424: the pair wraps. With the sidebar open the card is narrow and neither
           nowrap button can shrink past its label, so "Mais tarde" used to leave the card. */}
       <div className="flex flex-wrap gap-2">
-        <Button className="h-11 flex-1 lg:h-10" onClick={() => navigate(item.href)}>
-          {t("dashboard.needsYou.emptySeats.invite", { count: item.seatsMissing })}
-        </Button>
+        {/* PAD-933 (DASHBOARD-BLOCKS-59): manual invites do not go through the new engine yet. */}
+        {!manualClosed && (
+          <Button
+            className="h-11 flex-1 lg:h-10"
+            data-testid={`needs-you-invite-${item.id}`}
+            onClick={() => navigate(item.href)}
+          >
+            {t("dashboard.needsYou.emptySeats.invite", { count: item.seatsMissing })}
+          </Button>
+        )}
         <Button
           variant="outline"
           className="h-11 lg:h-10"

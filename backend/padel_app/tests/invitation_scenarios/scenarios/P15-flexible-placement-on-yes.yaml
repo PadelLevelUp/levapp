@@ -12,6 +12,8 @@ notes: >
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
   4). Left has 1 spot and 3 counting candidates (B1 and 2 left-siders), right has 1 spot and only B1. B1's
   Yes is placed on the right.
+  2026-11-13 (PAD-931): passes unchanged under the owner's decision 16 (one type's budget per invitation,
+  reversing D20): with only 2 left-siders, B1 is needed on either reading.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
