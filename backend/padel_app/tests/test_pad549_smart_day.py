@@ -73,7 +73,8 @@ def test_the_preview_renders_through_the_real_formatter(client, coach_auth):
     body = res.get_json()
     assert body["text"] == f"Olá Ana, abriu vaga para amanhã às 18:00 ({body['examples']['court']}). Aula de {body['examples']['level']}."
     assert "{" not in body["text"]
-    assert set(body["examples"]) == {"name", "level", "weekday", "time", "type", "date", "court", "day", "class", "when", "side"}
+    assert set(body["examples"]) == {"name", "level", "weekday", "time", "type", "date", "court", "day", "class", "when", "side",
+                                    "duration", "club"}
 
 
 def test_the_preview_is_for_coaches_and_takes_a_string(app, client, coach_auth):

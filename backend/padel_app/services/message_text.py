@@ -16,10 +16,11 @@ from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 
 
 # The connectors an empty placeholder takes with it (notifications.message-templates
-# rules 7 and 14): the genitives for every placeholder, and for ``{court}`` the
-# locative prepositions too ("às 19:00 no {court}" -> "às 19:00").
+# rules 7 and 14): the genitives for every placeholder, and for ``{court}`` and ``{club}``
+# (rule 22, PAD-836) the locative prepositions too ("às 19:00 no {court}" -> "às 19:00").
 _EMPTY_PLACEHOLDER_CONNECTORS = ("de", "da", "do", "of")
 _EMPTY_COURT_CONNECTORS = _EMPTY_PLACEHOLDER_CONNECTORS + ("em", "no", "na", "in", "on", "at")
+_PLACE_KEYS = ("court", "club")
 
 
 _LEADING_PUNCTUATION = re.compile(r"^[,.;:!?\-–—\s]+")
@@ -48,7 +49,7 @@ def _format_template(template: str, **variables) -> str:
             # phrase disappears whole. A coach's text often puts {level} after the
             # genitive "de" (every pt default did until PAD-830), so an empty string
             # alone left "aula de esta quarta-feira"; the connector goes with it.
-            connectors = _EMPTY_COURT_CONNECTORS if key == "court" else _EMPTY_PLACEHOLDER_CONNECTORS
+            connectors = _EMPTY_COURT_CONNECTORS if key in _PLACE_KEYS else _EMPTY_PLACEHOLDER_CONNECTORS
             template = re.sub(
                 r"\b(?:" + "|".join(connectors) + r")\s+\{" + re.escape(key) + r"\}",
                 "{" + key + "}",
@@ -59,9 +60,6 @@ def _format_template(template: str, **variables) -> str:
     # PAD-446 (message-templates rule 16): `{side}` is filled only for a waiting-list invitation; anywhere else (or a
     # caller that did not pass it) it renders as nothing, never as a raw token.
     template = template.replace("{side}", "")
-    # The new engine's placeholders (message-templates N2): `{sideName}` (side_moved) and `{count}`
-    # (coach_no_candidate) are stripped the same way anywhere they are not filled.
-    template = template.replace("{sideName}", "").replace("{count}", "")
     # The new engine's placeholders (message-templates N2): `{sideName}` (side_moved) and `{count}`
     # (coach_no_candidate) are stripped the same way anywhere they are not filled.
     template = template.replace("{sideName}", "").replace("{count}", "")
@@ -198,6 +196,9 @@ def template_preview_examples(locale, now=None) -> dict:
         "type": _CLASS_TYPE_WORDS.get("pt" if is_pt else "en", {}).get("academy", ""),
         "date": _format_day_month(start),
         "court": "Campo 2" if is_pt else "Court 2",
+        # PAD-836 (rules 21, 22): the sample class runs 18:00-19:00.
+        "duration": _format_duration(start, start + timedelta(hours=1)),
+        "club": "Padel Norte",
         "day": format_relative_day(start, locale, now=now),
         "class": "Treino de grupo" if is_pt else "Group training",
         "when": _format_when(start, locale, dated=True).strip(),
@@ -210,8 +211,17 @@ def render_template_preview(template, locale, now=None) -> str:
     return _format_template(template or "", **template_preview_examples(locale, now=now))
 
 
+def _format_duration(start, end) -> str:
+    """PAD-836 (message-templates rule 21): the class's length as whole minutes, "90 min" — never
+    hours. ``min`` is the unit in pt and en alike. Empty without both times or a positive span."""
+    if start is None or end is None or end <= start:
+        return ""
+    return f"{int((end - start).total_seconds() // 60)} min"
+
+
 def class_placeholders(source, locale) -> dict:
-    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders; PAD-549 adds ``{day}``.
+    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders; PAD-549 adds ``{day}``;
+    PAD-836 adds ``{duration}`` (the source's own times, rule 21) and ``{club}`` (the lesson's club, rule 22).
 
     ``source`` is a LessonInstance or a Lesson. The type word follows the coach's
     locale like every other placeholder (notifications.message-templates rule 12);
@@ -227,10 +237,13 @@ def class_placeholders(source, locale) -> dict:
     else:
         court = getattr(lesson, "court", None) if lesson is not None else None
     lesson_type = getattr(lesson, "type", None) if lesson is not None else None
+    club = getattr(lesson, "club", None) if lesson is not None else None
     return {
         "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
         "date": _format_day_month(start),
         "court": (getattr(court, "name", None) or "") if court is not None else "",
+        "duration": _format_duration(start, getattr(source, "end_datetime", None)),
+        "club": (getattr(club, "name", None) or "") if club is not None else "",
         # PAD-549: computed now, i.e. when the message is rendered and sent.
         "day": format_relative_day(start, locale),
     }
