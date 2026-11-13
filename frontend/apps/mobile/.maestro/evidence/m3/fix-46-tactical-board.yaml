@@ -1,0 +1,525 @@
+# Mirrors: apps/web/e2e/exercise-management/tactical-board.spec.ts
+# training.tactical-board — wave 1 (PAD-242), iOS parity criterion:
+# - a new exercise opens the Quadro Tático in Situações de jogo with the 2v2
+# - picking a tool swaps the hint; Cone + a tap on the court places a cone;
+#   undo removes it again
+# - wave 4: add a step, draw one ball path (A1 then A2), Passo, AUTO plays the ball,
+#   delete the step
+# - wave 3: Magnético pen stroke by swipe (red), undo, back to game
+# - wave 2: switch to Exercícios de cesto, add A3/A4, one-tap feed from the feeder
+# - save → reopen → the saved basket board is still there
+#
+# Not observable from Maestro: drawing a path between chosen court points needs
+# taps Maestro's `tapOn` cannot aim (it has no element-relative point; wave 4 only
+# needs some path, so it taps two pieces), so the
+# plana/lob toggle and tap-to-move are covered by the web E2E and the vitest
+# board tests only. Noted in the PR, not faked here.
+appId: com.padellevelup.app
+---
+- runFlow: ../../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+
+# ── Create with the board open ──
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Tactical"
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+- assertVisible:
+    id: "board-tab-game"
+# PAD-710 (Android lane): the board's toolbar and its court do not fit on the phone together and Android exposes only on-screen elements; scrollUntilVisible swipes from the centre (the court) and the court eats the gesture, so the Android steps scroll by swiping the page margin (subflows/board-show-*.yaml).
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
+- assertVisible:
+    id: "piece-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-b2"
+- assertVisible:
+    id: "piece-b2"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-select"
+- assertVisible:
+    id: "board-hint-select"
+
+# Tool hints follow the active tool.
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
+- tapOn:
+    id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-ball"
+- assertVisible:
+    id: "board-hint-ball"
+
+# Cone at the court centre (tapOn without a point taps the element's centre), then undo.
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-cone"
+- tapOn:
+    id: "board-tool-cone"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
+- tapOn:
+    id: "court-surface"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
+- assertVisible:
+    id: "piece-cone-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-undo"
+- tapOn:
+    id: "board-undo"
+- assertNotVisible:
+    id: "piece-cone-1"
+
+# ── Wave 4: steps and playback — add a step, Passo, AUTO ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-step-indicator"
+- assertVisible:
+    id: "board-step-indicator"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-add-step"
+- tapOn:
+    id: "board-add-step"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-step-indicator"
+- assertVisible:
+    # PAD-710 (Android lane): the lane renders English ("Step 2 of 2"); match either locale.
+    text: ".*2 (de|of) 2.*"
+# One ball path on step 2, so AUTO has a ball to play: the playback ball is drawn only for a step
+# with a ball path (court-diagram.ts interpolateStep), and a new step is empty. Without this the
+# assertion below could never pass on either platform (B-604). Bola in Situações de jogo takes
+# two court taps; tapping A1 then A2 gives two points far apart on one row (a tap on a piece passes
+# its point to the board, whatever the piece's reported bounds on Android). Not B1: on Android it sits
+# under the tab bar when A1 is on screen, a 16 px sliver that counts as visible, and the tap misses
+# the court (#805, run 39746942096). Deleting step 2 below removes the path.
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
+- tapOn:
+    id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-ball"
+- assertVisible:
+    id: "board-hint-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
+# A1 and A2 share a row: no scroll between the two taps of one path.
+- tapOn:
+    id: "piece-a1"
+- tapOn:
+    id: "piece-a2"
+# PAD-710 (Android lane): a flat path between two points on one row (or one column) is a straight
+# line whose Android bounds have zero height (or width), and Maestro never counts it as visible
+# (46 red 6-13 Nov at this step; 41's diagonal path passes). On Android the path is proven by its
+# style handle, which is drawn only for a path; iOS keeps asserting the path itself.
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-style-handle"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: "ball-style-handle"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: "ball-path-flat"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-passo"
+- tapOn:
+    id: "board-passo"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-auto"
+# PAD-710 (Android lane): at 1x the ball is on screen only for step 2's 800 ms, about one
+# emulator hierarchy dump. Slow 0.5x doubles that; the speed row sits under AUTO, so it is
+# already on screen.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "board-speed-slow"
+- tapOn:
+    id: "board-auto"
+# PAD-710 (Android lane): the playback ball is drawn on the court; bring the court on screen before it disappears (it may still be missed on a slow emulator).
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
+# The ball moves only during step 2 (step 1 is empty): wait for it rather than read once.
+# PAD-710 (Android lane): the whole playback lasts 3.2 s at 0.5x and an emulator hierarchy dump
+# can miss it (run 43517077504: playback over, ball never seen in 8 s), so on Android seeing the
+# ball is optional and only its absence afterwards is asserted; iOS still requires the ball.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "playback-ball"
+          timeout: 8000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "playback-ball"
+          timeout: 8000
+          optional: true
+- extendedWaitUntil:
+    notVisible:
+      id: "playback-ball"
+    timeout: 10000
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-delete-step"
+- tapOn:
+    id: "board-delete-step"
+- assertVisible:
+    text: ".*1 (de|of) 1.*"
+
+# ── Wave 3: Magnético — pen stroke by swiping the court, then back to game ──
+# (the fresh game board has no content after the undo, so no prompt appears)
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-magnetic"
+- tapOn:
+    id: "board-tab-magnetic"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-pen"
+- assertVisible:
+    id: "board-hint-pen"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-color-red"
+- tapOn:
+    id: "board-color-red"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
+- swipe:
+    start: "40%, 45%"
+    end: "60%, 55%"
+    duration: 600
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-stroke-1"
+- assertVisible:
+    id: "piece-stroke-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-undo"
+- tapOn:
+    id: "board-undo"
+- assertNotVisible:
+    id: "piece-stroke-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-game"
+- tapOn:
+    id: "board-tab-game"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-b2"
+- assertVisible:
+    id: "piece-b2"
+
+# ── Wave 2: Exercícios de cesto — a fresh board switches without a prompt ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-basket"
+- tapOn:
+    id: "board-tab-basket"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-feeder"
+- assertVisible:
+    id: "piece-feeder"
+- assertNotVisible:
+    id: "piece-b1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-add-players"
+- tapOn:
+    id: "board-add-players"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a3"
+- assertVisible:
+    id: "piece-a3"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-add-players"
+- tapOn:
+    id: "board-add-players"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a4"
+- assertVisible:
+    id: "piece-a4"
+# Bola in basket mode: one tap on the court draws the feed from the feeder.
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
+- tapOn:
+    id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-ball"
+- assertVisible:
+    id: "board-hint-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
+- tapOn:
+    id: "court-surface"
+# PAD-710 (Android lane): a flat path between two points on one row (or one column) is a straight
+# line whose Android bounds have zero height (or width), and Maestro never counts it as visible
+# (46 red 6-13 Nov at this step; 41's diagonal path passes). On Android the path is proven by its
+# style handle, which is drawn only for a path; iOS keeps asserting the path itself.
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-style-handle"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: "ball-style-handle"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: "ball-path-flat"
+
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "exercise-save"
+- scrollUntilVisible:
+    element:
+      id: "exercise-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-save"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Tactical.*"
+    timeout: 15000
+
+# ── Reopen: the saved basket board renders with its feeder ──
+- tapOn: ".*Maestro Tactical.*"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-feeder"
+- extendedWaitUntil:
+    visible:
+      id: "piece-feeder"
+    timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a4"
+- assertVisible:
+    id: "piece-a4"
+
+# ── Delete ──
+- scrollUntilVisible:
+    element:
+      id: "exercise-delete"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-delete"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "exercise-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- assertNotVisible: ".*Maestro Tactical.*"

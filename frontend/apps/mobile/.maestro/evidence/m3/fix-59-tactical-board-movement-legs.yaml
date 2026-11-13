@@ -1,0 +1,243 @@
+# PAD-309 — training.tactical-board rules 10 and 20: one player follows several
+# trajectories in one step. PAD-311 (rule 26) appends the order numbers. (Flow number 59 is from Session E's reserved range.)
+#
+# Maestro cannot aim a tap inside an element, so the first leg ends on a cone
+# placed at the court's centre (tapOn without a point taps the element's centre;
+# a press on a cone is a press on the court for Movimentação), and the second
+# leg ends at a screen point inside the court, the same region flow 46 swipes.
+# The second leg carries the `-1` suffix; the first keeps `movement-a1`.
+#
+# Mirrors: apps/web/e2e/exercise-management/tactical-board-movement-legs.spec.ts
+# PAD-710 batch 4: its Android scrolls go through subflows/board-show-*.yaml, which search both ways
+# (listed here so a change to them re-runs this flow in the PR's changed job).
+# PAD-728: tapping piece-a2 is the guard for pieces drawn at absolute coordinates; as a translated
+# <G x y> its reported bounds were ~67 px right of the drawn token on the lane, and the tap missed.
+appId: com.padellevelup.app
+---
+- runFlow: ../../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Two Legs"
+# Enter blurs the single-line Input and dismisses the keyboard (flow 41).
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-b2"
+- scrollUntilVisible:
+    element:
+      id: "piece-b2"
+    direction: DOWN
+    timeout: 15000
+
+# ── A cone at the centre is the first leg's target ──
+# PAD-710 (Android lane): the board's toolbar and its court do not fit on the phone together and Android exposes only on-screen elements; scrollUntilVisible swipes from the centre (the court) and the court eats the gesture, so the Android steps scroll by swiping the page margin (subflows/board-show-*.yaml).
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-cone"
+- tapOn:
+    id: "board-tool-cone"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
+- tapOn:
+    id: "court-surface"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
+- assertVisible:
+    id: "piece-cone-1"
+
+# ── A1: first leg to the cone, second leg to another point; both drawn ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-movement"
+- tapOn:
+    id: "board-tool-movement"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
+- tapOn:
+    id: "piece-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
+- tapOn:
+    id: "piece-cone-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-a1"
+- assertVisible:
+    id: "movement-a1"
+- assertNotVisible:
+    id: "movement-a1-1"
+- tapOn:
+    point: "40%, 45%"
+# PAD-710 (Android lane): give the new piece time to render before board-show-court checks it;
+# otherwise it swipes the court away from a leg that was about to appear (run 43505514297; the
+# diagnostic in 43517077504 saw movement-a1-1 right after the tap without any swipe).
+- extendedWaitUntil:
+    visible:
+      id: "movement-a1-1"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-a1-1"
+- assertVisible:
+    id: "movement-a1-1"
+- assertVisible:
+    id: "movement-a1"
+
+# ── Undo removes only the last leg ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-undo"
+- tapOn:
+    id: "board-undo"
+- assertNotVisible:
+    id: "movement-a1-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-a1"
+- assertVisible:
+    id: "movement-a1"
+
+# ── PAD-311 (rule 26): actions are numbered in the order they were drawn ──
+# After the undo the step holds one A1 leg (moment 1). A ball path drawn now
+# is moment 2, and a movement of A2 after it is moment 3 (A2, not B1: B1 sits
+# below the fold behind the tab bar at this scroll position). Playback itself is
+# not asserted: Maestro cannot observe the board mid-playback on iOS (B-114);
+# the shared timeline tests in @levelup/config prove the order.
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
+- tapOn:
+    id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
+- tapOn:
+    id: "piece-cone-1"
+- tapOn:
+    point: "40%, 45%"
+# PAD-710 (Android lane): give the new piece time to render before board-show-court checks it;
+# otherwise it swipes the court away from a leg that was about to appear (run 43505514297; the
+# diagnostic in 43517077504 saw movement-a1-1 right after the tap without any swipe).
+- extendedWaitUntil:
+    visible:
+      id: "ball-number-0"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-number-0"
+- assertVisible:
+    id: "ball-number-0"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-order-a1"
+- assertVisible:
+    id: "movement-order-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-movement"
+- tapOn:
+    id: "board-tool-movement"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a2"
+- tapOn:
+    id: "piece-a2"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
+- tapOn:
+    id: "piece-cone-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-order-a2"
+- assertVisible:
+    id: "movement-order-a2"

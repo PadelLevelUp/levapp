@@ -1,0 +1,201 @@
+# DIAGNOSTIC ONLY (ci-tools m3, PAD-710 residue of PAD-816): flow 82's steps, plus what the box
+# holds after each eraseText / inputText / Enter (copyTextFrom player-notes, logged to maestro.log as
+# "DIAG82 …" and screenshotted) and the server's note after each save. 82 fails every night with
+# "noteAfterClear === null" false although the second save POSTs edit_player 200 (13 Nov nightly
+# 43411226793 shard 1, flask.log 11:13:37) and the app sends null for an empty box
+# (app/player/[playerId].tsx: notes: values.notes ?? null). Question: is the box empty when saved?
+# v2 (dispatch 3): scrolls the box back on screen before each read and never stops on a failed
+# read (a read that found no box shows WARNED in the commands JSON; its log line repeats the previous text). Not in flowsOrder; run on demand: -f flows=evidence/m3 . Delete once 82 is decided.
+appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../../scripts/restore-e2e-student-note.js
+---
+- runScript: ../../scripts/coach-token.js
+
+- runFlow: ../../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+
+# ── 1. Write a note through the edit card ──
+- scrollUntilVisible:
+    element:
+      id: "player-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-edit"
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-notes"
+# The box holds the SEEDED note: erase it first, or inputText appends (Session-D, first run).
+# Android: the tap on the box raises the keyboard and the form jumps back to its top, leaving the
+# box under the keyboard and out of the hierarchy (run 43517077504); bring it back, centred.
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+    optional: true
+- copyTextFrom:
+    id: "player-notes"
+    optional: true
+- evalScript: "${console.log('DIAG82 step1-before-erase: ' + JSON.stringify(maestro.copiedText))}"
+- takeScreenshot: diag82-step1-before-erase
+- eraseText: 60
+# Android: the tap on the box raises the keyboard and the form jumps back to its top, leaving the
+# box under the keyboard and out of the hierarchy (run 43517077504); bring it back, centred.
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+    optional: true
+- copyTextFrom:
+    id: "player-notes"
+    optional: true
+- evalScript: "${console.log('DIAG82 step1-after-erase: ' + JSON.stringify(maestro.copiedText))}"
+- takeScreenshot: diag82-step1-after-erase
+- inputText: "Maestro note to be deleted"
+# Android: the tap on the box raises the keyboard and the form jumps back to its top, leaving the
+# box under the keyboard and out of the hierarchy (run 43517077504); bring it back, centred.
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+    optional: true
+- copyTextFrom:
+    id: "player-notes"
+    optional: true
+- evalScript: "${console.log('DIAG82 step1-after-input: ' + JSON.stringify(maestro.copiedText))}"
+- takeScreenshot: diag82-step1-after-input
+# Enter blurs the field and closes the keyboard (hideKeyboard fails on iOS here).
+- pressKey: Enter
+# Android: the tap on the box raises the keyboard and the form jumps back to its top, leaving the
+# box under the keyboard and out of the hierarchy (run 43517077504); bring it back, centred.
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+    optional: true
+- copyTextFrom:
+    id: "player-notes"
+    optional: true
+- evalScript: "${console.log('DIAG82 step1-after-enter: ' + JSON.stringify(maestro.copiedText))}"
+- takeScreenshot: diag82-step1-after-enter
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "player-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "player-save"
+    timeout: 15000
+- evalScript: "${output.noteAfterWrite = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student' })[0].notes}"
+- evalScript: "${console.log('DIAG82 server after write: ' + JSON.stringify(output.noteAfterWrite))}"
+- assertTrue: "${output.noteAfterWrite == 'Maestro note to be deleted'}"
+
+# ── 2. Empty the box and save: the server holds NO note ──
+- scrollUntilVisible:
+    element:
+      id: "player-edit"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "player-edit"
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-notes"
+# Android: the tap on the box raises the keyboard and the form jumps back to its top, leaving the
+# box under the keyboard and out of the hierarchy (run 43517077504); bring it back, centred.
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+    optional: true
+- copyTextFrom:
+    id: "player-notes"
+    optional: true
+- evalScript: "${console.log('DIAG82 step2-before-erase: ' + JSON.stringify(maestro.copiedText))}"
+- takeScreenshot: diag82-step2-before-erase
+- eraseText: 60
+# Android: the tap on the box raises the keyboard and the form jumps back to its top, leaving the
+# box under the keyboard and out of the hierarchy (run 43517077504); bring it back, centred.
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+    optional: true
+- copyTextFrom:
+    id: "player-notes"
+    optional: true
+- evalScript: "${console.log('DIAG82 step2-after-erase: ' + JSON.stringify(maestro.copiedText))}"
+- takeScreenshot: diag82-step2-after-erase
+- pressKey: Enter
+# Android: the tap on the box raises the keyboard and the form jumps back to its top, leaving the
+# box under the keyboard and out of the hierarchy (run 43517077504); bring it back, centred.
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+    optional: true
+- copyTextFrom:
+    id: "player-notes"
+    optional: true
+- evalScript: "${console.log('DIAG82 step2-after-enter: ' + JSON.stringify(maestro.copiedText))}"
+- takeScreenshot: diag82-step2-after-enter
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "player-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "player-save"
+    timeout: 15000
+- evalScript: "${output.noteAfterClear = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student' })[0].notes}"
+- evalScript: "${console.log('DIAG82 server after clear: ' + JSON.stringify(output.noteAfterClear))}"
+- assertTrue: "${output.noteAfterClear === null}"

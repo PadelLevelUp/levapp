@@ -1,0 +1,53 @@
+# DIAGNOSTIC ONLY (ci-tools m3, PAD-710): flow 132's setup and sign-in, plus what /api/auth/me returns
+# (email, emailVerification, roles), logged as "DIAG132 …" to maestro.log right after the PATCH and
+# again right after the app's sign-in. 132 is green on every main nightly (22f44cc71) and red on every
+# staging-based run (43297928957, 43313366996, 43505514297): the coach home shows from the top with no
+# email-prompt although the email is empty. Question: does /me say email '' and roles include coach
+# (then the banner should mount: asksForEmail), and is the banner merely below a new engine card?
+# The app's in-memory user object is not reachable from Maestro: the /me body below is the same
+# account's answer, read with an API session of the same coach. Ends with a deliberate failing assert
+# so the report carries the full hierarchy. Not in flowsOrder; run on demand: -f flows=evidence/m3 .
+# Delete once 132 is decided. onFlowComplete restores the email as 132 does.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.me = (typeof output.coachTok === 'undefined') ? null : json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+  - evalScript: "${output.restored = (output.me === null || output.me.email === 'e2e-coach@test.com') ? true : http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ email: 'e2e-coach@test.com' }) }).ok}"
+  - evalScript: "${output.reverify = (output.me === null || output.me.emailVerification === 'verified') ? true : http.post(output.api + '/api/auth/email-verification/confirm', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ code: json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=e2e-coach@test.com').body).code }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.cleared = json(http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ email: '' }) }).body).emailVerification}"
+- evalScript: "${output.me1 = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${console.log('DIAG132 after PATCH: cleared=' + output.cleared + ' email=' + JSON.stringify(output.me1.email) + ' emailVerification=' + output.me1.emailVerification + ' roles=' + JSON.stringify(output.me1.roles) + ' role=' + JSON.stringify(output.me1.role) + ' id=' + output.me1.id)}"
+- evalScript: "${console.log('DIAG132 /me keys after PATCH: ' + Object.keys(output.me1).join(','))}"
+
+- runFlow: ../../subflows/login-coach.yaml
+- evalScript: "${output.me2 = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${console.log('DIAG132 after app sign-in: email=' + JSON.stringify(output.me2.email) + ' emailVerification=' + output.me2.emailVerification + ' roles=' + JSON.stringify(output.me2.roles) + ' role=' + JSON.stringify(output.me2.role) + ' id=' + output.me2.id)}"
+- takeScreenshot: diag132-home-top
+- extendedWaitUntil:
+    visible:
+      id: "email-prompt"
+    timeout: 20000
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: "email-prompt"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+    optional: true
+- takeScreenshot: diag132-after-scroll-down
+- assertVisible:
+    id: "email-prompt"
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: "email-prompt"
+    direction: UP
+    timeout: 10000
+    optional: true
+- takeScreenshot: diag132-after-scroll-up
+# Deliberate failure: the report carries the hierarchy at this point (whatever the scrolls found).
+- assertVisible:
+    id: "diag132-dump-hierarchy"
