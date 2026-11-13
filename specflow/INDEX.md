@@ -2720,6 +2720,7 @@ Untagged tests: 4268
     - test: `backend/padel_app/tests/test_pad920_dashboard_empty_seats_engine.py` › test_an_empty_seats_item_carries_its_engine_and_counting_invitations
   - **DASHBOARD-BLOCKS-59** The web open-spots card shows the pending count and no invite on a new-engine class (new-engine section NA5)
     - test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineEmptySeats.test.tsx` › [DASHBOARD-BLOCKS-59] shows the pending invitations and drops Convidar on a new-engine class
+    - test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineEmptySeats.test.tsx` › [DASHBOARD-BLOCKS-59] only the card itself carries the needs-you-empty-seats- id prefix
   - **DASHBOARD-BLOCKS-60** The iOS open-spots card does the same (new-engine section NA5)
     - test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-empty-seats.test.tsx` › [DASHBOARD-BLOCKS-60] drops Convidar and shows the pending invitations on a new-engine class
   - **DASHBOARD-BLOCKS-61** The web schedule row offers no Convidar on a new-engine class (new-engine section NA5)
