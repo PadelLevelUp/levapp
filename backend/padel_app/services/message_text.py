@@ -45,9 +45,9 @@ def _format_template(template: str, **variables) -> str:
         val = str(val)
         if val == "":
             # PAD-346 (notifications.message-templates rule 7, B-098): an empty
-            # phrase disappears whole. Every pt default puts {level} after the
-            # genitive "de", so an empty string alone left "aula de esta
-            # quarta-feira"; the connector goes with the placeholder.
+            # phrase disappears whole. A coach's text often puts {level} after the
+            # genitive "de" (every pt default did until PAD-830), so an empty string
+            # alone left "aula de esta quarta-feira"; the connector goes with it.
             connectors = _EMPTY_COURT_CONNECTORS if key == "court" else _EMPTY_PLACEHOLDER_CONNECTORS
             template = re.sub(
                 r"\b(?:" + "|".join(connectors) + r")\s+\{" + re.escape(key) + r"\}",
