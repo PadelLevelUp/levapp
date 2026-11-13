@@ -499,18 +499,25 @@ class _Run:
                   and timeline.counting(inv, self.now) and {t.side for t in inv.offer} & values)
         return old + sum(1 for sid, offer in self.sent.items() if offer & values and mine(sid))
 
+    def fits(self, sides: frozenset[str]) -> int:
+        """How many of the session's open spot types an offer of ``sides`` fits (rule 4: holders that fit
+        one type only are assigned before flexible ones, PLANNING-47)."""
+        return sum(1 for t, _ in spot_types(self.snapshot, self.counts) if type_sides(t, self.counts) & sides)
+
     def filling(self, spot_type: SpotType, budget: int) -> int:
         """The counting invitations that fill ``spot_type``'s budget (engine-planning rules 4, 5.3 as
         amended, PLANNING-45): one type's budget each. Those the covering pass assigned to this type, or
         this run sent for it, count; then holders assigned to no type yet whose offer fits it, up to
-        ``budget``, are assigned to it. So a flexible invitation never fills two types' budgets."""
+        ``budget``, are assigned to it, single-side ones first. So a flexible invitation never fills two
+        types' budgets, and goes where no single-side holder can (PLANNING-47)."""
         values = type_sides(spot_type, self.counts)
         counting = [sid for sid, inv in self.latest.items() if sid not in self.sent
                     and timeline.counting(inv, self.now) and {t.side for t in inv.offer} & values]
         counting += [sid for sid, offer in self.sent.items() if offer & values]
         owner = {**self.covers, **self.fills}
         mine = [sid for sid in counting if owner.get(sid) == spot_type]
-        free = [sid for sid in counting if sid not in owner]
+        offers = {**{sid: frozenset(t.side for t in inv.offer) for sid, inv in self.latest.items()}, **self.sent}
+        free = sorted((sid for sid in counting if sid not in owner), key=lambda sid: self.fits(offers[sid]))
         take = free[:max(0, budget - len(mine))]
         self.fills.update({sid: spot_type for sid in take})
         return len(mine) + len(take)
@@ -574,7 +581,8 @@ def _cover(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, in
            sent: dict[SpotType, int]) -> None:
     """The covering pass. A spot held by a counting invitation of any tier is covered (D9), each
     holder covering one type only, hardest type first (D5). The spots left are covered with new
-    invitees, tiers in order and hardest type first inside a tier: at least one distinct person per
+    invitees (single-side holders before flexible ones, PLANNING-47), tiers in order and hardest type
+    first inside a tier: at least one distinct person per
     spot, and up to D17's budget for those spots (X at the type's ideal tier, else 1), counting the
     invitations whose offer already counts for the type (D20)."""
     settings, snapshot, x = run.settings, run.snapshot, run.settings.invites_per_spot
@@ -582,8 +590,9 @@ def _cover(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, in
     holding: set[str] = set()
     for spot_type, spots in order:
         values = type_sides(spot_type, run.counts)
-        mine = [sid for sid, inv in run.latest.items() if sid not in holding and timeline.counting(inv, run.now)
-                and {s.side for s in inv.offer} & values][:spots]
+        mine = sorted((sid for sid, inv in run.latest.items() if sid not in holding and timeline.counting(inv, run.now)
+                       and {s.side for s in inv.offer} & values),
+                      key=lambda sid: run.fits(frozenset(s.side for s in run.latest[sid].offer)))[:spots]
         holding.update(mine)
         run.covers.update({sid: spot_type for sid in mine})
         uncovered[spot_type] = spots - len(mine)
