@@ -22,7 +22,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
 
 ### Rules
 1. **Yes, and there is room (§7, D20).** The Yes succeeds when `class_empty > 0` and a spot of a type
-   the offer counts for is open (`notifications.engine-planning` rule 4); the student is placed within
+   the offer fits is open (`notifications.engine-planning` rule 4); the student is placed within
    the offer. **A named side binds:** a student told "right side" is placed on the right or not at all.
 2. **Where an either-side offer places them (D7, D6).** On their own side if it is open, even from the
    waiting list, even when the other side is harder to fill. A {left, right} student goes on the side
@@ -70,9 +70,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
     student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
     PAD-913).** The kinds are const:KIND_SORRY, const:KIND_ADDED,
-    const:KIND_SIDE_MOVED and const:KIND_WAITING_LIST_INVITE. A kind that shares a name with a key of
-    today's `DEFAULT_MESSAGE_TEMPLATES` means the same message (today const:KIND_WAITING_LIST_INVITE,
-    the invitation sent from a waiting list). `waiting_list_offer` is not an engine kind: today it is
+    const:KIND_SIDE_MOVED, const:KIND_WAITING_LIST_INVITE and const:KIND_INVITE. A kind that shares a name
+    with a key of today's `DEFAULT_MESSAGE_TEMPLATES` means the same message (const:KIND_WAITING_LIST_INVITE,
+    the invitation sent from a waiting list; const:KIND_INVITE, the ordinary invitation, PAD-932). `waiting_list_offer` is not an engine kind: today it is
     "spot taken, join the list?", which the engine says as const:KIND_SORRY, rendered through that same
     `waiting_list_offer` template so a coach's own text carries over (`notifications.message-templates`,
     new-engine section).
@@ -96,18 +96,29 @@ Stated as observable records; storage is the engine package's (PAD-902).
     sessions of the class are untouched.
 15. **The coach invites a student by hand (the owner's decision 17, PAD-932, 2026-11-13;
     `notifications.manual` NM1).** The app sends `CoachInvites(students)` for one session, after the
-    route's own refusals. For each student the engine, under the student's lock:
-    - refuses with a reason, emitting nothing for them, when the session has no open spot type their
-      playable sides fit (`no_open_spot`), when they are in the session (`already_in_class`) or placed at
-      the same hour (`same_hour`, rule 10), or when they hold a counting invitation for it
-      (`already_invited`);
-    - else emits `Invited` (or `Reopened` for a row that stopped counting, was answered No or sorry, or was
-      withdrawn; D1) with the coach's-list tier, `manual` true, the offer every open spot type their sides
-      fit, no eligibility bar and none of the coach's gates (`notifications.engine-tiers` rule 4), and the
-      counting-until instant of `notifications.engine-timeline` rule 4 for that tier.
+    route's own refusals. A student named twice is handled once. For each student the engine, under the
+    student's lock:
+    - refuses with a reason, emitting nothing for them, the first that applies in this order: in the
+      session, placed or a regular of it, absent regulars included (`already_in_class`); placed at the
+      same hour (`same_hour`, rule 10); holding a counting invitation for it (`already_invited`); no open
+      spot type their playable sides fit (`no_open_spot`);
+    - else emits `Invited`, or `Reopened` with `manual` true for an existing row (D1: one per student): a row that
+      stopped counting, was answered No or sorry, was withdrawn, or was closed `same_hour` or
+      `class_removed` while the student is no longer busy. Either carries the coach's-list tier, `manual`
+      true, the offer every open spot type their sides fit, and the counting-until instant
+      `notifications.engine-timeline` rule 4 gives a hand invitation. When the coach's tiers have no
+      coach's list, the tier is none and the invitation still goes out (shown `tierSource` null all the same). It skips the eligibility bar, the
+      coach's gates, "said No for this session", the coach's own exclusions (rule 14's `CoachExcludes`
+      and semi-automatic's removed set) and postponement (`notifications.engine-tiers` rules 4, 10): the
+      coach chose the student by hand.
     It sends at once: quiet hours, the invitation window and the class's automatic toggle do not hold it,
-    and M does not cap it, though it counts toward M (`notifications.engine-planning` rules 3, 8). The
-    store writes `manual` on the `invitations` row. The invitation is then like any other: answered by
+    and neither M nor a budget caps it, though it counts toward M and fills a type
+    (`notifications.engine-planning` rules 3, 4, 8). In semi-automatic mode it needs no approval and
+    changes no group's approval (`notifications.engine-planning` rule 14). The store writes `manual` on
+    the `invitations` row; on a manual `Reopened` it clears `answer`, `answered_at`, `answered_by`,
+    `sorry_at`, `closed_at` and `closed_reason`, sets `reopened_at`, and the message is const:KIND_INVITE
+    (the ordinary invitation, not the waiting-list one). A reader shows a `manual` row with `tierSource` null, whatever its tier
+    (`calendar.event-detail` ND1). The invitation is then like any other: answered by
     rules 1–4 on the engine route, counted by the planner, one type's budget (`notifications.engine-planning`
     rule 4).
 
@@ -224,7 +235,7 @@ test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_a
 #### NOTIFICATIONS-ENGINE-ANSWERS-18: No engine kind reuses a name today's templates give another message (rule 11)
 Given the engine's message kinds (`invitation_engine/effects.py` `MessageKind`) and the keys of today's
 `DEFAULT_MESSAGE_TEMPLATES`, when they are compared, then every shared name renders the kind through the
-template of that name (const:KIND_WAITING_LIST_INVITE among them), `waiting_list_offer` is not a kind,
+template of that name (const:KIND_WAITING_LIST_INVITE and const:KIND_INVITE among them), `waiting_list_offer` is not a kind,
 and const:KIND_SORRY renders through `waiting_list_offer`.
 test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_engine_kinds_do_not_reuse_todays_message_names`
 
@@ -314,8 +325,9 @@ test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coa
 Given a session with one open right spot and students: one left-only, one in the session, one placed at the
 same hour, one holding a counting invitation, one whose invitation stopped counting and one who said No,
 when the engine handles `CoachInvites` for all six, then the first four get `no_open_spot`,
-`already_in_class`, `same_hour` and `already_invited` with no effect, and the last two get `Reopened` with
-the coach's-list tier and `manual`, one row each.
+`already_in_class`, `same_hour` and `already_invited` with no effect, and the last two get `Reopened`
+with the coach's-list tier and `manual` true and a const:KIND_INVITE message, one row each; once the store applies it, each row has no answer,
+no `sorry_at`, no `closed_at`, a `reopened_at`, counts again, and shows `tierSource` null and outcome `pending`.
 test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coach_invitation_refuses_with_a_reason_or_reopens`
 
 ### Waves

@@ -138,6 +138,23 @@ def test_a_flexible_invitation_is_offered_both_types_but_fills_one():
     assert sorted(after) == [("L4", "R", 1), ("L5", "R", 1)]                       # asked to play right
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-47")
+def test_single_side_holders_fill_budgets_before_flexible_ones():
+    """engine-planning rule 4 (PLANNING-47): one left and one right spot at X = 3, the left the hardest;
+    counting holders F {left, right} (listed first), three left-siders and two right-siders. The left
+    budget takes the three left-siders and F fills the right one: both are full and nothing is sent."""
+    settings = EngineSettings(quiet_hours=None)
+    rights = [_student(f"RX{i}", "R") for i in range(1, 4)]                       # the right is easier
+    store = _store(3, 3, pool=[_student("F", "both")] + [_student(f"LH{i}", "L") for i in range(1, 4)]
+                   + [_student(f"RH{i}", "R") for i in range(1, 3)] + rights)
+    until = T0 + timedelta(hours=3)
+    both, left, right = (frozenset(SpotType(v, 3) for v in sides) for sides in ("LR", "L", "R"))
+    store.apply([fx.Invited("A", T0, "F", both, None, 3, until)]
+                + [fx.Invited("A", T0, f"LH{i}", left, None, 3, until) for i in range(1, 4)]
+                + [fx.Invited("A", T0, f"RH{i}", right, None, 3, until) for i in range(1, 3)])
+    assert _invited(plan(store.snapshot("A"), settings, T0 + timedelta(minutes=5)).effects) == []
+
+
 # --- wave W7: the coach alert ------------------------------------------------------------------
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-27")

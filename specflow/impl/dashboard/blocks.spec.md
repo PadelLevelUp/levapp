@@ -25,6 +25,7 @@ drained, the old engine is deleted and the replaced items go with it.
 | Rule 3, a Yes answered `spot_filled` | sorry with the waiting-list offer, never "just filled" and never another offer (the owner, 2026-11-12) | `notifications.engine-answers` rules 3, 4 |
 | Criterion 12 | replaced with rule 3 | — |
 | Rule 3, the coach's item order (`empty_seats` → `reply` → `validation`) | `engine_alert` → `empty_seats` → `reply` → `validation`; "Mais tarde" snoozes an `engine_alert` as it snoozes `empty_seats` (B-030) | NA1 |
+| Rule 3's "Convidar / Mais tarde" pair, rule 10's two Convidar links, criteria 5 and 6 | the card and the schedule row on a new-engine class follow NA5 | NA5 |
 
 Readings:
 - `vacancy_invite` is an open invitation of the student's (counting or not; it stays answerable, D4):
@@ -86,8 +87,9 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   (`dashboard-schedule-invite`, PAD-425's `inviteHref`) on a new-engine class, so no dashboard path opens
   the manual picker there (the coordinator, 2026-11-13). iOS's schedule has no such button.
   Today: `_empty_seat_items` (`helpers/dashboard/coach_home.py`) builds the item from calendar events
-  that already hold `engineVersion` (`serializers/calendar_event.py`, `class_engine_fields`) but copies
-  neither it nor a count; the class's counting invitations are the `invitations` rows that
+  that already hold `engineVersion` (`services/engine_readers.py` `class_engine_fields`, merged in
+  `serializers/calendar_event.py`) but copies neither it nor a count. `pendingInvites` is read for all the
+  week's new-engine classes in one batched query, never one per class; the class's counting invitations are the `invitations` rows that
   `invitation_engine/timeline.py` `counting` holds true for.
 
 ### Rules
@@ -840,6 +842,7 @@ test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-invite.test.tsx
 - **Given** a coach on `new` whose class A has 3 open spots, 5 counting invitations and 2 open ones that no longer count, and a coach on `old` whose class B has 2 open spots and 3 live invitations
 - **When** each coach's home is read
 - **Then** A's `empty_seats` item carries `engineVersion` `new` and `pendingInvites` 5, and B's carries `engineVersion` `old` and no `pendingInvites` key
+- **And** each coach's `schedule_7d` rows carry their class's `engineVersion`
 test: `backend/padel_app/tests/test_pad920_dashboard_empty_seats_engine.py` › `test_an_empty_seats_item_carries_its_engine_and_counting_invitations`
 
 #### DASHBOARD-BLOCKS-59: The web open-spots card shows the pending count and no invite on a new-engine class (new-engine section NA5)
