@@ -15,6 +15,17 @@ onFlowComplete:
       id: "dashboard-incomplete-players"
     direction: DOWN
     timeout: 20000
+# PAD-710 (Android lane): the card scroll stops at a clipped card, its rows are below the fold (nightlies 9-11 Nov, run 42606331416); scroll to the first row.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "dashboard-incomplete-player-.*"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
 - tapOn:
     id: "dashboard-incomplete-player-.*"
 - extendedWaitUntil:

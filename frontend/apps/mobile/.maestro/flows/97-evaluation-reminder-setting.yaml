@@ -38,6 +38,13 @@ onFlowComplete:
       id: "settings-evaluation-reminder"
     direction: DOWN
     timeout: 30000
+# PAD-710 (Android lane): the card scroll stops at a clipped sliver (nightly 7 Nov, run 42361145104); scroll to the option itself.
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-reminder-option-monthly"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
 - tapOn:
     id: "settings-evaluation-reminder-option-monthly"
 - scrollUntilVisible:
@@ -89,6 +96,13 @@ onFlowComplete:
       id: "settings-evaluation-reminder"
     direction: DOWN
     timeout: 30000
+# PAD-710 (Android lane): same clipped-sliver trap as the monthly option above (run 42361145104).
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-reminder-option-never"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
 - tapOn:
     id: "settings-evaluation-reminder-option-never"
 - scrollUntilVisible:

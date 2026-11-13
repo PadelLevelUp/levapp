@@ -51,6 +51,24 @@ onFlowComplete:
     text: "E2E Student"
 
 # ── the waiting list, asked first, with the student's own row ──
+# PAD-710 (Android lane): on 8 Nov (run 42469410279) the swipe overshot to the page end and the block was above the screen; try DOWN once (optional), then UP, centred, so either side is reached.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "tutorial-waiting-list"
+          direction: DOWN
+          timeout: 10000
+          centerElement: true
+          optional: true
+      - scrollUntilVisible:
+          element:
+            id: "tutorial-waiting-list"
+          direction: UP
+          timeout: 20000
+          centerElement: true
 - scrollUntilVisible:
     element:
       id: "tutorial-waiting-list"
