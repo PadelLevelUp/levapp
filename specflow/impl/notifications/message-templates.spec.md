@@ -39,8 +39,8 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
 
   | Key | Sent for | Proposed en | Proposed pt |
   |---|---|---|---|
-  | `waiting_list_added` | const:KIND_ADDED | `Hi {name}, a spot opened in the {level} class on {weekday} at {time} and you were on the waiting list, so you're in{side}. If you can't make it, let me know. 🎾` | `Olá {name}, abriu uma vaga na aula de {level} na {weekday} às {time} e estavas na lista de espera, por isso já estás inscrito{side}. Se não puderes ir, avisa. 🎾` |
-  | `side_moved` | const:KIND_SIDE_MOVED | `Hi {name}, in the {level} class on {weekday} at {time} you'll play on the {sideName} side. See you there!` | `Olá {name}, na aula de {level} na {weekday} às {time} vais jogar do lado {sideName}. Até já!` |
+  | `waiting_list_added` | const:KIND_ADDED | `Hi {name}, a spot opened in the class on {weekday} at {time} and you were on the waiting list, so you're in{side}. If you can't make it, let me know. 🎾` | `Olá {name}, abriu uma vaga na aula de {weekday} às {time} e estavas na lista de espera, por isso já estás inscrito{side}. Se não puderes ir, avisa. 🎾` |
+  | `side_moved` | const:KIND_SIDE_MOVED | `Hi {name}, in the class on {weekday} at {time} you'll play on the {sideName} side. See you there!` | `Olá {name}, na aula de {weekday} às {time} vais jogar do lado {sideName}. Até já!` |
   | `coach_no_candidate` | the coach alert, const:ALERT_NO_CANDIDATE | `{class} on {weekday} at {time}: {count} open spot(s){side} and nobody left to invite automatically.` | `{class} na {weekday} às {time}: {count} vaga(s) por preencher{side} e já não há ninguém para convidar automaticamente.` |
 
   `waiting_list_added` is not named `added`: a key `added` would read as today's `added_to_class`, which
@@ -74,7 +74,7 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
 4. Updated via `POST /api/app/notify/config`
 5. Placeholders must render fully substituted with concrete values — a rendered message never contains a raw placeholder token (`{level}`, `{weekday}`, etc.) or a filler artifact such as the literal word "this" in a placeholder slot
 6. The `{weekday}`, date, and time placeholders render in the **recipient coach's locale** (see settings.language), formatted via Flask-Babel — e.g. `pt` → "quarta-feira", `en` → "Wednesday". Never manually string-built from English day/month names. Fallback locale is Portuguese
-7. When a class instance has no assigned level, the `{level}` phrase disappears whole: the placeholder renders an empty string (no filler word) **and the genitive connector directly before it goes with it** — `de`, `da`, `do` in Portuguese, `of` in English — so "aula de {level} esta {weekday}" reads "aula esta quarta-feira" and "aula de {level} de {weekday}" reads "aula de quarta-feira". An empty string alone is not enough: every Portuguese default puts `{level}` after "de" (PAD-346, B-098). Any other word before the placeholder is left as the coach wrote it; the formatter then collapses doubled spaces and space-before-punctuation
+7. When a class instance has no assigned level, the `{level}` phrase disappears whole: the placeholder renders an empty string (no filler word) **and the genitive connector directly before it goes with it** — `de`, `da`, `do` in Portuguese, `of` in English — so "aula de {level} esta {weekday}" reads "aula esta quarta-feira" and "aula de {level} de {weekday}" reads "aula de quarta-feira". An empty string alone is not enough: a coach's own text often puts `{level}` after "de" — every Portuguese default did until PAD-830 (rule 20), and a coach who saved those texts still has them (PAD-346, B-098). Any other word before the placeholder is left as the coach wrote it; the formatter then collapses doubled spaces and space-before-punctuation
 8. Every template key always resolves to non-empty text. A stored template that is missing, `null`, not a string, or blank/whitespace-only falls back to the built-in default for the resolved locale (`DEFAULT_MESSAGE_TEMPLATES_PT` for `pt`, `DEFAULT_MESSAGE_TEMPLATES` for `en`). This applies to **every** template key, not just the reminder ones
 9. The system never sends a message whose rendered body is empty or whitespace-only. If, after placeholder substitution and the rule-8 fallback, the text is still blank, the message is not sent at all
 10. The fallback is resolution-time only: the stored JSON is never rewritten, so a blank the coach saved stays blank in `notification_configs.message_templates`. Every *read* resolves it — `GET /api/app/notify/config` returns the resolved (non-blank) templates, so the settings UI never presents an empty textarea for an un-customized key
@@ -157,6 +157,15 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     formatter with example values for a sample class tomorrow at 18:00, plus each example — so the
     help cannot drift from what is sent. iOS has no template editor (Notes, PAD-430), so this is web
     only; `{day}` itself renders server-side and reaches every recipient.
+20. **No default shows the student the class level (PAD-830; numbering unconfirmed).** The class
+    level is the coach's own grading, so no built-in default, in either locale, contains `{level}`:
+    `invite`, `reminder`, `reminder_followup`, `waiting_list_invite`, `class_cancelled`, and the
+    new-engine `waiting_list_added` and `side_moved` (new-engine section N1) name the class by its
+    day and time only. Each new text is the old one with the level phrase gone, as rule 7 already
+    rendered it for a class with no level. `{level}` stays a supported placeholder (rules 3, 3a)
+    and stays in the web editor's list: a coach who writes it into their own text still gets the
+    level rendered. Stored texts are never rewritten (rule 10), so a coach whose saved templates
+    hold an old default keeps it, `{level}` included.
 
 ### Acceptance Criteria
 
@@ -277,6 +286,13 @@ test: `backend/padel_app/tests/test_pad920_engine_templates.py` › `test_a_coac
 - **Given** a coach on web Settings → message templates
 - **Then** `template-row-waiting_list_added` in "Lista de espera" after `waiting_list_invite`, `template-row-side_moved` in "Adicionado a uma aula", each with its label and description, `side_moved`'s variable chips include `{sideName}`, `waiting_list_added`'s include `{side}`, and there is no `template-row-coach_no_candidate`
 test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `lists the new engine's editable templates in their groups`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-20: No default names the class level; a coach's own `{level}` still renders (rule 20, PAD-830)
+- **Given** a class with level "6-" on a Wednesday at 10:00 and a student Ana
+- **When** each of `invite`, `reminder`, `reminder_followup`, `waiting_list_invite`, `class_cancelled`, `waiting_list_added` and `side_moved` is rendered from the default, in `pt` and in `en`
+- **Then** no default text contains `{level}` and no rendered message contains "6-"
+- **And** for a coach whose stored text for that key contains `{level}`, the message contains "6-", and the stored templates are left as saved
+test: `backend/padel_app/tests/test_pad830_no_level_in_defaults.py` › `test_no_default_shows_the_class_level`
 
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
