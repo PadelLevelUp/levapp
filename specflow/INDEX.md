@@ -5184,7 +5184,7 @@ Untagged tests: 4270
   - **NOTIFICATIONS-MANUAL-7** Only the class's own coach invites, and only players of their own roster (rule 7) · unverified
   - **NOTIFICATIONS-MANUAL-8** The picker marks a student who declined this class and still lets the coach choose them (notifications.invitations rule 18) · unverified
   - **NOTIFICATIONS-MANUAL-9** A manual invitation on a new-engine class takes the engine's path, never the old one (new-engine sections NM1, NM2)
-    - test: `backend/padel_app/tests/test_pad920_manual_new_engine.py` › test_a_manual_invitation_on_a_new_engine_class_is_refused
+    - test: `backend/padel_app/tests/test_pad920_manual_new_engine.py` › test_a_manual_invitation_on_a_new_engine_class_takes_the_engine_path
   - **NOTIFICATIONS-MANUAL-10** The web class panel offers Notificar on a new-engine class (new-engine section NM2)
     - test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.manualNewEngine.test.tsx` › [NOTIFICATIONS-MANUAL-10] a new-engine class has no Notificar and ?notify=1 opens nothing
   - **NOTIFICATIONS-MANUAL-11** The iOS class screen offers Notificar on a new-engine class (new-engine section NM2)
