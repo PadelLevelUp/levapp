@@ -282,3 +282,43 @@ describe("PAD-920 the new engine's templates (notifications.message-templates N3
     expect(screen.queryByTestId("template-row-coach_no_candidate")).toBeNull();
   });
 });
+
+describe("PAD-928 the removal notices (notifications.message-templates rule 24)", () => {
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-31] lists the two removal notices in their own group (PAD-928)", () => {
+    const onChange = vi.fn();
+    render(<MessageTemplatesSection templates={TEMPLATES} onChange={onChange} />);
+
+    const group = screen.getByTestId("template-group-removedFromClass");
+    within(group).getByText("settings.templates.groups.removedFromClass");
+    const rows = Array.from(group.querySelectorAll("[data-testid^='template-row-']")).map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(rows).toEqual(["template-row-removed_from_class", "template-row-removed_from_series"]);
+    // After "Adicionado a uma aula".
+    const groups = Array.from(document.querySelectorAll("[data-testid^='template-group-']")).map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(groups.indexOf("template-group-removedFromClass")).toBe(groups.indexOf("template-group-addedToClass") + 1);
+
+    const row = (key: string) => within(screen.getByTestId(`template-row-${key}`));
+    row("removed_from_class").getByText("settings.templates.labels.removedFromClass");
+    row("removed_from_class").getByText("settings.templates.descriptions.removedFromClass");
+    row("removed_from_series").getByText("settings.templates.labels.removedFromSeries");
+    row("removed_from_series").getByText("settings.templates.descriptions.removedFromSeries");
+
+    // Every placeholder of rule 3a, and no side-only one.
+    for (const key of ["removed_from_class", "removed_from_series"]) {
+      const badges = within(screen.getByTestId(`template-variables-${key}`));
+      for (const v of ["{name}", "{weekday}", "{date}", "{time}", "{day}", "{club}", "{duration}", "{court}"]) {
+        expect(badges.getByText(v)).toBeTruthy();
+      }
+      expect(badges.queryByText("{side}")).toBeNull();
+    }
+
+    // A config from before PAD-928 lacks the keys; an edit hands the new key to the tab's one Save.
+    fireEvent.change(within(screen.getByTestId("template-row-removed_from_class")).getByRole("textbox"), {
+      target: { value: "Saíste da aula de {day}." },
+    });
+    expect(onChange).toHaveBeenCalledWith({ ...TEMPLATES, removed_from_class: "Saíste da aula de {day}." });
+  });
+});
