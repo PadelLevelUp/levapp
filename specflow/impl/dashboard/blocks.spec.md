@@ -82,6 +82,9 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
     (today it has none) (decision 17's stopgap, until a manual invitation on a
     new-engine class is an engine invitation, `notifications.manual` new-engine section); "Mais tarde" stays.
   An item with no `engineVersion` (an older server) reads as `old`. An old-engine card is unchanged.
+  The coach's `schedule_7d` rows carry `engineVersion` too, and web's schedule row drops its Convidar
+  (`dashboard-schedule-invite`, PAD-425's `inviteHref`) on a new-engine class, so no dashboard path opens
+  the manual picker there (the coordinator, 2026-11-13). iOS's schedule has no such button.
   Today: `_empty_seat_items` (`helpers/dashboard/coach_home.py`) builds the item from calendar events
   that already hold `engineVersion` (`serializers/calendar_event.py`, `class_engine_fields`) but copies
   neither it nor a count; the class's counting invitations are the `invitations` rows that
@@ -848,6 +851,11 @@ test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineEmpt
 - **Given** the same three items on iOS
 - **Then** the same text, test ids and buttons show as on web
 test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-empty-seats.test.tsx` › `shows the pending count and no invite button on a new-engine class`
+
+#### DASHBOARD-BLOCKS-61: The web schedule row offers no Convidar on a new-engine class (new-engine section NA5)
+- **Given** a coach's home whose `schedule_7d` lists a new-engine class and an old-engine class, both upcoming with open spots
+- **Then** both rows carry `engineVersion` (`new`, `old`), and on web only the old-engine row shows `dashboard-schedule-invite`; a row without `engineVersion` shows it as today
+test: `frontend/apps/web/src/components/dashboard/coach/Schedule7Days.engineVersion.test.tsx` › `drops Convidar on a new-engine class`
 
 ### Open questions
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,
