@@ -294,6 +294,14 @@ test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.ts
 - **And** for a coach whose stored text for that key contains `{level}`, the message contains "6-", and the stored templates are left as saved
 test: `backend/padel_app/tests/test_pad830_no_level_in_defaults.py` › `test_no_default_shows_the_class_level`
 
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-28: A saved text identical to an old default follows the new default; any other text is kept (rule 20, PAD-830)
+- **Given** coaches whose stored `message_templates` hold, for a key, the full text of the default that carried `{level}` before PAD-830: one in Portuguese, one in English; one whose text differs from it by a single character; one with a text of their own
+- **When** the PAD-830 data migration upgrades
+- **Then** each exact match, per key and per locale, is replaced by that key's new default in that locale
+- **And** the near-miss and the text of their own are left exactly as saved, and so are the keys the coach never saved
+- **And** running the upgrade again changes nothing, and the downgrade puts the old text back where the stored text is the new default
+test: `backend/padel_app/tests/test_pad830_template_migration.py` › `test_exact_old_defaults_follow_the_new_default`
+
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
   reminder arrives — see `notifications.coach-fills-vacancies-automatically` and
