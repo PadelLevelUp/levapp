@@ -49,7 +49,7 @@ async function send(onClose: () => void) {
       existingPlayerIds={[]}
     />
   );
-  await screen.findByText("All students");
+  await screen.findByText("settings.notificationGroups.labels.allStudents");
   fireEvent.change(screen.getByPlaceholderText("calendar.notify.searchPlaceholder"), { target: { value: "R" } });
   fireEvent.click(await screen.findByText("Rui Fine", { exact: true }));
   fireEvent.click(screen.getByRole("button", { name: /calendar\.notify\.sendToCount|calendar\.notify\.send$/ }));
