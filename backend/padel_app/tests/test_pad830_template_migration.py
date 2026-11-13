@@ -104,4 +104,4 @@ def test_upgrade_twice_changes_nothing_more_and_downgrade_restores_the_old_text(
 
 def test_it_revises_the_head_before_it():
     mod = _load()
-    assert (mod.revision, mod.down_revision) == ("e830f1a2b3c4", "d921b2c3e4f5")
+    assert (mod.revision, mod.down_revision) == ("e830f1a2b3c4", "e932a7c1d4f2")  # PAD-932 (#980) landed first

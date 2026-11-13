@@ -16,7 +16,7 @@ Downgrade puts the old text back wherever the stored text is the new default (it
 coach who picked the new default from one the upgrade rewrote).
 
 Revision ID: e830f1a2b3c4
-Revises: d921b2c3e4f5
+Revises: e932a7c1d4f2
 Create Date: 2026-11-13 21:10:00.000000
 """
 from alembic import op
@@ -24,7 +24,7 @@ import sqlalchemy as sa
 
 
 revision = "e830f1a2b3c4"
-down_revision = "d921b2c3e4f5"
+down_revision = "e932a7c1d4f2"
 branch_labels = None
 depends_on = None
 
