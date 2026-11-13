@@ -69,6 +69,26 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   own key `messages.engineAlert.openClass`, not a fallback title).
 - **NA4. No rename.** The wire names `vacancy_invite` and `empty_seats` stay: renaming them breaks older
   builds for no reader's gain, and their copy already says "convite" and "vagas".
+- **NA5. The open-spots card on a new-engine class (the owner, 2026-11-13, decisions 17 and 18).** Every
+  `empty_seats` item carries `engineVersion` (`"old"` | `"new"`, the session's engine by
+  `notifications.config` rule 18). A new-engine item also carries `pendingInvites`: the class's counting
+  invitations (`notifications.engine-planning` rule 3), the same count as `calendar.event-detail` ND2's
+  "N pending"; an old-engine item has no `pendingInvites` key. The card stays (decision 18). On a
+  new-engine item both shells, web `NeedsYouQueue` and iOS `blocks.tsx`:
+  - add "{pending} convite(s) pendente(s)" / "{pending} pending invitation(s)" (proposed; key
+    `dashboard.needsYou.emptySeats.pending`, plural) to the detail line, when `pendingInvites` is 1 or
+    more, under test id `needs-you-empty-seats-pending-<id>`;
+  - drop the "Convidar N jogadores" button, test id `needs-you-empty-seats-invite-<id>` on both shells
+    (today it has none) (decision 17's stopgap, until a manual invitation on a
+    new-engine class is an engine invitation, `notifications.manual` new-engine section); "Mais tarde" stays.
+  An item with no `engineVersion` (an older server) reads as `old`. An old-engine card is unchanged.
+  The coach's `schedule_7d` rows carry `engineVersion` too, and web's schedule row drops its Convidar
+  (`dashboard-schedule-invite`, PAD-425's `inviteHref`) on a new-engine class, so no dashboard path opens
+  the manual picker there (the coordinator, 2026-11-13). iOS's schedule has no such button.
+  Today: `_empty_seat_items` (`helpers/dashboard/coach_home.py`) builds the item from calendar events
+  that already hold `engineVersion` (`serializers/calendar_event.py`, `class_engine_fields`) but copies
+  neither it nor a count; the class's counting invitations are the `invitations` rows that
+  `invitation_engine/timeline.py` `counting` holds true for.
 
 ### Rules
 1. `GET /api/app/dashboard?from=ISO&to=ISO` returns `DashboardDefinition`
@@ -816,8 +836,33 @@ test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineInvi
 - **Then** the same requests are sent and the same toasts show
 test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-invite.test.tsx` › `answers a new-engine invitation by its id and shows the answer`
 
+#### DASHBOARD-BLOCKS-58: An open-spots item says its class's engine and, on the new engine, how many invitations still count (new-engine section NA5)
+- **Given** a coach on `new` whose class A has 3 open spots, 5 counting invitations and 2 open ones that no longer count, and a coach on `old` whose class B has 2 open spots and 3 live invitations
+- **When** each coach's home is read
+- **Then** A's `empty_seats` item carries `engineVersion` `new` and `pendingInvites` 5, and B's carries `engineVersion` `old` and no `pendingInvites` key
+test: `backend/padel_app/tests/test_pad920_dashboard_empty_seats_engine.py` › `test_an_empty_seats_item_carries_its_engine_and_counting_invitations`
+
+#### DASHBOARD-BLOCKS-59: The web open-spots card shows the pending count and no invite on a new-engine class (new-engine section NA5)
+- **Given** the web home with a new-engine `empty_seats` item with `pendingInvites` 5, another with `pendingInvites` 0, and an old-engine item
+- **Then** the first card's detail line shows "5 convites pendentes" under `needs-you-empty-seats-pending-<id>`, the second shows no pending text, neither has `needs-you-empty-seats-invite-<id>` and both keep "Mais tarde"; the old-engine card shows `needs-you-empty-seats-invite-<id>` and no pending text, as today; an item without `engineVersion` renders as the old-engine one
+test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineEmptySeats.test.tsx` › `shows the pending count and no invite button on a new-engine class`
+
+#### DASHBOARD-BLOCKS-60: The iOS open-spots card does the same (new-engine section NA5)
+- **Given** the same three items on iOS
+- **Then** the same text, test ids and buttons show as on web
+test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-empty-seats.test.tsx` › `shows the pending count and no invite button on a new-engine class`
+
+#### DASHBOARD-BLOCKS-61: The web schedule row offers no Convidar on a new-engine class (new-engine section NA5)
+- **Given** a coach's home whose `schedule_7d` lists a new-engine class and an old-engine class, both upcoming with open spots
+- **Then** both rows carry `engineVersion` (`new`, `old`), and on web only the old-engine row shows `dashboard-schedule-invite`; a row without `engineVersion` shows it as today
+test: `frontend/apps/web/src/components/dashboard/coach/Schedule7Days.engineVersion.test.tsx` › `drops Convidar on a new-engine class`
+
 ### Open questions
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,
   PAD-913, 2026-11-12; the owner can reverse it): both a dashboard card (NA1, NA2) and one message with a
   push (NA3), because the card shows only on the home and the class may be days away; no rename (NA4).
   The card's copy is proposed, **for the owner's approval**.
+- The open-spots card on a new-engine class (S, PAD-913, 2026-11-13, from the owner's decisions 17 and 18):
+  the pending count counts counting invitations only, as the class detail's "N pending" (ND2), so the two
+  never disagree; an older server's item without `engineVersion` reads as old, so the button stays where
+  nobody knows the engine. The pending copy is proposed, **for the owner's approval**.
