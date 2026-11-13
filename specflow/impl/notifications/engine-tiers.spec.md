@@ -59,9 +59,11 @@ the coach's list).
    "do not ask me". Students still see only the
    classes they are eligible for.
    **A coach's invitation by hand is the coach's list too** (the owner's decision 17, PAD-932;
-   `notifications.engine-answers` rule 15): an invitation of this tier, sent at once, with the same
-   exemptions. Its offer is every open spot type the student's playable sides fit, whatever the bar. The
-   route keeps the student's own blocks (`notifications.manual` NM1).
+   `notifications.engine-answers` rule 15): an invitation of this tier (or of none, when the coach's
+   tiers have no coach's list), sent at once, with the same
+   exemptions and more: "said No for this session" does not hold it either, since the coach chose the
+   student by hand. Its offer is every open spot type the student's playable sides fit, whatever the bar.
+   The route keeps the student's own blocks (`notifications.manual` NM1).
 5. **Tiers (§2, §5, D12; Q7 closed).** In order: the coach's list, the students' list, then the coach's
    groups in the coach's order.
 6. **The waiting lists have no level rules (D12).** A waiting-list member is a candidate for every spot
@@ -93,7 +95,7 @@ the coach's list).
     (`notifications.invitations` rule 18c, as amended by PAD-911; Tomás calls a counting invitation
     "ativo"), is **not a candidate this run**. For this gate an invitation counts when it counts by
     `notifications.engine-planning` rule 3 (open, not sorry, before its counting-until instant) **and**
-    its offer counts toward a current spot type of its own session by rule 4; so an invitation to a
+    its offer fits a current spot type of its own session by rule 4; so an invitation to a
     full session counts for nothing. An open invitation that does not count stays valid (D4) but
     postpones nobody (owner ruling 2026-11-11 on Tomás's point 2). A postponed student counts for no
     type, so they neither cover a spot nor make their tier the ideal one, and the next tier goes

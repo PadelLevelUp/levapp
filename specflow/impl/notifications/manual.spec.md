@@ -28,7 +28,8 @@ amended to bring the controls back.
     or who blocks manual invitations or all notifications (`notifications.student-block-preferences`) is
     in `blocked`, with today's causes.
   - **A class with no open spot (a).** When the session has no open spot type, the route answers **409**
-    `{"error": "NO_OPEN_SPOT", "code": "NO_OPEN_SPOT"}` and sends nothing. A student whose playable sides
+    `{"error": "NO_OPEN_SPOT", "code": "NO_OPEN_SPOT"}` and sends nothing, after rule 7's and rule 10's
+    checks. A student whose playable sides
     fit no open spot type is in `blocked` with `cause: "no_open_spot"`.
   - **Already there.** A student already in the session is in `blocked` with `cause: "already_in_class"`.
     A student placed in another session at the same hour (`notifications.engine-tiers` rule 3) is in
@@ -44,13 +45,18 @@ amended to bring the controls back.
     `notifications.engine-planning` rule 9, and answers it on the engine route
     (`notifications.invitations` NB5).
   - **A student who already holds an engine invitation for the session** (c; one per student, D1). If it
-    still counts, they are in `blocked` with `cause: "already_invited"` (rule 9). If it no longer counts,
-    or was answered No, answered sorry or withdrawn, it is **reopened** as this manual invitation: the
-    same row, counting anew, with the offer and T above, and a new message. Nothing is ever a second row.
-  - **The class detail** lists it with `tierSource` null ("convite manual", `calendar.event-detail` ND1).
+    still counts, they are in `blocked` with `cause: "already_invited"` (rule 9). Any other row (no longer
+    counting, answered No or sorry, withdrawn, or closed while the student is no longer busy) is
+    **reopened** as this manual invitation: the same row, counting anew, with the offer and T above, and
+    the ordinary invitation message (`notifications.engine-answers` rule 15). Nothing is ever a second row.
+  - **The class detail** lists it with `tierSource` null ("convite manual", `calendar.event-detail` ND1),
+    because the row is `manual`, whatever its tier.
 - **NM3. An old invitation's Yes on a new-engine class tells the engine.** A Yes on an old-engine
   invitation (a `NotificationEvent`, manual or automatic, sent before the class moved to the new engine)
   that places the student in a new-engine session calls `coach_added` (`services/engine_entry.py`;
+  in `services/notification_service.py`: the student's Yes, `respond_to_notification` / `_record_yes`;
+  the Yes a coach records, `coach_respond_to_notification`; and an old waiting-list Yes,
+  `respond_to_waiting_list`;
   `notifications.engine-answers` rule 10's `CoachAdded`). The engine closes the student's open
   invitations at that hour and replans the session.
 - **NM2. No manual invitation on a new-engine class, until NM1 is built.** For a new-engine session:
@@ -112,8 +118,8 @@ Coaches manually select players to notify about a class, bypassing the automatic
 
 ### Acceptance Criteria
 
-#### NOTIFICATIONS-MANUAL-1: A student holding a live invitation is not invited twice, on either engine (rule 9, PAD-620, PAD-932)
-- **Given** Ana holds a live invitation for Friday's class and Bruno holds none, once on an old-engine class (Ana's a `sent` event) and once on a new-engine class (Ana's a counting engine invitation)
+#### NOTIFICATIONS-MANUAL-1: A student holding a live invitation is not invited twice (rule 9, PAD-620)
+- **Given** Ana holds a live invitation for Friday's class (an old-engine class) and Bruno holds none
 - **When** the coach notifies Ana and Bruno by hand
 - **Then** only Bruno gets an invitation (`sent: 1`), Ana still holds exactly one live invitation
 - **And** the response lists Ana in `blocked` with `cause: "already_invited"`, and the coach is told her name
@@ -191,9 +197,9 @@ test: `frontend/apps/mobile/src/features/calendar/notify-new-engine.test.tsx` �
 test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `test_a_manual_invitation_on_a_new_engine_class_is_an_engine_invitation`
 
 #### NOTIFICATIONS-MANUAL-13: What a manual invitation on a new-engine class refuses (new-engine section NM1)
-- **Given** a new-engine class with one open right spot, and five students: one holding a counting engine invitation, one already in the class, one placed in another class at the same hour, one who plays left only, and one who blocks manual invitations
-- **When** the coach invites all five by hand
-- **Then** `sent` is 0 and `blocked` lists them with `already_invited`, `already_in_class`, `same_hour`, `no_open_spot` and today's preference cause; nothing is stored or sent
+- **Given** a new-engine class with one open right spot, and six students: one holding a counting engine invitation, one holding a live old `NotificationEvent` for it, one already in the class, one placed in another class at the same hour, one who plays left only, and one who blocks manual invitations
+- **When** the coach invites all six by hand
+- **Then** `sent` is 0 and `blocked` lists them with `already_invited` (twice, rule 9 on both engines), `already_in_class`, `same_hour`, `no_open_spot` and today's preference cause; nothing is stored or sent
 - **And** on the same class once full, the route answers 409 `NO_OPEN_SPOT`
 test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `test_what_a_manual_invitation_on_a_new_engine_class_refuses`
 
@@ -208,6 +214,10 @@ test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `tes
 - **When** they answer Yes on the old invitation and are placed
 - **Then** the engine is sent `CoachAdded` for them: the other class's invitation closes with `same_hour`, and the session is re-planned
 test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `test_an_old_invitations_yes_on_a_new_engine_class_tells_the_engine`
+
+### Waves
+1. (PAD-933, the stopgap) NM2: MANUAL-9 to 11 — `modules/notification_engine_api.py`, `services/notification_service.py`, web `ClassDetailSheet`, iOS class screen; with `dashboard.blocks` DASHBOARD-BLOCKS-58 to 61. Until wave 2 ships, these are what the code meets.
+2. (PAD-932) NM1, NM3: rule 9 on both engines, MANUAL-12 to 15, with `notifications.engine-answers` ANSWERS-30, 31, `notifications.engine-tiers` TIERS-23 — `services/engine_entry.py` (`coach_invites`), `invitation_engine/requests.py`, `effects.py`, `services/engine_store.py`, the route. It lands together with the amendment that retires NM2 and brings the controls back (MANUAL-9 to 11, DASHBOARD-BLOCKS-59 to 61), never before; until then wave 2's criteria describe the target, not the code.
 
 ### Open questions
 - A manual invitation reopens an invitation answered No (NM1; S's reading, PAD-932, 2026-11-13; the owner can
