@@ -7,6 +7,8 @@
 # feature/pad-913-owner-decisions after the owner's decisions 1 and 12-13 (re-derived files).
 # 2026-11-13 (PAD-931): P10a, P10b re-run and P40 added against today's engine (staging 34ec438e4) after the
 # owner's decision 16.
+# 2026-11-13 (PAD-932): P41, P42 added, run against today's engine on feature/pad-932-manual (49b198c00 plus
+# the two files); today has no coach_invites event, so their hand invitations are not applied.
 01-exemplo-completo:
   outcome: fail
   evaluated: 16
@@ -1319,3 +1321,24 @@ P40-flexible-candidates-three-spots:
   outcome: pass
   evaluated: 4
   skipped: 0
+P41-coach-invites-by-hand:
+  outcome: fail
+  evaluated: 6
+  skipped: 1
+  derived_from:
+  - D17
+  - D16
+  - D14
+  class: structural
+  note: 'structural: today has no class-wide limit of open invitations (M), so a third L3L is invited at 19:00; the coach''s hand invitation is not an engine event today'
+  first_failure: 2026-11-01 19:00 invitations
+P42-coach-invites-refuses-or-reopens:
+  outcome: fail
+  evaluated: 15
+  skipped: 5
+  derived_from:
+  - D1
+  - D17
+  class: structural
+  note: 'structural: today invites the other class''s regular at 19:00 and has no coach_invites engine event'
+  first_failure: 2026-11-01 19:00 invitations

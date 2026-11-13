@@ -23,6 +23,7 @@ from typing import Literal
 from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import (
     ALERT_NO_CANDIDATE,
+    KIND_INVITE,
     KIND_WAITING_LIST_INVITE,
     LOWER_TIER_PER_SPOT,
     side_quota,
@@ -40,6 +41,7 @@ from padel_app.invitation_engine.effects import (
     Invited,
     Message,
     Placed,
+    Refused,
     Reopened,
     WaitingListLeft,
 )
@@ -240,6 +242,40 @@ def close_same_hour(snapshot: SessionSnapshot, student: str, now: datetime) -> t
     invitations for other sessions at the same hour closed. Called with every placement."""
     return tuple(InvitationClosed(e.session, now, student) for e in snapshot.elsewhere
                  if e.invitation.student == student and same_time(e, snapshot))
+
+
+def coach_invites(snapshot: SessionSnapshot, settings: EngineSettings, students: tuple[str, ...],
+                  now: datetime) -> tuple[Effect, ...]:
+    """The coach invites ``students`` by hand (engine-answers rule 15; engine-tiers rule 4; the owner's
+    decision 17). Each is refused with a reason, or sent an invitation of the coach's-list tier at once,
+    marked manual: no bar, no gate of the coach's, no quiet hours, window, toggle or M (it counts toward
+    M, rule 8). Its offer is every open spot type the student's sides fit, a side named only per rule 9;
+    its T is the tier's ``between_groups``, as for a send that leaves the tier nobody to ask
+    (engine-timeline rule 4). A student who holds a row that no longer counts has it reopened (D1).
+    A student the snapshot does not name is the caller's error (``KeyError``)."""
+    counts = spot_counts(snapshot)
+    open_sides = frozenset().union(*(type_sides(t, counts) for t, _ in spot_types(snapshot, counts)))
+    tier = next((i for i, t in enumerate(settings.tiers) if t.source == "coach_list"), None)
+    pair = settings.timing_for(tier) if tier is not None else settings.timing_for(len(settings.tiers))
+    until = timeline.counts_until(settings, now, pair.between_groups)
+    out: list[Effect] = []
+    for sid in dict.fromkeys(students):              # a student named twice is invited once
+        student = snapshot.students[sid]
+        held = snapshot.invitation(sid)
+        offer = student.sides & open_sides
+        reason = ("already_in_class" if snapshot.placement(sid) is not None or sid in {r.id for r in snapshot.regulars}
+                  else "same_hour" if sid in snapshot.busy_same_time
+                  else "already_invited" if held is not None and timeline.counting(held, now)
+                  else "no_open_spot" if not offer else None)
+        if reason is not None:
+            out.append(Refused(snapshot.id, now, sid, "coach_invite", reason))
+            continue
+        fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student), tier, until)
+        if held is not None:
+            out += [Reopened(snapshot.id, now, sid, *fields, manual=True), Message(snapshot.id, now, sid, KIND_INVITE)]
+        else:
+            out.append(Invited(snapshot.id, now, sid, *fields, manual=True))
+    return tuple(out)
 
 
 def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,

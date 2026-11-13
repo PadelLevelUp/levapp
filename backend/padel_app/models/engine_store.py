@@ -9,7 +9,7 @@ no older table does. ``services/engine_store.py`` reads and writes these; nothin
 - ``engine_effects``: every effect applied, once (a unique key per effect), and the outbox the
   messages and pushes are sent from after commit. A retried apply inserts nothing and sends nothing.
 """
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
 
 from padel_app import model
 from padel_app.sql_db import db
@@ -46,6 +46,8 @@ class EngineInvitation(db.Model, model.Model):
     closed_reason = Column(String(16), nullable=True)      # "withdrawn" | "same_hour" | "class_removed"
     reopened_at = Column(DateTime, nullable=True)
     message_ids = Column(JSON, nullable=False, default=list)
+    # PAD-932 (engine-answers rule 15): the coach's invitation by hand, of the coach's-list tier.
+    manual = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
 
 class EngineSession(db.Model, model.Model):

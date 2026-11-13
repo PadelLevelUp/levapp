@@ -15,9 +15,8 @@ below holds as written.** For a session on the new engine the items below hold; 
 Not marked inline: this section is the one place.
 
 The owner, 2026-11-13 (decision 17, PAD-932): a manual invitation on a new-engine class is an engine
-invitation (NM1). Until NM1 is built, NM2 holds: the manual controls are off on a new-engine class. When
-NM1 ships, NM2 goes and its criteria (MANUAL-9 to 11, `dashboard.blocks` DASHBOARD-BLOCKS-59 to 61) are
-amended to bring the controls back.
+invitation (NM1). From the stopgap (PAD-933) until NM1 shipped, the manual controls were off on a new-engine
+class; with NM1 they are back (NM2).
 - **NM1. A manual invitation on a new-engine class is an engine invitation** (the coordinator's rulings
   (a)–(g), 2026-11-13; the owner may veto). It replaces rules 2–4 for a new-engine session. Rules 7, 8 and
   10 hold as written, and rule 9 as restated below.
@@ -54,21 +53,16 @@ amended to bring the controls back.
 - **NM3. An old invitation's Yes on a new-engine class tells the engine.** A Yes on an old-engine
   invitation (a `NotificationEvent`, manual or automatic, sent before the class moved to the new engine)
   that places the student in a new-engine session calls `coach_added` (`services/engine_entry.py`;
-  in `services/notification_service.py`: the student's Yes, `respond_to_notification` / `_record_yes`;
-  the Yes a coach records, `coach_respond_to_notification`; and an old waiting-list Yes,
-  `respond_to_waiting_list`;
+  in `services/notification_service.py`: the student's Yes, `respond_to_notification` / `_record_yes`,
+  and the Yes a coach records, `coach_respond_to_notification`. An old waiting-list Yes
+  (`respond_to_waiting_list`) places nobody: on a new-engine class it already goes to the engine
+  (`sorry_joins_waiting_list`), so it calls nothing here;
   `notifications.engine-answers` rule 10's `CoachAdded`). The engine closes the student's open
   invitations at that hour and replans the session.
-- **NM2. No manual invitation on a new-engine class, until NM1 is built.** For a new-engine session:
-  - `POST /api/app/notify/manual` answers **409** `{"error": "NEW_ENGINE_CLASS", "code":
-    "NEW_ENGINE_CLASS"}` and creates nothing: no event, no message, no push. The check runs after rule 7's
-    ownership and roster checks, as rule 10's does, and `send_manual_notifications` refuses too, so no
-    other caller skips it. An older app that still shows Notificar is refused the same way.
-  - Web (`ClassDetailSheet`) and iOS (the class screen) show no Notificar control, and a `notify=1` link
-    (the dashboard's) opens nothing. They read the class's `engineVersion` (`notifications.config` rule
-    20's field, which the coach's class payloads carry too); a payload with no `engineVersion` reads as
-    `old`. The dashboard card's "Convidar" goes too (`dashboard.blocks` NA5).
-  - An old-engine class keeps Notificar and rules 1–10 as written.
+- **NM2. The manual controls stay on a new-engine class** (PAD-932, ending decision 17's stopgap now that
+  NM1 is built). Web (`ClassDetailSheet`) and iOS (the class screen) show Notificar on a new-engine class
+  as on an old-engine one, and a `notify=1` link opens the picker; the send takes NM1's path. The
+  server no longer answers `NEW_ENGINE_CLASS`. The dashboard's Convidar is back too (`dashboard.blocks` NA5).
   - Today: the route (`modules/notification_engine_api.py` `manual_notify`) and
     `send_manual_notifications` (`services/notification_service.py`) never check the engine, so on a
     new-engine class they write a `NotificationEvent` and an old bubble the engine never reads, and the
@@ -173,22 +167,22 @@ test: `backend/padel_app/tests/test_b619_engine_routes_check_ownership.py` › `
 - **And** the coach can still tick the student
 test: `frontend/apps/mobile/src/features/calendar/notify-modal.declined.test.tsx` › `marks the decliner in the search, not the others, and keeps them selectable`
 
-#### NOTIFICATIONS-MANUAL-9: The server refuses a manual invitation on a new-engine class (new-engine section NM2)
+#### NOTIFICATIONS-MANUAL-9: A manual invitation on a new-engine class takes the engine's path, never the old one (new-engine sections NM1, NM2)
 - **Given** a coach on `new` with a class that has open spots and a student on their roster, and a coach on `old` with the same
 - **When** each coach sends a manual invitation to the student
-- **Then** the first answers 409 `NEW_ENGINE_CLASS` and nothing is stored or sent (no event, no engine invitation, no message, no push); the second invites as today
-- **And** `send_manual_notifications` called directly for the new-engine class raises and stores nothing, and a stranger coach still gets 403 first
-test: `backend/padel_app/tests/test_pad920_manual_new_engine.py` › `test_a_manual_invitation_on_a_new_engine_class_is_refused`
+- **Then** the first answers 200 with `sent: 1` and stores one engine invitation and no `NotificationEvent` (never `NEW_ENGINE_CLASS`); the second invites as today, with a `NotificationEvent`
+- **And** a stranger coach still gets 403 first
+test: `backend/padel_app/tests/test_pad920_manual_new_engine.py` › `test_a_manual_invitation_on_a_new_engine_class_takes_the_engine_path`
 
-#### NOTIFICATIONS-MANUAL-10: The web class panel has no Notificar on a new-engine class (new-engine section NM2)
+#### NOTIFICATIONS-MANUAL-10: The web class panel offers Notificar on a new-engine class (new-engine section NM2)
 - **Given** the coach opens a new-engine class with open spots on web, once directly and once from a link carrying `notify=1`, and an old-engine class the same way
-- **Then** the new-engine class shows no Notificar control and the picker does not open; the old-engine class shows Notificar and `notify=1` opens the picker; a class payload without `engineVersion` behaves as the old-engine one
-test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.manualNewEngine.test.tsx` › `hides Notificar and ignores notify=1 on a new-engine class`
+- **Then** both classes show Notificar (`class-notify-open`) and `notify=1` opens the picker on both
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.manualNewEngine.test.tsx` › `shows Notificar and opens on notify=1 on a new-engine class`
 
-#### NOTIFICATIONS-MANUAL-11: The iOS class screen has no Notificar on a new-engine class (new-engine section NM2)
+#### NOTIFICATIONS-MANUAL-11: The iOS class screen offers Notificar on a new-engine class (new-engine section NM2)
 - **Given** the same classes on iOS
-- **Then** the same holds as on web
-test: `frontend/apps/mobile/src/features/calendar/notify-new-engine.test.tsx` › `hides Notificar and ignores notify=1 on a new-engine class`
+- **Then** the same holds as on web (`class-notify`)
+test: `frontend/apps/mobile/src/features/calendar/notify-new-engine.test.tsx` › `shows Notificar and opens on notify=1 on a new-engine class`
 
 #### NOTIFICATIONS-MANUAL-12: A manual invitation on a new-engine class is a counting engine invitation of the coach's list (new-engine section NM1)
 - **Given** a new-engine class with one open left spot, in quiet hours, before its invitation window and with the class's automatic invitations off, and a left-side student on the coach's roster below the class's bar
@@ -229,8 +223,8 @@ test: `frontend/apps/mobile/src/features/calendar/notify-modal.keyboard-layout.t
   is an open question the lead carries to the owner.
 
 ### Waves
-1. (PAD-933, the stopgap) NM2: MANUAL-9 to 11 — `modules/notification_engine_api.py`, `services/notification_service.py`, web `ClassDetailSheet`, iOS class screen; with `dashboard.blocks` DASHBOARD-BLOCKS-58 to 61. Until wave 2 ships, these are what the code meets.
-2. (PAD-932) NM1, NM3: rule 9 on both engines, MANUAL-12 to 15, with `notifications.engine-answers` ANSWERS-30, 31, `notifications.engine-tiers` TIERS-23 — `services/engine_entry.py` (`coach_invites`), `invitation_engine/requests.py`, `effects.py`, `services/engine_store.py`, the route. It lands together with the amendment that retires NM2 and brings the controls back (MANUAL-9 to 11, DASHBOARD-BLOCKS-59 to 61), never before; until then wave 2's criteria describe the target, not the code.
+1. (PAD-933, the stopgap, retired by wave 2) MANUAL-9 to 11 hid the controls on a new-engine class until NM1.
+2. (PAD-932) NM1, NM2 as amended, NM3: rule 9 on both engines, MANUAL-9 to 15, with `notifications.engine-answers` ANSWERS-30, 31, `notifications.engine-tiers` TIERS-23 and `dashboard.blocks` DASHBOARD-BLOCKS-59 to 61 — `services/engine_entry.py` (`coach_invites`), `invitation_engine/`, `services/engine_store.py`, the route, web `ClassDetailSheet` and the dashboard, iOS class screen and dashboard.
 
 ### Open questions
 - A manual invitation reopens an invitation answered No (NM1; S's reading, PAD-932, 2026-11-13; the owner can
