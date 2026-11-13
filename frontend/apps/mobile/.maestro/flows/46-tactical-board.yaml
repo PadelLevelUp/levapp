@@ -245,10 +245,26 @@ appId: com.padellevelup.app
     env:
       TARGET: "court-surface"
 # The ball moves only during step 2 (step 1 is empty): wait for it rather than read once.
-- extendedWaitUntil:
-    visible:
-      id: "playback-ball"
-    timeout: 8000
+# PAD-710 (Android lane): the whole playback lasts 3.2 s at 0.5x and an emulator hierarchy dump
+# can miss it (run 43517077504: playback over, ball never seen in 8 s), so on Android seeing the
+# ball is optional and only its absence afterwards is asserted; iOS still requires the ball.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "playback-ball"
+          timeout: 8000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "playback-ball"
+          timeout: 8000
+          optional: true
 - extendedWaitUntil:
     notVisible:
       id: "playback-ball"

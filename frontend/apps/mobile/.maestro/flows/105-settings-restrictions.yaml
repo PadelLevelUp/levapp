@@ -47,11 +47,17 @@ onFlowComplete:
     text: "${output.pname}"
 
 # ── One press of + ──
-- scrollUntilVisible:
-    element:
-      id: "restriction-maxSimultaneous-inc"
-    direction: UP
-# PAD-710 (Android lane): the UP scroll stops at a 10 px sliver under the header, so + is mistapped and the value is off screen (nightly 10 Nov, run 42802792484); bring the value row to the centre.
+# PAD-710 (Android lane): on Android the plain UP scroll stops at a 10 px sliver under the header
+# (nightly 10 Nov, run 42802792484) or never counts + as fully visible (run 43517077504), so it is
+# iOS-only; Android brings the value row to the centre instead.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "restriction-maxSimultaneous-inc"
+          direction: UP
 - runFlow:
     when:
       platform: Android

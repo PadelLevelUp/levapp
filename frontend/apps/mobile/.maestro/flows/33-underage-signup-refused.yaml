@@ -14,15 +14,20 @@ appId: com.padellevelup.app
 # The backend the API checks hit: Maestro -e API_BASE=http://localhost:<port> for an
 # isolated backend; the shared test backend on :5001 otherwise.
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
-- launchApp:
-    clearState: true
 - evalScript: ${output.stamp = String(Date.now())}
 - evalScript: ${output.year = String(new Date().getFullYear() - 10)}
 - evalScript: ${output.username = 'maestro-minor-' + output.stamp}
-- extendedWaitUntil:
-    visible:
-      id: "login-create-account"
-    timeout: 25000
+# PAD-710 (Android lane): the clearState launch can leave a blank splash (run 43505514297, shard 1:
+# only the system bars in the hierarchy); relaunch until the login screen shows, as flow 45 does.
+- retry:
+    maxRetries: 3
+    commands:
+      - launchApp:
+          clearState: true
+      - extendedWaitUntil:
+          visible:
+            id: "login-create-account"
+          timeout: 20000
 - tapOn:
     id: "login-create-account"
 - extendedWaitUntil:
