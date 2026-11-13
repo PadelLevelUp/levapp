@@ -26,9 +26,13 @@ tests (PAD-930).
    frontend checks, names the active version and its path, prints the fix (`nvm install <version>`),
    and fails. A Node 25 or newer is never accepted. Another 24.x is accepted with a note.
 3. **The gate says which Node it used** on the line before the frontend steps.
+4. **A changed spec is validated.** When a push changes a file under `specflow/` other than the
+   generated `INDEX.md`, and `cortex` is on `PATH`, the gate runs `cortex validate` and fails if
+   it reports an error naming one of those files. Errors in files the push did not change do not
+   fail it.
 
 ### Not this spec
-- Which files trigger which check, and the backend and cortex checks.
+- Which other files trigger which check, and the backend and cortex store checks.
 - The `[skip-prepush: <reason>]` escape hatch (see `.githooks/README.md`).
 
 ### Acceptance Criteria
@@ -45,6 +49,12 @@ tests (PAD-930).
 - **When** the gate runs for a `frontend/` change
 - **Then** it names the missing version, prints `nvm install <version>`, runs no frontend step and
   exits non-zero
+
+#### DELIVERY-PREPUSH-3: A changed spec is validated
+- **Given** a push that changes a file under `specflow/` (not `INDEX.md`), and `cortex` on `PATH`
+- **When** the gate runs
+- **Then** a `cortex validate (changed files)` step runs, and a validation error naming that file
+  fails the gate and names the file; a push that changes only `specflow/INDEX.md` runs no such step
 
 ### Open questions
 - Should CI read `.nvmrc` (`node-version-file`) so the two cannot drift? Not in this change.
