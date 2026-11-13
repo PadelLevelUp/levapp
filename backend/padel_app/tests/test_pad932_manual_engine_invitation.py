@@ -138,32 +138,36 @@ def test_what_a_manual_invitation_on_a_new_engine_class_refuses(app, client):
     from padel_app.models.players import Player
     from padel_app.models.presences import Presence
 
-    store, (s, other), pids = _seed(app, starts=(START, START), players=6, side="right", capacity=2)
-    regular, holder, elsewhere, left_only, blocker, _ = pids
+    from padel_app.models import NotificationEvent
+
+    store, (s, other), pids = _seed(app, starts=(START, START), players=7, side="right", capacity=2)
+    regular, holder, elsewhere, left_only, blocker, spare, old_holder = pids
     _quiet_closed_and_off(store, s)          # the engine's own re-plan sends nothing: only the manual path is under test
     level = store.snapshot(s).level
     with store.unit((s,)):
         store.apply([fx.Invited(s, NOW, holder, frozenset({SpotType("R", level)}), None, 0,
                                 NOW + timedelta(minutes=30))])
+    db.session.add(NotificationEvent(coach_id=store.coach_of(s), lesson_instance_id=int(s),
+                                     player_id=int(old_holder), type="manual", round_number=1, status="sent"))
     db.session.add(Presence(lesson_instance_id=int(other), player_id=int(elsewhere), status="present"))
     Association_CoachPlayer.query.filter_by(player_id=int(left_only)).one().side = "left"
     db.session.get(Player, int(blocker)).user.notif_block_manual_invitations = True
     db.session.commit()
 
-    res = _notify(client, store, s, [holder, regular, elsewhere, left_only, blocker])
+    res = _notify(client, store, s, [holder, old_holder, regular, elsewhere, left_only, blocker])
     assert res.status_code == 200, res.get_json()
     body = res.get_json()
     assert body["sent"] == 0
     causes = {b["playerId"]: b.get("cause") for b in body["blocked"]}
     assert {k: v for k, v in causes.items() if k != int(blocker)} == {
-        int(holder): "already_invited", int(regular): "already_in_class",
+        int(holder): "already_invited", int(old_holder): "already_invited", int(regular): "already_in_class",
         int(elsewhere): "same_hour", int(left_only): "no_open_spot"}
     assert int(blocker) in causes                               # today's preference cause
     assert _rows(s, holder) == 1
-    assert [p for p in (regular, elsewhere, left_only, blocker) if _row(s, p) is not None] == []
-    assert _old_events(s) == 0
+    assert [p for p in (regular, elsewhere, left_only, blocker, old_holder) if _row(s, p) is not None] == []
+    assert _old_events(s) == 1                                  # only the old holder's own event
 
-    db.session.add(Presence(lesson_instance_id=int(s), player_id=int(pids[5]), status="present",
+    db.session.add(Presence(lesson_instance_id=int(s), player_id=int(spare), status="present",
                             assigned_side="right"))
     db.session.commit()
     full = _notify(client, store, s, [left_only])
@@ -227,10 +231,10 @@ def test_an_old_invitations_yes_on_a_new_engine_class_tells_the_engine(app):
     assert (elsewhere.closed_reason, elsewhere.closed_at is not None) == ("same_hour", True)
 
 
-@pytest.mark.criterion("NOTIFICATIONS-MANUAL-1")
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-13")
 def test_a_counting_engine_invitation_is_not_invited_twice_by_hand(app, client):
-    """The new-engine half of MANUAL-1 (rule 9 as NM1 restates it); the old-engine half is
-    test_pad612_repeated_notifications."""
+    """Rule 9 on a new-engine class (NM1): the student holding a counting engine invitation is named,
+    the other is invited."""
     store, (s,), (_, ana, bruno) = _seed(app, players=3, side="right", capacity=3)
     level = store.snapshot(s).level
     with store.unit((s,)):
