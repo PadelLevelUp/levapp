@@ -9,11 +9,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Minus, Plus, X } from "lucide-react";
 import {
   CLASS_REQUEST_DURATIONS,
   FIRST_FREE_DAY_HORIZON_DAYS,
   MAX_REQUEST_CLASSES,
+  stepEndCount,
   clubTodayISO,
   endDateAfterClasses,
   firstFreeDay,
@@ -75,9 +76,6 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   const [endDate, setEndDate] = useState(addDaysIso(today, 28));
   const [endMode, setEndMode] = useState<EndMode>("date");
   const [endCount, setEndCount] = useState(DEFAULT_END_COUNT);
-  // The field's own text: it may be empty while the student retypes it ("4" -> "" -> "3"),
-  // which the numeric count cannot be. Blur puts back the last valid count.
-  const [endCountText, setEndCountText] = useState(String(DEFAULT_END_COUNT));
 
   // ── Slot ──
   const [duration, setDuration] = useState<number>(60);
@@ -322,71 +320,72 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               <Input id="wizard-start-date" type="date" min={today} value={startDate} data-testid="wizard-start-date" onChange={(e) => setStartDate(e.target.value)} />
             </div>
 
-            {/* Rule 14a (PAD-428): the two ways a weekly request can end, like a calendar app. */}
-            <div className="space-y-2" role="radiogroup" aria-label={t("classRequestWizard.endDate")}>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={endMode === "date"}
-                  data-testid="request-end-mode-date"
-                  onClick={() => setEndMode("date")}
-                  className={cn(
-                    "h-4 w-4 shrink-0 rounded-full border-2",
-                    endMode === "date" ? "border-primary bg-primary" : "border-muted-foreground bg-background"
-                  )}
-                />
-                <Label htmlFor="wizard-end-date" className="text-xs shrink-0">{t("classRequestWizard.endMode.date")}</Label>
+            {/* Rule 14a (PAD-428, PAD-926): the two ways a weekly request can end, as a segmented control. */}
+            <div className="space-y-2">
+              <div
+                role="radiogroup"
+                aria-label={t("classRequestWizard.endDate")}
+                className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1"
+              >
+                {(["date", "count"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={endMode === mode}
+                    data-testid={`request-end-mode-${mode}`}
+                    onClick={() => setEndMode(mode)}
+                    className={cn(
+                      "h-8 rounded px-2 text-xs font-medium",
+                      endMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                    )}
+                  >
+                    {t(`classRequestWizard.endMode.${mode}`)}
+                  </button>
+                ))}
+              </div>
+              {endMode === "date" ? (
                 <Input
                   id="wizard-end-date"
                   type="date"
                   min={startDate}
                   value={endDate}
-                  disabled={endMode !== "date"}
+                  aria-label={t("classRequestWizard.endMode.date")}
                   data-testid="wizard-end-date"
-                  onFocus={() => setEndMode("date")}
-                  onChange={(e) => {
-                    setEndMode("date");
-                    setEndDate(e.target.value);
-                  }}
+                  onChange={(e) => setEndDate(e.target.value)}
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={endMode === "count"}
-                  data-testid="request-end-mode-count"
-                  onClick={() => setEndMode("count")}
-                  className={cn(
-                    "h-4 w-4 shrink-0 rounded-full border-2",
-                    endMode === "count" ? "border-primary bg-primary" : "border-muted-foreground bg-background"
-                  )}
-                />
-                <Label htmlFor="wizard-end-count" className="text-xs shrink-0">{t("classRequestWizard.endMode.count")}</Label>
-                <Input
-                  id="wizard-end-count"
-                  type="number"
-                  min={1}
-                  max={MAX_REQUEST_CLASSES}
-                  step={1}
-                  value={endCountText}
-                  disabled={endMode !== "count"}
-                  data-testid="request-end-count"
-                  className="w-20"
-                  onFocus={() => setEndMode("count")}
-                  onChange={(e) => {
-                    setEndMode("count");
-                    setEndCountText(e.target.value);
-                    const n = Math.round(Number(e.target.value));
-                    if (e.target.value.trim() !== "" && Number.isFinite(n)) {
-                      setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
-                    }
-                  }}
-                  onBlur={() => setEndCountText(String(endCount))}
-                />
-                <span className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</span>
-              </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    aria-label={t("classRequestWizard.countDecrease")}
+                    data-testid="request-end-count-dec"
+                    disabled={endCount <= 1}
+                    onClick={() => setEndCount((n) => stepEndCount(n, -1))}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-8 text-center text-base font-semibold" data-testid="request-end-count" aria-live="polite">
+                    {endCount}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    aria-label={t("classRequestWizard.countIncrease")}
+                    data-testid="request-end-count-inc"
+                    disabled={endCount >= MAX_REQUEST_CLASSES}
+                    onClick={() => setEndCount((n) => stepEndCount(n, 1))}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</span>
+                </div>
+              )}
               {endMode === "count" && (
                 <p className="text-xs text-muted-foreground" data-testid="request-end-count-last-date">
                   {computedEndDate
