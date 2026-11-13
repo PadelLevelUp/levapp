@@ -27,7 +27,7 @@ import { AnswerButtons, DeclineButton } from "./AnswerButtons";
 import { ComeBackSlot } from "./ComeBackSlot";
 import { useAnswerReminder } from "./useAnswerReminder";
 import { useDeclineFromDashboard } from "./useDeclineFromDashboard";
-import { studentRowAction, weekdayShort } from "@levelup/config";
+import { manualInviteClosed, studentRowAction, weekdayShort } from "@levelup/config";
 
 type Row = DashboardSchedule7dBlock["data"]["items"][number];
 
@@ -97,7 +97,10 @@ export function Schedule7Days({
         <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-border bg-border [container-type:inline-size]">
           {items.map((row) => {
             // PAD-792 (rule 12b): no Convidar once the class has started.
-            const short = row.capacity > 0 && row.filled < row.capacity && !row.inProgress;
+            // PAD-933 (DASHBOARD-BLOCKS-61): nor on a new-engine class, whose manual invites do
+            // not go through the engine yet; the seats badge stays.
+            const short =
+              row.capacity > 0 && row.filled < row.capacity && !row.inProgress && !manualInviteClosed(row.engineVersion);
             // PAD-570 (dashboard.blocks rule 3a): Yes / No only while the server says
             // asked; one "Avisar que não vou" before that or after a yes; a hint after a no.
             const action = student ? studentRowAction(row) : "none";

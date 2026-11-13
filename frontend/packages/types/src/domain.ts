@@ -1096,6 +1096,10 @@ export interface DashboardNeedsYouEmptySeats {
   filled: number;
   capacity: number;
   href: string;
+  /** PAD-933 (DASHBOARD-BLOCKS-58): the class's engine; absent on older servers, read as `old`. */
+  engineVersion?: "old" | "new";
+  /** PAD-933 (DASHBOARD-BLOCKS-58): new engine only, the class's counting invitations. */
+  pendingInvites?: number;
 }
 
 /** An unread inbound message — one per conversation, most recent first. */
@@ -1233,6 +1237,8 @@ export interface DashboardSchedule7dBlock {
       inProgress: boolean;
       /** PAD-425: coach rows only, the class with Notificar/Convidar open (the empty-seats link). */
       inviteHref?: string;
+      /** PAD-933 (DASHBOARD-BLOCKS-61): the class's engine; absent on older servers, read as `old`. */
+      engineVersion?: "old" | "new";
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
