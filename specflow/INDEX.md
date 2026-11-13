@@ -5155,7 +5155,7 @@ Untagged tests: 4267
   - **NOTIFICATIONS-INVITATIONS-128** Cancelling a new-engine class closes its invitations the same way (new-engine section NB1a, NB5)
     - test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › test_cancelling_a_new_engine_class_withdraws_its_open_invitations
 - spec **notifications.manual** (`specflow/impl/notifications/manual.spec.md`)
-  - **NOTIFICATIONS-MANUAL-1** A student holding a live invitation is not invited twice, on either engine (rule 9, PAD-620, PAD-932)
+  - **NOTIFICATIONS-MANUAL-1** A student holding a live invitation is not invited twice (rule 9, PAD-620)
     - test: `backend/padel_app/tests/test_pad612_repeated_notifications.py` › test_a_second_manual_notify_does_not_stack_a_second_live_invitation
     - test: `backend/padel_app/tests/test_pad612_repeated_notifications.py` › test_the_manual_notify_route_names_a_student_who_already_holds_an_invitation
     - test: `backend/padel_app/tests/test_pad612_repeated_notifications.py` › test_a_queued_invitation_counts_as_live_for_the_manual_skip

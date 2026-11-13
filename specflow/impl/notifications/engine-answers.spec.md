@@ -22,7 +22,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
 
 ### Rules
 1. **Yes, and there is room (§7, D20).** The Yes succeeds when `class_empty > 0` and a spot of a type
-   the offer counts for is open (`notifications.engine-planning` rule 4); the student is placed within
+   the offer fits is open (`notifications.engine-planning` rule 4); the student is placed within
    the offer. **A named side binds:** a student told "right side" is placed on the right or not at all.
 2. **Where an either-side offer places them (D7, D6).** On their own side if it is open, even from the
    waiting list, even when the other side is harder to fill. A {left, right} student goes on the side
@@ -101,13 +101,22 @@ Stated as observable records; storage is the engine package's (PAD-902).
       playable sides fit (`no_open_spot`), when they are in the session (`already_in_class`) or placed at
       the same hour (`same_hour`, rule 10), or when they hold a counting invitation for it
       (`already_invited`);
-    - else emits `Invited` (or `Reopened` for a row that stopped counting, was answered No or sorry, or was
-      withdrawn; D1) with the coach's-list tier, `manual` true, the offer every open spot type their sides
-      fit, no eligibility bar and none of the coach's gates (`notifications.engine-tiers` rule 4), and the
-      counting-until instant of `notifications.engine-timeline` rule 4 for that tier.
+    - else emits `Invited`, or `CoachReopened` for an existing row (D1: one per student): a row that
+      stopped counting, was answered No or sorry, was withdrawn, or was closed `same_hour` or
+      `class_removed` while the student is no longer busy. Either carries the coach's-list tier, `manual`
+      true, the offer every open spot type their sides fit, and the counting-until instant
+      `notifications.engine-timeline` rule 4 gives a hand invitation. It skips the eligibility bar, the
+      coach's gates, "said No for this session", the coach's own exclusions (rule 14's `CoachExcludes`
+      and semi-automatic's removed set) and postponement (`notifications.engine-tiers` rules 4, 10): the
+      coach chose the student by hand.
     It sends at once: quiet hours, the invitation window and the class's automatic toggle do not hold it,
-    and M does not cap it, though it counts toward M (`notifications.engine-planning` rules 3, 8). The
-    store writes `manual` on the `invitations` row. The invitation is then like any other: answered by
+    and neither M nor a budget caps it, though it counts toward M and fills a type
+    (`notifications.engine-planning` rules 3, 4, 8). In semi-automatic mode it needs no approval and
+    changes no group's approval (`notifications.engine-planning` rule 14). The store writes `manual` on
+    the `invitations` row; on `CoachReopened` it clears `answer`, `answered_at`, `answered_by`, `sorry_at`,
+    `closed_at` and `closed_reason`, sets `reopened_at`, and sends the ordinary invitation message (not the
+    waiting-list one). A reader shows a `manual` row with `tierSource` null, whatever its tier
+    (`calendar.event-detail` ND1). The invitation is then like any other: answered by
     rules 1–4 on the engine route, counted by the planner, one type's budget (`notifications.engine-planning`
     rule 4).
 
@@ -314,8 +323,9 @@ test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coa
 Given a session with one open right spot and students: one left-only, one in the session, one placed at the
 same hour, one holding a counting invitation, one whose invitation stopped counting and one who said No,
 when the engine handles `CoachInvites` for all six, then the first four get `no_open_spot`,
-`already_in_class`, `same_hour` and `already_invited` with no effect, and the last two get `Reopened` with
-the coach's-list tier and `manual`, one row each.
+`already_in_class`, `same_hour` and `already_invited` with no effect, and the last two get `CoachReopened`
+with the coach's-list tier and `manual`, one row each; once the store applies it, each row has no answer,
+no `sorry_at`, no `closed_at`, a `reopened_at`, counts again, and shows `tierSource` null and outcome `pending`.
 test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coach_invitation_refuses_with_a_reason_or_reopens`
 
 ### Waves
