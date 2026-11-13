@@ -36,6 +36,10 @@ const TAGGED = [
   "319-new-engine-settings",
   "320-new-engine-invitee-outcome",
   "321-new-engine-invite-bubble",
+  // PAD-710: tagged android-open-defect (Android product bugs in the thread's landing/scroll).
+  "09-direct-messages",
+  "103-thread-lands-on-target-message",
+  "114-thread-opens-at-first-unread",
 ];
 
 describe("the committed shard file (rule 3)", () => {
