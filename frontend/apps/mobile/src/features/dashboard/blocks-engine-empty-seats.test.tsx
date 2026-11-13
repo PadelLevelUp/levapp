@@ -68,10 +68,10 @@ describe("PAD-933 the iOS empty-seats card on a new-engine class (dashboard.bloc
 
     // New engine, 5 pending: no Convidar, the pending line in the coach's words, "Mais tarde" stays.
     const engine = await mount(seats({ engineVersion: "new", pendingInvites: 5 }));
-    expect(engine.queryByTestId(`needs-you-empty-seats-invite-${id}`)).toBeNull();
+    expect(engine.queryByTestId(`needs-you-invite-${id}`)).toBeNull();
     const pendingWords = ptT("dashboard.needsYou.emptySeats.pending", { count: 5 });
     expect(pendingWords).not.toBe("dashboard.needsYou.emptySeats.pending");
-    expect(text(engine.byTestId(`needs-you-empty-seats-pending-${id}`))).toBe(pendingWords);
+    expect(text(engine.byTestId(`needs-you-pending-${id}`))).toBe(pendingWords);
     expect(pendingWords).toContain("5");
     await engine.press("needs-you-later");
     expect(snooze).toHaveBeenCalledWith(id, expect.anything());
@@ -79,13 +79,13 @@ describe("PAD-933 the iOS empty-seats card on a new-engine class (dashboard.bloc
 
     // One pending reads singular.
     const one = await mount(seats({ engineVersion: "new", pendingInvites: 1 }));
-    expect(text(one.byTestId(`needs-you-empty-seats-pending-${id}`))).toBe(ptT("dashboard.needsYou.emptySeats.pending", { count: 1 }));
+    expect(text(one.byTestId(`needs-you-pending-${id}`))).toBe(ptT("dashboard.needsYou.emptySeats.pending", { count: 1 }));
     one.root.unmount();
 
     // None pending: no line, still no Convidar.
     const none = await mount(seats({ engineVersion: "new", pendingInvites: 0 }));
-    expect(none.queryByTestId(`needs-you-empty-seats-pending-${id}`)).toBeNull();
-    expect(none.queryByTestId(`needs-you-empty-seats-invite-${id}`)).toBeNull();
+    expect(none.queryByTestId(`needs-you-pending-${id}`)).toBeNull();
+    expect(none.queryByTestId(`needs-you-invite-${id}`)).toBeNull();
     none.root.unmount();
 
     // Old engine, and an item without engineVersion (an older server): today's card, Convidar opens
@@ -93,8 +93,8 @@ describe("PAD-933 the iOS empty-seats card on a new-engine class (dashboard.bloc
     for (const fields of [{ engineVersion: "old" as const }, {}]) {
       push.mockClear();
       const old = await mount(seats(fields));
-      expect(old.queryByTestId(`needs-you-empty-seats-pending-${id}`)).toBeNull();
-      await old.press(`needs-you-empty-seats-invite-${id}`);
+      expect(old.queryByTestId(`needs-you-pending-${id}`)).toBeNull();
+      await old.press(`needs-you-invite-${id}`);
       expect(push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/class/[id]" }));
       old.root.unmount();
     }

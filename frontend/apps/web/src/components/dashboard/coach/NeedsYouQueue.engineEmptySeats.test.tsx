@@ -44,26 +44,39 @@ describe("the empty-seats card on a new-engine class (PAD-933)", () => {
     const id = "lessoninstance-783";
     // New engine, 5 pending: the count on the detail line, no Convidar, Mais tarde stays.
     show(card({ engineVersion: "new", pendingInvites: 5 }));
-    expect(screen.getByTestId(`needs-you-empty-seats-pending-${id}`)).toHaveTextContent(
+    expect(screen.getByTestId(`needs-you-pending-${id}`)).toHaveTextContent(
       "dashboard.needsYou.emptySeats.pending:5",
     );
-    expect(screen.queryByTestId(`needs-you-empty-seats-invite-${id}`)).toBeNull();
+    expect(screen.queryByTestId(`needs-you-invite-${id}`)).toBeNull();
     expect(screen.getByTestId("needs-you-later")).toBeInTheDocument();
     cleanup();
 
     // New engine, nothing pending: no pending line, still no Convidar.
     show(card({ engineVersion: "new", pendingInvites: 0 }));
-    expect(screen.queryByTestId(`needs-you-empty-seats-pending-${id}`)).toBeNull();
-    expect(screen.queryByTestId(`needs-you-empty-seats-invite-${id}`)).toBeNull();
+    expect(screen.queryByTestId(`needs-you-pending-${id}`)).toBeNull();
+    expect(screen.queryByTestId(`needs-you-invite-${id}`)).toBeNull();
     cleanup();
 
     // Old engine, and an item without engineVersion: Convidar as today, no pending line.
     for (const item of [card({ engineVersion: "old" }), card({})]) {
       show(item);
-      expect(screen.getByTestId(`needs-you-empty-seats-invite-${id}`)).toHaveTextContent(
+      expect(screen.getByTestId(`needs-you-invite-${id}`)).toHaveTextContent(
         "dashboard.needsYou.emptySeats.invite:3",
       );
-      expect(screen.queryByTestId(`needs-you-empty-seats-pending-${id}`)).toBeNull();
+      expect(screen.queryByTestId(`needs-you-pending-${id}`)).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("[DASHBOARD-BLOCKS-59] only the card itself carries the needs-you-empty-seats- id prefix", () => {
+    // The E2E specs count cards with [data-testid^="needs-you-empty-seats-"] (B-030, PAD-285,
+    // PAD-424, PAD-740); an id inside the card on the same prefix counts twice.
+    for (const item of [card({ engineVersion: "new", pendingInvites: 5 }), card({ engineVersion: "old" })]) {
+      show(item);
+      const ids = [...document.querySelectorAll('[data-testid^="needs-you-empty-seats-"]')].map((el) =>
+        el.getAttribute("data-testid"),
+      );
+      expect(ids).toEqual([`needs-you-empty-seats-${item.id}`]);
       cleanup();
     }
   });

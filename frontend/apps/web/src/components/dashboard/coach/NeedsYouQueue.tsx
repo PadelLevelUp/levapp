@@ -195,7 +195,7 @@ function EmptySeatsCard({
           })}
           {/* PAD-933 (DASHBOARD-BLOCKS-59): on a new-engine class, the engine's pending invitations. */}
           {pending > 0 && (
-            <span data-testid={`needs-you-empty-seats-pending-${item.id}`}>
+            <span data-testid={`needs-you-pending-${item.id}`}>
               {" · "}
               {t("dashboard.needsYou.emptySeats.pending", { count: pending })}
             </span>
@@ -209,7 +209,7 @@ function EmptySeatsCard({
         {!manualClosed && (
           <Button
             className="h-11 flex-1 lg:h-10"
-            data-testid={`needs-you-empty-seats-invite-${item.id}`}
+            data-testid={`needs-you-invite-${item.id}`}
             onClick={() => navigate(item.href)}
           >
             {t("dashboard.needsYou.emptySeats.invite", { count: item.seatsMissing })}

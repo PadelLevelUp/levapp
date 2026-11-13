@@ -790,7 +790,7 @@ function EmptySeatsCard({ item: it }: { item: DashboardNeedsYouEmptySeats }) {
           {pending > 0 ? (
             <>
               {" · "}
-              <Text testID={`needs-you-empty-seats-pending-${it.id}`}>
+              <Text testID={`needs-you-pending-${it.id}`}>
                 {t("dashboard.needsYou.emptySeats.pending", { count: pending })}
               </Text>
             </>
@@ -801,7 +801,7 @@ function EmptySeatsCard({ item: it }: { item: DashboardNeedsYouEmptySeats }) {
         {engineOwned ? null : (
           <Button
             className="flex-1"
-            testID={`needs-you-empty-seats-invite-${it.id}`}
+            testID={`needs-you-invite-${it.id}`}
             onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}
           >
             <Text className="font-sans-semibold text-primary-foreground">
