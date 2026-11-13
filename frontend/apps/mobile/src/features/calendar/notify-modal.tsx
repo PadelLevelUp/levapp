@@ -4,6 +4,7 @@ import {
   blockedReasons,
   coachDisplayName,
   lightTheme,
+  notificationGroupLabel,
   runManualInviteFlow,
   searchRoster,
   shouldReportSent,
@@ -336,6 +337,8 @@ export function NotifyModal({
               (groups ?? []).map((group) => {
                 const isExpanded = expandedGroups.has(group.id);
                 const allSel = isGroupAllSelected(group);
+                // PAD-838 (notifications.groups rule 7): a default label in the coach's language.
+                const label = notificationGroupLabel(group, t);
                 return (
                   <View
                     key={group.id}
@@ -345,13 +348,13 @@ export function NotifyModal({
                       <Checkbox
                         testID={`notify-group-select-${group.id}`}
                         accessibilityLabel={t("calendar.notify.selectAllIn", {
-                          group: group.label,
+                          group: label,
                         })}
                         checked={allSel}
                         onCheckedChange={() => toggleGroup(group)}
                       />
                       <Pressable
-                        accessibilityLabel={group.label}
+                        accessibilityLabel={label}
                         role="button"
                         onPress={() => toggleExpanded(group.id)}
                         className="min-w-0 flex-1 flex-row items-center gap-1.5"
@@ -360,7 +363,7 @@ export function NotifyModal({
                           className="flex-1 text-sm font-medium"
                           numberOfLines={1}
                         >
-                          {group.label}
+                          {label}
                         </Text>
                         <Text className="text-xs text-muted-foreground">
                           ({group.players.length})
