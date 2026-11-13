@@ -27,35 +27,29 @@ describe("formatConversationTimestamp (PAD-98)", () => {
     );
   });
 
-  it("shows a weekday abbreviation for a message within the last week (EN)", () => {
-    // 2026-07-23 is a Thursday, 4 days before the reference Monday.
+  it("[MESSAGING-CONVERSATIONS-33] shows the day and month, no year, for an earlier message this year (EN)", () => {
+    // 2026-07-23 is 4 days before the reference, 2026-07-01 is 26: both read as day and month.
+    const thursday = new Date(2026, 6, 23, 12, 0, 0).toISOString();
+    const older = new Date(2026, 6, 1, 12, 0, 0).toISOString();
+    const opts = { language: "en", yesterdayLabel: "Yesterday", now: NOW };
+    expect(formatConversationTimestamp(thursday, opts)).toBe("23 Jul");
+    expect(formatConversationTimestamp(older, opts)).toBe("1 Jul");
+  });
+
+  it("[MESSAGING-CONVERSATIONS-33] localizes the month for PT", () => {
     const thursday = new Date(2026, 6, 23, 12, 0, 0).toISOString();
     expect(
-      formatConversationTimestamp(thursday, { language: "en", yesterdayLabel: "Yesterday", now: NOW }),
-    ).toBe("Thu");
+      formatConversationTimestamp(thursday, { language: "pt", yesterdayLabel: "Ontem", now: NOW }),
+    ).toBe("23 jul");
   });
 
-  it("localizes the weekday abbreviation for PT", () => {
-    const thursday = new Date(2026, 6, 23, 12, 0, 0).toISOString();
-    const out = formatConversationTimestamp(thursday, {
-      language: "pt",
-      yesterdayLabel: "Ontem",
-      now: NOW,
-    });
-    // PT weekday abbreviations are not the English ones.
-    expect(out).not.toBe("Thu");
-    expect(out.length).toBeGreaterThan(0);
-  });
-
-  it("shows a short date for messages older than a week", () => {
-    // 2026-07-01 is 26 days before the reference — older than a week.
-    const older = new Date(2026, 6, 1, 12, 0, 0).toISOString();
-    const out = formatConversationTimestamp(older, {
-      language: "en",
-      yesterdayLabel: "Yesterday",
-      now: NOW,
-    });
-    // Short localized date contains the year.
-    expect(out).toMatch(/2026/);
+  it("[MESSAGING-CONVERSATIONS-33] adds the year for a message from an earlier year", () => {
+    const lastYear = new Date(2025, 11, 31, 12, 0, 0).toISOString();
+    expect(
+      formatConversationTimestamp(lastYear, { language: "en", yesterdayLabel: "Yesterday", now: NOW }),
+    ).toBe("31 Dec 2025");
+    expect(
+      formatConversationTimestamp(lastYear, { language: "pt", yesterdayLabel: "Ontem", now: NOW }),
+    ).toBe("31 dez 2025");
   });
 });

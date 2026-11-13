@@ -31,10 +31,19 @@ describe("lightImpact", () => {
     expect(impactAsync).toHaveBeenCalledWith("light");
   });
 
-  it("swallows a failing impact (never an unhandled rejection)", async () => {
-    lookup.mockReturnValue({ impactAsync: () => Promise.reject(new Error("no engine")) });
-    expect(() => lightImpact()).not.toThrow();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  it("[MESSAGING-CONVERSATION-DETAIL-27] a rejected haptic never throws and never goes unhandled", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      lookup.mockReturnValue({ impactAsync: () => Promise.reject(new Error("no engine")) });
+      expect(() => lightImpact()).not.toThrow();
+      // Node reports an unhandled rejection after the microtask queue drains: wait past it.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
   });
 });
 
