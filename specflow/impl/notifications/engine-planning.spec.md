@@ -41,7 +41,11 @@ Stated as observable records; storage is the engine package's (PAD-902).
    at the class's level. It fits a current spot type when it contains a side the type needs (`must(v)`: v;
    `either`: any v with `open(v) > 0`). **A counting invitation fills one type's budget only** (decision
    16, reversing D20's "counts for both"): the type it covers in the cover phase, else the type this run
-   sent it for, else the first type in the run's order (rule 5) whose budget it fits and still has room.
+   sent it for, else the first type in the run's order (rule 5) whose budget it fits and still has room;
+   holders whose offer fits one type only are assigned before flexible ones, so a flexible holder goes
+   where no single-side holder can. Below, an invitation **fits** a type when its offer contains a side
+   the type needs (candidacy, coverage, a Yes, postponing), and **fills** a type when it uses that
+   type's budget (every budget comparison).
    So a {left, right} student sent for either side fills one side's budget, and 3 open spots at X = 3
    take 9 counting invitations, not 6. A right-sider sent to play left fits the left type only. Because
    types are recomputed every run (D8), an offer is matched against the types of each run, never stored
@@ -55,11 +59,11 @@ Stated as observable records; storage is the engine package's (PAD-902).
      goes to the type whose ideal tier comes earlier in the order, and with the same ideal tier,
      rule 13). It sends at least one distinct person per uncovered spot, and up to D17's budget for
      those spots (X per spot at the type's ideal tier, else const:LOWER_TIER_PER_SPOT), counting the
-     invitations whose offer already counts for the type.
+     invitations that already fill the type (rule 4).
    - **Top up.** Only then are the covered types topped up to their budgets (rule 6), tiers in order.
    In each phase, in each tier, for each type in that order:
    1. **Candidates.** Students who pass the gates and the tier's rules for the type and either hold a
-      counting invitation whose offer counts for it (rule 4), or are not yet invited (D8), or hold an
+      counting invitation whose offer fits it (rule 4), or are not yet invited (D8), or hold an
       invitation answered "sorry" (`notifications.engine-answers` rule 4), are on this session's
       waiting list and fit the type — a candidate of that list's tier only.
       Postponed students are not candidates (`notifications.engine-tiers` rule 10).
@@ -82,11 +86,13 @@ Stated as observable records; storage is the engine package's (PAD-902).
    const:LOWER_TIER_PER_SPOT, at once, rising to X the moment it becomes the ideal tier (its better
    tier's invitations stopped counting or said No). Nothing sent is taken back.
 7. **Better fits come first, within the budget and M (D10).** A better-tier candidate who becomes
-   available is invited when the type's counting invitations are below its budget and the session
+   available is invited when the invitations filling the type (rule 4) are below its budget and the session
    below M, else as soon as there is room. Lower tiers' invitations stay open. This is also how a
    postponed student (`notifications.engine-tiers` rule 10) is invited once free.
 8. **M caps the session (D16).** A new invitation goes out only while the session's counting
-   invitations are below M **and** the type's counting invitations are below its budget (rule 5.3).
+   invitations are below M **and** the invitations filling the type (rule 4) are below its budget (rule
+   5.3). One exception: a coach's invitation by hand (`notifications.engine-answers` rule 15) is not
+   capped by M or by a budget, though it counts toward M and fills a type like any other.
 9. **The message names a side only when it is outside the student's subset (D11).** A {left, right}
    student is never told a side. Waiting-list invitations follow the same rule.
 10. **Never revoked (D4).** An invitation stays open until the student answers or the class starts. No
@@ -95,7 +101,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
     same hour (`notifications.engine-tiers` rule 3), their open invitations for other sessions at that
     hour close (`notifications.engine-answers` rule 10); a student cannot play two sessions at once.
 11. **Nobody left (§6 step 4).** When a spot type has uncovered spots and **no candidate in any tier**
-    (no counting invitation counts for it and no uninvited student fits it), the run emits a
+    (no counting invitation fits it and no uninvited student fits it), the run emits a
     const:COACH_ALERT for the session. The alert carries a reason code (const:ALERT_NO_CANDIDATE, the
     only one), the spot type (its side, none for an either spot, and its level) and how many spots of
     that type are uncovered; never text. The store keeps one alert per session and type until the
@@ -458,9 +464,16 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 7. (PAD-916) PLANNING-32 — the store (one invitation per student and session, `StoreConflict`).
 8. (Owner decisions, PAD-915) PLANNING-26, PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-38 again, PLANNING-41 to PLANNING-43 — `invitation_engine/planner.py`, `requests.py`, `effects.py` (per-group approval, reopening from the waiting list).
 
+#### NOTIFICATIONS-ENGINE-PLANNING-47: Single-side holders fill budgets before a flexible one (rule 4)
+Given must(L) 1 and must(R) 1 at X = 3, the left type the hardest, and counting holders: one {left, right},
+three left-siders and two right-siders, when the run plans, then the flexible holder fills the right
+type's budget (the left already has 3 single-side holders), both budgets are full and no invitation is sent.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_single_side_holders_fill_budgets_before_flexible_ones`
+
 #### NOTIFICATIONS-ENGINE-PLANNING-45: A flexible invitation fills one type's budget, so three spots take nine (rule 4, 5.3; decision 16)
-Given capacity 4, one tier, X = 3, an unplaced {left, right} regular and a right regular, and nine
-{left, right} students, when the run plans, then 6 are invited for the two open spots, each offered
+Given capacity 4, one tier, X = 3, an unplaced {left, right} regular and a right regular (so 2 open
+spots, the regulars' sides unset), and nine {left, right} students, when the run plans, then 6 are
+invited for the two open spots, each offered
 {left, right}; when the right regular leaves and a third spot opens, the next run invites 3 more, 9
 counting for 3 spots (under D20 the 6 already sent covered all three).
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_flexible_invitation_fills_one_types_budget`

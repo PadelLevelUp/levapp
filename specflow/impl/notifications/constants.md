@@ -9,6 +9,7 @@ constants:
   KIND_ADDED: "added"
   KIND_SIDE_MOVED: "side_moved"
   KIND_WAITING_LIST_INVITE: "waiting_list_invite"
+  KIND_INVITE: "invite"
   COACH_ALERT: "coach_alert"
   ALERT_NO_CANDIDATE: "no_candidate"
 ---
@@ -38,6 +39,9 @@ suite.
   `backend/padel_app/models/notification_config.py:57`). Renamed from the engine's `waiting_list_offer`
   (PAD-913, swap decision 8): today's `waiting_list_offer` is "spot taken, join the list?", which is
   the engine's `KIND_SORRY`.
+- `KIND_INVITE`: the engine's kind for the message of a row a coach's invitation by hand reopened
+  (`notifications.engine-answers` rule 15). It is today's template key of the same meaning
+  (`DEFAULT_MESSAGE_TEMPLATES["invite"]`, the ordinary invitation), so a coach's own text carries over.
 - `COACH_ALERT`: §6 step 4's coach alert; the engine's `CoachAlert` effect, the scenario expectation
   `coach_alert: true` (validator on PAD-900).
 - `ALERT_NO_CANDIDATE`: the coach alert's reason code when a spot type has no candidate in any tier
