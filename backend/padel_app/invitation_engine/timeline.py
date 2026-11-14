@@ -236,13 +236,13 @@ def _final_sides(snapshot: SessionSnapshot, now: datetime) -> tuple[Effect, ...]
         options = [v for v in SIDES if student is None or v in student.sides]
         assign(p.student, max(options, key=lambda v: quota - count[v]))
 
-    # Then a side over its quota sheds a student who plays both sides: the coach's choice is not
-    # modelled here; whoever moved least recently (never moved first), ties to the one who joined the
+    # Then a side over its quota sheds a student who plays both sides and whose side the coach did not
+    # choose (a firm side is never moved, rule 6); whoever moved least recently (never moved first), ties to the one who joined the
     # class most recently. A one-sided student never goes to the other side (decisions 12, 13).
     for v in SIDES:
         other = next(w for w in SIDES if w != v)
         while count[v] > quota and count[other] < quota:
-            movable = [p.student for p in snapshot.going if side[p.student] == v
+            movable = [p.student for p in snapshot.going if side[p.student] == v and not p.firm   # rule 6
                        and (st := snapshot.students.get(p.student)) is not None and other in st.sides]
             if not movable:
                 break

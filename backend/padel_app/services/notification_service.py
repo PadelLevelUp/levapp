@@ -6022,13 +6022,13 @@ def respond_to_notification(
             _coach_only(coach_user_id),
         )
         _mark_answered_message_read(invite_msg, acting_user_id)
-        _tell_new_engine_placed(instance, event.player_id)  # PAD-932 (NM3)
+        _tell_new_engine_placed(instance, event.player_id, vacancy.side if vacancy else None)  # PAD-932 (NM3)
         return {"action": "confirmed"}
 
     return {"action": "unknown"}
 
 
-def _tell_new_engine_placed(instance, player_id: int) -> None:
+def _tell_new_engine_placed(instance, player_id: int, side: str | None = None) -> None:
     """PAD-932 (notifications.manual NM3): an old invitation's Yes placed the student in a session now on
     the new engine; the engine is told (``CoachAdded``), so their open invitations at that hour close and
     the session replans. After the enrolment's commit; nothing for an old-engine session."""
@@ -6037,7 +6037,8 @@ def _tell_new_engine_placed(instance, player_id: int) -> None:
     from padel_app.services.engine_entry import coach_added
 
     try:
-        coach_added(instance, [player_id], fill=True)  # join-requests NJ4: rules 10-12 after the placement
+        # join-requests NJ4: rules 10-12 after the placement; engine-store rule 9: the vacancy's side.
+        coach_added(instance, [player_id], fill=True, offered_side=side)
     except Exception:  # noqa: BLE001 — the placement stands; the next tick replans the session
         db.session.rollback()
         current_app.logger.exception("PAD-932: telling the engine about lesson_instance %s failed", instance.id)
@@ -6131,7 +6132,7 @@ def coach_respond_to_notification(
         # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
         # settlement and the enrolment together and releases the lock; the two `save()` calls
         # that followed committed nothing and cost two round-trips.
-        _tell_new_engine_placed(instance, event.player_id)  # PAD-932 (NM3)
+        _tell_new_engine_placed(instance, event.player_id, vacancy.side if vacancy else None)  # PAD-932 (NM3)
 
         return {"action": "confirmed"}
 

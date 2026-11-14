@@ -63,6 +63,25 @@ def set_presence_side(coach, instance, player_id, side):
     if presence.side == side:
         db.session.rollback()
         return presence
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        # engine-store rule 9: the engine counts the side, not the old engine's re-count. The change
+        # commits first (the class lock released), then the engine takes it; clearing tells it nothing.
+        presence.side = side
+        db.session.commit()
+        if side is not None:
+            from flask import current_app
+
+            from padel_app.services.engine_entry import coach_sets_side
+
+            try:
+                coach_sets_side(instance, player_id, side)
+            except Exception:  # noqa: BLE001 — the side stands; the session's next unit writes it (rule 9)
+                db.session.rollback()
+                current_app.logger.exception("PAD-808: telling the engine the side in lesson_instance %s failed",
+                                             instance.id)
+        return presence
     try:
         presence.side = side
         db.session.flush()

@@ -76,7 +76,10 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    their usual side when possible, else the side that balances the class. **The engine moves a student
    only within the sides they play** (the owner, 2026-11-12, Codex decisions 12 and 13): a student who
    plays both sides may go to either; a one-sided student only back to their own side, never to the
-   other. When a side is over its quota, one student who plays both sides on it moves — the coach's
+   other. **A student the coach placed on a side is never moved** (`notifications.engine-answers` rule
+   10's firm side; PAD-808): a one-sided student is on the other side only by the coach's choice, so the
+   move back never happens and `const:KIND_SIDE_MOVED` reaches only students who play both sides. When a
+   side is over its quota, one student who plays both sides on it, not placed by the coach, moves — the coach's
    choice, else the one who moved least recently, ties to the one who joined the class most recently
    (`joined_at`). When no such move balances the class (a coach-built roster of one-sided regulars), it
    stays as it is, and the coach is not warned. The engine records each move. Open invitations can still
@@ -240,6 +243,13 @@ test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_las
 #### NOTIFICATIONS-ENGINE-TIMELINE-25: Quiet hours whose start equals their end are quiet all day (rule 3)
 Given quiet hours from 22:00 to 22:00, when runs happen at 10:00, 22:00 and 03:00, then none sends.
 test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_quiet_hours_whose_start_equals_their_end_are_quiet_all_day`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-26: A side the coach chose is never moved at last_invite_at (rule 6)
+Given a session of 8 at `last_invite_at` with 5 going on the right (one of them a {left, right} student
+the coach placed right, firm, and one a left-only student the coach placed right, firm) and 2 on the left,
+when the timeline runs, then neither of those two is moved, a {left, right} student on the right not placed
+by the coach moves left with const:KIND_SIDE_MOVED, and no one-sided student gets that message.
+test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_a_side_the_coach_chose_is_never_moved`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".

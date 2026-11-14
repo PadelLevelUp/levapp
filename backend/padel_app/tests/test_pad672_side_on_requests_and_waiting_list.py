@@ -285,15 +285,15 @@ def _moved_state(instance, player_id):
     return status, (entry.list, entry.sides), admits
 
 
-@pytest.mark.parametrize("lefts,accepted,moves", [(5, "right", True), (4, "right", False)],
-                         ids=["class-fills", "other-side-fills"])
+@pytest.mark.parametrize("lefts,accepted,moves", [(4, "left", True), (5, "right", True), (4, "right", False)],
+                         ids=["side-fills", "class-fills", "other-side-fills"])
 @pytest.mark.criterion("CLASSES-JOIN-REQUESTS-40")
 def test_on_a_new_engine_class_a_request_whose_side_fills_moves_through_the_engine(
         app, monkeypatch, lefts, accepted, moves):
     """NJ4. RED before the fix: the full-class branch wrote a students'-list row with no side choice,
     which the engine admits for a right spot too (agent 5's probe, 2026-11-14: "ADMITS right spot: True").
-    The side branch (the left side fills, the class keeps a seat) waits on the placement fix
-    (`engine/coach-add-side`, the spec's Open questions): a coach's accept is not placed on a side yet."""
+    The side branch (the left side fills, the class keeps a seat) was red until a coach's accept placed
+    the student on a side (engine-answers rule 10, engine-store rule 9)."""
     from padel_app.services.class_join_request_service import decide_join_request_service
     from padel_app.tests.test_pad581_side_rebalance import _patch_io
     from padel_app.tests.test_pad808_accept_warns_when_the_side_is_gone import _new_engine_class, _request

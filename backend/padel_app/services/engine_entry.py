@@ -381,14 +381,21 @@ def sorry_joins_waiting_list(instance, player, config, now: datetime | None = No
     return {"action": "added_to_waiting_list"}
 
 
-def coach_added(instance, player_ids, now: datetime | None = None, *, fill: bool = False) -> None:
+def coach_added(instance, player_ids, now: datetime | None = None, *, fill: bool = False,
+                offered_side: str | None = None) -> None:
     """Rule 15's last sentence (INSTANCE-ENROLLMENT-34): a coach's add to a new-engine session is a
     placement, so each student's open invitations at that time close (``CoachAdded``; the enrolment is
     the app's own, already written). Nothing for an old-engine session.
 
+    The add carries the side the app knows (engine-store rule 9): ``presences.side`` when the row has
+    one, firm (an accepted join request has just written the request's side there, join-requests rule
+    20; a re-add keeps the side the coach set for the session); else ``offered_side``, not firm (an old
+    invitation's Yes: its vacancy's side, notifications.manual NM3); else none.
+
     Then the pending join requests learn the spot is gone (classes.join-requests NJ4), here rather
     than at the enrolment, so the engine's counts already hold the placed students: rule 20's move,
     and for a ``fill`` (an accepted request, an invitation's Yes) rule 11 once the class is full."""
+    from padel_app.models.presences import Presence
     from padel_app.services.class_join_request_service import (
         move_side_requests_to_waiting_list,
         supersede_pending_requests,
@@ -398,11 +405,20 @@ def coach_added(instance, player_ids, now: datetime | None = None, *, fill: bool
     if engine_for(instance) != "new":
         return
     for player_id in player_ids:
-        handle(instance, rq.CoachAdded(str(player_id)), now)
+        presence = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        chosen = TO_ENGINE_SIDE.get(presence.side) if presence is not None else None
+        side = chosen or TO_ENGINE_SIDE.get(offered_side)
+        handle(instance, rq.CoachAdded(str(player_id), side, firm=chosen is not None), now)
     filled_by = player_ids[0] if len(player_ids) == 1 else None
     move_side_requests_to_waiting_list(instance, filled_by_player_id=filled_by, now=now)
     if fill:
         supersede_pending_requests(instance, filled_by_player_id=filled_by, now=now)
+
+
+def coach_sets_side(instance, player_id: int, side: str, now: datetime | None = None) -> None:
+    """engine-store rule 9: the coach's side for a going student in this new-engine session (PAD-551)
+    is the engine's, firm (engine-answers rule 10); the session re-plans."""
+    handle(instance, rq.CoachSetsSide(str(player_id), TO_ENGINE_SIDE[side]), now)
 
 
 def has_open_spot(instance) -> bool:

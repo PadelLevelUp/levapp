@@ -227,7 +227,7 @@ class MemoryStore:
                 before = s.going[e.student].side
                 if before is not None and before != e.side:          # a first side is not a move
                     s.last_moved_at[e.student] = e.at
-                s.going[e.student] = replace(s.going[e.student], side=e.side)
+                s.going[e.student] = replace(s.going[e.student], side=e.side, firm=e.firm)
             elif isinstance(e, fx.Left):
                 s.going.pop(e.student, None)
                 if e.reason == "regular_no":
