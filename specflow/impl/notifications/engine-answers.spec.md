@@ -55,12 +55,20 @@ Stated as observable records; storage is the engine package's (PAD-902).
     placement path refuses a second placement at the same hour:** an accept is refused with nothing
     placed and nothing sent (rule 8's form); a direct join is refused; automatic entry skips the
     student. The coach's add is the app's (`classes.instance-enrollment` rule 15 refuses one at a busy
-    time); one that goes through reaches the engine as `CoachAdded(student, side)` on the session added
-    to, in that session's unit with the student named. The app already wrote the enrolment, so the engine
-    writes no second one; it **places the student on a side** when their placement has none yet: `side`
-    (the app's, `notifications.engine-store` rule 9), else the student's single side, else none (a
-    flexible student stays unplaced until `last_invite_at`, `notifications.engine-timeline` rule 6). The
-    side is a `SideAssigned` with no message (a first side is not a move). It then closes
+    time); one that goes through reaches the engine as `CoachAdded(student, side, firm)` on the session
+    added to, in that session's unit with the student named (`notifications.engine-store` rule 9 says
+    which side the app passes, and whether the coach chose it). The app already wrote the enrolment, so
+    the engine writes no second one; it **places a going student on a side**: a **firm** side, the one
+    the coach chose, is taken as given, even outside the sides the student plays, and replaces any
+    side they hold that is not that one held firmly; otherwise, and only while their placement has no
+    side, the app's `side` when the student plays it, else the student's single side, else none (a
+    flexible student stays unplaced until `last_invite_at`, `notifications.engine-timeline` rule 6). A
+    student who is not going gets no side. The side is a `SideAssigned` that carries whether it is firm,
+    with no message (a first side is not a move, and the coach's choice is not announced). A firm side is
+    never moved at `last_invite_at` (`notifications.engine-timeline` rule 6). The coach's later choice of
+    a going student's side for the session (`classes.instance-enrollment` rule 13, PAD-551) reaches the
+    engine as `CoachSetsSide(student, side)`: a firm `SideAssigned` and a re-plan, with no message;
+    clearing that choice changes nothing in the engine. A `CoachAdded` then closes
     the student's open invitations for every session at the same time (`InvitationClosed`, as any
     placement does), re-plans that session, and each session it touched re-plans in its own unit. **Two requests by one student never run at once:** the engine names the student in
     the unit of work and the store locks the student before the session (always students, then the
@@ -334,12 +342,14 @@ with the coach's-list tier and `manual` true and a const:KIND_INVITE message, on
 no `sorry_at`, no `closed_at`, a `reopened_at`, counts again, and shows `tierSource` null and outcome `pending`.
 test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coach_invitation_refuses_with_a_reason_or_reopens`
 
-#### NOTIFICATIONS-ENGINE-ANSWERS-32: A coach's add places the student on a side (rule 10)
+#### NOTIFICATIONS-ENGINE-ANSWERS-32: A coach's add places the student on a side, and a firm side holds (rule 10)
 Given a session of 10 with 4 left and 4 right going, when the engine handles `CoachAdded` for a left-only
-student with no side, then it emits `SideAssigned` left and no message, and the next run's counts have
-`open(L)` 0 and `must(R)` 1; when it handles `CoachAdded(student, "R")` for a {left, right} student, then
-the side is right; for a {left, right} student with no side, then no `SideAssigned` and the student stays
-unplaced; and for a student whose placement already has a side, then no `SideAssigned`.
+student with no side, then it emits `SideAssigned` left, not firm, and no message, and the next run's spot
+types are one right `must` and nothing else; when it handles a firm right `CoachAdded` for a left-only
+student, then the side is right, firm; a not-firm right for a left-only student gives left (their own); a
+{left, right} student with no side gets no `SideAssigned` and stays unplaced; a student already placed on a
+side keeps it for a `CoachAdded` with no firm side; a student who is not going gets nothing; and
+`CoachSetsSide(student, "R")` on a going student placed left gives a firm right `SideAssigned` and no message.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_coachs_add_places_the_student_on_a_side`
 
 ### Waves
@@ -365,6 +375,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 7. (PAD-916, PAD-915) ANSWERS-21 — `invitation_engine/answers.py` (`_join_waiting_list`), the store
    (one entry per student and session); ANSWERS-22 — the store's apply (`SameHourConflict`).
 8. (Owner decisions, PAD-915) ANSWERS-5, ANSWERS-7, ANSWERS-12, ANSWERS-22 again, ANSWERS-24, ANSWERS-25 — `invitation_engine/answers.py` (no other-side offer, no re-offer, the overlap).
+- (PAD-808) ANSWERS-32 — `invitation_engine/answers.py` (`coach_added_side`, `coach_sets_side`), `engine.py`,
+  `requests.py` (`CoachAdded`'s side and firmness, `CoachSetsSide`), `effects.py` (`SideAssigned.firm`).
 
 ### Open questions
 - The re-offer (Q6; the coordinator's ruling (1) of 2026-11-11) — **reversed by the owner**
