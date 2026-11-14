@@ -305,7 +305,10 @@ def _confirm(instance_id, player_id):
     from padel_app.models.presences import Presence
     from padel_app.sql_db import db
 
-    Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).update({"confirmed": True})
+    # An answer records `response` (respond_to_reminder); `confirmed` alone is also an invitation's yes,
+    # which PAD-820 (reminders rule 24) still reminds.
+    Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).update(
+        {"confirmed": True, "response": "confirmed"})
     db.session.commit()
 
 

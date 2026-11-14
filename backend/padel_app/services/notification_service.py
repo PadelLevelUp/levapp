@@ -3151,9 +3151,8 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
     reminder_count = config.get_reminder_count()
 
     from padel_app.scheduler import _fire_time_utc
-    from padel_app.services.engine_switch import engine_for
     first_reminder = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
-    on_new_engine = engine_for(instance) == "new"
+    on_new_engine = None        # read only when an acceptance is on the class (the listing's query budget)
 
     due = []
     # PAD-259: the presence rows ARE the roster; nothing is created here.
@@ -3168,7 +3167,10 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
         # PAD-820 (rule 24): an invitation's "yes" is enrolled ``confirmed`` with no answer recorded;
         # it is asked like everyone going when placed by the first reminder time.
-        if answered_for_reminders(existing_presence, first_reminder, new_engine=on_new_engine):
+        if on_new_engine is None and existing_presence.confirmed and existing_presence.response == "none":
+            from padel_app.services.engine_switch import engine_for
+            on_new_engine = engine_for(instance) == "new"
+        if answered_for_reminders(existing_presence, first_reminder, new_engine=bool(on_new_engine)):
             continue
         # PAD-546 (rule 23): the coach already marked them present or absent (justified or not).
         # `status` is the coach's record only (attendance.presence rule 7); read at send time, on
