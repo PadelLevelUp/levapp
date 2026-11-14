@@ -149,6 +149,12 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         **key,
     )
     db.session.expire(instance, ["presences"])
+    from padel_app.utils.dates import utcnow_naive
+
+    if created:
+        # PAD-820 (notifications.reminders rule 24): when this seat was taken; the reminder pass reads
+        # it to tell a student placed before the first reminder from one placed after it.
+        presence.placed_at = utcnow_naive()
 
     # PAD-316: a re-enrolment of someone who gave their spot up is a RETURN, not
     # a no-op. The row already existed, so `created` is False, and before this
@@ -190,6 +196,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # an engine fill arrives already confirmed. Claiming they said yes would
         # be the same over-reach as `confirmed` meaning "coming".
         presence.confirmed = confirmed
+        presence.placed_at = utcnow_naive()            # a new seat (rule 24 reads it)
 
     if created and player_id in _COUNTED_AS_COMING.get():
         # PAD-489 (rule 22): the class was created after its reminder time, so there was no

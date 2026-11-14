@@ -20,6 +20,8 @@ notes: >
   Aviso, even with the right open. The second 19:10 step is unchanged: E2 joins the list for the other side
   and automatic entry places them on the right, so the rest of the file is the PDF's.
 
+  Re-derived (PAD-820, owner 2026-11-14, option b: everyone going when the reminder is sent gets it): E1 accepted an invitation before the reminder, so they get it too.
+
 roster:
   regulars: {L: 7, R: 7}
 students:
@@ -57,6 +59,6 @@ timeline:
       messages: [{who: E3, kind: aviso}]
   - at: 2026-11-02 17:00
     expect:
-      reminders: {to: [regulars, E2], not_to: [E1]}
+      reminders: {to: [regulars, E2, E1]}
 final:
   roster: {L: 8, R: 8}

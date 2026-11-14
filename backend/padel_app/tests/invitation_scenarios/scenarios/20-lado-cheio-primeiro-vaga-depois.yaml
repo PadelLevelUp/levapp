@@ -10,6 +10,8 @@ notes: >
   runs. W1 has no level in the PDF (level null). The 2 Nov 10:00 No by a left regular is before the
   12 h cutoff, but the PDF says nothing about the absence, so it is not checked.
 
+  Re-derived (PAD-820, owner 2026-11-14, option b: everyone going when the reminder is sent gets it): r1 accepted an invitation before the reminder, so they get it too.
+
 roster:
   regulars: {L: 8, R: 7}
 students:
@@ -38,6 +40,6 @@ timeline:
       invitations: none
   - at: 2026-11-02 17:00
     expect:
-      reminders: {to: [regulars, W1], not_to: [r1]}
+      reminders: {to: [regulars, W1, r1]}
 final:
   roster: {L: 8, R: 8}

@@ -20,6 +20,8 @@ notes: >
   on that answer. The second 19:08 step is unchanged: l2 joins the list (both sides) and automatic entry
   places them on the right, so the rest of the file is the PDF's.
 
+  Re-derived (PAD-820, owner 2026-11-14, option b: everyone going when the reminder is sent gets it): r1 and l1 accepted invitations before the 17:00 reminder, so they get it too.
+
 roster:
   regulars: {L: 6, R: 2}
 students:
@@ -71,8 +73,7 @@ timeline:
   - at: 2026-11-02 17:00
     expect:
       reminders:
-        to: [regulars, W1, J1, l2]
-        not_to: [r1, l1]
+        to: [regulars, W1, J1, l2, r1, l1]
   - at: 2026-11-02 18:00
     events: [{accepts: {cohort: L3R, state: invited, as: r2}}]
     expect: {placed: [{who: r2, side: R, how: invitation}], missing: {L: 0, R: 2}}

@@ -63,7 +63,8 @@ class Presence(db.Model, model.Model):
     # PAD-916: the new engine's placement (swap plan §5). How the student came to be going
     # (snapshot.PlacedHow; enrolment_source's six values cannot hold it), when, the last time the
     # engine moved their side (engine-timeline rule 6), and why a going student left
-    # (effects.LeftReason). NULL on rows the new engine never wrote.
+    # (effects.LeftReason). NULL on rows the new engine never wrote, except `placed_at`, which
+    # `lesson_service.enrol` also stamps for every new or returning seat (PAD-820, reminders rule 24).
     placed_how = Column(String(24), nullable=True)
     placed_at = Column(DateTime, nullable=True)
     side_moved_at = Column(DateTime, nullable=True)
