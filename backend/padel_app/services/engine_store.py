@@ -556,7 +556,10 @@ class TableStore:
     @staticmethod
     def _placement(p) -> Placement:
         how = p.placed_how or ("regular" if p.enrolment_source == "roster" else "invitation")
-        return Placement(str(p.player_id), SIDE_FROM_APP.get(p.assigned_side), how, p.placed_at or p.created_at)
+        side = SIDE_FROM_APP.get(p.assigned_side)
+        # engine-store rule 9: firm when the coach's side for the session is the one held.
+        firm = side is not None and SIDE_FROM_APP.get(p.side) == side
+        return Placement(str(p.player_id), side, how, p.placed_at or p.created_at, firm=firm)
 
     @staticmethod
     def _invitation(r) -> Invitation:
@@ -862,6 +865,8 @@ class TableStore:
             if before is not None and before != e.side:            # a first side is not a move
                 presence.side_moved_at = e.at
             presence.assigned_side = SIDE_TO_APP[e.side]
+            if e.firm:                                             # rule 9: readers agree with the engine
+                presence.side = SIDE_TO_APP[e.side]
         elif isinstance(e, fx.Left):
             presence = self._presence(e)
             if presence is not None:

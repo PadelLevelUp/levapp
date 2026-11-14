@@ -186,3 +186,21 @@ def test_quiet_hours_whose_start_equals_their_end_are_quiet_all_day():
     all_day = EngineSettings(quiet_hours=(time(9, 0), time(9, 0)))
     assert all(is_quiet(all_day, datetime(2026, 11, 1, h, 0)) for h in range(24))
     assert not any(is_quiet(EngineSettings(quiet_hours=None), datetime(2026, 11, 1, h, 0)) for h in range(24))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-26")
+def test_a_side_the_coach_chose_is_never_moved():
+    """engine-timeline rule 6 (PAD-808): at last_invite_at a student the coach placed on a side (firm) never
+    moves, a one-sided one on the other side included; the side over quota sheds a both-sides student the
+    coach did not place, who alone is told."""
+    from dataclasses import replace
+
+    from padel_app.invitation_engine.timeline import due
+    from padel_app.tests.test_invitation_engine_last_invite import LAST, _moves, _session
+
+    s = _session(8, [("c1", "LR", "R", "invitation"), ("c2", "L", "R", "invitation"), ("f", "LR", "R", "invitation"),
+                     ("R1", "R", "R", "regular"), ("R2", "R", "R", "regular"),
+                     ("L1", "L", "L", "regular"), ("L2", "L", "L", "regular")],
+                 ["R1", "R2", "L1", "L2", "f", "c1", "c2"])
+    s = replace(s, going=tuple(replace(p, firm=p.student in ("c1", "c2")) for p in s.going))
+    assert _moves(due(s, EngineSettings(), LAST)) == ({"f": "L"}, {"f"})

@@ -27,6 +27,7 @@ from padel_app.invitation_engine.effects import (
     Message,
     Placed,
     Refused,
+    SideAssigned,
     Sorry,
     WaitingListJoined,
     WaitingListLeft,
@@ -34,6 +35,8 @@ from padel_app.invitation_engine.effects import (
 from padel_app.invitation_engine.requests import (
     Answer,
     Cancel,
+    CoachAdded,
+    CoachSetsSide,
     ConfirmAttendance,
     DirectJoin,
     JoinWaitingList,
@@ -99,6 +102,31 @@ def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request
     if isinstance(request, DirectJoin):
         return Outcome(_direct_join(snapshot, settings, request, now))
     return Outcome()
+
+
+def coach_added_side(snapshot: SessionSnapshot, request: CoachAdded, now: datetime) -> tuple[Effect, ...]:
+    """engine-answers rule 10: the coach's add places a going student on a side. A firm side (the coach's
+    choice) is taken as given, even outside the sides they play; otherwise, only while they have no side,
+    the app's side when they play it, else their single side; a flexible student with neither stays
+    unplaced. No message: a first side is not a move, and the coach's choice is not announced."""
+    p = snapshot.placement(request.student)
+    if p is None:
+        return ()
+    if request.firm and request.side is not None:
+        if p.side == request.side and p.firm:
+            return ()
+        return (SideAssigned(snapshot.id, now, request.student, request.side, firm=True),)
+    if p.side is not None:
+        return ()
+    student = snapshot.students.get(request.student)
+    sides = student.sides if student is not None else frozenset()
+    side = request.side if request.side in sides else (next(iter(sides)) if len(sides) == 1 else None)
+    return (SideAssigned(snapshot.id, now, request.student, side),) if side is not None else ()
+
+
+def coach_sets_side(snapshot: SessionSnapshot, request: CoachSetsSide, now: datetime) -> tuple[Effect, ...]:
+    """engine-answers rule 10: the coach's side for the session (PAD-551) is firm; no message."""
+    return coach_added_side(snapshot, CoachAdded(request.student, request.side, firm=True), now)
 
 
 # --- leaving ----------------------------------------------------------------------------------
