@@ -82,7 +82,10 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    re-count. If that call fails, the change stands and the coach's request still succeeds (the failure
    is logged and the engine's part rolled back): at the start of each unit of a session, the store
    writes a going presence's `side`, when it is `left` or `right` and differs from its `assigned_side`,
-   as its `assigned_side`, so the engine's next run counts the coach's side, firm. Clearing the side
+   as its `assigned_side`, so the engine's next run counts the coach's side, firm. An engine placement
+   (`Placed`) on a side other than the presence's set `side` clears that `side`: it was the coach's choice
+   for an earlier stay (a cancelled one), not this placement, so neither the start-of-unit write nor
+   firmness overrides the engine's own placement. Clearing the side
    tells the engine nothing, and the placement is then no longer firm: `last_invite_at` may move a
    student who plays both sides. A firm `SideAssigned` is written as both the presence's
    `assigned_side` and `presences.side`, so `sides_in_occurrence` and every other reader agree with the
@@ -186,11 +189,17 @@ presence with `side` right, the engine's `assigned_side` is still left, and the 
 planning run) has `assigned_side` right and counts the student on the right, firm.
 test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_a_failed_engine_call_on_the_coachs_side_heals_on_the_next_unit`
 
+#### NOTIFICATIONS-ENGINE-STORE-14: An engine placement on another side clears a stale per-session side (rule 9)
+Given a new-engine session where a student who plays both sides joined by an accepted left request and then
+cancelled, when the engine places them on the right (a direct join), then their `side` is cleared,
+`assigned_side` is right, the placement is not firm, and a later unit leaves them on the right.
+test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_an_engine_placement_on_another_side_clears_a_stale_session_side`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
 2. (PAD-916) STORE-9, STORE-10 — `padel_app/services/engine_store.py` (each session's end; what going means).
-3. (PAD-808) STORE-11, STORE-12, STORE-13 — `services/engine_entry.py` (`coach_added`, `coach_sets_side`), `services/engine_store.py`
+3. (PAD-808) STORE-11 to STORE-14 — `services/engine_entry.py` (`coach_added`, `coach_sets_side`), `services/engine_store.py`
    (`SideAssigned.firm`, the placement's firmness), `presence_side_service.py`, NM3's `_tell_new_engine_placed`; with
    engine-answers ANSWERS-32.
 
