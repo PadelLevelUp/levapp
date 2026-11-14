@@ -316,8 +316,11 @@ GROUP_CASES = [
     (GroupRule("subscription_status", "equals", "active"), [{"subscription_status": "active"}],
      [{"subscription_status": "inactive"}, {}]),
     (GroupRule("unjustified_absences", "less_than", "many"), [{"unjustified_absences": 9}], []),  # not a number
-    (GroupRule("unjustified_absences", "between", 2), [{"unjustified_absences": 9}], []),         # unknown operation
-    (GroupRule("favourite_colour", "equals", "red"), [{}], []),                                  # unknown attribute
+    # eligibility.rules rule 12: an unknown operation or attribute fails, on every attribute.
+    (GroupRule("unjustified_absences", "between", 2), [], [{"unjustified_absences": 9}]),         # unknown operation
+    (GroupRule("side", "made_up"), [], [{}]),
+    (GroupRule("has_makeups", "made_up"), [], [{"makeups_owed": 1}]),
+    (GroupRule("favourite_colour", "equals", "red"), [], [{}]),                                  # unknown attribute
 ]
 
 

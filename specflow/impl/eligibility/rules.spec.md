@@ -104,7 +104,28 @@ answered for any future class whether or not a spot is currently open.
 
 11. **The rule editor keeps every rule well-formed, on web and iOS.** A new rule is `level` / `same_as_class` with no `value`. A rule holds a `value` only while its operation takes one: always for the absence and attendance attributes, and for `level` only with the three `within_n_*` operations. Changing the attribute resets the operation to that attribute's first one and drops the value. The three `within_n_*` operations are one menu entry plus a direction (above, below, both), and choosing a direction changes only the operation. Removing the last rule stores `null`, not `[]`.
 
-12. **An editor never saves a rule that needs a value without one (engine stream, fail-open finding §3
+12. **A rule the evaluator does not know fails everyone, and saving it is refused.** The one evaluator
+    (rule 7) knows, per attribute: `level` with rule 6's operations; `side` with `same_as_vacancy` and
+    `different_from_vacancy` (`notifications.config` rule 20; the app's evaluator does not apply the
+    second, the new engine's tier does); `has_makeups` with `is_true`; `unjustified_absences`,
+    `justified_absences` and `attendance_rate` with `less_than`, `less_than_or_equal`, `equals`,
+    `greater_than` and `greater_than_or_equal`; `subscription_status` with `equals`.
+    - A rule whose attribute is none of these seven fails every student, with reason
+      `unknown_attribute`; a known attribute with an operation outside its list fails every student,
+      with reason `unknown_operation` (B-257's precedent, which closed the same hole for level). Both
+      used to pass everyone. The new engine's tiers read them the same (`notifications.engine-tiers`
+      rule 13), and they are reported like any other failure.
+    - Saving refuses either, before anything is written, on every path that stores rules, each in its
+      existing error shape: `POST /api/app/notify/config` (`invitationGroups` and `eligibilityRules`,
+      `400` naming the field, as rule 6), `edit_class` `updates.eligibilityRules`
+      (`{"error": "invalid_fields", "fields": ["eligibilityRules"]}`) and the class create and clone
+      `eligibilityRules` (the refused-fields error, naming `eligibilityRules`). One validator serves
+      all three. Every attribute and operation the web and iOS editors offer is accepted.
+    - A count rule whose `value` is missing or not a number is unchanged by this rule: it is ignored,
+      as today. The editors can store one (a blank number field), so making it fail is its own change,
+      editor validation on web and iOS first.
+
+13. **An editor never saves a rule that needs a value without one (engine stream, fail-open finding §3
     item 4).**
     - **Needs a value:** in the bar, the absence and attendance attributes always and `level` with the
       three `within_n_*` operations (rule 11); in the invitation groups, every attribute whose value
@@ -246,28 +267,45 @@ test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` ›
 - **And** picking "within N levels" again on a one-way rule keeps its direction and its N
 test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` › `picking within N on a one-way rule keeps its direction and N` (+15 more)
 
-#### ELIGIBILITY-RULES-17: The settings bar editor refuses to save a rule with no value, and says why (rule 12)
+#### ELIGIBILITY-RULES-17: An unknown attribute or operation fails everyone, and says so (rule 12)
+- **Given** a bar or a group holding one of `{language, equals, "en"}`, `{unjustified_absences, made_up, 0}`, `{side, made_up}`, `{has_makeups, made_up}` or `{subscription_status, made_up, "active"}`
+- **When** it is evaluated for every student of an eight-level ladder, for a class and for a vacancy
+- **Then** no student passes
+- **And** each failure carries reason `unknown_attribute` (the first) or `unknown_operation` (the others)
+- **And** `{side, different_from_vacancy}` and a count rule with no `value` still fail nobody
+test: `backend/padel_app/tests/test_pad481_level_direction.py` › `test_an_unknown_attribute_or_operation_fails_everyone_and_says_so`
+
+#### ELIGIBILITY-RULES-18: Saving refuses an unknown attribute or operation on every path, and accepts what the editors offer (rule 12)
+- **Given** a coach
+- **When** they save `eligibilityRules` or `invitationGroups` holding `{language, equals, "en"}` or `{has_makeups, made_up}`
+- **Then** the save answers `400` naming the field, and nothing is stored
+- **And** `edit_class` `updates.eligibilityRules` and the class create with `eligibilityRules` refuse it in their own error shapes, writing nothing
+- **When** they save groups using every attribute and operation the editors offer, `different_from_vacancy` included for a new-engine coach
+- **Then** the save succeeds and the groups are stored as sent
+test: `backend/padel_app/tests/test_pad481_level_direction.py` › `test_saving_refuses_an_unknown_attribute_or_operation_on_every_path`
+
+#### ELIGIBILITY-RULES-19: The settings bar editor refuses to save a rule with no value, and says why (rule 13)
 - **Given** a coach on the settings screen, on web and on iOS, who adds a bar rule `unjustified_absences less_than` and leaves the value empty, or picks `level within_n_of_class` and clears N
 - **When** the editor shows the row
 - **Then** the row is marked as needing a value, with the reason next to it; a rule whose operation takes no value (`level same_as_class`) is never marked, and `0` or `"2"` counts as a value
 - **When** the coach collapses the section, then presses Save
 - **Then** no request is sent from the engine card, the eligibility section opens on the marked row, the failure names the card with the reason "Elegibilidade: há uma regra sem valor." (on iOS too), and every edit stays held; once the value is filled the same Save sends it
-test: `frontend/packages/config/src/rule-values.test.ts` › `[ELIGIBILITY-RULES-17] a bar rule needs a value exactly when its operation takes one, and 0 or "2" is a value` (+ web `frontend/apps/web/src/components/settings/EligibilitySection.test.tsx` › `[ELIGIBILITY-RULES-17] marks a rule with no value`, `frontend/apps/web/src/components/settings/NotificationsEngineSection.blankValue.test.tsx` › `[ELIGIBILITY-RULES-17] a blank bar rule refuses the Save, sends nothing and opens the section`; iOS `frontend/apps/mobile/src/features/settings/eligibility-section.test.tsx` › `[ELIGIBILITY-RULES-17] marks a rule with no value`, `frontend/apps/mobile/src/features/settings/auto-invite-section.blank-value.test.tsx` › `[ELIGIBILITY-RULES-17] a blank bar rule refuses the Save with its reason and sends nothing`)
+test: `frontend/packages/config/src/rule-values.test.ts` › `[ELIGIBILITY-RULES-19] a bar rule needs a value exactly when its operation takes one, and 0 or "2" is a value` (+ web `frontend/apps/web/src/components/settings/EligibilitySection.test.tsx` › `[ELIGIBILITY-RULES-19] marks a rule with no value`, `frontend/apps/web/src/components/settings/NotificationsEngineSection.blankValue.test.tsx` › `[ELIGIBILITY-RULES-19] a blank bar rule refuses the Save, sends nothing and opens the section`; iOS `frontend/apps/mobile/src/features/settings/eligibility-section.test.tsx` › `[ELIGIBILITY-RULES-19] marks a rule with no value`, `frontend/apps/mobile/src/features/settings/auto-invite-section.blank-value.test.tsx` › `[ELIGIBILITY-RULES-19] a blank bar rule refuses the Save with its reason and sends nothing`)
 
-#### ELIGIBILITY-RULES-18: The invitation groups editor refuses to save a group rule with no value, and says why (rule 12)
+#### ELIGIBILITY-RULES-20: The invitation groups editor refuses to save a group rule with no value, and says why (rule 13)
 - **Given** a coach editing invitation groups, on web (old and new engine) and on iOS (the tiers editor, new engine only: iOS has no old-engine groups editor), who adds a group rule on any attribute whose value type is not `none` and leaves its value empty
 - **When** the editor shows the row
 - **Then** the row is marked as needing a value; a rule on `level`, `side` or `has_makeups` is never marked
 - **When** the coach presses Save
 - **Then** no request is sent from the engine card (no `invitationGroups`, and no `engine.timing.perTier` moved with it), the groups section opens on the marked row, and the failure reason is "Grupos de convite: há uma regra sem valor."; with a blank bar rule as well, the one reason names both parts
-test: `frontend/packages/config/src/rule-values.test.ts` › `[ELIGIBILITY-RULES-18] a group rule needs a value exactly when its attribute's value type is not none` (+ web `frontend/apps/web/src/components/settings/InvitationGroupsSection.blankValue.test.tsx` › `[ELIGIBILITY-RULES-18] marks a group rule with no value`, `frontend/apps/web/src/components/settings/NotificationsEngineSection.blankValue.test.tsx` › `[ELIGIBILITY-RULES-18] a blank group rule refuses the Save, sends nothing and opens the section`; iOS `frontend/apps/mobile/src/features/settings/tiers-editor.blank-value.test.tsx` › `[ELIGIBILITY-RULES-18] marks a group rule with no value`, `frontend/apps/mobile/src/features/settings/auto-invite-section.blank-value.test.tsx` › `[ELIGIBILITY-RULES-18] a blank group rule refuses the Save with its reason and sends nothing`)
+test: `frontend/packages/config/src/rule-values.test.ts` › `[ELIGIBILITY-RULES-20] a group rule needs a value exactly when its attribute's value type is not none` (+ web `frontend/apps/web/src/components/settings/InvitationGroupsSection.blankValue.test.tsx` › `[ELIGIBILITY-RULES-20] marks a group rule with no value`, `frontend/apps/web/src/components/settings/NotificationsEngineSection.blankValue.test.tsx` › `[ELIGIBILITY-RULES-20] a blank group rule refuses the Save, sends nothing and opens the section`; iOS `frontend/apps/mobile/src/features/settings/tiers-editor.blank-value.test.tsx` › `[ELIGIBILITY-RULES-20] marks a group rule with no value`, `frontend/apps/mobile/src/features/settings/auto-invite-section.blank-value.test.tsx` › `[ELIGIBILITY-RULES-20] a blank group rule refuses the Save with its reason and sends nothing`)
 
-#### ELIGIBILITY-RULES-19: A class's own bar refuses to save a rule with no value, only when the class would send it (rule 12, eligibility.cascade)
-- **Given** a coach editing one class, on web and on iOS, who picks the class's own bar and adds `attendance_rate greater_than` with no value (the row is marked as in ELIGIBILITY-RULES-17, the same editor)
+#### ELIGIBILITY-RULES-21: A class's own bar refuses to save a rule with no value, only when the class would send it (rule 13, eligibility.cascade)
+- **Given** a coach editing one class, on web and on iOS, who picks the class's own bar and adds `attendance_rate greater_than` with no value (the row is marked as in ELIGIBILITY-RULES-19, the same editor)
 - **When** the coach saves the class
 - **Then** the save is refused with the reason before any overlap or scope dialog, and nothing is sent
 - **And** a name-only edit of a class whose stored bar already holds a blank rule saves, and so does switching that class to the standard bar or to everyone after adding a blank row
-test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.blankRule.test.tsx` › `[ELIGIBILITY-RULES-19] a class bar rule with no value blocks the class save, only when sent` (+ iOS `frontend/apps/mobile/src/features/calendar/class-save-flow.test.ts` › `[ELIGIBILITY-RULES-19] a class bar rule with no value blocks the class save, only when sent`)
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.blankRule.test.tsx` › `[ELIGIBILITY-RULES-21] a class bar rule with no value blocks the class save, only when sent` (+ iOS `frontend/apps/mobile/src/features/calendar/class-save-flow.test.ts` › `[ELIGIBILITY-RULES-21] a class bar rule with no value blocks the class save, only when sent`)
 
 ### Today (blank rules, 2026-11-14)
 - The bar editors start a new or re-attributed rule with `value: undefined` and an emptied input sets it back:
@@ -302,12 +340,12 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.blankRule.test
   `needsValue` import moves to `@levelup/config`).
 
 ### Waves (blank rules)
-1. ELIGIBILITY-RULES-17, ELIGIBILITY-RULES-18 — `@levelup/config`: the bar's attribute table and `needsValue`
+1. ELIGIBILITY-RULES-19, ELIGIBILITY-RULES-20 — `@levelup/config`: the bar's attribute table and `needsValue`
    moved there, one `ruleNeedsValue` / `isValueMissing` for both editors, the refusal copy in the shared locales;
    iOS `unsaved-registry.tsx` `SectionSaveError` and `settings.tsx` toasting "<part> — <reason>"; the settings
    screen on web (`EligibilitySection`, `InvitationGroupsSection`, `NotificationsEngineSection`'s saver and
    section opening) and iOS (`eligibility-section`, `tiers-editor`, `auto-invite-section`'s saver and `tiersOpen`).
-2. ELIGIBILITY-RULES-19 — the class Save on web (`ClassDetailSheet` `saveEdit`) and iOS (`saveEdit`,
+2. ELIGIBILITY-RULES-21 — the class Save on web (`ClassDetailSheet` `saveEdit`) and iOS (`saveEdit`,
    `commitClassEdit`).
 3. (later, the lead's go after `engine/fail-open` merges) the server's refusal and the evaluation of a stored blank
    rule; not in this spec yet.

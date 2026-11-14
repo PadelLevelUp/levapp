@@ -137,8 +137,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    simulation and both clients — renaming them would be a data migration for no behaviour change
    (decision `2026-09-10-account-status-not-payment`). `eligibility.rules` rule 5 explains why
    eligibility offers no payments attribute.
-7d. **A group rule that needs a value is never saved without one** (`eligibility.rules` rule 12, criterion
-   ELIGIBILITY-RULES-18): the invitation groups editor, on web and iOS, marks it and refuses the Save. That
+7d. **A group rule that needs a value is never saved without one** (`eligibility.rules` rule 13, criterion
+   ELIGIBILITY-RULES-20): the invitation groups editor, on web and iOS, marks it and refuses the Save. That
    refusal happens before any request and is a failed part in rule 15's sense: every held value stays and the
    next Save sends them again.
 8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
