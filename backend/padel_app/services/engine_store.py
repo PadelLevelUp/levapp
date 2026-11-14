@@ -247,7 +247,18 @@ class TableStore:
                 self._lock_student(pid)
             for sid in sorted(int(s) for s in sessions):
                 db.session.query(LessonInstance.id).filter(LessonInstance.id == sid).with_for_update().one_or_none()
+                self._coach_sides(sid)
             yield
+
+    @staticmethod
+    def _coach_sides(iid: int) -> None:
+        """Rule 9: a going presence whose side for the session (the coach's, PAD-551) is set and is not the
+        side the engine holds takes it, so a ``CoachSetsSide`` that failed after its commit heals here."""
+        from padel_app.models.presences import Presence
+
+        for p in Presence.query.filter_by(lesson_instance_id=iid).all():
+            if _going(p) and p.side in ("left", "right") and p.assigned_side != p.side:
+                p.assigned_side = p.side
 
     # --- reading -------------------------------------------------------------------------
 
@@ -859,6 +870,8 @@ class TableStore:
             presence.status, presence.justification, presence.left_reason = None, None, None
             presence.placed_how, presence.placed_at = e.how, e.at
             presence.assigned_side = SIDE_TO_APP[e.side]
+            if presence.side in ("left", "right") and presence.side != presence.assigned_side:
+                presence.side = None            # rule 9: a side the coach chose for an earlier stay, not this one
         elif isinstance(e, fx.SideAssigned):
             presence = self._presence(e)
             before = SIDE_FROM_APP.get(presence.assigned_side)

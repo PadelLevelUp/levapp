@@ -71,9 +71,16 @@ def set_presence_side(coach, instance, player_id, side):
         presence.side = side
         db.session.commit()
         if side is not None:
+            from flask import current_app
+
             from padel_app.services.engine_entry import coach_sets_side
 
-            coach_sets_side(instance, player_id, side)
+            try:
+                coach_sets_side(instance, player_id, side)
+            except Exception:  # noqa: BLE001 — the side stands; the session's next unit writes it (rule 9)
+                db.session.rollback()
+                current_app.logger.exception("PAD-808: telling the engine the side in lesson_instance %s failed",
+                                             instance.id)
         return presence
     try:
         presence.side = side

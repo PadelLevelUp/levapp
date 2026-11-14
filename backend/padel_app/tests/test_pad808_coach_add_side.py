@@ -144,3 +144,59 @@ def test_the_coachs_session_side_and_an_old_yes_reach_the_engine(app, monkeypatc
         db.session.commit()
         ns.respond_to_notification(event.id, "yes", user_id)
         assert _placement(db.session.get(LessonInstance, int(s)), int(student)) == (("right", None), ("R", False))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-13")
+def test_a_failed_engine_call_on_the_coachs_side_heals_on_the_next_unit(app, monkeypatch):
+    """engine-store rule 9: the coach's per-session side stands when the engine's call raises (the request
+    still succeeds), and the session's next unit writes it as the assigned side, firm."""
+    from padel_app.services import engine_entry
+    from padel_app.services.class_join_request_service import decide_join_request_service
+    from padel_app.services.presence_side_service import set_presence_side
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, level, instance = _new_engine_class("cas5", lefts=4)
+        rid, flexible = _request(coach, level, instance, "pcas5-flex", "left")
+        _flexible(coach, flexible)
+        assert decide_join_request_service(rid, coach, accept=True, confirm=True).status == "accepted"
+
+        real = engine_entry.handle
+
+        def failing(*a, **kw):
+            raise RuntimeError("engine down")
+
+        monkeypatch.setattr(engine_entry, "handle", failing)
+        assert set_presence_side(coach, instance, flexible, "right").side == "right"
+        db.session.rollback()
+        assert _placement(instance, flexible)[0] == ("left", "right")       # the engine's side is behind
+        monkeypatch.setattr(engine_entry, "handle", real)
+        engine_entry.replan([instance.id])                                   # the session's next unit
+        assert _placement(instance, flexible) == (("right", "right"), ("R", True))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-14")
+def test_an_engine_placement_on_another_side_clears_a_stale_session_side(app, monkeypatch):
+    """engine-store rule 9: a presence's per-session side left from an earlier stay (an accepted left request,
+    then a cancel) does not override the engine's own placement on the right: the placement clears it."""
+    from padel_app.invitation_engine import requests as rq
+    from padel_app.models import Presence
+    from padel_app.services import engine_entry
+    from padel_app.services.class_join_request_service import decide_join_request_service
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, level, instance = _new_engine_class("cas6", lefts=4)
+        rid, flexible = _request(coach, level, instance, "pcas6-flex", "left")
+        _flexible(coach, flexible)
+        assert decide_join_request_service(rid, coach, accept=True, confirm=True).status == "accepted"
+        presence = Presence.query.filter_by(player_id=flexible, lesson_instance_id=instance.id).one()
+        engine_entry.student_not_going(instance, presence)
+        from padel_app.models.notification_config import NotificationConfig
+
+        NotificationConfig.query.filter_by(coach_id=coach.id).one().auto_accept_join_requests = True   # direct join
+        db.session.commit()
+        effects = engine_entry.handle(instance, rq.DirectJoin(str(flexible), "R"))   # the engine places them right
+        assert [e.side for e in effects if type(e).__name__ == "Placed"] == ["R"]
+        engine_entry.replan([instance.id])                                   # a later unit
+        assert _placement(instance, flexible) == (("right", None), ("R", False))
