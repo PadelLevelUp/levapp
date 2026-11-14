@@ -261,3 +261,79 @@ def test_the_student_reads_their_profile_side_for_the_picker(app, client, profil
                        headers={**ids["auth"], **CAPABLE})
     assert resp.status_code == 200, resp.get_data(as_text=True)[:300]
     assert resp.get_json()["profileSide"] == profile_side
+
+
+# ── new-engine section NJ4: rule 20's move goes through the engine's students' list ─────────────────
+
+def _moved_state(instance, player_id):
+    """The request's status, the student's active list row, and whether the engine admits that entry
+    for a left spot and for a right one (planner._entry_admits, the engine's own reading)."""
+    from padel_app.invitation_engine import planner
+    from padel_app.models.class_join_request import ClassJoinRequest
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services.engine_store import TableStore, settings_for
+
+    db.session.expire_all()
+    status = ClassJoinRequest.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).one().status
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id, is_active=True).first()
+    if row is None:
+        return status, None, None
+    snap = TableStore().snapshot(str(instance.id))
+    entry = next(w for w in snap.waiting_list if w.student == str(player_id))
+    student, settings = snap.students[str(player_id)], settings_for(str(instance.id))
+    admits = tuple(planner._entry_admits(entry, student, frozenset({v}), settings) for v in ("L", "R"))
+    return status, (entry.list, entry.sides), admits
+
+
+@pytest.mark.parametrize("lefts,accepted,moves", [(5, "right", True), (4, "right", False)],
+                         ids=["class-fills", "other-side-fills"])
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-40")
+def test_on_a_new_engine_class_a_request_whose_side_fills_moves_through_the_engine(
+        app, monkeypatch, lefts, accepted, moves):
+    """NJ4. RED before the fix: the full-class branch wrote a students'-list row with no side choice,
+    which the engine admits for a right spot too (agent 5's probe, 2026-11-14: "ADMITS right spot: True").
+    The side branch (the left side fills, the class keeps a seat) waits on the placement fix
+    (`engine/coach-add-side`, the spec's Open questions): a coach's accept is not placed on a side yet."""
+    from padel_app.services.class_join_request_service import decide_join_request_service
+    from padel_app.tests.test_pad581_side_rebalance import _patch_io
+    from padel_app.tests.test_pad808_accept_warns_when_the_side_is_gone import _new_engine_class, _request
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        tag = f"nj4{lefts}{accepted[0]}"
+        coach, level, instance = _new_engine_class(tag, lefts=lefts)
+        _, seeker = _request(coach, level, instance, f"p{tag}-seeker", "left")
+        rid, _ = _request(coach, level, instance, f"p{tag}-taker", accepted)
+        assert decide_join_request_service(rid, coach, accept=True, confirm=True).status == "accepted"
+        if moves:
+            assert _moved_state(instance, seeker) == ("superseded", ("students", "own"), (True, False))
+        else:
+            assert _moved_state(instance, seeker) == ("pending", None, None)
+
+
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-40")
+def test_on_a_new_engine_class_a_move_the_engine_refuses_leaves_the_request_pending(app, monkeypatch):
+    """NJ4: the coach excluded the seeker from the session, so the engine refuses their join
+    (`ineligible`). The coach's own add of a right student fills the class (a plain add runs rule 20's
+    move, not rule 11): the request stays pending, no list row, nothing sent. RED before the fix: the
+    move wrote its own students'-list row and superseded the request."""
+    from padel_app.models import Message
+    from padel_app.services.engine_entry import coach_added, coach_excludes
+    from padel_app.services.lesson_service import enrol
+    from padel_app.tests.test_effective_level_resolution import _create_coach_player
+    from padel_app.tests.test_pad581_side_rebalance import _patch_io
+    from padel_app.tests.test_pad808_accept_warns_when_the_side_is_gone import _new_engine_class, _request
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, level, instance = _new_engine_class("nj4x", lefts=5)
+        _, seeker = _request(coach, level, instance, "pnj4x-seeker", "left")
+        coach_excludes(instance, seeker)
+        before = Message.query.count()
+        added = _create_coach_player(coach, level, "pnj4x-added")
+        added.side = "right"
+        db.session.commit()
+        enrol(added.player_id, instance, "coach")                  # the class's edit: the app's add,
+        coach_added(instance, [added.player_id])                   # then the engine's placement
+        assert _moved_state(instance, seeker) == ("pending", None, None)
+        assert not [m for m in Message.query.all()[before:] if "lista de espera" in (m.text or "")]

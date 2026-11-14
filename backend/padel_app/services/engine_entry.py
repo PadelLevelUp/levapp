@@ -166,19 +166,34 @@ def student_joins_waiting_list(player, instance, side: str | None, now: datetime
                                               is_active=True).first()
     if before is not None:
         return before, False
-    sides = None
-    if side is not None:
-        # The side the student sent (the join route's side round trip since PAD-672), in the engine's
-        # own/other/both terms; none sent, none passed.
-        own = TableStore()._students(_coach_of(instance), [], {}, extra=[player.id])[student].sides
-        sides = _sides_choice(side, own)
-    effects = handle(instance, rq.JoinWaitingList(student, "students", sides=sides), now)
-    refused = refusal(effects, student)
+    refused = _join_students_list(instance, player.id, side, now)
     if refused is not None:
         refuse(refused.reason, refused)
     entry = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player.id,
                                              is_active=True).first()
     return entry, True
+
+
+def _join_students_list(instance, player_id: int, side: str | None, now: datetime | None = None):
+    """The engine's students'-list join (engine-settings rule 4) with ``side`` as the student's
+    own/other/both choice (none sent, none passed). Returns the engine's refusal, or None."""
+    from padel_app.services.engine_store import TableStore
+
+    student = str(player_id)
+    sides = None
+    if side is not None:
+        # The side the student sent (the join route's side round trip since PAD-672), in the engine's
+        # own/other/both terms; none sent, none passed.
+        own = TableStore()._students(_coach_of(instance), [], {}, extra=[player_id])[student].sides
+        sides = _sides_choice(side, own)
+    return refusal(handle(instance, rq.JoinWaitingList(student, "students", sides=sides), now), student)
+
+
+def request_moves_to_waiting_list(instance, player_id: int, side: str, now: datetime | None = None) -> bool:
+    """join-requests NJ4 (rule 20): a pending request whose side lost its last spot joins the students'
+    list through the engine, its side kept as own/other. False when the engine refuses (the request
+    then stays pending)."""
+    return _join_students_list(instance, player_id, side, now) is None
 
 
 def coach_adds_to_waiting_list(instance, player_id: int, side: str | None, now: datetime | None = None) -> dict:
@@ -366,16 +381,28 @@ def sorry_joins_waiting_list(instance, player, config, now: datetime | None = No
     return {"action": "added_to_waiting_list"}
 
 
-def coach_added(instance, player_ids, now: datetime | None = None) -> None:
+def coach_added(instance, player_ids, now: datetime | None = None, *, fill: bool = False) -> None:
     """Rule 15's last sentence (INSTANCE-ENROLLMENT-34): a coach's add to a new-engine session is a
     placement, so each student's open invitations at that time close (``CoachAdded``; the enrolment is
-    the app's own, already written). Nothing for an old-engine session."""
+    the app's own, already written). Nothing for an old-engine session.
+
+    Then the pending join requests learn the spot is gone (classes.join-requests NJ4), here rather
+    than at the enrolment, so the engine's counts already hold the placed students: rule 20's move,
+    and for a ``fill`` (an accepted request, an invitation's Yes) rule 11 once the class is full."""
+    from padel_app.services.class_join_request_service import (
+        move_side_requests_to_waiting_list,
+        supersede_pending_requests,
+    )
     from padel_app.services.engine_switch import engine_for
 
     if engine_for(instance) != "new":
         return
     for player_id in player_ids:
         handle(instance, rq.CoachAdded(str(player_id)), now)
+    filled_by = player_ids[0] if len(player_ids) == 1 else None
+    move_side_requests_to_waiting_list(instance, filled_by_player_id=filled_by, now=now)
+    if fill:
+        supersede_pending_requests(instance, filled_by_player_id=filled_by, now=now)
 
 
 def has_open_spot(instance) -> bool:
