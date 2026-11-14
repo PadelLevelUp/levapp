@@ -104,6 +104,27 @@ answered for any future class whether or not a spot is currently open.
 
 11. **The rule editor keeps every rule well-formed, on web and iOS.** A new rule is `level` / `same_as_class` with no `value`. A rule holds a `value` only while its operation takes one: always for the absence and attendance attributes, and for `level` only with the three `within_n_*` operations. Changing the attribute resets the operation to that attribute's first one and drops the value. The three `within_n_*` operations are one menu entry plus a direction (above, below, both), and choosing a direction changes only the operation. Removing the last rule stores `null`, not `[]`.
 
+12. **A rule the evaluator does not know fails everyone, and saving it is refused.** The one evaluator
+    (rule 7) knows, per attribute: `level` with rule 6's operations; `side` with `same_as_vacancy` and
+    `different_from_vacancy` (`notifications.config` rule 20; the app's evaluator does not apply the
+    second, the new engine's tier does); `has_makeups` with `is_true`; `unjustified_absences`,
+    `justified_absences` and `attendance_rate` with `less_than`, `less_than_or_equal`, `equals`,
+    `greater_than` and `greater_than_or_equal`; `subscription_status` with `equals`.
+    - A rule whose attribute is none of these seven fails every student, with reason
+      `unknown_attribute`; a known attribute with an operation outside its list fails every student,
+      with reason `unknown_operation` (B-257's precedent, which closed the same hole for level). Both
+      used to pass everyone. The new engine's tiers read them the same (`notifications.engine-tiers`
+      rule 13), and they are reported like any other failure.
+    - Saving refuses either, before anything is written, on every path that stores rules, each in its
+      existing error shape: `POST /api/app/notify/config` (`invitationGroups` and `eligibilityRules`,
+      `400` naming the field, as rule 6), `edit_class` `updates.eligibilityRules`
+      (`{"error": "invalid_fields", "fields": ["eligibilityRules"]}`) and the class create and clone
+      `eligibilityRules` (the refused-fields error, naming `eligibilityRules`). One validator serves
+      all three. Every attribute and operation the web and iOS editors offer is accepted.
+    - A count rule whose `value` is missing or not a number is unchanged by this rule: it is ignored,
+      as today. The editors can store one (a blank number field), so making it fail is its own change,
+      editor validation on web and iOS first.
+
 ### Acceptance Criteria
 
 #### ELIGIBILITY-RULES-1: Unset eligibility admits everyone
@@ -215,6 +236,23 @@ test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` ›
 - **And** above saves `within_n_above_class`, below saves `within_n_below_class` and both saves `within_n_of_class`, each with N still 2
 - **And** picking "within N levels" again on a one-way rule keeps its direction and its N
 test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` › `picking within N on a one-way rule keeps its direction and N` (+15 more)
+
+#### ELIGIBILITY-RULES-17: An unknown attribute or operation fails everyone, and says so (rule 12)
+- **Given** a bar or a group holding one of `{language, equals, "en"}`, `{unjustified_absences, made_up, 0}`, `{side, made_up}`, `{has_makeups, made_up}` or `{subscription_status, made_up, "active"}`
+- **When** it is evaluated for every student of an eight-level ladder, for a class and for a vacancy
+- **Then** no student passes
+- **And** each failure carries reason `unknown_attribute` (the first) or `unknown_operation` (the others)
+- **And** `{side, different_from_vacancy}` and a count rule with no `value` still fail nobody
+test: `backend/padel_app/tests/test_pad481_level_direction.py` › `test_an_unknown_attribute_or_operation_fails_everyone_and_says_so`
+
+#### ELIGIBILITY-RULES-18: Saving refuses an unknown attribute or operation on every path, and accepts what the editors offer (rule 12)
+- **Given** a coach
+- **When** they save `eligibilityRules` or `invitationGroups` holding `{language, equals, "en"}` or `{has_makeups, made_up}`
+- **Then** the save answers `400` naming the field, and nothing is stored
+- **And** `edit_class` `updates.eligibilityRules` and the class create with `eligibilityRules` refuse it in their own error shapes, writing nothing
+- **When** they save groups using every attribute and operation the editors offer, `different_from_vacancy` included for a new-engine coach
+- **Then** the save succeeds and the groups are stored as sent
+test: `backend/padel_app/tests/test_pad481_level_direction.py` › `test_saving_refuses_an_unknown_attribute_or_operation_on_every_path`
 
 ### Notes
 

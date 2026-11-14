@@ -143,8 +143,8 @@ the coach's list).
     and `justified_absences` (counts of the coach's verdicts, D4) and `attendance_rate` (a percentage)
     compared by `less_than`, `less_than_or_equal`, `equals`, `greater_than` or
     `greater_than_or_equal`; `subscription_status` `equals`. As today, a threshold that is not a number
-    passes, an unknown attribute passes, and an unknown operation passes except on level, where it
-    fails (B-257). A group with no rules ("everyone") admits every pool student
+    passes. An unknown attribute or an unknown operation fails, on level (B-257) and on every other
+    attribute (`eligibility.rules` rule 12), as today's evaluator does. A group with no rules ("everyone") admits every pool student
     for every type. Only a pool tier carries group rules; settings giving rules to a waiting-list tier
     are refused (`SettingsError`). The snapshot's `Student` carries the facts these read, counted on the coach's own
     classes as today (PAD-382): level, sides, makeups owed, the two absence counts, attendance rate and
@@ -370,6 +370,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   to one tier (rule 13). Reading them as today's `_group_rule_failures`, unparseable thresholds and
   unknown operations passing included, is S's (PAD-913), so no coach's group changes meaning at the
   cutover.
+- Unknown attributes and operations (lead, 2026-11-14, the fail-open task): they now fail on both
+  engines (`eligibility.rules` rule 12, B-257's precedent), so rule 13 still reads groups as today's
+  evaluator does. A threshold that is not a number still passes on both, until the editors validate
+  it.
 - The waiting lists as two groups, and the coach's list past the gates (rules 4, 5) — **the owner's
   answers (2026-11-12, waiting-list inspection questions 2 and 3, both "matches Tomás"):** two groups,
   the coach's list first with the usual wait before the students' list; the coach's list skips the
