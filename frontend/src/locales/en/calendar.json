@@ -657,6 +657,8 @@
         "both": "Both",
         "both_left": "Both → Left",
         "both_right": "Both → Right",
+        "left_right": "Left → Right",
+        "right_left": "Right → Left",
         "right": "Right",
         "left": "Left"
       },
@@ -664,6 +666,8 @@
         "both": "Both sides",
         "both_left": "Both → left",
         "both_right": "Both → right",
+        "left_right": "Left → right",
+        "right_left": "Right → left",
         "right": "Right side",
         "left": "Left side"
       },
