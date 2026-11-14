@@ -69,6 +69,13 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    withdrawal is the store's own `withdraw(invitation_id, at)`, which rule 19's route calls; it is no
    engine effect. An `AlertCleared` drops that alert.
 
+9. **The side of a coach's add (PAD-808, `classes.join-requests` NJ4).** The app hands the engine
+   `CoachAdded(student, side)` with the side the coach chose: for an accepted join request, the request's
+   side (`left`/`right`; `both` or none passes none); for the coach's add to the class, the student's
+   side for that session (`presences.side`, PAD-551), else none. The engine's `SideAssigned` from it is
+   written as the presence's `assigned_side`, as every placement side is, so the snapshot counts the
+   student on that side from the next run.
+
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
 - The locks a unit takes (`notifications.engine-answers` rule 10).
@@ -142,10 +149,18 @@ start, then both are still going in the snapshot and the roster stays full; when
 by the coach before the start, then they are not going and their spot is open.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_no_show_stays_placed`
 
+#### NOTIFICATIONS-ENGINE-STORE-11: A coach's accept or add reaches the engine with its side (rule 9)
+Given a new-engine session of 10 with 4 left and 4 right going, when the coach accepts a left join request,
+then the accepted student's presence has `assigned_side` left and the engine's open spot types are a right
+`must` only; when the coach adds a student whose side for that session is right, then their
+`assigned_side` is right; and a `both` request passes no side.
+test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_a_coachs_accept_or_add_reaches_the_engine_with_its_side`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
 2. (PAD-916) STORE-9, STORE-10 — `padel_app/services/engine_store.py` (each session's end; what going means).
+3. (PAD-808) STORE-11 — `services/engine_entry.py` (`coach_added` passes the side), the accept and the class edit; with engine-answers ANSWERS-32.
 
 ### Open questions
 - None.

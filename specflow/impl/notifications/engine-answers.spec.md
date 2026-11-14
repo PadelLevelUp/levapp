@@ -55,8 +55,12 @@ Stated as observable records; storage is the engine package's (PAD-902).
     placement path refuses a second placement at the same hour:** an accept is refused with nothing
     placed and nothing sent (rule 8's form); a direct join is refused; automatic entry skips the
     student. The coach's add is the app's (`classes.instance-enrollment` rule 15 refuses one at a busy
-    time); one that goes through reaches the engine as `CoachAdded(student)` on the session added to,
-    in that session's unit with the student named: it writes no placement (the app already did), closes
+    time); one that goes through reaches the engine as `CoachAdded(student, side)` on the session added
+    to, in that session's unit with the student named. The app already wrote the enrolment, so the engine
+    writes no second one; it **places the student on a side** when their placement has none yet: `side`
+    (the app's, `notifications.engine-store` rule 9), else the student's single side, else none (a
+    flexible student stays unplaced until `last_invite_at`, `notifications.engine-timeline` rule 6). The
+    side is a `SideAssigned` with no message (a first side is not a move). It then closes
     the student's open invitations for every session at the same time (`InvitationClosed`, as any
     placement does), re-plans that session, and each session it touched re-plans in its own unit. **Two requests by one student never run at once:** the engine names the student in
     the unit of work and the store locks the student before the session (always students, then the
@@ -329,6 +333,14 @@ when the engine handles `CoachInvites` for all six, then the first four get `no_
 with the coach's-list tier and `manual` true and a const:KIND_INVITE message, one row each; once the store applies it, each row has no answer,
 no `sorry_at`, no `closed_at`, a `reopened_at`, counts again, and shows `tierSource` null and outcome `pending`.
 test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coach_invitation_refuses_with_a_reason_or_reopens`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-32: A coach's add places the student on a side (rule 10)
+Given a session of 10 with 4 left and 4 right going, when the engine handles `CoachAdded` for a left-only
+student with no side, then it emits `SideAssigned` left and no message, and the next run's counts have
+`open(L)` 0 and `must(R)` 1; when it handles `CoachAdded(student, "R")` for a {left, right} student, then
+the side is right; for a {left, right} student with no side, then no `SideAssigned` and the student stays
+unplaced; and for a student whose placement already has a side, then no `SideAssigned`.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_coachs_add_places_the_student_on_a_side`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
