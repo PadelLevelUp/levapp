@@ -57,6 +57,7 @@ appId: com.padellevelup.app
 - inputText: "E2eStudent123!"
 - tapOn:
     id: "login-submit"
+- runFlow: ../subflows/dismiss-save-password.yaml   # iOS's "Save Password?" sheet (B-728)
 - extendedWaitUntil:
     visible:
       id: "screen-dashboard"
