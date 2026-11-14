@@ -110,23 +110,24 @@ describe("a class bar rule with no value (eligibility.rules rule 13)", () => {
     expect(await screen.findByTestId("eligibility-value-missing")).toBeInTheDocument();
     save();
     await waitFor(() =>
-      expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ title: "settings.engine.blankRule.eligibility", variant: "destructive" })),
+      expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ title: "Elegibilidade: há uma regra sem valor.", variant: "destructive" })),
     );
     expect(onEdit).not.toHaveBeenCalled();
     expect(screen.queryByRole("alertdialog")).toBeNull();
 
-    // Switching to the standard bar, or to everyone, after adding the blank row saves.
-    pick("standard");
-    save();
-    await waitFor(() => expect(onEdit).toHaveBeenCalledTimes(1));
-    expect(onEdit.mock.calls[0][1]).toEqual({ eligibilityRules: null });
-    cleanup();
-
-    onEdit = await editClass([BLANK]);
+    // Switching to everyone after the blank row saves `[]`.
     pick("everyone");
     save();
     await waitFor(() => expect(onEdit).toHaveBeenCalledTimes(1));
     expect(onEdit.mock.calls[0][1]).toEqual({ eligibilityRules: [] });
+    cleanup();
+
+    // A class whose own bar is stored blank: switching it to the standard bar saves `null`.
+    onEdit = await editClass([BLANK]);
+    pick("standard");
+    save();
+    await waitFor(() => expect(onEdit).toHaveBeenCalledTimes(1));
+    expect(onEdit.mock.calls[0][1]).toEqual({ eligibilityRules: null });
     cleanup();
 
     // A name-only edit of a class whose stored bar already holds a blank rule saves.
@@ -136,6 +137,6 @@ describe("a class bar rule with no value (eligibility.rules rule 13)", () => {
     save();
     await waitFor(() => expect(onEdit).toHaveBeenCalledTimes(1));
     expect(onEdit.mock.calls[0][1]).toEqual({ name: "Renamed" });
-    expect(toastSpy).not.toHaveBeenCalledWith(expect.objectContaining({ title: "settings.engine.blankRule.eligibility" }));
+    expect(toastSpy).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Elegibilidade: há uma regra sem valor." }));
   });
 });

@@ -138,3 +138,14 @@ export const BLANK_RULE_REASON_KEYS: Record<BlankRulePart, string> = {
 export function blankRuleReason(parts: BlankRulePart[], t: (key: string) => string): string {
   return parts.map((p) => t(BLANK_RULE_REASON_KEYS[p])).join(" ");
 }
+
+/**
+ * Rule 13 on a class (eligibility.cascade): the class Save reads its bar only when the edit sends it,
+ * i.e. `eligibilityRules` is in the edit's changes (it differs from the loaded class). A standard
+ * (`null`) or everyone (`[]`) bar never blocks. Returns the refusal's reason key, or null.
+ */
+export function classBarRefusal(changes: { eligibilityRules?: GroupRule[] | null }): string | null {
+  return "eligibilityRules" in changes && firstBlankRule(changes.eligibilityRules, "bar") >= 0
+    ? BLANK_RULE_REASON_KEYS.eligibility
+    : null;
+}

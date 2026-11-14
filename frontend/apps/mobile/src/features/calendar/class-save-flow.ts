@@ -1,3 +1,5 @@
+import { classBarRefusal } from "@levelup/config";
+import type { GroupRule } from "@levelup/types";
 import { buildClassEditChanges } from "./edit-class-diff";
 import { unavailableBeforeSave } from "./unavailable-check";
 
@@ -64,6 +66,15 @@ type Participants = { participants?: { id: string }[] };
 /** Whether an edit has anything to save — the participant diff included. */
 export function hasClassEditChanges<T extends Participants>(original: T, draft: T): boolean {
   return Object.keys(buildClassEditChanges(original, draft)).length > 0;
+}
+
+/**
+ * eligibility.rules rule 13 (eligibility.cascade), as web's ClassDetailSheet.saveEdit: the class's own
+ * bar holding a rule with no value refuses the Save before any dialog, but only when this edit sends
+ * the bar. Returns the reason key, or null.
+ */
+export function classEditRefusal<T extends Participants>(original: T, draft: T): string | null {
+  return classBarRefusal(buildClassEditChanges(original, draft) as { eligibilityRules?: GroupRule[] | null });
 }
 
 export interface EditFlowDeps<T extends Participants, E> {
