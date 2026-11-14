@@ -26,10 +26,15 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    sends the attendance requests (`invitation_engine/messages.py`, `due`): the first at
    `attendance_request_at` (`EngineSettings.attendance_request`: days before, wall-clock time, Lisbon),
    then every `every`, at most `max` sends, each only to who has not answered. The recipients are the
-   going students placed as a regular, a returning regular, by automatic entry or by direct join;
-   never a student placed by accepting an invitation, an absent regular, one who confirmed, or one who
-   blocked all notifications (`notifications.student-block-preferences` rule 7). A
-   student placed after a send waits for the next one; a run that comes late sends the latest send
+   going students (`SessionSnapshot.going`: placed and not left), however they were placed: as a
+   regular, a returning regular, by automatic entry, by direct join, or by accepting an invitation
+   (owner, 2026-11-14, PAD-820 option b: "everyone going when the reminder is sent gets it"). Never an
+   absent regular, one who answered (a Yes to an attendance request, or a response the system or an
+   import recorded as coming, `notifications.engine-store` rule 6), or one who blocked all
+   notifications (`notifications.student-block-preferences` rule 7). A student who accepted an
+   invitation strictly after the first send (`attendance_request_at`; at it counts as by it) is never asked, by that send or a later
+   one: they have just said yes (the owner's exception, "quem entrou depois do envio dos lembretes não
+   precisa de outro"). Any other student placed after a send waits for the next one; a run that comes late sends the latest send
    once, never the missed ones; quiet hours hold a send until they end; nothing goes out once the
    class has started. Silence keeps the spot. At a coach's cutover the app's reminder flow
    (`notifications.reminders`) stops for that coach's sessions: the engine's requests replace it,
@@ -189,11 +194,13 @@ Given `every` and `max`, when some recipients answer after the first send, then 
 only to who has not answered, never twice for one send, and none after the `max`-th.
 test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_repeats_go_every_interval_only_to_who_has_not_answered_and_stop_at_max`
 
-#### NOTIFICATIONS-ENGINE-TIMELINE-17: The recipients are the students placed other than by accepting an invitation (rule 2)
+#### NOTIFICATIONS-ENGINE-TIMELINE-17: Every going student is asked, an invitation acceptor only when placed by the first send (rule 2; PAD-820)
 Given going students placed as a regular, a returning regular, by automatic entry, by direct join and
-by accepting an invitation, and an absent regular, when a send is due, then all but the acceptor and
-the absent regular are asked.
-test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_automatic_entrants_and_direct_joiners_are_asked_and_invitation_acceptors_are_not`
+by accepting an invitation before `attendance_request_at`, and an absent regular, when the first send
+is due, then all but the absent regular are asked. Given a second acceptor placed after the first send
+and before the second (`max` 2), when the second send is due, then that acceptor is not asked, while a
+direct joiner placed in the same gap is.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_every_going_student_is_asked_and_an_invitation_acceptor_only_when_placed_by_the_first_send` (+ `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[25-quem-recebe-lembretes]`, `test_scenario[24-lembretes-mais-cedo-mudam-a-fronteira]`)
 
 #### NOTIFICATIONS-ENGINE-TIMELINE-18: A late run sends the latest send once (rule 2)
 Given no run between two sends, when a run comes after the second, then each recipient gets one
@@ -256,12 +263,27 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 7. (Owner decisions, PAD-915) TIMELINE-8, TIMELINE-10 again — `invitation_engine/timeline.py` (moves only within the student's sides), scenario pins P18a, P19.
 
 ### Open questions
+- **PAD-820: is a student who already confirmed in another way asked again? (agent 3, engine stream; the
+  lead can reverse it.)** Decision: no. Any recorded answer stops the request: a Yes to an attendance
+  request, or a response the system (`notifications.reminders` rule 22) or an import recorded as coming.
+  A coach's attendance mark is not read by the new engine, unlike the old engine's rule 23. Accepting an invitation is not such an answer: it says "I want the spot",
+  days ahead; the request asks "are you still coming", which is the point of PAD-820. Before the first
+  send that is the same question for everyone; after it the acceptor has just answered it.
+- **PAD-820: rows the new engine did not write.** `engine_store._placement` reads a presence with no
+  `placed_how` as `regular` when its source is `roster` and as `invitation` otherwise, so a coach's add,
+  a walk-in or an import from before adoption, placed after the first send, would not be asked. Left as
+  is (agent 3): adoption happens before a session's window opens (`notifications.config` rule 18), so
+  such rows predate every send; mapping them to `direct` is the store's call if one shows up.
+- **PAD-820: "placed by the first send" reads the configured time (`attendance_request_at`), not the
+  moment a run actually sent** (agent 3): a late run sends the latest send once (this rule), so the
+  configured time is the one both engines can read the same way.
 - Who moves at `last_invite_at`: the owner's decisions 12-13 (2026-11-12), below, which reversed ruling (2).
 - Who sends attendance requests after the swap (swap plan §3.1, "Reminders") — options: the app's
   reminder flow stays; the engine sends them (`messages.due`, #946). Decision (coordinator, owner away,
   PAD-912, 2026-11-11; the owner can reverse it): the engine, and the app's reminder jobs retire per coach at
-  cutover, because the engine's requests already know who was placed how (an invitation acceptor is
-  not asked) and run inside the engine's quiet hours, and two senders for one class would ask twice.
+  cutover, because the engine's requests already know who was placed how (an invitation acceptor placed
+  after the first send is not asked, PAD-820) and run inside the engine's quiet hours, and two senders for
+  one class would ask twice.
 - Justified or unjustified, by the engine or the coach (plan §8 step 5) — decision (owner, 2026-11-11,
   D4): "justified or unjustified is always a coach's judgement". The engine records each absence's
   notice, on time or late by the cutoff, and never a verdict; the coach judges as today. The tiers'

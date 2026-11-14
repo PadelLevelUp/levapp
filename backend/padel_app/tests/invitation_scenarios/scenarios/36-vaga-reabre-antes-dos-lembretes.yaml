@@ -11,6 +11,8 @@ notes: >
   E3's invitation stays open after the class fills (glossary "Convite aberto"; U25). At 2 Nov 09:00 the
   automatic entry beats it.
 
+  Re-derived (PAD-820, owner 2026-11-14, option b: everyone going when the reminder is sent gets it): E1 accepted an invitation before the reminder, so they get it too.
+
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 roster:
   regulars: {L: 3, R: 4}
@@ -56,6 +58,6 @@ timeline:
       messages: [{who: E3, kind: aviso}]
   - at: 2026-11-02 17:00
     expect:
-      reminders: {to: [regulars, E2], not_to: [E1]}
+      reminders: {to: [regulars, E2, E1]}
 final:
   roster: {L: 4, R: 4}

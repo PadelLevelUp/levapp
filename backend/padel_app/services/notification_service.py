@@ -3096,6 +3096,22 @@ def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
     return now - last.sent_at < timedelta(hours=hours) - tolerance
 
 
+def answered_for_reminders(presence, first_reminder, *, new_engine: bool = False) -> bool:
+    """Whether the reminder passes leave this presence alone because it has answered
+    (notifications.reminders rules 5 and 24). ``confirmed`` is set by every answer, and also, with no
+    answer recorded (``response`` ``none``), by accepting an invitation or a join request
+    (``_add_player_to_instance``). PAD-820: that acceptance is not an answer to the reminder, so such
+    a presence is still owed one when it was placed (``placed_at``, else ``created_at``) at or before
+    the class's first reminder time; placed after it, they have just said yes and are never asked.
+    A new-engine session's placements are the engine's to ask (``notifications.engine-timeline`` rule 2)."""
+    if not presence.confirmed:
+        return False
+    if new_engine or presence.response != "none" or first_reminder is None:
+        return True
+    placed = presence.placed_at or presence.created_at
+    return placed is None or placed > first_reminder
+
+
 def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None,
                          answered_pairs=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
@@ -3134,6 +3150,10 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
     blocked_ids = set(_blocked_by_id)
     reminder_count = config.get_reminder_count()
 
+    from padel_app.scheduler import _fire_time_utc
+    first_reminder = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
+    on_new_engine = None        # read only when an acceptance is on the class (the listing's query budget)
+
     due = []
     # PAD-259: the presence rows ARE the roster; nothing is created here.
     for existing_presence in list(instance.presences):
@@ -3145,7 +3165,12 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
 
         # Stop reminding a student as soon as they have responded.
         # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
-        if existing_presence.confirmed:
+        # PAD-820 (rule 24): an invitation's "yes" is enrolled ``confirmed`` with no answer recorded;
+        # it is asked like everyone going when placed by the first reminder time.
+        if on_new_engine is None and existing_presence.confirmed and existing_presence.response == "none":
+            from padel_app.services.engine_switch import engine_for
+            on_new_engine = engine_for(instance) == "new"
+        if answered_for_reminders(existing_presence, first_reminder, new_engine=bool(on_new_engine)):
             continue
         # PAD-546 (rule 23): the coach already marked them present or absent (justified or not).
         # `status` is the coach's record only (attendance.presence rule 7); read at send time, on

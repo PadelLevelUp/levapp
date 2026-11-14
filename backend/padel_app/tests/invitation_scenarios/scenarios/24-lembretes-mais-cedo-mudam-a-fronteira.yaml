@@ -11,6 +11,8 @@ notes: >
   reminder and the invitation both happen then. The 14:00 probe (derived) makes "não recebe lembretes,
   porque aceitou um convite" testable. W1 has no level (level null).
 
+  Re-derived (PAD-820, owner 2026-11-14, option b: everyone going when the reminder is sent gets it): W1 accepts at 12:10, after the first send (10:00), so no later send asks them: the owner's exception for whoever joins after the reminders went out. Unchanged.
+
 settings:
   reminders: {days_before: 1, at: "10:00", every: 2h, max: 3}
 roster:
