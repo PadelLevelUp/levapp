@@ -51,6 +51,13 @@ approval.**
   - `already_on_list`: "Já estás na lista de espera desta aula." / "You're already on this class's
     waiting list." (proposed).
   Web and iOS show the same line; a code with no copy never shows its raw key.
+- **NJ3. The side at accept time (rule 7a) reads the engine's spots (PAD-808).** A new-engine session
+  has no vacancy row (`notifications.engine-spots`, D1), so rule 7a's "an open spot of that side" is an
+  open spot type of the session's counts that admits the side: `must(v)` for v, and `either` for every v
+  with `open(v) > 0` (`notifications.engine-spots` rules 6, 7), counted with the coach's settings as the
+  engine plans. The `409`'s `openSides` lists those sides. A session with no open spot type is never
+  warned, as rule 7a says for a class with no open spot. The warning's fields, its copy and the confirm
+  are rule 7a's on both engines, so web and iOS show it the same way.
 
 ### Rules
 1. **Only an eligible student may request**, and only for a class that is visible to them with an
@@ -561,6 +568,15 @@ test: `backend/padel_app/tests/test_pad920_direct_join_refusals.py` › `test_a_
 - **When** the student's request or waiting-list join is refused with it, on web and on iOS
 - **Then** each shows its `calendar.joinRequest.refusal.<code>` line in the user's language, and no raw key ever shows
 test: `frontend/packages/config/src/join-refusal-copy.test.ts` › `every refusal code has copy in both locales`
+
+#### CLASSES-JOIN-REQUESTS-39: On a new-engine class the side warning reads the engine's open spots (new-engine section NJ3)
+- **Given** a new-engine class of 10 with 5 left and 4 right going (one right spot open, no left one) and a pending request for the left side
+- **When** the coach accepts it without confirming
+- **Then** the server answers `409 ineligible` with `reasons` holding `"side"`, `requestedSide: "left"` and `openSides: ["right"]`, and nobody is enrolled
+- **When** the coach confirms
+- **Then** the student is enrolled and plays left in that class
+- **And** in a new-engine class of 10 with 4 left and 4 right going, a left request is accepted with no confirmation
+test: `backend/padel_app/tests/test_pad808_accept_warns_when_the_side_is_gone.py` › `test_a_new_engine_class_warns_from_the_engines_spots`
 
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
