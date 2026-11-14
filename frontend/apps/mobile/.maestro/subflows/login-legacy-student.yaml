@@ -22,6 +22,7 @@ appId: com.padellevelup.app
       - inputText: E2eLegacy123!
       - tapOn:
           id: "login-submit"
+      - runFlow: dismiss-save-password.yaml   # iOS's "Save Password?" sheet (B-728)
       - extendedWaitUntil:
           visible:
             id: "legal-catch-up"

@@ -30,6 +30,7 @@ env:
 - hideKeyboard
 - tapOn:
     id: "login-submit"
+- runFlow: ../subflows/dismiss-save-password.yaml   # iOS's "Save Password?" sheet (B-728)
 
 # ── Approved coach with no club lands on club onboarding ──
 - extendedWaitUntil:
