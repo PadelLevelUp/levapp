@@ -258,11 +258,14 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
             )
     commit_or_flush()
     db.session.expire(instance, ["presences"])
-    if source == "coach" and (created or returning):
+    from padel_app.services.engine_switch import engine_for
+
+    if source == "coach" and (created or returning) and engine_for(instance) != "new":
         # PAD-805 (join-requests rule 20): a pending request whose side just lost its last spot
         # waits on that side's list, as on the fill path, which also runs it after the enrolment's
         # commit (it commits its own move). An occurrence created under `unit_of_work` has no
-        # request yet, so it returns before any commit there.
+        # request yet, so it returns before any commit there. A new-engine session runs it once the
+        # engine placed the student (join-requests NJ4, engine_entry.coach_added).
         from padel_app.services.class_join_request_service import move_side_requests_to_waiting_list
 
         move_side_requests_to_waiting_list(instance, filled_by_player_id=player_id)

@@ -2407,6 +2407,11 @@ def _add_player_to_instance(player_id: int, instance: LessonInstance) -> None:
 
     enrol(player_id, instance, "fill", confirmed=True)
 
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        return  # join-requests NJ4: rules 10-12 run once the engine placed them (engine_entry.coach_added)
+
     # PAD-131 (classes.join-requests rule 10): first fill wins. Every fill path
     # — invitation "yes" (a waiting-list one included), accepted request — converges
     # here, so this is where the other pending requests learn the spot is gone.
@@ -6007,7 +6012,7 @@ def _tell_new_engine_placed(instance, player_id: int) -> None:
     from padel_app.services.engine_entry import coach_added
 
     try:
-        coach_added(instance, [player_id])
+        coach_added(instance, [player_id], fill=True)  # join-requests NJ4: rules 10-12 after the placement
     except Exception:  # noqa: BLE001 — the placement stands; the next tick replans the session
         db.session.rollback()
         current_app.logger.exception("PAD-932: telling the engine about lesson_instance %s failed", instance.id)

@@ -613,7 +613,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     db.session.commit()
     from padel_app.services.engine_entry import coach_added
 
-    coach_added(instance, [row.player_id], now)                   # PAD-918: a placement (rule 15)
+    coach_added(instance, [row.player_id], now, fill=True)        # PAD-918: a placement (rule 15); NJ4
 
     if coach_user_id and player_user_id:
         _send_system_message(
@@ -636,9 +636,14 @@ def move_side_requests_to_waiting_list(instance: LessonInstance, *, filled_by_pl
     """PAD-672 (rule 20, owner Q2): a pending request that named a side (`left`/`right`) whose last
     spot of that side was just filled moves to that side's waiting list — `superseded`, plus an
     active waiting-list entry with its side — and the student is told. Runs on rule 10's fill path,
-    before rule 11's superseding, which then handles the rest unchanged. Returns the rows moved."""
+    before rule 11's superseding, which then handles the rest unchanged. Returns the rows moved.
+    On a new-engine session (NJ4) the sides are the engine's open spot types and each move is the
+    student's own join of the engine's students' list; a join the engine refuses leaves the request
+    pending, unannounced."""
     from padel_app.models.waiting_list_entry import WaitingListEntry
     from padel_app.services.academy_class_service import _existing_entry, _publish_waiting_list_changed
+    from padel_app.services.engine_entry import open_sides, request_moves_to_waiting_list
+    from padel_app.services.engine_switch import engine_for
     from padel_app.services.system_messages import _send_system_message, _user_id_for_player
     from padel_app.models import Coach
 
@@ -649,9 +654,12 @@ def move_side_requests_to_waiting_list(instance: LessonInstance, *, filled_by_pl
     ]
     if not pending:
         return []
+    new_engine = engine_for(instance) == "new"
     full = _is_full(instance)
-    sides = open_spot_sides(instance)
+    sides = open_sides(instance) if new_engine else open_spot_sides(instance)
     moving = [r for r in pending if full or not side_has_spot(r.side, sides)]
+    if new_engine:
+        moving = [r for r in moving if request_moves_to_waiting_list(instance, r.player_id, r.side, now)]
     if not moving:
         return []
     coach = Coach.query.get(moving[0].coach_id)
@@ -661,6 +669,9 @@ def move_side_requests_to_waiting_list(instance: LessonInstance, *, filled_by_pl
         row.status = "superseded"
         row.decided_at = now
         entry = _existing_entry(instance.id, row.player_id)
+        if new_engine:                   # the engine's join wrote the row (NJ4)
+            entries.append(entry)
+            continue
         if entry is None:
             entry = WaitingListEntry(lesson_instance_id=instance.id, player_id=row.player_id,
                                      coach_id=row.coach_id, added_by="student")

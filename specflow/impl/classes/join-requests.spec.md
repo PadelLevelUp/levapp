@@ -58,6 +58,15 @@ approval.**
   engine plans. The `409`'s `openSides` lists those sides. A session with no open spot type is never
   warned, as rule 7a says for a class with no open spot. The warning's fields, its copy and the confirm
   are rule 7a's on both engines, so web and iOS show it the same way.
+- **NJ4. A request whose side lost its last spot moves through the engine (rule 20, CLASSES-JOIN-REQUESTS-35;
+  PAD-808).** Rule 20's move holds on a new-engine session. Its "spot of that side" is NJ3's open spot
+  types. The move is the student's own join of the students' list (`notifications.engine-settings`
+  rule 4), never a row written beside the engine: the request's side is kept as the student's own or
+  other side, so the engine invites them only for a spot of that side, and the engine's gates apply.
+  The full-class move (rule 20, `full`) goes the same way. When the engine refuses the join (e.g.
+  `ineligible`), the request stays `pending` and nothing is sent: the coach still sees it, and NJ3's
+  warning covers an accept (lead, 2026-11-14). Once the class is full, rule 11 still closes what is
+  left pending.
 
 ### Rules
 1. **Only an eligible student may request**, and only for a class that is visible to them with an
@@ -579,10 +588,27 @@ test: `frontend/packages/config/src/join-refusal-copy.test.ts` › `every refusa
 - **And** in a new-engine class of 10 with 4 left and 4 right going, a left request is accepted with no confirmation
 test: `backend/padel_app/tests/test_pad808_accept_warns_when_the_side_is_gone.py` › `test_a_new_engine_class_warns_from_the_engines_spots`
 
+#### CLASSES-JOIN-REQUESTS-40: On a new-engine class a request the full class moves goes to the engine's students' list for its side only (new-engine section NJ4)
+- **Given** a new-engine class of 10 with 5 left and 4 right going, and a pending left request from a left-only student
+- **When** the coach accepts a right request, which fills the class
+- **Then** the pending request closes as `superseded`, the student is on the students' list with their own side, and the engine admits that entry for a left spot and not for a right one
+- **And** with 4 left and 4 right going, accepting a right request leaves the left request `pending` with no list entry
+- **And** when the engine refuses the student's join (the coach excluded them from the session), the request stays `pending`, no list entry is written and nothing is sent
+test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_on_a_new_engine_class_a_request_whose_side_fills_moves_through_the_engine`
+
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.
 
 ### Open questions
+- What happens on a new-engine class when the engine refuses rule 20's move (NJ4)? — closed (lead,
+  2026-11-14): the request stays `pending` and nothing is sent; the coach still sees it, and NJ3's
+  warning covers an accept.
+- NJ4's side branch on a new-engine class (a request whose side fills while the class keeps a seat) —
+  open, waits on the placement fix (lead, 2026-11-14): the engine writes no placement for a coach's add
+  or accept (`CoachAdded`), so a one-sided student added by the coach counts on neither side and the
+  engine's open spot types still show their side as open. Task `engine/coach-add-side`: `CoachAdded`
+  carries the side and the store writes `assigned_side` (`notifications.engine-answers`,
+  `notifications.engine-store`); CLASSES-JOIN-REQUESTS-40 then gains the side-fills case.
 - The direct-join refusal copy and the two codes missing copy today (NJ2) — proposed by S (PAD-913,
   2026-11-12), **for the owner's approval**.
