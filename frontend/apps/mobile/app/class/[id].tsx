@@ -33,6 +33,7 @@ import {
   sideWordKey,
   assignedSideOf,
   joinRequestAcceptedAtOnce,
+  joinRequestStatusKey,
   sideLongKeyOf,
   shouldReportSent,
   splitBlockedByCause,
@@ -2131,9 +2132,11 @@ export default function ClassDetailScreen() {
                   </>
                 ) : (
                   <>
-                    {instance?.myJoinRequest && instance.myJoinRequest.status !== "withdrawn" ? (
-                      <Text className="text-xs text-muted-foreground">
-                        {t(`calendar.joinRequest.${instance.myJoinRequest.status}`)}
+                    {/* PAD-842 (event-detail rule 26): no "Está marcado!" here; this block shows only
+                        while the student holds no place, which an accepted request outlives. */}
+                    {joinRequestStatusKey(instance?.myJoinRequest) ? (
+                      <Text className="text-xs text-muted-foreground" testID="class-join-request-status">
+                        {t(joinRequestStatusKey(instance?.myJoinRequest)!)}
                       </Text>
                     ) : null}
                     {event.openSpot ? (
