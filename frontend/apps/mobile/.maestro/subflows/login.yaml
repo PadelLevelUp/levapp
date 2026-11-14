@@ -95,15 +95,26 @@ appId: com.padellevelup.app
       - tapOn:
           id: "login-submit"
       # A simulator with AutoFill passwords on asks "Save Password?" after every sign-in; the
-      # system sheet hides the app from Maestro until it is answered.
-      - extendedWaitUntil:
-          visible:
-            text: "Not Now|Agora não"
-          timeout: 5000
-          optional: true
-      - tapOn:
-          text: "Not Now|Agora não"
-          optional: true
+      # system sheet hides the app from Maestro until it is answered. Only on iOS and only while the
+      # sheet's own title shows (B-728): Maestro's text match ignores case, so a bare "Not Now" tap
+      # also hit the app's "Not now" / "Agora não" and dismissed the coach home's email prompt.
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - extendedWaitUntil:
+                visible:
+                  text: "Save Password\\?|Guardar palavra-passe\\?|Salvar senha\\?"
+                timeout: 5000
+                optional: true
+      - runFlow:
+          when:
+            platform: iOS
+            visible:
+              text: "Save Password\\?|Guardar palavra-passe\\?|Salvar senha\\?"
+          commands:
+            - tapOn:
+                text: "Not Now|Agora não"
       # players.join-token rule 8: a student with no coach lands on "Connect
       # with a coach" (e2e-student-3 in the seed). Its "Go to dashboard" is the
       # explicit way through; every other account never shows it.
