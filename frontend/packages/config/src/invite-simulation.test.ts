@@ -66,6 +66,20 @@ describe("describeEligibilityFailure", () => {
     ).toBe("tutorials.eligibility.unknownOperation");
   });
 
+  it("[SETTINGS-TUTORIALS-16] names a rule the server does not know in one sentence, whatever its attribute", () => {
+    for (const f of [
+      failure({ attribute: "language", operation: "equals", reason: "unknown_attribute", threshold: "en" }),
+      failure({ attribute: "unjustified_absences", operation: "made_up", reason: "unknown_operation", threshold: 0 }),
+      failure({ attribute: "has_makeups", operation: "made_up", reason: "unknown_operation" }),
+    ]) {
+      expect(describeEligibilityFailure(f)).toEqual({ key: "tutorials.eligibility.unknownRule" });
+    }
+    // An unknown level operation keeps its own sentence (B-257).
+    expect(describeEligibilityFailure(failure({ reason: "unknown_operation", operation: "made_up" })).key).toBe(
+      "tutorials.eligibility.unknownOperation",
+    );
+  });
+
   it("renders 'over the unjustified-absence limit (4, limit is 2)' from the record", () => {
     expect(
       describeEligibilityFailure(

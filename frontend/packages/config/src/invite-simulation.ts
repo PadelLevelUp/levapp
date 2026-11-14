@@ -97,6 +97,11 @@ export function describeEligibilityFailure(f: EligibilityFailure): I18nText {
     actual: f.actual ?? "",
     threshold: f.threshold ?? "",
   };
+  // eligibility.rules rule 12: a rule the server does not know fails everyone, whatever its attribute;
+  // an unknown level operation keeps its own sentence below.
+  if (f.reason === "unknown_attribute" || (f.reason === "unknown_operation" && f.attribute !== "level")) {
+    return { key: `${NS}.eligibility.unknownRule` };
+  }
   if (f.attribute === "level") {
     if (f.reason === "class_has_no_level") return { key: `${NS}.eligibility.classHasNoLevel` };
     if (f.reason === "student_has_no_level") return { key: `${NS}.eligibility.studentHasNoLevel` };

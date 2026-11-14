@@ -244,14 +244,15 @@ ELIGIBILITY_LEVEL_OPERATIONS = frozenset({
 })
 
 
-def unknown_eligibility_level_operations(rules) -> list:
-    """The level operations in an eligibility bar that rule 6 does not define.
+def unknown_eligibility_rules(rules) -> list:
+    """The rules in an eligibility bar the evaluator does not know: a level operation rule 6 does not
+    define, or an attribute or operation outside rule 12's lists.
 
-    Saving refuses them (`eligibilityRules` → 400). Every operation a client can
-    post is in the set — including one it only round-trips unchanged — so a
-    client that does not know an operation can still save the list back.
+    Saving refuses them (`eligibilityRules` → 400; `edit_class` and the class create in their own
+    shapes). Every operation a client can post is in the sets — including one it only round-trips
+    unchanged — so a client that does not know an operation can still save the list back.
     """
-    return _level_operations_outside(rules, ELIGIBILITY_LEVEL_OPERATIONS)
+    return _rules_outside(rules, ELIGIBILITY_LEVEL_OPERATIONS)
 
 
 # An invitation group's level rule is anchored to the VACANCY (eligibility.rules
@@ -265,8 +266,9 @@ INVITATION_GROUP_LEVEL_OPERATIONS = frozenset({
 })
 
 
-def unknown_invitation_group_level_operations(groups) -> list:
-    """The level operations in invitation groups outside the five vacancy ones.
+def unknown_invitation_group_rules(groups) -> list:
+    """The rules in invitation groups the evaluator does not know: a level operation outside the five
+    vacancy ones, or an attribute or operation outside rule 12's lists.
 
     Saving refuses them (`invitationGroups` → 400). Shapes the evaluator already
     tolerates (a non-list, a group without rules) are left to it.
@@ -277,20 +279,37 @@ def unknown_invitation_group_level_operations(groups) -> list:
         op
         for group in groups
         if isinstance(group, dict)
-        for op in _level_operations_outside(
+        for op in _rules_outside(
             group.get("rules"), INVITATION_GROUP_LEVEL_OPERATIONS)
     ]
 
 
-def _level_operations_outside(rules, known) -> list:
+#: eligibility.rules rule 12: the operations each attribute other than level may hold (level's are
+#: rule 6's). An attribute not here, or an operation outside its set, fails every student.
+COMPARISON_OPERATIONS = frozenset({
+    "less_than", "less_than_or_equal", "equals", "greater_than", "greater_than_or_equal",
+})
+RULE_OPERATIONS = {
+    "side": frozenset({"same_as_vacancy", "different_from_vacancy"}),
+    "has_makeups": frozenset({"is_true"}),
+    "unjustified_absences": COMPARISON_OPERATIONS,
+    "justified_absences": COMPARISON_OPERATIONS,
+    "attendance_rate": COMPARISON_OPERATIONS,
+    "subscription_status": frozenset({"equals"}),
+}
+
+
+def _rules_outside(rules, level_operations) -> list:
+    """The one save validator (rule 12): each rule an unknown attribute, an unknown operation on a
+    known one, or a level operation outside ``level_operations``, named as ``"attribute operation"``."""
     if not isinstance(rules, list):
         return []
     return [
-        rule.get("operation")
+        f"{rule.get('attribute')} {rule.get('operation')}"
         for rule in rules
         if isinstance(rule, dict)
-        and rule.get("attribute") == "level"
-        and rule.get("operation") not in known
+        and (rule.get("operation") not in level_operations if rule.get("attribute") == "level"
+             else rule.get("operation") not in RULE_OPERATIONS.get(rule.get("attribute"), ()))
     ]
 
 
@@ -437,11 +456,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         config.invitation_start_timing = data["invitationStartTiming"]
         timing_changed = True
     if "invitationGroups" in data:
-        unknown = unknown_invitation_group_level_operations(data["invitationGroups"])
+        unknown = unknown_invitation_group_rules(data["invitationGroups"])
         if unknown:
-            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
+            # eligibility.rules rules 6, 12: abort before save(), so nothing is stored.
             from flask import abort
-            abort(400, f"invitationGroups: unknown level operation {unknown[0]!r}")
+            abort(400, f"invitationGroups: unknown rule {unknown[0]!r}")
         config.invitation_groups = data["invitationGroups"]
     if "tiebreakers" in data:
         config.tiebreakers = data["tiebreakers"]
@@ -453,11 +472,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         if rules is not None and not isinstance(rules, list):
             from flask import abort
             abort(400, "eligibilityRules must be a list or null")
-        unknown = unknown_eligibility_level_operations(rules)
+        unknown = unknown_eligibility_rules(rules)
         if unknown:
-            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
+            # eligibility.rules rules 6, 12: abort before save(), so nothing is stored.
             from flask import abort
-            abort(400, f"eligibilityRules: unknown level operation {unknown[0]!r}")
+            abort(400, f"eligibilityRules: unknown rule {unknown[0]!r}")
         config.eligibility_rules = rules
     if "openSpotsVisible" in data:
         config.open_spots_visible = bool(data["openSpotsVisible"])
@@ -1282,6 +1301,10 @@ def _level_ids_one_below(vacancy_level, coach_id: int, *, ladder=None) -> set:
 
 
 def _compare(value, op: str, threshold) -> bool:
+    # eligibility.rules rule 12: an unknown operation fails, whatever the threshold; a threshold that
+    # is not a number still passes (the editors can store a blank one).
+    if op not in COMPARISON_OPERATIONS:
+        return False
     try:
         threshold = float(threshold)
     except (TypeError, ValueError):
@@ -1290,8 +1313,7 @@ def _compare(value, op: str, threshold) -> bool:
     if op == "less_than_or_equal":      return value <= threshold
     if op == "equals":                  return value == threshold
     if op == "greater_than":            return value > threshold
-    if op == "greater_than_or_equal":   return value >= threshold
-    return True
+    return value >= threshold
 
 
 def _ladder_distance(coach_id: int, level_id_a, level_id_b) -> int | None:
@@ -1380,6 +1402,18 @@ def _group_rule_failures(
         attr = rule.get("attribute")
         op = rule.get("operation")
         val = rule.get("value")
+
+        if attr != "level" and attr not in RULE_OPERATIONS:
+            # eligibility.rules rule 12: an attribute this evaluator does not know used to match no
+            # branch and pass everyone. Fail closed, and say why (B-257's precedent).
+            if fail(attr, op, threshold=val, reason="unknown_attribute"):
+                return failures
+            continue
+        if attr != "level" and op not in RULE_OPERATIONS[attr]:
+            # Rule 12: so did an operation outside the attribute's own (level's are B-257's, below).
+            if fail(attr, op, threshold=val, reason="unknown_operation"):
+                return failures
+            continue
 
         if attr == "level":
             class_code = getattr(vacancy_level, "code", None)

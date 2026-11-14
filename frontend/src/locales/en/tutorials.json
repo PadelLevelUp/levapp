@@ -140,6 +140,7 @@
       "studentHasNoLevel": "the student has no level assigned",
       "levelNotInLadder": "the student's level is not in your level ladder",
       "unknownOperation": "the bar uses a level rule the server does not recognise, so no one passes it",
+      "unknownRule": "the bar uses a rule the server does not recognise, so no one passes it",
       "absencesOver": "over the unjustified-absence limit ({{actual}}, limit is {{threshold}})",
       "justifiedAbsences": "justified absences outside the limit ({{actual}}, limit is {{threshold}})",
       "attendanceUnder": "attendance outside the limit ({{actual}}%, limit is {{threshold}}%)",

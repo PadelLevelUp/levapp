@@ -1260,11 +1260,11 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
          "start_time": data.get("startTime"), "end_time": data.get("endTime")}, recurring=False,
     )
     if isinstance(data.get("eligibilityRules"), list):
-        # eligibility.rules rule 6 (PAD-481), as on /edit_class: an unknown level operation
+        # eligibility.rules rules 6, 12, as on /edit_class: a rule the evaluator does not know
         # is refused before anything is written.
-        from padel_app.services.notification_service import unknown_eligibility_level_operations
+        from padel_app.services.notification_service import unknown_eligibility_rules
 
-        if unknown_eligibility_level_operations(data["eligibilityRules"]):
+        if unknown_eligibility_rules(data["eligibilityRules"]):
             refused = list(refused or []) + ["eligibilityRules"]
     if refused:
         raise NotNullableFieldError(refused)
@@ -1832,11 +1832,11 @@ def _edit_class_service(data):
     eligibility_touched = "eligibilityRules" in updates
     eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
     if eligibility_touched:
-        # eligibility.rules rule 6 (PAD-481): an unknown level operation is
+        # eligibility.rules rules 6, 12: a rule the evaluator does not know is
         # refused before any write, as on the coach tier.
-        from padel_app.services.notification_service import unknown_eligibility_level_operations
+        from padel_app.services.notification_service import unknown_eligibility_rules
 
-        if unknown_eligibility_level_operations(eligibility_rules):
+        if unknown_eligibility_rules(eligibility_rules):
             return {"error": "invalid_fields", "fields": ["eligibilityRules"]}, 400
     # PAD-130: same tri-state contract for the open-spot toggle (None = inherit).
     visibility_touched = "openSpotsVisible" in updates
