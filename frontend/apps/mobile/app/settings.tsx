@@ -39,6 +39,7 @@ import { StudentNotificationBlocksSection } from "@/features/settings/student-no
 import { TutorialsSection } from "@/features/settings/tutorials-section";
 import {
   UnsavedRegistryProvider,
+  failedPartText,
   useUnsavedRegistry,
 } from "@/features/settings/unsaved-registry";
 import {
@@ -203,8 +204,8 @@ function SettingsScreenBody() {
         if (!saver) continue;
         try {
           await saver.save();
-        } catch {
-          failed.push(saver.label);
+        } catch (error) {
+          failed.push(failedPartText(saver.label, error));
         }
       }
     } finally {

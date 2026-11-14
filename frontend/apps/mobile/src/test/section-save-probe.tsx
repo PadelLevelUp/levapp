@@ -6,7 +6,8 @@
  * are shown as the screen's toast names them (`failedPartText`), under `<testID>-failed`.
  */
 import { createElement, Fragment, useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
+import { Text } from "@/components/ui/text";
 import { failedPartText, useUnsavedRegistry } from "@/features/settings/unsaved-registry";
 
 export function SectionSaveProbe({ testID }: { testID: string }) {

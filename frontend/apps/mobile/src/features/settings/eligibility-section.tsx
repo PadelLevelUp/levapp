@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   WITHIN_N_DIRECTIONS,
+  isRuleBlank,
   isWithinNOperation,
   lightTheme,
   menuOperation,
@@ -197,6 +198,13 @@ function RuleRow({
             </SelectContent>
           </Select>
         </View>
+      ) : null}
+
+      {/* eligibility.rules rule 13: a rule that needs a value and has none is marked where it stands. */}
+      {isRuleBlank(rule, "bar") ? (
+        <Text testID="eligibility-value-missing" className="text-xs text-destructive">
+          {t("settings.eligibility.valueMissing")}
+        </Text>
       ) : null}
     </View>
   );

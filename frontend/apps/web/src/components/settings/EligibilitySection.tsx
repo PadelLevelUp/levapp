@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { GroupRule } from "@/types";
 import {
+  ELIGIBILITY_ATTRIBUTES,
   WITHIN_N_DIRECTIONS,
+  eligibilityNeedsValue as needsValue,
+  isRuleBlank,
   isWithinNOperation,
   menuOperation,
   operationForMenuPick,
@@ -34,58 +37,9 @@ import {
  *    selector beside N for both / only above / only below. The direction is the
  *    stored operation (`within_n_of_class` / `_above_` / `_below_`), mapped by
  *    `@levelup/config`'s level-direction module, shared with iOS.
+ *  - **the attribute table and "needs a value"** live in `@levelup/config`
+ *    (rule-values), shared with iOS (eligibility.rules rule 13).
  */
-const ELIGIBILITY_ATTRIBUTES = [
-  {
-    id: "level",
-    labelKey: "settings.eligibility.attributes.level",
-    operations: [
-      { id: "same_as_class", labelKey: "settings.eligibility.operations.sameAsClass" },
-      { id: "equal_or_above_class", labelKey: "settings.eligibility.operations.equalOrAboveClass" },
-      { id: "equal_or_below_class", labelKey: "settings.eligibility.operations.equalOrBelowClass" },
-      { id: "one_below_or_above_class", labelKey: "settings.eligibility.operations.oneBelowOrAboveClass" },
-      { id: "within_n_of_class", labelKey: "settings.eligibility.operations.withinNOfClass" },
-    ],
-    // Only the three `within_n_*` operations carry a value (see needsValue).
-    valueType: "conditional-number" as const,
-  },
-  {
-    id: "unjustified_absences",
-    labelKey: "settings.eligibility.attributes.unjustifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.eligibility.operations.lessThan" },
-      { id: "equals", labelKey: "settings.eligibility.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.eligibility.operations.atMost" },
-    ],
-    valueType: "number" as const,
-  },
-  {
-    id: "justified_absences",
-    labelKey: "settings.eligibility.attributes.justifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.eligibility.operations.lessThan" },
-      { id: "equals", labelKey: "settings.eligibility.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.eligibility.operations.atMost" },
-    ],
-    valueType: "number" as const,
-  },
-  {
-    id: "attendance_rate",
-    labelKey: "settings.eligibility.attributes.attendanceRate",
-    operations: [
-      { id: "greater_than", labelKey: "settings.eligibility.operations.greaterThan" },
-      { id: "greater_than_or_equal", labelKey: "settings.eligibility.operations.atLeast" },
-    ],
-    valueType: "percentage" as const,
-  },
-];
-
-function needsValue(attr: (typeof ELIGIBILITY_ATTRIBUTES)[number], operation: string): boolean {
-  if (attr.valueType === "number" || attr.valueType === "percentage") return true;
-  if (attr.valueType === "conditional-number") return isWithinNOperation(operation);
-  return false;
-}
-
 function RuleRow({
   rule,
   onChange,
@@ -101,9 +55,15 @@ function RuleRow({
   const attr = ELIGIBILITY_ATTRIBUTES.find((a) => a.id === rule.attribute);
   const showValue = attr ? needsValue(attr, rule.operation) : false;
   const isPercentage = attr?.valueType === "percentage";
+  // eligibility.rules rule 13: a rule that needs a value and has none is marked where it stands.
+  const valueMissing = isRuleBlank(rule, "bar");
 
   return (
-    <div className="flex items-center gap-2 flex-wrap" data-testid="eligibility-rule-row">
+    <div
+      className="flex items-center gap-2 flex-wrap"
+      data-testid="eligibility-rule-row"
+      data-value-missing={valueMissing ? "true" : undefined}
+    >
       <Select
         value={rule.attribute}
         onValueChange={(v) => {
@@ -208,6 +168,11 @@ function RuleRow({
       >
         <X className="w-3.5 h-3.5" />
       </button>
+      {valueMissing && (
+        <p className="basis-full text-xs text-destructive" data-testid="eligibility-value-missing">
+          {t("settings.eligibility.valueMissing")}
+        </p>
+      )}
     </div>
   );
 }

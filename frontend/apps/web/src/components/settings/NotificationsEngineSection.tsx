@@ -4,7 +4,7 @@ import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, 
 
 import type { InvitationMode, NotificationConfig } from "@/types";
 import type { EngineConfig, EngineTimingMethod } from "@levelup/types";
-import { ENGINE_DEFAULT_MAX_AT_A_TIME, perTierAligned } from "@levelup/config";
+import { ENGINE_DEFAULT_MAX_AT_A_TIME, blankRuleParts, blankRuleReason, perTierAligned } from "@levelup/config";
 import { PAST_DUE_SEND_MAX, getNotificationConfig, sendPastDueReminders, updateNotificationConfig } from "@/api/notificationEngine";
 import type { PastDue, PastDueSendResult } from "@/api/notificationEngine";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,7 @@ import { NotificationGroupsSection } from "./NotificationGroupsSection";
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
 import { StandingWaitingListSection } from "./StandingWaitingListSection";
 import { EngineStepper } from "./EngineStepper";
-import { useTabSave } from "@/context/SettingsUnsavedContext";
+import { TabSaveError, useTabSave } from "@/context/SettingsUnsavedContext";
 
 // settings.explicit-save (PAD-506): the engine settings this card edits and its Save sends.
 const ENGINE_FIELDS = [
@@ -132,6 +132,14 @@ export function NotificationsEngineSection() {
     save: async () => {
       if (!unsaved) return;
       const patch = changed;
+      // eligibility.rules rule 13: a bar or group rule this Save would send with no value refuses the
+      // whole card before any request; every edit stays held, the section with the first blank row
+      // opens, and the tab's toast carries the reason naming the part.
+      const blank = blankRuleParts(patch);
+      if (blank.length > 0) {
+        setOpenSection(blank[0] === "eligibility" ? "eligibility" : "groups");
+        throw new TabSaveError(blankRuleReason(blank, t));
+      }
       const saved = await updateNotificationConfig(patch);
       const confirmed = { ...(stored ?? {}), ...patch, ...pickEngineFields(saved) } as NotificationConfig;
       setStored(confirmed);

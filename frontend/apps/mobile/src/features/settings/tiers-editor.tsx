@@ -3,6 +3,7 @@ import {
   FIXED_TIERS,
   MAX_TIERS,
   SIDE_BALANCE_EXAMPLES,
+  isRuleBlank,
   lightTheme,
   ruleForAttribute,
   tierAttributesFor,
@@ -165,6 +166,12 @@ function RuleRow({
             </View>
           ) : null}
         </View>
+      ) : null}
+      {/* eligibility.rules rule 13: a rule that needs a value and has none is marked where it stands. */}
+      {isRuleBlank(rule, "groups") ? (
+        <Text testID="invitation-group-value-missing" className="text-xs text-destructive">
+          {t("settings.invitationGroups.valueMissing")}
+        </Text>
       ) : null}
       {rule.attribute === "side" && rule.operation === "same_as_vacancy" ? <SideBalanceHelp /> : null}
     </View>
