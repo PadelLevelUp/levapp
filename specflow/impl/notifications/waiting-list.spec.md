@@ -120,6 +120,18 @@ Kept unchanged for the new engine, the plan silent: rule 15b (the last standing 
       the submit path; a non-empty answer names them ("Sábado 18h · 24/10 18:00") and the button turns
       into "Adicionar mesmo assim"; an empty one adds at once. Read-only, like `/eligibility_check`.
     Web and iOS alike, inline in the dialog (no nested modal).
+    - **Confirming gives no priority where the student fails the bar (PAD-844, the owner's decision
+      2026-11-14, reversing PAD-724 for the standing list).** The warning stays; what the coach
+      confirms is the add, never a way past the bar. A standing entry's row (one it fanned out, whether
+      the entry is coach-wide or scoped to a series or a period, rule 19) is matched in each class
+      under that class's bar when a spot opens (rules 3a, 4a; on a new-engine session it is a
+      students'-list row, `notifications.engine-tiers` rules 3 and 5). In a class whose bar the student
+      fails they are neither asked nor placed from it; in one they pass, they are asked like any
+      waiting-list row. Counting a series or period add as standing is the lead's reading of the
+      owner's decision, which the owner can overturn. A coach's add to one class ("this class",
+      rule 18) is the coach's choice for that class: on a new-engine session it is on the coach's
+      list and skips the bar (`notifications.engine-tiers` rule 4). The old engine applies the bar to
+      every waiting-list row (rule 4a) until the coach switches.
 3. When a new instance is materialized, `_sync_standing_entries_for_new_instance()` auto-creates waiting list entries for standing members whose entry has not expired and ends after the class starts (rule 2)
 3a. **Fan-out is not a promise of a place.** A standing entry fans out to every upcoming class of
    the coach, and matching happens when a spot opens (rule 4a), not at fan-out time — a student's
@@ -685,6 +697,24 @@ test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py`
 - **Then** the student's other live waiting-list invitations are withdrawn as `credits_spent`, and their bubbles are settled
 - **And** with a credit left, the other invitations stay
 test: `backend/padel_app/tests/test_pad547_coach_adds_to_class_waiting_list.py` › `test_an_accepted_join_request_never_spends_another_series_entry` (+3 more)
+
+#### NOTIFICATIONS-WAITING-LIST-45: A standing entry asks a student in a class whose bar they pass (rule 2a)
+- **Given** a class whose bar is "same level as the class", and a student at that level whose standing entry fanned out a row to it
+- **When** a spot opens, on an old-engine session and on a new-engine session
+- **Then** the old engine puts the student in group 0, and the new engine's students'-list tier holds them for the spot
+test: `backend/padel_app/tests/test_pad844_standing_list_bar.py` › `test_a_standing_row_asks_an_eligible_student_on_both_engines`
+
+#### NOTIFICATIONS-WAITING-LIST-46: A standing entry never asks a student below the class's bar, even after the coach confirmed the warning (rule 2a, PAD-844)
+- **Given** the same class, and two students one level below it, one on a coach-wide standing entry and one on a standing entry scoped to the class's series, both rows fanned out to it
+- **When** a spot opens, on an old-engine session and on a new-engine session
+- **Then** neither student is in the old engine's group 0, and on the new engine neither is in the pool nor holds any tier for the spot
+test: `backend/padel_app/tests/test_pad844_standing_list_bar.py` › `test_a_standing_row_never_asks_a_student_below_the_bar_on_both_engines`
+
+#### NOTIFICATIONS-WAITING-LIST-47: A coach's add to one class skips the bar on the new engine only (rule 2a)
+- **Given** the same class, and a student one level below it whom the coach added to this class's list ("this class")
+- **When** a spot opens
+- **Then** on a new-engine session the student holds the coach's-list tier for the spot; on an old-engine session they are not in group 0 (rule 4a)
+test: `backend/padel_app/tests/test_pad844_standing_list_bar.py` › `test_a_coach_add_for_one_class_skips_the_bar_on_the_new_engine_only`
 
 ### Notes
 - **[DEC 2026-09-04, PAD-124]** Wire `waiting_list_offer` as a third actionable message type in
