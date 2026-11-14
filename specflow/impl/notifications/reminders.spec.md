@@ -193,6 +193,20 @@ batch 2; `notifications.config` rule 18's cutover).
     not count, and neither does a `not_enrolled` outcome (a stale reminder tapped while off the
     date): a student the coach re-adds is asked.
 
+24. **Everyone going is asked, invitation joiners included, unless placed after the first reminder
+    (PAD-820; owner, 2026-11-14, option b).** On an old-engine session a pass asks every student
+    with a presence on the occurrence and no coach mark (rule 23), however they came to be there,
+    including one filled by accepting an invitation or a join request (`enrolment_source` `fill`,
+    which `_add_player_to_instance` enrols with `confirmed` already true). The pass tells such a fill
+    from an answer by `Presence.response`: a fill carries `none`; a student's Yes or No to a reminder
+    (`respond_to_reminder`, `_retake_spot`), the system's "coming" (rule 22) and an import write
+    `confirmed`, `declined` and the rest, and any of those stops the reminders as before. A fill
+    placed after the class's first reminder time (`scheduler._fire_time_utc` on the coach's first
+    reminder timing, compared with `Presence.created_at`) is never asked, by that pass or a later
+    one, and no late ask (rule 18) is armed for it: they have just said yes. Every other rule holds
+    (the cap, blocks, quiet hours, a class that started). The new engine's rule is
+    `notifications.engine-timeline` rule 2.
+
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-REMINDERS-1: Moving a class drops the follow-up armed on the old schedule (rule 15a, PAD-623)
@@ -420,3 +434,13 @@ test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `o
 - **When** `send_class_reminders` runs, `arm_ask_for_student` is called for each late student, and the past-due pass runs
 - **Then** nothing is sent or armed for the new-engine occurrence, and the old-engine one gets its reminder, its ask and its past-due pass as today
 test: `backend/padel_app/tests/test_pad918_reminders_skip_new_engine.py` › `test_the_apps_reminders_skip_a_new_engine_session`
+
+
+#### NOTIFICATIONS-REMINDERS-35: An invitation joiner placed before the first reminder is asked; one placed after it is not (rule 24, PAD-820)
+- **Given** an old-engine class with one reminder the day before at 17:00, a regular, a student who accepted an invitation seven days before (a fill), and a student already recorded as coming (`response` `confirmed`, as rule 22 records it)
+- **When** the 17:00 pass runs
+- **Then** the regular and the invitation joiner are asked and the student who answered is not
+- **Given** another student who accepts an invitation at 18:00, after that pass, on a class with two reminders two hours apart
+- **When** the 19:00 pass runs
+- **Then** that student is not asked, and no late ask is armed for them
+test: `backend/padel_app/tests/test_pad820_invitation_joiners_are_reminded.py` › `test_an_invitation_joiner_placed_before_the_first_reminder_is_asked` (+1 more)
