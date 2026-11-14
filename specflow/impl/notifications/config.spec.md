@@ -137,6 +137,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    simulation and both clients — renaming them would be a data migration for no behaviour change
    (decision `2026-09-10-account-status-not-payment`). `eligibility.rules` rule 5 explains why
    eligibility offers no payments attribute.
+7d. **A group rule that needs a value is never saved without one** (`eligibility.rules` rule 12, criterion
+   ELIGIBILITY-RULES-18): the invitation groups editor, on web and iOS, marks it and refuses the Save.
 8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
 9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
 10. Updating timing configs reschedules all future scheduler jobs; the open spots of those classes follow a new invitation start too (`notifications.invitations` rule 11a, PAD-776)
