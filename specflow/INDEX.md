@@ -3318,7 +3318,7 @@ Untagged tests: 4260
   - **ELIGIBILITY-RULES-16** Within N is one menu entry with a direction that changes only the operation (rules 6, 11; PAD-481) · unverified
   - **ELIGIBILITY-RULES-17** The settings bar editor refuses to save a rule with no value, and says why (rule 12) · unverified
   - **ELIGIBILITY-RULES-18** The invitation groups editor refuses to save a group rule with no value, and says why (rule 12) · unverified
-  - **ELIGIBILITY-RULES-19** A class's own bar refuses to save a rule with no value (rule 12, eligibility.cascade) · unverified
+  - **ELIGIBILITY-RULES-19** A class's own bar refuses to save a rule with no value, only when the class would send it (rule 12, eligibility.cascade) · unverified
 
 ### P-ELIGIBILITY-3: Student discovers open spots
 
