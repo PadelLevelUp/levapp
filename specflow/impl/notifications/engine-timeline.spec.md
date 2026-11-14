@@ -32,7 +32,7 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    absent regular, one who answered (a Yes to an attendance request, or a response the system or an
    import recorded as coming, `notifications.engine-store` rule 6), or one who blocked all
    notifications (`notifications.student-block-preferences` rule 7). A student who accepted an
-   invitation after the first send (`attendance_request_at`) is never asked, by that send or a later
+   invitation strictly after the first send (`attendance_request_at`; at it counts as by it) is never asked, by that send or a later
    one: they have just said yes (the owner's exception, "quem entrou depois do envio dos lembretes não
    precisa de outro"). Any other student placed after a send waits for the next one; a run that comes late sends the latest send
    once, never the missed ones; quiet hours hold a send until they end; nothing goes out once the
@@ -265,10 +265,15 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 ### Open questions
 - **PAD-820: is a student who already confirmed in another way asked again? (agent 3, engine stream; the
   lead can reverse it.)** Decision: no. Any recorded answer stops the request: a Yes to an attendance
-  request, the system's "coming" for a class created late (`notifications.reminders` rule 22), an
-  import's, or a coach's mark. Accepting an invitation is not such an answer: it says "I want the spot",
+  request, or a response the system (`notifications.reminders` rule 22) or an import recorded as coming.
+  A coach's attendance mark is not read by the new engine, unlike the old engine's rule 23. Accepting an invitation is not such an answer: it says "I want the spot",
   days ahead; the request asks "are you still coming", which is the point of PAD-820. Before the first
   send that is the same question for everyone; after it the acceptor has just answered it.
+- **PAD-820: rows the new engine did not write.** `engine_store._placement` reads a presence with no
+  `placed_how` as `regular` when its source is `roster` and as `invitation` otherwise, so a coach's add,
+  a walk-in or an import from before adoption, placed after the first send, would not be asked. Left as
+  is (agent 3): adoption happens before a session's window opens (`notifications.config` rule 18), so
+  such rows predate every send; mapping them to `direct` is the store's call if one shows up.
 - **PAD-820: "placed by the first send" reads the configured time (`attendance_request_at`), not the
   moment a run actually sent** (agent 3): a late run sends the latest send once (this rule), so the
   configured time is the one both engines can read the same way.

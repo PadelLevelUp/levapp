@@ -114,7 +114,7 @@ batch 2; `notifications.config` rule 18's cutover).
 
 18. **A late arrival is asked (PAD-331, PAD-318; rule numbers self-assigned, unconfirmed).** Reminder passes are a chain: a pass schedules the next one only while it reports `more_due`. With the default `reminderCount` of 1 the first pass reports `false` — everyone has had their reminder — so **the chain ends after one pass** and the occurrence's job is spent. Anyone who joins the class after that was therefore never asked by anything: a coach's fresh add, a coach re-adding someone who had cancelled, any late arrival, with no cancellation anywhere in the story.
     So enrolling a student **arms one pass for them** when, and only when, the ordinary reminder has already come and gone. While that reminder is still ahead it asks them at the coach's configured moment, and arming here would ask a student the instant they were added — three weeks early for a class three weeks out, which is exactly what the configured timing exists to prevent.
-    Nothing is armed when the student has already answered, when a reminder of theirs is still live and unanswered (asking again is the noise `notifications.reminders` removed in PAD-49 and PAD-94), when the class is over or cancelled, or when the earliest permitted moment falls at or after the class starts.
+    Nothing is armed when the student has already answered, when the student accepted an invitation (rule 24), when a reminder of theirs is still live and unanswered (asking again is the noise `notifications.reminders` removed in PAD-49 and PAD-94), when the class is over or cancelled, or when the earliest permitted moment falls at or after the class starts.
     **Quiet hours defer it forward, never back.** Outside the permitted window the ask is scheduled for the next permitted instant — the end of quiet hours on the club's clock. It is deliberately *not* deferred to the occurrence's configured fire time, which is in the past for exactly the cases this rule exists for; deferring to it would reinstate the bug on the path hardest to test.
     A pass is armed rather than a bespoke message sent: `send_class_reminders` already skips everyone who has answered or exhausted their reminders, so one pass reaches precisely the people who still owe an answer and nobody else.
     **Told, then asked (with PAD-330).** On a coach's add after the chain has stopped the student receives two messages in that order: the `added_to_class` message, sent synchronously inside the enrolment, then the reminder when the armed pass runs — at once, or at the end of quiet hours. A coach's add *before* the ordinary reminder is told only; the ordinary reminder asks later, as it always has.
@@ -196,16 +196,27 @@ batch 2; `notifications.config` rule 18's cutover).
 24. **Everyone going is asked, invitation joiners included, unless placed after the first reminder
     (PAD-820; owner, 2026-11-14, option b).** On an old-engine session a pass asks every student
     with a presence on the occurrence and no coach mark (rule 23), however they came to be there,
-    including one filled by accepting an invitation or a join request (`enrolment_source` `fill`,
-    which `_add_player_to_instance` enrols with `confirmed` already true). The pass tells such a fill
-    from an answer by `Presence.response`: a fill carries `none`; a student's Yes or No to a reminder
-    (`respond_to_reminder`, `_retake_spot`), the system's "coming" (rule 22) and an import write
-    `confirmed`, `declined` and the rest, and any of those stops the reminders as before. A fill
-    placed after the class's first reminder time (`scheduler._fire_time_utc` on the coach's first
-    reminder timing, compared with `Presence.created_at`) is never asked, by that pass or a later
-    one, and no late ask (rule 18) is armed for it: they have just said yes. Every other rule holds
-    (the cap, blocks, quiet hours, a class that started). The new engine's rule is
-    `notifications.engine-timeline` rule 2.
+    including one who accepted an invitation or a join request (`_add_player_to_instance`, which
+    enrols with `confirmed` already true and no answer recorded).
+    - **The test** (`notification_service.answered_for_reminders`, read by `_reminder_recipients` and by
+      the scheduler's startup re-arm of follow-ups): a presence is left alone when `confirmed` and
+      (`response` is not `none`, or it was placed strictly after the class's first reminder time).
+      `response` tells an acceptance from an answer: a student's Yes or No to a reminder
+      (`respond_to_reminder`, `_retake_spot`), the system's "coming" (rule 22) and an import write
+      it; accepting an invitation does not. It does not read `enrolment_source`: a regular who gave
+      the seat up and takes it again by invitation keeps `roster`.
+    - **Placed:** `Presence.placed_at`, which `lesson_service.enrol` stamps for every new seat and
+      every return (rule 10's returning row keeps its old `created_at`); `created_at` for a row from
+      before PAD-820. **The first reminder time** is `scheduler._fire_time_utc` on the class's
+      current start and the coach's current first-reminder timing, read when the pass runs, so moving
+      the class or changing the timing moves the line for everyone. No time (an unknown timing) leaves
+      an acceptor alone, as before PAD-820.
+    - A student who accepted after the first reminder is never asked, by that pass or a later one, and
+      `next_ask_time` (rule 18's late ask) still skips every `confirmed` presence: they have just said
+      yes. If the coach then marks and clears them (PAD-567 resets `confirmed`), rule 23 holds and
+      they are asked like anyone never answered.
+    - A new-engine session's placements are the engine's to ask (`notifications.engine-timeline`
+      rule 2); the test never reaches them.
 
 ### Acceptance Criteria
 
@@ -443,4 +454,8 @@ test: `backend/padel_app/tests/test_pad918_reminders_skip_new_engine.py` › `te
 - **Given** another student who accepts an invitation at 18:00, after that pass, on a class with two reminders two hours apart
 - **When** the 19:00 pass runs
 - **Then** that student is not asked, and no late ask is armed for them
-test: `backend/padel_app/tests/test_pad820_invitation_joiners_are_reminded.py` › `test_an_invitation_joiner_placed_before_the_first_reminder_is_asked` (+1 more)
+- **Given** a regular who said no after the first reminder and then accepted an invitation (a return: their row's `created_at` is before the first reminder, the new seat's `placed_at` after it)
+- **When** the next pass runs
+- **Then** they are not asked
+- **And** on a new-engine session the test leaves every placement to the engine
+test: `backend/padel_app/tests/test_pad820_invitation_joiners_are_reminded.py` › `test_an_invitation_joiner_placed_before_the_first_reminder_is_asked` (+3 more)
