@@ -201,7 +201,9 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
             <DialogTitle>{t("players.claim.dialogTitle")}</DialogTitle>
             <DialogDescription>{t("players.claim.rosterHint")}</DialogDescription>
           </DialogHeader>
-          <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+          {/* PAD-838: Tabs and the roster pane shrink, so with the keyboard up the candidates give
+              way and the search and the footer stay above it (mobile.android-runtime rule 15). */}
+          <Tabs className="shrink" value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList className="w-full flex-row">
               <TabsTrigger value="roster" className="flex-1" testID="player-claim-tab-roster">
                 <Text>{t("players.claim.tabRoster")}</Text>
@@ -210,7 +212,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                 <Text>{t("players.claim.tabUsername")}</Text>
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="roster" className="gap-2">
+            <TabsContent value="roster" className="shrink gap-2">
               <Input
                 testID="player-claim-search"
                 autoCapitalize="none"
@@ -219,7 +221,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                 value={search}
                 onChangeText={setSearch}
               />
-              <ScrollView className="max-h-56" testID="player-claim-candidates">
+              <ScrollView className="max-h-56" testID="player-claim-candidates" keyboardShouldPersistTaps="handled">
                 {candidates === null ? (
                   <Text className="p-2 text-sm text-muted-foreground">{t("players.claim.previewLoading")}</Text>
                 ) : candidates.length === 0 ? (

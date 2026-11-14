@@ -146,11 +146,9 @@ Manage conversations between users (1:1 or group chats).
 18. A row with no photo shows the person's initials: the first letters of the first two words of their
     name, uppercased, words split on any run of spaces. A row with no name, including a person who is
     gone, shows `?`. Web and phone alike.
-    - Code to follow: web `ConversationList.tsx` must use the phone's `initialsOf` helper instead of its own initials code.
 19. A row shows when its last message was sent, in the viewer's language: the time for today, the word
     for yesterday, and the day and month before that, with the year when it is not this year. Web and
     phone alike.
-    - Code to follow: web `ConversationList.tsx` must show the day and month (with the year for an earlier year) instead of a weekday and a short numeric date.
 
 ### Acceptance Criteria
 
@@ -269,7 +267,6 @@ Manage conversations between users (1:1 or group chats).
 - **Then** every entry has `id`, `name`, `username`, `role`, `avatarUrl`, `abbreviation` and no `email`, `phone` or `language` key
 - **When** C GETs the same two routes
 - **Then** the entries have the same public shape, while `GET /api/app/players` still carries the roster's `email` and `phone` for C
-- Code to follow: `test_pad500_user_list_scope.py` must share the full public-field list of `test_user_privacy.py` (with `avatarUrl` and `abbreviation`) instead of its own short one.
 
 #### MESSAGING-CONVERSATIONS-18: Students are not discoverable
 - **Given** an authenticated student
@@ -378,7 +375,6 @@ test: `backend/padel_app/tests/test_pad93_boolean_blast_radius.py` › `test_one
 - **And** `GET /api/app/users` answers exactly the people on the picker, with no e-mail, phone or language
 - **And** an automatic message is delivered whatever the link
 test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_student_can_message_a_linked_coach` (+12 more)
-- Code to follow: `test_automatic_messages_ignore_the_picker_scope` in `test_pad483_student_coach_scope.py` must use a student who is not linked to the coach, or be dropped, since its sibling test is the proof.
 
 #### MESSAGING-CONVERSATIONS-33: A row shows initials when there is no photo, and when its last message was sent (rules 18, 19)
 - **Given** a conversation list whose rows have no photo and last messages from today, yesterday and earlier
@@ -386,4 +382,4 @@ test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_s
 - **Then** on web and on the phone "Ana Beatriz Silva" shows `AB`, "Ana" shows `A`, and a row with no name shows `?`
 - **And** a message from today shows its time, and one from yesterday the word for yesterday
 - **And** an earlier message shows the day and month in the viewer's language, with the year for an earlier year, on web and on the phone
-test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `takes the first letter of the first two words, uppercased` (+13 more)
+test: `frontend/packages/config/src/initials.test.ts` › `takes the first letter of the first two words, uppercased` (+13 more)

@@ -58,7 +58,7 @@ describe("invite picker: the coach's display name (PAD-683)", () => {
 
   it("[PLAYERS-NICKNAME-5] a search row reads the nickname, and searching the real name finds it", async () => {
     render(<ManualNotificationModal {...props} coachPlayers={roster} />);
-    await screen.findByText("All students");
+    await screen.findByText("settings.notificationGroups.labels.allStudents");
     fireEvent.change(screen.getByPlaceholderText("calendar.notify.searchPlaceholder"), {
       target: { value: "Decliner" },
     });
@@ -69,7 +69,7 @@ describe("invite picker: the coach's display name (PAD-683)", () => {
   it("[PLAYERS-NICKNAME-5] with the switch off the search row reads the real name", async () => {
     const off = roster.map((r) => ({ ...r, nicknameAsName: false, displayName: r.name })) as CoachPlayer[];
     render(<ManualNotificationModal {...props} coachPlayers={off} />);
-    await screen.findByText("All students");
+    await screen.findByText("settings.notificationGroups.labels.allStudents");
     fireEvent.change(screen.getByPlaceholderText("calendar.notify.searchPlaceholder"), {
       target: { value: "Rita" },
     });

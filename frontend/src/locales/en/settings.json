@@ -589,7 +589,8 @@
         "reminders": "Reminders",
         "invitations": "Invitations",
         "waitingList": "Waiting list",
-        "addedToClass": "Added to a class"
+        "addedToClass": "Added to a class",
+        "removedFromClass": "Removed from a class"
       },
       "labels": {
         "invite": "Invite message",
@@ -605,7 +606,9 @@
         "addedToClass": "Added to a class",
         "addedToClassComing": "Added to a class, counted as coming",
         "waitingListAdded": "Placed from the waiting list",
-        "sideMoved": "Side set"
+        "sideMoved": "Side set",
+        "removedFromClass": "Removed from one class",
+        "removedFromSeries": "Removed from the class group"
       },
       "descriptions": {
         "invite": "Sent when notifying a student about an open spot.",
@@ -621,7 +624,9 @@
         "addedToClass": "Sent when you put a student in a class.",
         "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing.",
         "waitingListAdded": "Sent when automatic entry places a waiting-list student in a spot.",
-        "sideMoved": "Sent when a student who plays both sides is given their final side."
+        "sideMoved": "Sent when a student who plays both sides is given their final side.",
+        "removedFromClass": "Sent when you take a student off one date of a class.",
+        "removedFromSeries": "Sent when you take a student off a recurring class from a date on."
       },
       "help": {
         "title": "How to build a message template",
@@ -640,6 +645,8 @@
           "date": "The class's date as day/month",
           "type": "The kind of class: academy or private",
           "court": "The class's court (empty when it has none)",
+          "duration": "Class duration",
+          "club": "Club",
           "class": "The class's title",
           "when": "The class's date, weekday and time",
           "side": "The side of the open spot (waiting-list invitation only)"

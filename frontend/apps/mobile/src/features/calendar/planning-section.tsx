@@ -194,7 +194,10 @@ export function PlanningSection({
             onChangeText={setSearch}
           />
 
+          {/* PAD-838: Tabs and its pane shrink, so with the keyboard up the list gives way and the
+              search and the footer stay above it (mobile.android-runtime rule 15). */}
           <Tabs
+            className="shrink"
             value={pickerTab}
             onValueChange={(value) =>
               setPickerTab(value as "exercises" | "groups")
@@ -209,8 +212,8 @@ export function PlanningSection({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="exercises">
-              <ScrollView className="max-h-72">
+            <TabsContent value="exercises" className="shrink">
+              <ScrollView className="max-h-72" keyboardShouldPersistTaps="handled">
                 {filteredExercises.length === 0 ? (
                   <Text className="py-8 text-center text-sm text-muted-foreground">
                     {search
@@ -257,8 +260,8 @@ export function PlanningSection({
               </ScrollView>
             </TabsContent>
 
-            <TabsContent value="groups">
-              <ScrollView className="max-h-72">
+            <TabsContent value="groups" className="shrink">
+              <ScrollView className="max-h-72" keyboardShouldPersistTaps="handled">
                 {filteredGroups.length === 0 ? (
                   <Text className="py-8 text-center text-sm text-muted-foreground">
                     {t("calendar.planning.noGroupsFound")}

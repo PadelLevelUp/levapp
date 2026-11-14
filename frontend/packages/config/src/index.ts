@@ -91,3 +91,5 @@ export * from "./engine-alert-copy";
 export * from "./engine-answer-toast";
 export * from "./invitation-tiers";
 export * from "./waiting-list-side-choice";
+export * from "./initials";
+export * from "./notification-group-label";

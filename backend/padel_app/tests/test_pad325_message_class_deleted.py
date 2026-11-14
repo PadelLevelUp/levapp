@@ -150,13 +150,27 @@ def test_one_lesson_instance_lookup_for_the_whole_page(app):
         assert len(statements) == 1, statements
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-5")
 def test_a_single_message_serialises_as_live_without_a_query(app):
     """The realtime path serialises a message just created or edited about a
-    class that exists; it opts out of the lookup explicitly."""
+    class that exists; it opts out of the lookup explicitly, so it issues no `lesson_instances` query."""
     from padel_app.models.messages import Message
     from padel_app.serializers.message import serialize_message
 
     ids = _seed(app)
     with app.app_context():
         msg = Message.query.filter_by(text="deleted").one()
-        assert serialize_message(msg, None)["classDeleted"] is False
+        db.session.refresh(msg)  # load the row first, so only serialising is counted
+        statements = []
+
+        def count(conn, cursor, statement, *args):
+            if "lesson_instances" in statement.lower():
+                statements.append(statement)
+
+        event.listen(db.engine, "before_cursor_execute", count)
+        try:
+            payload = serialize_message(msg, None)
+        finally:
+            event.remove(db.engine, "before_cursor_execute", count)
+        assert payload["classDeleted"] is False
+        assert statements == [], statements

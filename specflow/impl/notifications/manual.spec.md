@@ -108,6 +108,7 @@ Coaches manually select players to notify about a class, bypassing the automatic
      (web `classStarted` in `ClassDetailSheet`, iOS `hasClassStarted`).
    - A picker left open across the start sends, gets the 409, shows the same warning instead of
      the generic failure, and closes.
+11. **iOS: the search sits above the list (PAD-838).** In the iOS picker the search field comes right under the title, above the scrolling list, and while a query is set its matches are the list's first rows, before the notification groups. With the keyboard up the list gives way (`mobile.android-runtime` rule 15), so the field, the first match and the buttons stay in view, and the first tap on a match selects it. Web keeps the search after the groups (see Not this spec); the order is presentation only, and the selection, the search and what is sent are the same on both shells.
 6. Selection rows (both search results and rows inside a notification group) are a single click target: clicking the checkbox, the avatar or the name each produce exactly one toggle of that player's selection. The row must not carry a click handler that competes with the checkbox's own change handler
 
 ### Acceptance Criteria
@@ -208,6 +209,18 @@ test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `tes
 - **When** they answer Yes on the old invitation and are placed
 - **Then** the engine is sent `CoachAdded` for them: the other class's invitation closes with `same_hour`, and the session is re-planned
 test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `test_an_old_invitations_yes_on_a_new_engine_class_tells_the_engine`
+
+#### NOTIFICATIONS-MANUAL-16: On iOS the search sits above the list, and its matches come first (rule 11, PAD-838)
+- **Given** the iOS notify picker open on a class, with a group "All students" holding Rui
+- **When** the coach types "Rui" in the search
+- **Then** the search field is outside the scrolling list, above it
+- **And** Rui's row comes before the group rows, and one tap on it selects him
+test: `frontend/apps/mobile/src/features/calendar/notify-modal.keyboard-layout.test.tsx` › `[NOTIFICATIONS-MANUAL-16] the search sits above the list and its matches come before the groups`
+
+### Not this spec
+- Web's picker order (PAD-838, lead's decision 2026-11-13). `ManualNotificationModal.tsx` keeps the search after the
+  groups: on a desktop browser no keyboard covers the list, and mobile Safari is unverified. Whether web takes iOS's order
+  is an open question the lead carries to the owner.
 
 ### Waves
 1. (PAD-933, the stopgap, retired by wave 2) MANUAL-9 to 11 hid the controls on a new-engine class until NM1.

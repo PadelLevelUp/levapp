@@ -133,13 +133,5 @@ export function messageCopyText(
   return content.trim() === "" ? null : content;
 }
 
-/** Initials for avatar fallbacks. */
-export function initialsOf(name: string | undefined | null): string {
-  if (!name) return "?";
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
+/** Initials for avatar fallbacks: one helper for web and phone (messaging.conversations rule 18). */
+export { initialsOf } from "@levelup/config";

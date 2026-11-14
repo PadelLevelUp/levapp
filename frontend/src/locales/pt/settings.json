@@ -589,7 +589,8 @@
         "reminders": "Lembretes",
         "invitations": "Convites",
         "waitingList": "Lista de espera",
-        "addedToClass": "Adicionado a uma aula"
+        "addedToClass": "Adicionado a uma aula",
+        "removedFromClass": "Removido de uma aula"
       },
       "labels": {
         "invite": "Mensagem de convite",
@@ -605,7 +606,9 @@
         "addedToClass": "Adicionado a uma aula",
         "addedToClassComing": "Adicionado a uma aula, presença confirmada",
         "waitingListAdded": "Entrada automática da lista de espera",
-        "sideMoved": "Lado definido"
+        "sideMoved": "Lado definido",
+        "removedFromClass": "Removido de uma aula",
+        "removedFromSeries": "Removido da turma"
       },
       "descriptions": {
         "invite": "Enviada ao notificar um aluno sobre uma vaga aberta.",
@@ -621,7 +624,9 @@
         "addedToClass": "Enviada quando colocas um aluno numa aula.",
         "addedToClassComing": "Enviada em vez dessa quando a aula é criada depois da hora do lembrete: a presença do aluno fica confirmada e não lhe é perguntado nada.",
         "waitingListAdded": "Enviada quando a entrada automática põe um aluno da lista de espera numa vaga.",
-        "sideMoved": "Enviada quando um aluno que joga dos dois lados fica com o lado final."
+        "sideMoved": "Enviada quando um aluno que joga dos dois lados fica com o lado final.",
+        "removedFromClass": "Enviada quando retiras um aluno de uma data de uma aula.",
+        "removedFromSeries": "Enviada quando retiras um aluno de uma aula fixa, a partir de uma data."
       },
       "help": {
         "title": "Como construir um modelo de mensagem",
@@ -640,6 +645,8 @@
           "date": "A data da aula em dia/mês",
           "type": "O tipo de aula: academia ou privada",
           "court": "O campo da aula (vazio quando não tem)",
+          "duration": "Duração da aula",
+          "club": "Clube",
           "class": "O título da aula",
           "when": "A data, o dia da semana e a hora da aula",
           "side": "O lado da vaga (só no convite da lista de espera)"

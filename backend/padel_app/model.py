@@ -36,7 +36,7 @@ SIGNED_URL_MINUTES = 60
 SIGNED_URL_REUSE_MINUTES = 50
 # A signer that failed (B-018) is not asked again for the same image for this long.
 SIGNING_FAILURE_RETRY_SECONDS = 60
-# Bounded: past this many keys the expired entries are swept, then the oldest go.
+# Bounded: past this many keys the oldest write goes first; expired entries are not swept.
 _SIGNED_URL_CACHE_MAX = 5000
 _monotonic = time.monotonic
 
