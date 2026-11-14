@@ -123,7 +123,7 @@ answered for any future class whether or not a spot is currently open.
       all three. Every attribute and operation the web and iOS editors offer is accepted.
     - A count rule whose `value` is missing or not a number is unchanged by this rule: it is ignored,
       as today. The editors can store one (a blank number field), so making it fail is its own change,
-      editor validation on web and iOS first.
+      editor validation on web and iOS first: rule 13 is that validation.
 
 13. **An editor never saves a rule that needs a value without one (engine stream, fail-open finding §3
     item 4).**
