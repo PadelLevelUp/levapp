@@ -657,6 +657,8 @@
         "both": "Amb",
         "both_left": "Amb → Esq",
         "both_right": "Amb → Dir",
+        "left_right": "Esq → Dir",
+        "right_left": "Dir → Esq",
         "right": "Dir",
         "left": "Esq"
       },
@@ -664,6 +666,8 @@
         "both": "Ambos os lados",
         "both_left": "Ambos → esquerda",
         "both_right": "Ambos → direita",
+        "left_right": "Esquerda → direita",
+        "right_left": "Direita → esquerda",
         "right": "Lado direito",
         "left": "Lado esquerdo"
       },

@@ -82,3 +82,20 @@ describe("Ambos → esquerda/direita (slice 3)", () => {
     expect(typeof en.side.yours).toBe("string");
   });
 });
+
+describe("a one-sided player placed on the other side (PAD-819)", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] the rows and the sheet read the side → other side labels in pt and en", () => {
+    expect(GROUPS).toContain("sideShortKeyOf(row.side, row.assignedSide)");
+    expect(SHEET).toContain("sideLongKeyOf((side?.current ?? row.side)!, row.assignedSide)");
+    const pt = json("pt/calendar.json").calendar.participants;
+    const en = json("en/calendar.json").calendar.participants;
+    expect(pt.sideShort.left_right).toBe("Esq → Dir");
+    expect(pt.sideShort.right_left).toBe("Dir → Esq");
+    expect(pt.sideLong.left_right).toBe("Esquerda → direita");
+    expect(pt.sideLong.right_left).toBe("Direita → esquerda");
+    expect(en.sideShort.left_right).toBe("Left → Right");
+    expect(en.sideShort.right_left).toBe("Right → Left");
+    expect(en.sideLong.left_right).toBe("Left → right");
+    expect(en.sideLong.right_left).toBe("Right → left");
+  });
+});
