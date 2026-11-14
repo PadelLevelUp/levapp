@@ -199,7 +199,8 @@ batch 2; `notifications.config` rule 18's cutover).
     including one who accepted an invitation or a join request (`_add_player_to_instance`, which
     enrols with `confirmed` already true and no answer recorded).
     - **The test** (`notification_service.answered_for_reminders`, read by `_reminder_recipients` and by
-      the scheduler's startup re-arm of follow-ups): a presence is left alone when `confirmed` and
+      `scheduler._retime_pending_followups`, which re-times pending follow-ups when the coach changes
+      the timing): a presence is left alone when `confirmed` and
       (`response` is not `none`, or it was placed strictly after the class's first reminder time).
       `response` tells an acceptance from an answer: a student's Yes or No to a reminder
       (`respond_to_reminder`, `_retake_spot`), the system's "coming" (rule 22) and an import write
