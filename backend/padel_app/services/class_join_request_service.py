@@ -434,10 +434,14 @@ def _side_for_enrolment(row: ClassJoinRequest, instance) -> None:
 
 def _side_warning(row: ClassJoinRequest, instance) -> dict | None:
     """PAD-808 (rule 7a): ``{requestedSide, openSides}`` when the request's side has no open spot
-    left, else None. A `both` request, or a class with no open spot yet, is never warned."""
+    left, else None. A `both` request, or a class with no open spot yet, is never warned. A new-engine
+    session has no vacancy row: its sides are the engine's open spot types (NJ3)."""
+    from padel_app.services.engine_entry import open_sides
+    from padel_app.services.engine_switch import engine_for
+
     if row.side not in ("left", "right"):
         return None
-    sides = open_spot_sides(instance)
+    sides = open_sides(instance) if engine_for(instance) == "new" else open_spot_sides(instance)
     if side_has_spot(row.side, sides):
         return None
     return {"requestedSide": row.side, "openSides": sorted({s for s in sides if s})}
