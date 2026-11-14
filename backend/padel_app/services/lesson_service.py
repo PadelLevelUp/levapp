@@ -1759,6 +1759,18 @@ def _future_occurrences(lesson_ids) -> list:
     )
 
 
+def _player_ids(values) -> list:
+    """The edit's player ids by value (PAD-842): ``"834"`` and ``834`` are one player. An id that is
+    not a number is kept as sent, for the writer to refuse as before."""
+    out = []
+    for v in values or []:
+        try:
+            out.append(int(v))
+        except (TypeError, ValueError):
+            out.append(v)
+    return out
+
+
 def edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code).
 
@@ -1862,8 +1874,13 @@ def _edit_class_service(data):
         for key, field in _EDIT_CLASS_FIELDS.items()
         if key in updates
     }
-    payload["add_player_ids"] = updates.get("addPlayers", [])
-    payload["remove_player_ids"] = updates.get("removePlayers", [])
+    # PAD-842 (classes.edit rule 9): ids compare by value, and a player named in both lists (an older
+    # web build sent a re-ticked student as "834" in one and 834 in the other) is left as they were:
+    # applying both restored her cancelled row, told her "adicionei-te", then deleted the row.
+    added, removed = _player_ids(updates.get("addPlayers", [])), _player_ids(updates.get("removePlayers", []))
+    both = set(added) & set(removed)
+    payload["add_player_ids"] = [pid for pid in added if pid not in both]
+    payload["remove_player_ids"] = [pid for pid in removed if pid not in both]
     model = event.get("model")
     original_id = event.get("originalId")
 

@@ -222,7 +222,8 @@ approval.**
     are this text (`messaging.push-notifications`), so their first words are the outcome. The
     student's class view says the same once the request is accepted: pt "Está marcado! Estás
     inscrito/a nesta aula.", en "You're booked! You're enrolled in this class." (key
-    `calendar.joinRequest.accepted`, web and iOS).
+    `calendar.joinRequest.accepted`, web and iOS), but only while that place lasts: the join block
+    never shows it (`calendar.event-detail` rule 26, PAD-842).
 19a. **A refused request says the student is not in the class, in the same shape (PAD-678;
     numbering unconfirmed).** pt: "Não ficaste inscrito/a em {title} {when}: o treinador não aceitou
     o pedido desta vez."; en: "You're not enrolled in {title} {when}: the coach didn't accept the

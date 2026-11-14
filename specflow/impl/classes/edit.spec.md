@@ -59,7 +59,14 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    and Android) (PAD-474, B-239).** In edit mode both shells replace the participant list with the
    picker of `classes.create` rule 10, seeded with the class's current participants. The change is
    sent as `updates.addPlayers` / `updates.removePlayers`, the ids added and removed; unticking a
-   student and ticking them again sends nothing. It applies at the scope the coach picks (rule 3):
+   student and ticking them again sends nothing. **(PAD-842)** The two lists are compared by the
+   player id's value, whatever its type: the payload's participant ids are numbers and the picker's
+   are strings, and a web diff that compared them as they came sent one re-ticked student in both
+   lists. Both shells take the two lists from one helper in `@levelup/config`
+   (`diffParticipants`). The server never applies both to one student: a player named in both lists (an older
+   client) is left as they were, neither enrolled nor removed, and told nothing; the rest of the edit
+   applies. On 8 Nov this deleted the row a re-add had just restored, after the student had already
+   been told "adicionei-te". It applies at the scope the coach picks (rule 3):
    `single` changes this occurrence (`classes.instance-enrollment` rule 4), `future` changes the
    series roster. Adding students runs the eligibility warning first (`eligibility.enforcement`
    rule 7d). An edit that changes only the participants is an edit, never dropped as "no changes".
@@ -247,6 +254,20 @@ test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `te
 - **And** when the eligibility check itself fails, the save goes ahead
 - **And** adding a student beyond `maxPlayers` is sent like any other
 test: `frontend/apps/mobile/src/features/calendar/class-save-flow.test.ts` › `a removal alone runs no eligibility check` (+6 more)
+
+#### CLASSES-EDIT-22: Unticking and re-ticking a student on web sends nothing (rule 9, PAD-842)
+- **Given** a class whose participants carry Ana's player id as a number, and the picker's ids as strings
+- **When** the coach unticks Ana and ticks her again, and saves
+- **Then** the shared `diffParticipants` gives neither `addPlayers` nor `removePlayers`, and web's class edit takes its lists from it
+- **And** ticking a new student Bruno gives `addPlayers` `[Bruno]` alone
+test: `frontend/packages/config/src/participant-diff.test.ts` › `unticking and re-ticking a student gives neither list` (+1 more)
+
+#### CLASSES-EDIT-23: The server never adds and removes one student in one edit (rule 9, PAD-842)
+- **Given** a student whose accepted join request put her in an occurrence, who cancelled late, came back and cancelled again, so her row is `absent`
+- **When** an edit of that occurrence names her in `addPlayers` (as a string) and in `removePlayers` (as a number), and also adds Bruno
+- **Then** her row is still there and still `absent`, she gets no "adicionei-te", and her open vacancy stays open
+- **And** Bruno is added as usual
+test: `backend/padel_app/tests/test_pad842_edit_names_one_student_twice.py` › `test_an_edit_naming_a_student_in_both_lists_leaves_her_row_alone`
 
 #### CLASSES-EDIT-19: An occurrence inherits what it does not override, and lists exactly its overrides (rule 4)
 - **Given** a materialised occurrence of a weekly class
