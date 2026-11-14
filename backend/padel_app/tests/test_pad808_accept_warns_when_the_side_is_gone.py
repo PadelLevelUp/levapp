@@ -142,3 +142,54 @@ def test_a_side_only_warning_carries_an_empty_ineligible_list(app, monkeypatch):
             decide_join_request_service(rid, coach, accept=True, confirm=False)
         body = e.value.response.get_json()
         assert (body["ineligible"], body["reasons"]) == ([], ["side"])
+
+
+def _new_engine_class(tag, lefts):
+    """`_class_of_ten` adopted by the new engine as the switch does it (its regulars placed on their
+    side, its unstarted vacancies closed): `lefts` left and 4 right going, no open vacancy row (D1)."""
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.engine_store import TableStore
+    from padel_app.services.engine_switch import _adopt
+    from padel_app.tests.test_pad421_balance_structural_sides import _enrol
+    from padel_app.utils.dates import utcnow_naive
+
+    coach, level, instance, _ = _class_of_ten(tag)
+    for i in range(4, lefts):
+        _enrol(coach, level, instance, f"p715{tag}-l{i}", "left")
+    db.session.commit()
+    assert _adopt(TableStore(clock=utcnow_naive), instance, coach.id, utcnow_naive())
+    db.session.commit()
+    assert Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").count() == 0
+    return coach, level, instance
+
+
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-39")
+def test_a_new_engine_class_warns_from_the_engines_spots(app, monkeypatch):
+    """join-requests NJ3: no vacancy row on the new engine, so the side is read from the engine's open
+    spot types. RED before the fix: the accept went through with no warning."""
+    from padel_app.models import LessonInstance, Presence
+    from padel_app.services.class_join_request_service import decide_join_request_service
+    from padel_app.services.engine_switch import engine_for
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, level, instance = _new_engine_class("808g", lefts=5)       # one right spot, no left one
+        assert engine_for(instance) == "new"
+        rid, pid = _request(coach, level, instance, "p808g-new", "left")
+        with pytest.raises(HTTPException) as e:
+            decide_join_request_service(rid, coach, accept=True, confirm=False)
+        body = e.value.response.get_json()
+        assert (body["code"], body["reasons"]) == ("ineligible", ["side"])
+        assert (body["requestedSide"], body["openSides"]) == ("left", ["right"])
+        db.session.expire_all()
+        assert pid not in db.session.get(LessonInstance, instance.id).enrolled_player_ids
+
+        assert decide_join_request_service(rid, coach, accept=True, confirm=True).status == "accepted"
+        db.session.expire_all()
+        presence = Presence.query.filter_by(player_id=pid, lesson_instance_id=instance.id).first()
+        assert pid in db.session.get(LessonInstance, instance.id).enrolled_player_ids
+        assert presence.side == "left"
+
+        coach, level, instance = _new_engine_class("808h", lefts=4)       # a left spot open
+        rid, _ = _request(coach, level, instance, "p808h-new", "left")
+        assert decide_join_request_service(rid, coach, accept=True, confirm=False).status == "accepted"

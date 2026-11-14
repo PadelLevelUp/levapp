@@ -389,6 +389,20 @@ def has_open_spot(instance) -> bool:
     return bool(planner.spot_types(snapshot, planner.spot_counts(snapshot, settings_for(session))))
 
 
+def open_sides(instance) -> list[str]:
+    """The sides the new-engine session's open spot types admit, in the app's words (join-requests NJ3;
+    engine-spots rules 6, 7): v for ``must(v)``, every v with ``open(v) > 0`` for ``either``. Empty when
+    the session has no open spot type."""
+    from padel_app.invitation_engine import planner
+    from padel_app.services.engine_store import TableStore, settings_for
+
+    session = str(instance.id)
+    snapshot = TableStore(clock=utcnow_naive).snapshot(session)
+    counts = planner.spot_counts(snapshot, settings_for(session))
+    sides = {v for spot_type, _ in planner.spot_types(snapshot, counts) for v in planner.type_sides(spot_type, counts)}
+    return sorted(TO_APP_SIDE[v] for v in sides)
+
+
 def coach_invites(instance, player_ids, now: datetime | None = None) -> tuple[list[int], dict[int, str]]:
     """notifications.manual NM1 (engine-answers rule 15): the coach's invitation by hand on a new-engine
     session, one ``CoachInvites`` for the students the route let through. Returns the students invited
