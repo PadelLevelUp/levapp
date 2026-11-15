@@ -379,7 +379,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     `accessibilityState.selected` on iOS). The amber of "Justificada" is a different hue from rule 24's yellow
     "needs a decision" flag, so a justified player never reads as one still to decide.
 
-29. **(PAD-538; renumbered from 27 by the owner, 2026-11-10) Each class shows how many are present.** Beside a class's
+29. **(PAD-538; renumbered from 27 by the owner, 2026-11-10) Each class shows how many are present, and every row says which class it is.** Beside a class's
     time and title in the validate view — its card in the list, its row under "validated this week"
     and the drill-in's title — both shells show one number: the players whose current mark is
     present. The mark is the one the row shows (`effectiveMark`: the coach's local mark, else
@@ -388,6 +388,12 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     in `@levelup/config`. A single number, not "present / capacity". Zero has its own string
     ("0 presentes"), because pt's CLDR puts 0 in `one` (rule 14). Test id
     `presences-class-present-count` on both shells. Decided with the coordinator, 2026-10-07.
+    **Every row also says its day and time range (PAD-924, 2026-11-15):** the card, the row under "validated
+    this week" and the drill-in title read `<title> · seg 09/11 · 10:30–12:00` beside the count, the weekday in
+    the app's language and the times the stored digits as they are (rule 15), so several classes with one title
+    can be told apart. The payload carries `endDatetime` beside `startDatetime`, on the same wall-clock digits.
+    Both lists run oldest start first. One helper, `classWhenLabel` in `@levelup/config`; test id
+    `presences-class-when` on both shells.
 
 26. **A mark can be cleared back to "no answer" (PAD-567; rule number self-assigned by Session C on
     2026-10-09, unconfirmed).** The ticket's scenario: the coach marked a student present, the
@@ -794,6 +800,17 @@ test: `backend/padel_app/tests/test_presence_overview.py` › `test_roster_playe
 - **And** on 15 November, with two classes so far, November's bucket holds those 4 presences only
 - **And** the window's first bucket (August) starts before the window does (4 August)
 test: `backend/padel_app/tests/test_pad814_trend_running_month.py` › `test_on_the_first_the_running_month_is_a_zero_last_bucket` (+2 more)
+
+#### ATTENDANCE-VALIDATION-53: Every validate row says its day and time range (rule 29, PAD-924)
+- **Given** a week with three classes of the same title, validated on different days and hours
+- **When** the coach opens the validate view on either shell
+- **Then** each row under "validated this week" reads its title, its weekday and dd/mm, its time range and its present count, oldest start first
+- **And** the pending cards and the drill-in title carry the same day and time range
+- **And** the digits are the stored ones: a class at 23:30 stays on its own day, and the payload's `endDatetime` has the same wall-clock digits as `startDatetime`
+test: `frontend/packages/config/src/class-when.test.ts` › `reads weekday, dd/mm and the time range in Portuguese` (+4 more)
+test: `frontend/apps/web/src/components/presences/ValidateClassesDialog.test.tsx` › `validated rows read title, day, time range and present count, oldest first`
+test: `frontend/apps/mobile/src/features/presences/present-count.test.ts` › `renders the shared label under the shared test id on the card, the validated row and the drill-in`
+test: `backend/padel_app/tests/test_presence_overview.py` › `test_a_pending_class_carries_its_end_beside_its_start`
 
 #### ATTENDANCE-VALIDATION-60: Each hours column sums the minutes of exactly the rows its count column counts (rule 17d, PAD-837a)
 - **Given** a coach's roster with a 60-minute and a 90-minute class: one student present at both, one present at the 90-minute class as a guest, one absent justified from the 60-minute class, one absent unjustified from the 90-minute class
