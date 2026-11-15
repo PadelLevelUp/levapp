@@ -200,7 +200,9 @@ describe("MessageTemplatesSection explains templates and previews them (PAD-549)
 
 describe("MessageTemplatesSection — every placeholder in every field (PAD-670, message-templates rule 3a)", () => {
   const ALL_KEYS = Object.keys(TEMPLATES) as (keyof MessageTemplates)[];
-  const VOCABULARY = ["{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{class}", "{when}"];
+  const VOCABULARY = [
+    "{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{duration}", "{club}", "{class}", "{when}",
+  ];
 
   beforeEach(() => {
     previewTemplate.mockReset().mockImplementation(async (template: string) => ({
@@ -230,6 +232,28 @@ describe("MessageTemplatesSection — every placeholder in every field (PAD-670,
   });
 });
 
+describe("PAD-836 {duration} and {club} (notifications.message-templates rule 23)", () => {
+  beforeEach(() => {
+    previewTemplate.mockReset().mockImplementation(async (template: string) => ({
+      text: template,
+      examples: { duration: "60 min", club: "Padel Norte" },
+    }));
+  });
+
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-27] offers {duration} and {club} with their examples (PAD-836)", async () => {
+    render(<Wrapper />);
+    for (const key of Object.keys(TEMPLATES) as (keyof MessageTemplates)[]) {
+      const badges = screen.getByTestId(`template-variables-${key}`);
+      expect(within(badges).getByText("{duration}")).toBeTruthy();
+      expect(within(badges).getByText("{club}")).toBeTruthy();
+    }
+    expect(screen.getByTestId("template-help-field-duration").textContent).toContain("settings.templates.help.fields.duration");
+    expect(screen.getByTestId("template-help-field-club").textContent).toContain("settings.templates.help.fields.club");
+    await waitFor(() => expect(screen.getByTestId("template-help-example-duration").textContent).toBe("60 min"));
+    expect(screen.getByTestId("template-help-example-club").textContent).toBe("Padel Norte");
+  });
+});
+
 describe("PAD-920 the new engine's templates (notifications.message-templates N3)", () => {
   const rowsIn = (group: string) =>
     Array.from(screen.getByTestId(`template-group-${group}`).querySelectorAll("[data-testid^='template-row-']")).map(
@@ -256,5 +280,45 @@ describe("PAD-920 the new engine's templates (notifications.message-templates N3
     expect(within(screen.getByTestId("template-variables-invite")).queryByText("{sideName}")).toBeNull();
     // The coach alert is a message to the coach themselves: not editable.
     expect(screen.queryByTestId("template-row-coach_no_candidate")).toBeNull();
+  });
+});
+
+describe("PAD-928 the removal notices (notifications.message-templates rule 24)", () => {
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-31] lists the two removal notices in their own group (PAD-928)", () => {
+    const onChange = vi.fn();
+    render(<MessageTemplatesSection templates={TEMPLATES} onChange={onChange} />);
+
+    const group = screen.getByTestId("template-group-removedFromClass");
+    within(group).getByText("settings.templates.groups.removedFromClass");
+    const rows = Array.from(group.querySelectorAll("[data-testid^='template-row-']")).map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(rows).toEqual(["template-row-removed_from_class", "template-row-removed_from_series"]);
+    // After "Adicionado a uma aula".
+    const groups = Array.from(document.querySelectorAll("[data-testid^='template-group-']")).map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(groups.indexOf("template-group-removedFromClass")).toBe(groups.indexOf("template-group-addedToClass") + 1);
+
+    const row = (key: string) => within(screen.getByTestId(`template-row-${key}`));
+    row("removed_from_class").getByText("settings.templates.labels.removedFromClass");
+    row("removed_from_class").getByText("settings.templates.descriptions.removedFromClass");
+    row("removed_from_series").getByText("settings.templates.labels.removedFromSeries");
+    row("removed_from_series").getByText("settings.templates.descriptions.removedFromSeries");
+
+    // Every placeholder of rule 3a, and no side-only one.
+    for (const key of ["removed_from_class", "removed_from_series"]) {
+      const badges = within(screen.getByTestId(`template-variables-${key}`));
+      for (const v of ["{name}", "{weekday}", "{date}", "{time}", "{day}", "{club}", "{duration}", "{court}"]) {
+        expect(badges.getByText(v)).toBeTruthy();
+      }
+      expect(badges.queryByText("{side}")).toBeNull();
+    }
+
+    // A config from before PAD-928 lacks the keys; an edit hands the new key to the tab's one Save.
+    fireEvent.change(within(screen.getByTestId("template-row-removed_from_class")).getByRole("textbox"), {
+      target: { value: "Saíste da aula de {day}." },
+    });
+    expect(onChange).toHaveBeenCalledWith({ ...TEMPLATES, removed_from_class: "Saíste da aula de {day}." });
   });
 });

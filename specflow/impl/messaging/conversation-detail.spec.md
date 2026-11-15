@@ -206,7 +206,6 @@ through the history without the thread ever moving under the reader.
 - **When** the thread loads
 - **Then** the deleted-class reminder shows `message-class-deleted` and no Yes/No; the live one shows its Yes/No and no note
 - **And** the conversation payload flags only the first (`classDeleted: true`), with one `lesson_instances` lookup for the page
-- Code to follow: the test "a single message is serialized without a query" must count the queries issued, not only the result.
 
 #### MESSAGING-CONVERSATION-DETAIL-6: Coach participant shown with correct role
 - **Given** a conversation whose other participant is a coach
@@ -355,4 +354,3 @@ through the history without the thread ever moving under the reader.
   preview opens when the finger lifts
 - **And** on a 1.1.2 binary (no native module) the same swipe sets the reply with no haptic and no
   error
-- Code to follow: the test "a rejected haptic never throws" must fail on an unhandled promise rejection, not only on a thrown error.

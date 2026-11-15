@@ -153,7 +153,9 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    recorded in `.maestro/README.md`: Select portals, keyboard dismissal, `- back` is now
    meaningful, no `simctl` push.
 
-14. **A dialog is never taller than the window it can be seen in (PAD-496), on both platforms.** The shared dialog caps its height at the window height minus twice the larger safe-area inset minus a 16 pt margin, and never below 240 pt. A caller that sets its own height keeps it.
+14. **A dialog is never taller than the window it can be seen in (PAD-496), on both platforms.** The shared dialog caps its height at the window height minus twice the larger safe-area inset minus a 16 pt margin, and never below 240 pt. A caller that sets its own height keeps it while the keyboard is down (rule 15 bounds it while the keyboard is up).
+
+15. **A dialog with the keyboard up sits above it (PAD-838), on both platforms.** While the keyboard is up, the shared dialog is centred in the part of the window above it (the overlay is padded at the bottom by the keyboard's overlap, measured from the keyboard's top edge). Its height is capped at that space: the window less the keyboard's overlap, less twice the top safe area, less the 16 pt margin, never below 240 pt. A caller's own maximum height is kept when it is smaller and gives way when it is larger. The overlap follows the keyboard: `keyboardWillShow`, `keyboardWillChangeFrame` and `keyboardWillHide` on iOS, `keyboardDidShow` and `keyboardDidHide` on Android (`useKeyboardHeight`). A dialog's list gives way so its search field and its buttons stay above the keyboard: every wrapper between a list and the dialog may shrink, and a list a search field filters keeps `keyboardShouldPersistTaps="handled"`, so the first tap on a result selects it. A body that cannot shrink gives way another way: the report dialog's reasons and details scroll, and the iOS time picker's native wheel steps aside while the keyboard is up (its typed field is the entry then) and comes back when it goes. It is a hook, not a `KeyboardAvoidingView`: the overlay always fills the window, so the overlap needs no measuring, and rule 12's guard counts `KeyboardAvoidingView`s on screens.
 
 ### Acceptance Criteria
 
@@ -300,6 +302,23 @@ test: `frontend/apps/mobile/src/lib/scroll-to-end-on-keyboard.test.tsx` › `scr
 - **Then** on iOS it fades in and out over 150 ms
 - **And** on Android it has no entering and no exiting animation
 test: `frontend/apps/mobile/src/lib/dialog-motion.test.ts` › `fades in and out on iOS` (+2 more)
+
+#### MOBILE-ANDROID-RUNTIME-21: A dialog with the keyboard up sits above it, and its list gives way (rule 15, PAD-838)
+- **Given** a window 844 pt tall with safe areas of 62 pt at the top and 34 pt at the bottom, and a dialog open
+- **When** the keyboard shows and covers 300 pt
+- **Then** the dialog's overlay is padded 300 pt at the bottom and the dialog's height is capped at 404 pt: the window, less the keyboard, less twice the top safe area, less 16 pt
+- **And** a caller's own maximum of 717 pt gives way to 404 pt, and a caller's 200 pt is kept
+- **And** when the keyboard changes height without hiding (iOS `keyboardWillChangeFrame`), the padding follows it; on Android `keyboardDidShow` does the same
+- **And** when the keyboard hides, the dialog is back to rule 14's cap
+- **And** on an iPhone SE-class simulator, in "Notificar alunos", a name typed in the search shows its first match above the keyboard, and one tap on it selects it with the keyboard still up
+test: `frontend/apps/mobile/src/components/ui/dialog.test.tsx` › `[MOBILE-ANDROID-RUNTIME-21] sits above the keyboard and fits the space left there` (+3 more)
+
+#### MOBILE-ANDROID-RUNTIME-22: A dialog body that cannot shrink gives way to the keyboard another way (rule 15, PAD-838)
+- **Given** the report-message dialog, and the iOS time picker open on a field
+- **When** the keyboard is up
+- **Then** the report dialog's reasons and details sit in a scrolling body that keeps taps, and its buttons sit outside it
+- **And** the time picker's wheel is gone while the keyboard is up, with the typed field still there, and is back when the keyboard hides
+test: `frontend/apps/mobile/src/components/ui/time-picker-input.keyboard.test.tsx` › `[MOBILE-ANDROID-RUNTIME-22] the wheel steps aside while the keyboard is up, and comes back` (+1 more)
 
 ### Notes
 - Web n/a: this leaf changes nothing on web (R-024's parity is between the shells that exist;
