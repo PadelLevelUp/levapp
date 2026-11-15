@@ -12,7 +12,7 @@ import re
 from datetime import timedelta
 
 from padel_app.models import LessonInstance
-from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
+from padel_app.utils.dates import duration_minutes, utc_to_wall_naive, utcnow_naive
 
 
 # The connectors an empty placeholder takes with it (notifications.message-templates
@@ -213,10 +213,11 @@ def render_template_preview(template, locale, now=None) -> str:
 
 def _format_duration(start, end) -> str:
     """PAD-836 (message-templates rule 21): the class's length as whole minutes, "90 min" — never
-    hours. ``min`` is the unit in pt and en alike. Empty without both times or a positive span."""
+    hours. ``min`` is the unit in pt and en alike. Empty without both times or a positive span.
+    The minutes are ``duration_minutes``, the one length the Presences hours columns sum too (PAD-837)."""
     if start is None or end is None or end <= start:
         return ""
-    return f"{int((end - start).total_seconds() // 60)} min"
+    return f"{duration_minutes(start, end)} min"
 
 
 def class_placeholders(source, locale) -> dict:

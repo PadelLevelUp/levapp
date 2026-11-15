@@ -87,18 +87,6 @@ export function presetRange(
 }
 
 /**
- * Whether a custom period is submittable (spec rule 11/12).
- *
- * Both ends are required and `from` must not be after `to`. String comparison
- * is exact for zero-padded `YYYY-MM-DD`, so no Date is constructed — the same
- * check web's `handleApply` makes, extracted so it can be tested without a
- * renderer.
- */
-export function isValidCustomRange(from: string, to: string): boolean {
-  return Boolean(from) && Boolean(to) && from <= to;
-}
-
-/**
  * B-060: the Presences week, from WEEK_STARTS_ON (Sunday, PAD-682) through the day before the next, on the club's day.
  * `offset` moves by whole weeks (0 is this week, -1 last week).
  */

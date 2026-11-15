@@ -128,13 +128,16 @@ def seed_dates(today: datetime) -> SeedDates:
     )
 
     # Validation fixture: previous week's Wednesday and Thursday at 11:00 (Lisbon wall-clock) —
-    # always in the past and always an earlier week than today.
-    prev_monday = today - timedelta(days=today.weekday() + 7)
+    # always in the past and always an earlier week than today. "Previous week" is the app's:
+    # weeks start on Sunday (calendar.view rule 5a), so on a Sunday it began 7 days ago. A
+    # Monday-based week put the fixture two app weeks back on Sundays, and the validate view's
+    # "Last week" was empty.
+    prev_sunday = today - timedelta(days=(today.weekday() + 1) % 7 + 7)
     validation_starts = tuple(
-        ((prev_monday + timedelta(days=offset)).replace(hour=11), everyone_answered)
-        for offset, everyone_answered in ((2, True), (3, False))
+        ((prev_sunday + timedelta(days=offset)).replace(hour=11), everyone_answered)
+        for offset, everyone_answered in ((3, True), (4, False))
     )
-    validation_lesson_start = today - timedelta(days=today.weekday() + 5)
+    validation_lesson_start = prev_sunday + timedelta(days=3)
 
     hour = timedelta(hours=1)
     return SeedDates(
