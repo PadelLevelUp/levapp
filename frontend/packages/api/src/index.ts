@@ -29,6 +29,7 @@ export * as classesApi from "./resources/classes";
 export * as classRequestsApi from "./resources/classRequests";
 export * as requestAvailabilityApi from "./resources/requestAvailability";
 export * as workingHoursApi from "./resources/workingHours";
+export * as presencesViewApi from "./resources/presencesView";
 export * as classJoinRequestsApi from "./resources/classJoinRequests";
 export * as clubsApi from "./resources/clubs";
 export * as coachLevelApi from "./resources/coachLevel";

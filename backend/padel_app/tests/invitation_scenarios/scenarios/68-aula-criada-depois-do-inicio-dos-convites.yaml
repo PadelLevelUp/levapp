@@ -7,7 +7,9 @@ depends_on: []
 corrections: []
 notes: >
   The class carries created_at and a class_created event at the same instant (format question 5 to H: one or
-  both). The 17:00 reminder goes to the regulars and not to the student who accepted (glossary "Lembrete").
+  both). The 17:00 reminder goes to the regulars and, since PAD-820, to the student who accepted before it.
+
+  Re-derived (PAD-820, owner 2026-11-14, option b: everyone going when the reminder is sent gets it): r1 accepted an invitation before the reminder, so they get it too.
 
 class:
   level: 3
@@ -37,7 +39,6 @@ timeline:
   - at: 2026-11-02 17:00
     expect:
       reminders:
-        to: [regulars]
-        not_to: [r1]
+        to: [regulars, r1]
 final:
   roster: {L: 4, R: 4}

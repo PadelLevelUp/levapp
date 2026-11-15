@@ -25,6 +25,23 @@ import * as React from "react";
  */
 export type SectionSaver = { label: string; save: () => Promise<void> };
 
+/**
+ * eligibility.rules rule 13, as web's `TabSaveError`: a saver that refuses for a reason the coach must
+ * read throws this, and the screen's one failure toast names the part WITH the reason (a section's own
+ * toast would be replaced by the screen's before it was read).
+ */
+export class SectionSaveError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+    this.name = "SectionSaveError";
+  }
+}
+
+/** How a failed part is named in the screen's toast: "Motor — Elegibilidade: há uma regra sem valor." or just "Motor". */
+export function failedPartText(label: string, error: unknown): string {
+  return error instanceof SectionSaveError ? `${label} — ${error.reason}` : label;
+}
+
 type UnsavedRegistry = {
   /** A section reports its own current "differs from the last loaded/saved value" flag. */
   setUnsaved: (key: string, unsaved: boolean) => void;

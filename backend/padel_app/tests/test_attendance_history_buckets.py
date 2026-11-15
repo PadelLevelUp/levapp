@@ -6,7 +6,7 @@ silently — an off-by-one here turns "1Y" into 13 bars or drops December.
 """
 import pytest
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from padel_app.services.attendance_history_service import (
     _bucket_series,
@@ -27,6 +27,18 @@ class TestPickGranularity:
 
     def test_just_over_a_month_switches_to_monthly(self):
         assert pick_granularity(datetime(2026, 1, 1), datetime(2026, 2, 2)) == "month"
+
+    @pytest.mark.criterion("ATTENDANCE-HISTORY-11")
+    def test_31_days_is_daily_and_32_days_is_monthly(self):
+        start = datetime(2026, 1, 1)
+        assert pick_granularity(start, start + timedelta(days=31)) == "day"
+        assert pick_granularity(start, start + timedelta(days=32)) == "month"
+
+    @pytest.mark.criterion("ATTENDANCE-HISTORY-11")
+    def test_550_days_is_monthly_and_551_days_is_yearly(self):
+        start = datetime(2026, 1, 1)
+        assert pick_granularity(start, start + timedelta(days=550)) == "month"
+        assert pick_granularity(start, start + timedelta(days=551)) == "year"
 
     @pytest.mark.criterion("ATTENDANCE-HISTORY-2")
     def test_current_year_is_monthly(self):

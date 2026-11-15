@@ -8,7 +8,9 @@ corrections: []
 notes: >
   The regular who says No is R-1 (cohort-form regular). The justified absence at 1 Nov 10:00 is the PDF's
   own label, decided by the 12 h cutoff (U29). The 17:00 reminder goes to the regulars still going, which
-  excludes R-1, and not to the student who accepted an invitation (glossary "Lembrete").
+  excludes R-1, and, since PAD-820, to the student who accepted an invitation before it.
+
+  Re-derived (PAD-820, owner 2026-11-14, option b: everyone going when the reminder is sent gets it): r1 accepted an invitation before the reminder, so they get it too.
 
 class:
   level: 3
@@ -38,7 +40,7 @@ timeline:
   - at: 2026-11-02 17:00
     expect:
       reminders:
-        to: [regulars]
-        not_to: [R-1, r1]
+        to: [regulars, r1]
+        not_to: [R-1]
 final:
   roster: {L: 4, R: 4}

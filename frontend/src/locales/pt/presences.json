@@ -101,7 +101,15 @@
       "justified": "Faltas justificadas",
       "unjustified": "Faltas injustificadas",
       "invitesReceived": "Aulas como convidado",
-      "invitesJoined": "Presenças como convidado"
+      "invitesJoined": "Presenças como convidado",
+      "presenceMinutes": "Presenças (h)",
+      "justifiedMinutes": "Faltas justificadas (h)",
+      "guestPresenceMinutes": "Presenças como convidado (h)",
+      "balanceMinutes": "Saldo de horas"
+    },
+    "columnHelp": {
+      "invitesReceived": "Aulas de outro grupo em que o jogador esteve, qualquer que fosse a resposta.",
+      "invitesJoined": "Aulas de outro grupo em que o jogador esteve presente."
     },
     "table": {
       "title": "Jogadores",
@@ -133,6 +141,30 @@
       "overTimeHint": "No período selecionado",
       "empty": "Ainda não há presenças registadas.",
       "following": "A seguir os filtros da tabela · {{shown}} de {{total}} jogadores"
+    },
+    "view": {
+      "notSavedTitle": "Não foi possível guardar as colunas",
+      "notSavedBody": "Ficam visíveis por agora; ao abrir as Presenças outra vez vê o que ficou guardado.",
+      "defaultNotSavedTitle": "Não foi possível guardar o período predefinido"
+    },
+    "period": {
+      "label": "Período",
+      "thisWeek": "Esta semana",
+      "thisMonth": "Este mês",
+      "lastMonth": "Mês passado",
+      "season": "Esta época",
+      "custom": "Personalizado",
+      "from": "De",
+      "to": "Até",
+      "apply": "Aplicar",
+      "showing": "{{from}} – {{to}}",
+      "makeDefault": "Usar como predefinido",
+      "isDefault": "Predefinido",
+      "customAria": "Período à medida",
+      "invalid": "A data de fim tem de ser igual ou posterior à de início.",
+      "isDefaultNote": "O seu período predefinido — as Presenças abrem nele.",
+      "defaultSaved": "Período predefinido guardado",
+      "defaultNotSavedBody": "O período fica visível por agora; ao abrir as Presenças outra vez vê o último predefinido guardado."
     },
     "toast": {
       "validated_one": "Aula validada",

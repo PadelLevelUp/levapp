@@ -101,9 +101,22 @@ class CoachExcludes:
 class CoachAdded:
     """The coach added the student to this session outside the engine (the app wrote the enrolment):
     their open invitations at the same time close, as for an engine placement (engine-answers rule
-    10). The engine writes no placement."""
+    10). The engine writes no second enrolment; a going student is placed on a side: a ``firm`` one (the
+    coach's choice) as given, else, while they have none, ``side`` when they play it, else their single
+    side, else none."""
 
     student: str
+    side: Side | None = None
+    firm: bool = False
+
+
+@dataclass(frozen=True)
+class CoachSetsSide:
+    """The coach chose a going student's side for this session (classes.instance-enrollment rule 13,
+    PAD-551): a firm side, no message (engine-answers rule 10)."""
+
+    student: str
+    side: Side
 
 
 @dataclass(frozen=True)
@@ -158,7 +171,7 @@ class ReopenGroup:
 COACH_QUEUE_REQUESTS = (ApproveGroup, DismissGroup, ReopenGroup)
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
-           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | CoachInvites | Appear
+           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | CoachSetsSide | CoachInvites | Appear
            | UpdateSettings
            | ApproveGroup | DismissGroup | ReopenGroup)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,

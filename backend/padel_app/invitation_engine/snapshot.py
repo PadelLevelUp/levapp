@@ -64,6 +64,7 @@ class Placement:
     side: Side | None
     how: PlacedHow
     at: datetime
+    firm: bool = False                  # the coach chose the side (engine-answers rule 10): never moved
 
 
 @dataclass(frozen=True)

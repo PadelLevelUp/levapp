@@ -34,7 +34,8 @@ Stated as the engine's observable inputs; storage is the engine package's (PAD-9
 5. **A going student counts under a value only once placed on it (§4).** A {left, right} regular the
    coach has not placed counts under neither side until `last_invite_at`
    (`notifications.engine-timeline` rule 6). A student placed by a Yes counts under the side they were
-   placed on (S15); one placed by an either-side offer may still be moved at `last_invite_at` (§7).
+   placed on (S15); one placed by an either-side offer may still be moved at `last_invite_at` (§7);
+   one the coach placed (`notifications.engine-answers` rule 10's firm side) never is.
 6. **The counts (§4), per quota category:**
    ```
    class_empty = capacity − all going students

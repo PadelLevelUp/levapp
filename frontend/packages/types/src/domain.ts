@@ -433,6 +433,12 @@ export type CoachWorkingHours = Partial<
   Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", [string, string][]>
 > | null;
 
+/** settings.coach-presences-view (PAD-837b): the Presences columns the coach shows; `null` is "not set"
+ *  and the shells show the column list's defaults. The server checks the shape, never the ids. */
+// PAD-837 (attendance.validation rule 17f): `defaultPeriod` is the coach's default period shortcut;
+// absent on views saved before it, which read as "thisMonth".
+export type CoachPresencesView = { columns: string[]; defaultPeriod?: string } | null;
+
 /** classes.availability rule 2: everyone's free time, and nothing about anyone's busy time. */
 export interface AvailabilityResponse {
   coachId: string;
@@ -1979,6 +1985,20 @@ export interface PresencePlayerStats {
   invitesReceived: number;
   /** Of those, the ones they actually turned up to. */
   invitesJoined: number;
+  /**
+   * PAD-837 (attendance.validation rule 17d): the hours twins, in whole minutes, of `total`,
+   * `justified` and `invitesJoined`, over the same rows. Each class adds its occurrence's
+   * length as `{duration}` renders it; the shells format, they never add durations themselves.
+   */
+  presenceMinutes: number;
+  justifiedMinutes: number;
+  guestPresenceMinutes: number;
+  /**
+   * PAD-837 (rule 17d): `guestPresenceMinutes − justifiedMinutes`, signed, computed on the
+   * server. Unexcused absences never move it. Optional on the type only so older fixtures and
+   * payloads still type-check; the server always sends it and the shells read a missing value as 0.
+   */
+  balanceMinutes?: number;
 }
 
 export interface PresenceStatsTotals {
@@ -2042,6 +2062,8 @@ export interface PendingValidationClass {
   type: 'academy' | 'private' | null;
   color?: string | null;
   startDatetime: string;
+  /** Same wall-clock digits as `startDatetime` (attendance.validation rule 15); null when the class has no end. */
+  endDatetime?: string | null;
   date: string;
   players: PendingValidationPlayer[];
   /** How many players never answered — the only thing that blocks validating. */

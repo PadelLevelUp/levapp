@@ -33,6 +33,7 @@ import {
   sideWordKey,
   assignedSideOf,
   joinRequestAcceptedAtOnce,
+  joinRequestStatusKey,
   sideLongKeyOf,
   shouldReportSent,
   splitBlockedByCause,
@@ -120,7 +121,7 @@ import { messagesApi, presencesApi } from "@levelup/api";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { ClassJoinRequest, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
-import { commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
+import { classEditRefusal, commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
 import {
   presencesOfParticipants,
   toggleDraftParticipant as toggledParticipants,
@@ -808,6 +809,13 @@ export default function ClassDetailScreen() {
 
   const saveEdit = () => {
     if (!draft || !instance) return;
+    // eligibility.rules rule 13: a bar rule with no value, in a bar this edit sends, refuses the Save
+    // before any overlap or scope dialog (the flow module decides).
+    const refusal = classEditRefusal(instance, draft);
+    if (refusal) {
+      toast.error(t(refusal));
+      return;
+    }
     // classes.edit rule 9 (PAD-474): a participants-only edit is an edit; the
     // decision is the flow module's, never this screen's.
     if (!hasClassEditChanges(instance, draft)) {
@@ -2131,9 +2139,11 @@ export default function ClassDetailScreen() {
                   </>
                 ) : (
                   <>
-                    {instance?.myJoinRequest && instance.myJoinRequest.status !== "withdrawn" ? (
-                      <Text className="text-xs text-muted-foreground">
-                        {t(`calendar.joinRequest.${instance.myJoinRequest.status}`)}
+                    {/* PAD-842 (event-detail rule 26): no "Está marcado!" here; this block shows only
+                        while the student holds no place, which an accepted request outlives. */}
+                    {joinRequestStatusKey(instance?.myJoinRequest) ? (
+                      <Text className="text-xs text-muted-foreground" testID="class-join-request-status">
+                        {t(joinRequestStatusKey(instance?.myJoinRequest)!)}
                       </Text>
                     ) : null}
                     {event.openSpot ? (

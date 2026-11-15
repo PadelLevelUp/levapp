@@ -42,8 +42,6 @@ Track player attendance for each class instance, including invitation, confirmat
    Edge, decided 2026-09-12: `validated = true` with no `status` recorded — a coach who validated the sheet without marking that student — falls back to the student's intent, because reporting `missed` would invent an absence the coach never stated.
    The raw columns (`invited`, `confirmed`, `status`, `justification`, `validated`) stay on the payload while the clients move over; they are removed when rule 7's `response` lands and this field derives from it instead.
 
-   - Code to follow: the client fallback in `attendance-state.ts` (lines 85 to 89) must give `coming`,
-     not `planned`, for a validated row with no status and `confirmed` true, as the server does.
 10. **(PAD-591) A roster is read in a fixed number of statements.** `GET
     /lesson_instance/<id>/presences` loads each presence with its player and the player's user
     eagerly; adding participants adds no statements.
@@ -109,9 +107,6 @@ Track player attendance for each class instance, including invitation, confirmat
 - **And** the payload carries `response`, `respondedAt` and `recordedBy`
 - **And** a student who declined and was then marked by the coach gets no further reminder
 test: `backend/padel_app/tests/test_pad271_presence_response.py` › `test_a_reminder_yes_writes_response_confirmed_by_the_student` (+7 more)
-- Code to follow: in `test_pad271_presence_response.py`, pin the clock in
-  `test_a_cancel_writes_response_cancelled_and_a_proactive_decline_its_own_value` and assert the one
-  response the fixture produces.
 
 #### ATTENDANCE-PRESENCE-7: Marking an occurrence that does not exist yet creates it (rules 1, 3)
 - **Given** a weekly class and a date it falls on, with no occurrence stored
