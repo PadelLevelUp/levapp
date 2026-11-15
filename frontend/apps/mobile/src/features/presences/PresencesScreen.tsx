@@ -2,7 +2,18 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { chartScope, lightTheme, narrowedTotals } from "@levelup/config";
+import {
+  applyLoadedView,
+  chartScope,
+  chooseColumns,
+  initialPresencesView,
+  lightTheme,
+  narrowedTotals,
+  presencesViewPayload,
+  saveFailed,
+  saveSucceeded,
+} from "@levelup/config";
+import { useCoachPresencesView, useSaveCoachPresencesView } from "@levelup/hooks";
 import type { PresencePlayerStats } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -24,7 +35,6 @@ import { ValidateClassesSheet } from "./ValidateClassesSheet";
 import { sharePresencesCsv } from "./csv-share";
 import {
   DEFAULT_SORT,
-  DEFAULT_VISIBLE_COLUMNS,
   EMPTY_FILTERS,
   type PresenceColumnKey,
   type PresenceFilters,
@@ -98,9 +108,28 @@ export function PresencesScreen() {
   const [filters, setFilters] =
     React.useState<PresenceFilters>(EMPTY_FILTERS);
   const [sort, setSort] = React.useState<PresenceSort>(DEFAULT_SORT);
-  const [visible, setVisible] = React.useState<PresenceColumnKey[]>(
-    DEFAULT_VISIBLE_COLUMNS
-  );
+  // settings.coach-presences-view (PAD-837b): the columns come from the coach's saved view.
+  const savedView = useCoachPresencesView();
+  const saveView = useSaveCoachPresencesView();
+  const [columnsView, setColumnsView] = React.useState(initialPresencesView);
+  const visible = columnsView.columns;
+  // Rule 5: the load applies once it answers, unless the coach already chose; a failed load
+  // (no data) leaves the defaults.
+  React.useEffect(() => {
+    if (savedView.isSuccess) setColumnsView((s) => applyLoadedView(s, savedView.data.presencesView));
+  }, [savedView.isSuccess, savedView.data]);
+  // Rules 4 and 6: the sheet commits on Apply and sends the whole list; a failed save keeps the
+  // columns and says so.
+  const applyColumns = (next: PresenceColumnKey[]) => {
+    setColumnsView((s) => chooseColumns(s, next));
+    saveView.mutate(presencesViewPayload(next), {
+      onSuccess: () => setColumnsView((s) => saveSucceeded(s)),
+      onError: () => {
+        setColumnsView((s) => saveFailed(s));
+        toast.error(t("presences.view.notSavedTitle"), t("presences.view.notSavedBody"));
+      },
+    });
+  };
 
   const week = React.useMemo(() => weekBounds(weekOffset), [weekOffset]);
   const stats = usePresenceStats();
@@ -353,7 +382,7 @@ export function PresencesScreen() {
         open={columnsOpen}
         onOpenChange={setColumnsOpen}
         visible={visible}
-        onApply={setVisible}
+        onApply={applyColumns}
       />
 
       <ValidateClassesSheet

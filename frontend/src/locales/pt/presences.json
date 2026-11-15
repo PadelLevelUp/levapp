@@ -134,6 +134,10 @@
       "empty": "Ainda não há presenças registadas.",
       "following": "A seguir os filtros da tabela · {{shown}} de {{total}} jogadores"
     },
+    "view": {
+      "notSavedTitle": "Não foi possível guardar as colunas",
+      "notSavedBody": "Ficam visíveis por agora; ao abrir as Presenças outra vez vê o que ficou guardado."
+    },
     "toast": {
       "validated_one": "Aula validada",
       "validated_zero": "{{count}} aulas validadas",

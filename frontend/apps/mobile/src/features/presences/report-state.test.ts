@@ -4,6 +4,7 @@ import type {
 } from "@levelup/types";
 import { describe, expect, it } from "vitest";
 
+import { applyLoadedView, initialPresencesView } from "@levelup/config";
 import {
   DEFAULT_SORT,
   DEFAULT_VISIBLE_COLUMNS,
@@ -421,5 +422,17 @@ describe("presences: the coach's nickname (PAD-683)", () => {
   it("sorts and labels by the display name", () => {
     expect(sortPlayerStats(rows, { key: "name", direction: "asc" }).map((p) => p.playerId)).toEqual([2, 1]);
     expect(topPlayerPoints([{ ...rows[0], total: 3 }])[0].fullLabel).toBe("Tigre");
+  });
+});
+
+describe("the saved columns on iOS (PAD-837b)", () => {
+  it("[ATTENDANCE-VALIDATION-66] restores the saved columns, in the list's order, and the CSV carries them", () => {
+    // Stored out of order, with an id the list no longer knows and no `name`: the list decides.
+    const state = applyLoadedView(initialPresencesView(), {
+      columns: ["invitesJoined", "retiredColumn", "total"],
+    });
+    expect(state.columns).toEqual(["name", "total", "invitesJoined"]);
+    const csv = buildPresencesCsv([], visibleColumns(state.columns), (key) => key);
+    expect(csv.split("\n")[0]).toBe('"name","total","invitesJoined"');
   });
 });

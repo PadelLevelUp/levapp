@@ -68,6 +68,8 @@ export const queryKeys = {
   // are the mobile ones (`features/presences/presence-invalidation.ts`, `hooks.ts`) so both apps invalidate alike.
   coachRoster: ["coach-players"] as const,
   presenceStats: ["presence-stats"] as const,
+  // settings.coach-presences-view (PAD-837b): the coach's saved Presences columns.
+  coachPresencesView: ["coach-presences-view"] as const,
   presenceTrendPrefix: ["presence-trend"] as const,
   presenceTrend: (playerIdsKey: string) => ["presence-trend", playerIdsKey] as const,
   presencePendingPrefix: ["presence-pending"] as const,

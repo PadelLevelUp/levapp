@@ -23,13 +23,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DEFAULT_VISIBLE_COLUMNS,
   PINNED_COLUMN,
   PRESENCE_COLUMNS,
+  applyLoadedView,
+  chooseColumns,
+  initialPresencesView,
   presencesCsvFileName,
+  presencesViewPayload,
+  saveFailed,
+  saveSucceeded,
   toggleColumn,
   type PresenceColumnKey,
 } from "@levelup/config";
+import { useCoachPresencesView, useSaveCoachPresencesView } from "@levelup/hooks";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { searchPresencePlayers } from "./presenceSearch";
@@ -75,7 +82,35 @@ export function PresencePlayersTable({
   const [query, setQuery] = useState("");
   const [minTotal, setMinTotal] = useState("");
   const [maxUnjustified, setMaxUnjustified] = useState("");
-  const [visible, setVisible] = useState<ColumnKey[]>(DEFAULT_VISIBLE_COLUMNS);
+  // settings.coach-presences-view (PAD-837b): the columns come from the coach's saved view.
+  const { toast } = useToast();
+  const savedView = useCoachPresencesView();
+  const saveView = useSaveCoachPresencesView();
+  const [columnsView, setColumnsView] = useState(initialPresencesView);
+  const visible = columnsView.columns;
+
+  // Rule 5: the load applies once it answers, unless the coach already chose; a failed load
+  // (no data) leaves the defaults.
+  useEffect(() => {
+    if (savedView.isSuccess) setColumnsView((s) => applyLoadedView(s, savedView.data.presencesView));
+  }, [savedView.isSuccess, savedView.data]);
+
+  // Rules 4 and 6: every change sends the whole list; a failed save keeps the columns and says so.
+  function chooseColumn(key: ColumnKey) {
+    const next = toggleColumn(visible, key);
+    setColumnsView((s) => chooseColumns(s, next));
+    saveView.mutate(presencesViewPayload(next), {
+      onSuccess: () => setColumnsView((s) => saveSucceeded(s)),
+      onError: () => {
+        setColumnsView((s) => saveFailed(s));
+        toast({
+          title: t("presences.view.notSavedTitle"),
+          description: t("presences.view.notSavedBody"),
+          variant: "destructive",
+        });
+      },
+    });
+  }
   const [sortKey, setSortKey] = useState<ColumnKey>("total");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -222,7 +257,7 @@ export function PresencePlayersTable({
                     checked={visible.includes(column.key)}
                     // The player column is what every other cell is about.
                     disabled={column.key === PINNED_COLUMN}
-                    onCheckedChange={() => setVisible((prev) => toggleColumn(prev, column.key))}
+                    onCheckedChange={() => chooseColumn(column.key)}
                   />
                   {t(`presences.column.${column.key}`)}
                 </label>

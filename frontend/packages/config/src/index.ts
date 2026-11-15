@@ -10,6 +10,7 @@ export * from "./class-colors";
 export * from "./dashboard-format";
 export * from "./dateLocale";
 export * from "./presence-status";
+export * from "./presences-view-state";
 export * from "./presences-csv";
 export * from "./presence-columns";
 export * from "./presence-periods";

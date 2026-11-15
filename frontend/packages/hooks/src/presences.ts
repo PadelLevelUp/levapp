@@ -1,6 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as playersApi from "@levelup/api/src/resources/players";
 import * as presencesApi from "@levelup/api/src/resources/presences";
+import * as presencesViewApi from "@levelup/api/src/resources/presencesView";
+import type { CoachPresencesView } from "@levelup/types";
 import { queryKeys } from "./queryKeys";
 import type { QueryOverrides } from "./queries";
 
@@ -69,4 +71,30 @@ export function useInvalidatePresences() {
       queryClient.invalidateQueries({ queryKey: queryKeys.presenceTrendPrefix }),
       queryClient.invalidateQueries({ queryKey: queryKeys.presencePendingPrefix }),
     ]);
+}
+
+/**
+ * settings.coach-presences-view rule 5 (PAD-837b): the coach's saved columns, read once per mount.
+ * No refocus or reconnect refetch (a late answer must never move columns the coach is looking at;
+ * the screens also ignore one that lands after a choice); a failed load is not retried into the
+ * screen: it shows the column list's defaults.
+ */
+export function useCoachPresencesView() {
+  return useQuery({
+    queryKey: queryKeys.coachPresencesView,
+    queryFn: () => presencesViewApi.getCoachPresencesView(),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+}
+
+/** Saves the whole view (rule 4); the cache takes the server's answer so a re-open reads it back. */
+export function useSaveCoachPresencesView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (view: CoachPresencesView) => presencesViewApi.putCoachPresencesView(view),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.coachPresencesView, saved);
+    },
+  });
 }

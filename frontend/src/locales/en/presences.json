@@ -134,6 +134,10 @@
       "empty": "No attendance recorded yet.",
       "following": "Following the table filters · {{shown}} of {{total}} players"
     },
+    "view": {
+      "notSavedTitle": "The columns could not be saved",
+      "notSavedBody": "They are shown for now; the next time you open Presences you will see what was last saved."
+    },
     "toast": {
       "validated_one": "Class validated",
       "validated_other": "{{count}} classes validated",
