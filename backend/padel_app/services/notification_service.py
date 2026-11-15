@@ -36,6 +36,7 @@ from __future__ import annotations
 import copy
 import functools
 import json
+import math
 import re
 from collections import Counter
 from contextlib import contextmanager
@@ -246,7 +247,8 @@ ELIGIBILITY_LEVEL_OPERATIONS = frozenset({
 
 def unknown_eligibility_rules(rules) -> list:
     """The rules in an eligibility bar the evaluator does not know: a level operation rule 6 does not
-    define, or an attribute or operation outside rule 12's lists.
+    define, or an attribute or operation outside rule 12's lists; and a rule that needs a value and has
+    none (rule 14).
 
     Saving refuses them (`eligibilityRules` → 400; `edit_class` and the class create in their own
     shapes). Every operation a client can post is in the sets — including one it only round-trips
@@ -268,7 +270,8 @@ INVITATION_GROUP_LEVEL_OPERATIONS = frozenset({
 
 def unknown_invitation_group_rules(groups) -> list:
     """The rules in invitation groups the evaluator does not know: a level operation outside the five
-    vacancy ones, or an attribute or operation outside rule 12's lists.
+    vacancy ones, or an attribute or operation outside rule 12's lists; and a rule that needs a value
+    and has none (rule 14).
 
     Saving refuses them (`invitationGroups` → 400). Shapes the evaluator already
     tolerates (a non-list, a group without rules) are left to it.
@@ -299,17 +302,42 @@ RULE_OPERATIONS = {
 }
 
 
+#: eligibility.rules rule 14: the attributes whose rules always carry a value (level's carries one only
+#: with a ``within_n_*`` operation). Account status's value is text; the others' are numbers.
+VALUE_ATTRIBUTES = frozenset({"unjustified_absences", "justified_absences", "attendance_rate", "subscription_status"})
+WITHIN_N_OPERATIONS = frozenset({"within_n_of_class", "within_n_above_class", "within_n_below_class"})
+
+
+def _value_missing(rule: dict) -> bool:
+    """Rule 14 (rule 13's answer, server side): the rule needs a value and has none. Missing is absent,
+    ``None``, a blank string, or, for a number, anything not finite after ``float()``; 0 and "2" are values."""
+    attribute = rule.get("attribute")
+    if attribute not in VALUE_ATTRIBUTES and not (attribute == "level" and rule.get("operation") in WITHIN_N_OPERATIONS):
+        return False
+    value = rule.get("value")
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return True
+    if attribute == "subscription_status" or isinstance(value, bool):
+        return isinstance(value, bool)
+    try:
+        return not math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return True
+
+
 def _rules_outside(rules, level_operations) -> list:
-    """The one save validator (rule 12): each rule an unknown attribute, an unknown operation on a
-    known one, or a level operation outside ``level_operations``, named as ``"attribute operation"``."""
+    """The one save validator (rules 12 and 14): each rule an unknown attribute, an unknown operation on a
+    known one, a level operation outside ``level_operations``, or a rule that needs a value and has none,
+    named as ``"attribute operation"``."""
     if not isinstance(rules, list):
         return []
     return [
         f"{rule.get('attribute')} {rule.get('operation')}"
         for rule in rules
         if isinstance(rule, dict)
-        and (rule.get("operation") not in level_operations if rule.get("attribute") == "level"
-             else rule.get("operation") not in RULE_OPERATIONS.get(rule.get("attribute"), ()))
+        and ((rule.get("operation") not in level_operations if rule.get("attribute") == "level"
+              else rule.get("operation") not in RULE_OPERATIONS.get(rule.get("attribute"), ()))
+             or _value_missing(rule))
     ]
 
 
@@ -460,7 +488,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         if unknown:
             # eligibility.rules rules 6, 12: abort before save(), so nothing is stored.
             from flask import abort
-            abort(400, f"invitationGroups: unknown rule {unknown[0]!r}")
+            abort(400, f"invitationGroups: invalid rule {unknown[0]!r}")
         config.invitation_groups = data["invitationGroups"]
     if "tiebreakers" in data:
         config.tiebreakers = data["tiebreakers"]
@@ -476,7 +504,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         if unknown:
             # eligibility.rules rules 6, 12: abort before save(), so nothing is stored.
             from flask import abort
-            abort(400, f"eligibilityRules: unknown rule {unknown[0]!r}")
+            abort(400, f"eligibilityRules: invalid rule {unknown[0]!r}")
         config.eligibility_rules = rules
     if "openSpotsVisible" in data:
         config.open_spots_visible = bool(data["openSpotsVisible"])
