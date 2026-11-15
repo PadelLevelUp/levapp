@@ -335,7 +335,7 @@ describe("buildPresencesCsv", () => {
 });
 
 describe("csvFileName", () => {
-  it("[ATTENDANCE-VALIDATION-18] names the file for the club's day: 23:30 UTC on a summer evening is the next day in Lisbon", () => {
+  it("[ATTENDANCE-VALIDATION-47] names the file for the club's day: 23:30 UTC on a summer evening is the next day in Lisbon", () => {
     expect(csvFileName(new Date("2026-07-14T23:30:00Z"))).toBe("presences-2026-07-15.csv");
   });
 
