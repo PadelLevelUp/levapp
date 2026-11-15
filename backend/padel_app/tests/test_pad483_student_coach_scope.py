@@ -190,13 +190,16 @@ def test_an_existing_thread_keeps_working_after_the_link_is_removed(client, app,
     assert sent.status_code in (200, 201), sent.get_json()
 
 
-def test_automatic_messages_ignore_the_picker_scope(app, scope):
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-32")
+def test_automatic_messages_ignore_the_picker_scope(client, app, scope):
     """System sends (reminders, invitations, join/class-request notices) create their own
     direct conversation and never consult the messageable set, so the fix cannot silence
     them — even between a coach and a student who share no link."""
     from padel_app.models import Message
     from padel_app.services.system_messages import _send_system_message
 
+    # the premise: "stranger" is on no link to the student, so the picker would refuse the pair
+    assert scope["user_ids"]["stranger"] not in _messageable_ids(client, app, scope["student_user_id"])
     with app.app_context():
         msg = _send_system_message(
             scope["user_ids"]["stranger"], scope["student_user_id"], "Automatic notice",

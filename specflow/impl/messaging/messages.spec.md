@@ -48,7 +48,6 @@ Send, edit, and delete messages within conversations, with support for replies (
     same URL within the window so browsers and the iOS image cache hit, and a reused URL always
     has at least 10 minutes left; its storage key carries a random segment so it cannot be guessed
     from the sender, the send time or the original filename (B-047)
-    - Code to follow: `test_signed_urls_outlive_a_render` in `test_image_privacy.py` must assert the rule's 60 minutes, not a floor of 30.
 5b. **Not built for message photos; live for avatars and logos.** **A signer that is missing or failing degrades to "no image", never to an error** (B-018).
     When no uploads bucket is configured, or the runtime cannot mint a signed URL (no
     `iam.serviceAccountTokenCreator` on the service account, storage unreachable), the
@@ -234,7 +233,6 @@ test: `backend/padel_app/tests/test_pad492_automatic_marker.py` › `test_a_dele
 - **And** on a server whose credentials hold no private key the address is signed through IAM instead
 - **And** the cache keeps a bounded number of addresses, the newest ones
 test: `backend/padel_app/tests/test_image_privacy.py` › `test_url_uses_a_signed_url_when_private` (+7 more)
-- Code to follow: the comment at `padel_app/model.py:39` must say the cache drops only the oldest addresses, not that expired ones are swept first.
 
 #### MESSAGING-MESSAGES-22: Copy takes the text as written, and a deleted or empty message has nothing to copy (rule 12)
 - **Given** a message with leading spaces and a line break, a deleted message, and a message with no text

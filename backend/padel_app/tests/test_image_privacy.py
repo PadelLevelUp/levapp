@@ -97,11 +97,12 @@ def test_storage_client_is_built_once(app):
         model._reset_storage_client()
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-21")
 def test_signed_urls_outlive_a_render():
-    """Five minutes expired while a page was still open (B-047)."""
+    """Five minutes expired while a page was still open (B-047); rule 5a fixes it at 60."""
     from padel_app import model
 
-    assert model.SIGNED_URL_MINUTES >= 30
+    assert model.SIGNED_URL_MINUTES == 60
 
 
 def test_signed_url_falls_back_to_iam_signing_without_a_private_key():

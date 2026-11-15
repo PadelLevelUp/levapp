@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
 import { Text } from "@/components/ui/text";
 import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
@@ -100,6 +101,7 @@ export function TimePickerInput({
   const resolvedPlaceholder =
     placeholder ?? t("ui.timePicker.placeholder");
   const [open, setOpen] = React.useState(false);
+  const keyboardUp = useKeyboardVisible();
   const [draft, setDraft] = React.useState<Date>(() => toDate(value));
   // PAD-559: the typed entry beside the wheel ("18:30"); wins over the wheel when it parses.
   const [typed, setTyped] = React.useState("");
@@ -195,21 +197,27 @@ export function TimePickerInput({
               returnKeyType="done"
               className="h-12 rounded-md border border-input bg-background px-3 text-base text-foreground"
             />
-            <DateTimePicker
-              value={draft}
-              mode="time"
-              is24Hour
-              display="spinner"
-              minuteInterval={minuteInterval}
-              // Same reason as DatePickerInput: the native wheel otherwise
-              // follows the device locale, not the app's (PAD-157). Nothing
-              // language-dependent shows on a 24h wheel today, but the prop
-              // keeps the two pickers honest if `is24Hour` ever comes off.
-              locale={nativeLocaleTag(i18n.language)}
-              onChange={(_event, selected) => {
-                if (selected) setDraft(selected);
-              }}
-            />
+            {/* PAD-838 (mobile.android-runtime rule 15): the wheel cannot shrink, and with it the
+                dialog does not fit above the keyboard on a small iPhone. While the typed field has
+                the keyboard, the wheel steps aside; it comes back when the keyboard goes. */}
+            {keyboardUp ? null : (
+              <DateTimePicker
+                testID={`${testID}-wheel`}
+                value={draft}
+                mode="time"
+                is24Hour
+                display="spinner"
+                minuteInterval={minuteInterval}
+                // Same reason as DatePickerInput: the native wheel otherwise
+                // follows the device locale, not the app's (PAD-157). Nothing
+                // language-dependent shows on a 24h wheel today, but the prop
+                // keeps the two pickers honest if `is24Hour` ever comes off.
+                locale={nativeLocaleTag(i18n.language)}
+                onChange={(_event, selected) => {
+                  if (selected) setDraft(selected);
+                }}
+              />
+            )}
             <DialogFooter>
               <Button
                 testID={`${testID}-cancel`}

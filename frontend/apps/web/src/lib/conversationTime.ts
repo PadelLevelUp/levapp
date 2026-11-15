@@ -1,8 +1,8 @@
-import { differenceInCalendarDays, format } from "date-fns";
+import { differenceInCalendarDays, format, isSameYear } from "date-fns";
 import { dateFnsLocale } from "./dateLocale";
 
 interface FormatConversationTimestampOptions {
-  /** UI language code (e.g. `i18n.language`) used to localize weekday/date. */
+  /** UI language code (e.g. `i18n.language`) used to localize the month. */
   language?: string;
   /** Localized "Yesterday" label (e.g. `t("messages.yesterday")`). */
   yesterdayLabel: string;
@@ -18,10 +18,11 @@ interface FormatConversationTimestampOptions {
  *
  *   - today (or future clock-skew) → time only, e.g. "14:32"
  *   - yesterday                    → localized "Yesterday" / "Ontem"
- *   - within the last week         → weekday abbreviation, e.g. "Mon" / "Seg"
- *   - older                        → short localized date, e.g. "27/07/2026"
+ *   - earlier this year            → day and month, e.g. "23 Jul" / "23 jul"
+ *   - an earlier year              → day, month and year, e.g. "31 Dec 2025"
  *
- * Weekday/date output is localized via the app-wide `dateFnsLocale` helper so it
+ * (messaging.conversations rule 19; the phone's `formatConversationTime` does the same.)
+ * Month output is localized via the app-wide `dateFnsLocale` helper so it
  * respects the coach's selected UI language (PT/EN). The "yesterday" string is
  * passed in already-translated to keep this helper pure and unit-testable.
  */
@@ -43,8 +44,5 @@ export function formatConversationTimestamp(
   }
 
   const locale = dateFnsLocale(language);
-  if (days < 7) {
-    return format(date, "EEE", { locale });
-  }
-  return format(date, "P", { locale });
+  return format(date, isSameYear(date, now) ? "d MMM" : "d MMM yyyy", { locale });
 }

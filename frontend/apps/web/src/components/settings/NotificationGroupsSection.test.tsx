@@ -36,4 +36,19 @@ describe("Manual invite groups say what they are (PAD-448)", () => {
     expect(engine("en").invitationGroupsHint).toMatch(/ Used by the automatic invitation engine\.$/);
     expect(engine("pt").invitationGroupsHint).toMatch(/ Usados pelos convites automáticos\.$/);
   });
+
+  it("[NOTIFICATIONS-GROUPS-5] a default group label reads in the coach's language, a renamed one as stored (rule 7, PAD-838)", () => {
+    render(
+      <NotificationGroupsSection
+        groups={[
+          { id: "same_level", label: "Same level", enabled: true },
+          { id: "all_students", label: "Os do sábado", enabled: true },
+        ]}
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.getByText("settings.notificationGroups.labels.sameLevel")).toBeInTheDocument();
+    expect(screen.getByText("Os do sábado")).toBeInTheDocument();
+    expect(screen.queryByText("settings.notificationGroups.labels.allStudents")).toBeNull();
+  });
 });
