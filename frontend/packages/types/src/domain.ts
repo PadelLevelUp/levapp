@@ -1438,6 +1438,10 @@ export interface MessageTemplates {
   /** PAD-920 (notifications.message-templates N1): the new engine's keys. Optional: older configs lack them. */
   waiting_list_added?: string;
   side_moved?: string;
+  /** PAD-928 (notifications.message-templates rule 24): the coach took the student off one date, or off a
+   *  recurring class. Optional: older configs lack them and the server falls back to its defaults. */
+  removed_from_class?: string;
+  removed_from_series?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────
