@@ -11,6 +11,7 @@ export * from "./dashboard-format";
 export * from "./dateLocale";
 export * from "./presence-status";
 export * from "./presences-csv";
+export * from "./presence-columns";
 export * from "./validation-tier";
 export * from "./presence-scope";
 export * from "./eligibility-report";

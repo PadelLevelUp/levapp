@@ -267,6 +267,23 @@ describe("toggleColumn", () => {
   });
 });
 
+describe("the shared column list (PAD-837)", () => {
+  it("[ATTENDANCE-VALIDATION-64] reads the shared column list", async () => {
+    const config = await import("@levelup/config");
+    // The same objects, not a copy: iOS cannot drift from web's columns.
+    expect(PRESENCE_COLUMNS).toBe(config.PRESENCE_COLUMNS);
+    expect(DEFAULT_VISIBLE_COLUMNS).toBe(config.DEFAULT_VISIBLE_COLUMNS);
+    expect(toggleColumn).toBe(config.toggleColumn);
+    // And no column list of its own anywhere in the presences feature.
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(__dirname);
+    for (const file of readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f))) {
+      expect(readFileSync(join(dir, file), "utf8"), file).not.toMatch(/key:\s*"invitesJoined"/);
+    }
+  });
+});
+
 describe("buildPresencesCsv", () => {
   const label = (key: PresenceColumnKey) => `L:${key}`;
 

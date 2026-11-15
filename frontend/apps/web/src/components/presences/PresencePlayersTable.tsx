@@ -22,33 +22,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { presencesCsvFileName } from "@levelup/config";
+import {
+  DEFAULT_VISIBLE_COLUMNS,
+  PINNED_COLUMN,
+  PRESENCE_COLUMNS,
+  presencesCsvFileName,
+  toggleColumn,
+  type PresenceColumnKey,
+} from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { searchPresencePlayers } from "./presenceSearch";
 import type { PresencePlayerStats } from "@/types";
 
-/** Every metric column, in display order. `name` is pinned and never hidden. */
-const COLUMNS = [
-  { key: "name", numeric: false },
-  { key: "total", numeric: true },
-  { key: "private", numeric: true },
-  { key: "academy", numeric: true },
-  { key: "justified", numeric: true },
-  { key: "unjustified", numeric: true },
-  { key: "invitesReceived", numeric: true },
-  { key: "invitesJoined", numeric: true },
-] as const;
-
-type ColumnKey = (typeof COLUMNS)[number]["key"];
-
-const DEFAULT_VISIBLE: ColumnKey[] = [
-  "name",
-  "total",
-  "private",
-  "academy",
-  "unjustified",
-];
+// PAD-837 (attendance.validation rule 17c): one column list for both shells, in `@levelup/config`.
+const COLUMNS = PRESENCE_COLUMNS;
+type ColumnKey = PresenceColumnKey;
 
 /**
  * PAD-140 — per-player attendance across the roster.
@@ -86,7 +75,7 @@ export function PresencePlayersTable({
   const [query, setQuery] = useState("");
   const [minTotal, setMinTotal] = useState("");
   const [maxUnjustified, setMaxUnjustified] = useState("");
-  const [visible, setVisible] = useState<ColumnKey[]>(DEFAULT_VISIBLE);
+  const [visible, setVisible] = useState<ColumnKey[]>(DEFAULT_VISIBLE_COLUMNS);
   const [sortKey, setSortKey] = useState<ColumnKey>("total");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -232,14 +221,8 @@ export function PresencePlayersTable({
                   <Checkbox
                     checked={visible.includes(column.key)}
                     // The player column is what every other cell is about.
-                    disabled={column.key === "name"}
-                    onCheckedChange={(checked) =>
-                      setVisible((prev) =>
-                        checked
-                          ? [...prev, column.key]
-                          : prev.filter((k) => k !== column.key)
-                      )
-                    }
+                    disabled={column.key === PINNED_COLUMN}
+                    onCheckedChange={() => setVisible((prev) => toggleColumn(prev, column.key))}
                   />
                   {t(`presences.column.${column.key}`)}
                 </label>

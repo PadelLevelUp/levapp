@@ -3,7 +3,13 @@ import type {
   PresenceStatsTotals,
 } from "@levelup/types";
 
-import { presencesCsvFileName, rosterSearchFields, searchPlayers } from "@levelup/config";
+import {
+  presencesCsvFileName,
+  rosterSearchFields,
+  searchPlayers,
+  type PresenceColumn,
+  type PresenceColumnKey,
+} from "@levelup/config";
 
 import type { ChartPoint } from "@/components/charts/chart-geometry";
 
@@ -24,31 +30,17 @@ import type { ChartPoint } from "@/components/charts/chart-geometry";
  * would be slower and worse.
  */
 
-/** Every metric column, in display order. `name` is pinned and never hidden. */
-export const PRESENCE_COLUMNS = [
-  { key: "name", numeric: false },
-  { key: "total", numeric: true },
-  { key: "private", numeric: true },
-  { key: "academy", numeric: true },
-  { key: "justified", numeric: true },
-  { key: "unjustified", numeric: true },
-  { key: "invitesReceived", numeric: true },
-  { key: "invitesJoined", numeric: true },
-] as const;
-
-export type PresenceColumn = (typeof PRESENCE_COLUMNS)[number];
-export type PresenceColumnKey = PresenceColumn["key"];
-
-/** The pinned column: every other cell is a statement *about* this one. */
-export const PINNED_COLUMN: PresenceColumnKey = "name";
-
-export const DEFAULT_VISIBLE_COLUMNS: PresenceColumnKey[] = [
-  "name",
-  "total",
-  "private",
-  "academy",
-  "unjustified",
-];
+// PAD-837 (attendance.validation rule 17c): the column list lives once, in `@levelup/config`;
+// re-exported so this module's callers and tests keep their imports.
+export {
+  DEFAULT_VISIBLE_COLUMNS,
+  PINNED_COLUMN,
+  PRESENCE_COLUMNS,
+  toggleColumn,
+  visibleColumns,
+  type PresenceColumn,
+  type PresenceColumnKey,
+} from "@levelup/config";
 
 /**
  * The filter inputs, held as the raw strings the fields contain.
@@ -172,33 +164,6 @@ export function nextSort(
     };
   }
   return { key, direction: key === "name" ? "asc" : "desc" };
-}
-
-/**
- * Shows or hides a column, keeping the result in `PRESENCE_COLUMNS` order so
- * the CSV header cannot come out in tap order.
- *
- * The pinned column is never removed: hiding it would leave rows of numbers
- * with nothing saying whose they are, and an exported CSV of the same.
- */
-export function toggleColumn(
-  visible: PresenceColumnKey[],
-  key: PresenceColumnKey
-): PresenceColumnKey[] {
-  if (key === PINNED_COLUMN) return visible;
-  const next = visible.includes(key)
-    ? visible.filter((k) => k !== key)
-    : [...visible, key];
-  return PRESENCE_COLUMNS.filter((column) => next.includes(column.key)).map(
-    (column) => column.key
-  );
-}
-
-/** The visible columns as full descriptors, in display order. */
-export function visibleColumns(
-  visible: PresenceColumnKey[]
-): PresenceColumn[] {
-  return PRESENCE_COLUMNS.filter((column) => visible.includes(column.key));
 }
 
 /**
