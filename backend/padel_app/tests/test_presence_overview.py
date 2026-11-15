@@ -321,19 +321,25 @@ def test_pending_validation_splits_ready_from_needs_input(app, coach_world):
 @pytest.mark.criterion("ATTENDANCE-VALIDATION-53")
 def test_a_pending_class_carries_its_end_beside_its_start(app, coach_world):
     """Every row prints "10:30–12:00": the end is served with the same wall-clock digits as the start."""
+    from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.presence_overview_service import list_pending_validation
 
-    start, end = _window()
+    # Pinned: the academy class runs 10:30-12:00 on Monday 9 November, read on the 15th.
     with app.app_context():
+        academy = db.session.get(LessonInstance, coach_world["academy_instance_id"])
+        academy.start_datetime = datetime(2026, 11, 9, 10, 30)
+        academy.end_datetime = datetime(2026, 11, 9, 12, 0)
+        db.session.commit()
         payload = list_pending_validation(
-            coach_id=coach_world["coach_id"], range_start=start, range_end=end
+            coach_id=coach_world["coach_id"],
+            range_start=datetime(2026, 11, 8),
+            range_end=datetime(2026, 11, 14, 23, 59, 59),
+            now=datetime(2026, 11, 15, 12, 0),
         )
 
-    assert payload["pending"]
-    for klass in payload["pending"]:
-        started = datetime.fromisoformat(klass["startDatetime"])
-        ended = datetime.fromisoformat(klass["endDatetime"])
-        assert ended - started == timedelta(hours=1), "fixture classes last one hour; no zone shift"
+    [klass] = [c for c in payload["pending"] if c["lessonInstanceId"] == coach_world["academy_instance_id"]]
+    assert klass["startDatetime"] == "2026-11-09T10:30:00"
+    assert klass["endDatetime"] == "2026-11-09T12:00:00", "the stored digits, with no zone shift"
 
 
 @pytest.mark.criterion("ATTENDANCE-VALIDATION-2")
