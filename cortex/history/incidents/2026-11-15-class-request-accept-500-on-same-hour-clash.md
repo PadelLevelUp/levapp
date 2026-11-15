@@ -1,6 +1,6 @@
 ---
-about: Accepting a class request answers 500 when the same-hour refusal fires
-permanence: changing
+about: Accepting a class request answered 500 when the same-hour refusal fired
+permanence: stable
 verified: "2026-11-15 (observed)"
 origin:
   - commit:e34d14967
@@ -11,7 +11,6 @@ need:
 aliases:
   - B-729
   - B-729-class-request-accept-500-on-same-hour-clash
-status: resolved
 ---
 
 # B-729 — Accepting a class request answers 500 when the same-hour refusal fires
@@ -19,7 +18,7 @@ status: resolved
 **Source:** the promotion gate's caveats (2026-11-15). Confirmed on `origin/staging` b6d320ae6 with a
 test that reaches the refusal through both routes.
 
-**What happens:** `POST /api/app/class-requests/<id>/accept` (the coach) and
+**What happened:** `POST /api/app/class-requests/<id>/accept` (the coach) and
 `POST /api/app/class-requests/<id>/accept-proposal` (the student) create the class through
 `lesson_service.add_class_service`. Its same-hour check (`classes.instance-enrollment` rule 15) raises
 `BusySameHourError`, and nothing on either path catches it. The coach or the student gets a 500.
@@ -28,7 +27,7 @@ test that reaches the refusal through both routes.
 answers. The request keeps its status and its hold, no class is created, and each screen names the clash
 (`classes.class-requests` rule 4a).
 
-**When it fires:** the accept's own slot check (rule 13, `_validated_slot` → `free_windows_for`) counts
+**When it fired:** the accept's own slot check (rule 13, `_validated_slot` → `free_windows_for`) counts
 the same going classes the same-hour check does, so a clash already present is refused `slot_taken`. The
 500 needs a clash that lands between that check and the class's creation: another coach adds the
 student, or the engine places them, in that window. It would also fire if the two "busy" definitions
