@@ -167,8 +167,6 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - Web's toolbar controls and sortable column headings become a compact
       button row plus two sheets (filters + sort, and the column chooser), which
       commit on Apply rather than live — the list is behind the sheet.
-    - Code to follow: the file name in `report-state.ts` (line 243) and in `PresencePlayersTable.tsx`
-      (line 145) must use the club's day instead of the UTC date.
 17a. **[DEC 2026-09-09, PAD-192] The charts follow the table's filters.** On web the three
     charts and the players table share one screen and read from the same roster payload; two
     views of the same data disagreeing side by side reads as a bug, not a choice. Decided:
@@ -323,9 +321,6 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     in `@levelup/config`. A single number, not "present / capacity". Zero has its own string
     ("0 presentes"), because pt's CLDR puts 0 in `one` (rule 14). Test id
     `presences-class-present-count` on both shells. Decided with the coordinator, 2026-10-07.
-    - Code to follow: remove the duplicate `presentCount` import from
-      `packages/config/src/presence-status.test.ts`
-      (lines 7 and 12), then check that the file's tests run.
 
 26. **A mark can be cleared back to "no answer" (PAD-567; rule number self-assigned by Session C on
     2026-10-09, unconfirmed).** The ticket's scenario: the coach marked a student present, the
@@ -655,7 +650,6 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Given** Ana absent on a one-place class where Bea has since taken the seat
 - **When** the coach clears Ana's mark on the class detail
 - **Then** a dialog warns that the class goes to 2/1 before saving, and on confirm the server records the clear without refusing, leaving the filled count at 2
-- Code to follow: add a web test that the over-capacity dialog shows before the clear is saved.
 
 #### ATTENDANCE-VALIDATION-41: A clear after the reminder instant sends nothing (PAD-567, rule 26, owner 2026-10-10)
 - **Given** a class whose first-reminder instant passed, where Ana was marked present before the pass (so rule 23 skipped her) and has no counted reminder
