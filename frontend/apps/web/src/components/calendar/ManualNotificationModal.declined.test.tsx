@@ -53,7 +53,7 @@ describe("manual picker: declined this class", () => {
         existingPlayerIds={[]}
       />
     );
-    await screen.findByText("All students");
+    await screen.findByText("settings.notificationGroups.labels.allStudents");
     fireEvent.change(screen.getByPlaceholderText("calendar.notify.searchPlaceholder"), {
       target: { value: "R" },
     });
