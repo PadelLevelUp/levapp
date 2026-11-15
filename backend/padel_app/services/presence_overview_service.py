@@ -447,6 +447,9 @@ def list_pending_validation(
             "type": instance.lesson.type if instance.lesson else None,
             "color": getattr(instance.lesson, "color", None),
             "startDatetime": instance.start_datetime.isoformat(),
+            # Same wall-clock digits as startDatetime (attendance.validation rule 15), so a
+            # client can print "10:30–12:00" without a zone conversion.
+            "endDatetime": instance.end_datetime.isoformat() if instance.end_datetime else None,
             "date": instance.start_datetime.date().isoformat(),
             "players": players,
             "unanswered": unanswered,

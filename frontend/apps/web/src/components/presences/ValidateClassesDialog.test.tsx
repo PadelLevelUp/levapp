@@ -346,3 +346,58 @@ describe("the walk-in picker searches and sorts (PAD-537)", () => {
     expect(ids()).toEqual(["presences-walk-in-option-92"]);
   });
 });
+
+// PAD-924 (attendance.validation rule 29): every row says which class it is, by day and time range,
+// so same-named classes can be told apart; the validated rows come oldest start first.
+describe("every row shows its day and time range (PAD-924)", () => {
+  const peak = (id: number, start: string, end: string): PendingValidationClass => ({
+    ...klass(1, "PEAK PERFORMANCE"),
+    lessonInstanceId: id,
+    calendarEventId: `lessoninstance-${id}`,
+    startDatetime: start,
+    endDatetime: end,
+    date: start.slice(0, 10),
+  });
+
+  it("[ATTENDANCE-VALIDATION-53] validated rows read title, day, time range and present count, oldest first", () => {
+    render(
+      <Dialog
+        pending={[]}
+        validated={[
+          peak(3, "2026-11-11T18:00:00", "2026-11-11T19:30:00"),
+          peak(1, "2026-11-09T10:30:00", "2026-11-09T12:00:00"),
+          peak(2, "2026-11-09T18:00:00", "2026-11-09T19:30:00"),
+        ]}
+        pendingCount={0}
+        pendingTotal={0}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    const labels = screen.getAllByTestId("presences-class-when").map((el) => el.textContent);
+    expect(labels).toEqual(["Mon 09/11 · 10:30–12:00", "Mon 09/11 · 18:00–19:30", "Wed 11/11 · 18:00–19:30"]);
+    expect(screen.getAllByTestId("presences-class-present-count")).toHaveLength(3);
+  });
+
+  it("[ATTENDANCE-VALIDATION-53] a pending card carries the same day and time range", () => {
+    render(
+      <Dialog
+        pending={[peak(1, "2026-11-09T10:30:00", "2026-11-09T12:00:00")]}
+        validated={[]}
+        pendingCount={1}
+        pendingTotal={1}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    expect(screen.getByTestId("presences-class-when").textContent).toBe("Mon 09/11 · 10:30–12:00");
+  });
+});

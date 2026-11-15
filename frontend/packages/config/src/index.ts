@@ -53,6 +53,7 @@ export * from "./message-day";
 export * from "./recurrence-end";
 export * from "./email-prompt";
 export * from "./class-time";
+export * from "./class-when";
 export * from "./standing-end";
 
 /**

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
-import { effectiveMark, presentCount, validationGroup, walkInEmptyReason, type PresenceMark } from "@levelup/config";
+import { classWhenLabel, effectiveMark, presentCount, sortClassesByStart, validationGroup, walkInEmptyReason, type PresenceMark } from "@levelup/config";
 import { useCoachDisplayName } from "@levelup/hooks";
 import type { PendingValidationClass } from "@levelup/types";
 
@@ -164,11 +164,11 @@ export function ValidateClassesSheet({
   // Walk-ins are merged in once, here, so one behaves as an ordinary roster row
   // everywhere below — list, detail, readiness count and validate payload alike.
   const pendingClasses = React.useMemo(
-    () => pending.map((klass) => withExtras(klass, extras)),
+    () => sortClassesByStart(pending.map((klass) => withExtras(klass, extras))),
     [pending, extras]
   );
   const validatedClasses = React.useMemo(
-    () => validated.map((klass) => withExtras(klass, extras)),
+    () => sortClassesByStart(validated.map((klass) => withExtras(klass, extras))),
     [validated, extras]
   );
 
@@ -553,6 +553,7 @@ export function ValidateClassesSheet({
                         <Text className="flex-1 text-sm" numberOfLines={1}>
                           {klass.title}
                         </Text>
+                        <ClassWhen klass={klass} />
                         <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
                       </View>
                       <View className="flex-row items-center gap-1">
@@ -735,6 +736,16 @@ function WalkInPicker({
   );
 }
 
+/** attendance.validation rule 29 (PAD-924): the class's day and time range, the stored digits as they are. */
+function ClassWhen({ klass }: { klass: PendingValidationClass }) {
+  const { i18n } = useTranslation();
+  return (
+    <Text testID="presences-class-when" className="shrink-0 text-xs text-muted-foreground">
+      {classWhenLabel(klass, i18n.language)}
+    </Text>
+  );
+}
+
 /**
  * PAD-538 (attendance.validation rule 27): how many the class has as present right now — the marks
  * the rows show, local edits included — beside the class's time and title. Its own string for 0
@@ -809,16 +820,11 @@ function ClassCard({
   onOpen: () => void;
   onValidate: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   // PAD-660: the marking rows name students as the coach does (nickname); coach-only sheet.
   const displayName = useCoachDisplayName();
   const focus = React.useContext(RowFocusContext);
   const rowKey = (playerId: number) => `list-${klass.lessonInstanceId}-${playerId}`;
-  const timeFmt = new Intl.DateTimeFormat(i18n.language, {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
 
   return (
     <View
@@ -847,9 +853,9 @@ function ClassCard({
         >
           <View className="flex-1 pr-2">
             <Text className="text-sm font-sans-bold" numberOfLines={1}>
-              {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))}{" "}
-              · {klass.title}
+              {klass.title}
             </Text>
+            <ClassWhen klass={klass} />
             <Text className="text-xs text-muted-foreground">
               {klass.type ? t(`presences.type.${klass.type}`) : null}
               {remaining > 0
@@ -981,7 +987,7 @@ function ClassDetail({
   onValidate: () => void;
   onUnvalidate: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   // PAD-660: the marking rows name students as the coach does (nickname); coach-only sheet.
   const displayName = useCoachDisplayName();
   const detailScroll = React.useRef<ScrollView | null>(null);
@@ -990,13 +996,6 @@ function ClassDetail({
   const detailContent = React.useRef<View | null>(null);
   const focus = useRowFocus(detailScroll, detailContent);
   const rowKey = (playerId: number) => `detail-${playerId}`;
-  // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
-  // time is the class's actual clock time (same rule as the list).
-  const timeFmt = new Intl.DateTimeFormat(i18n.language, {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
 
   return (
     // PAD-838: shrinks with the dialog when the keyboard is up, so the detail's list gives way
@@ -1018,9 +1017,9 @@ function ClassDetail({
             />
           </Pressable>
           <DialogTitle className="flex-1" numberOfLines={1}>
-            {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} ·{" "}
             {klass.title}
           </DialogTitle>
+          <ClassWhen klass={klass} />
           <PresentCount players={klass.players} edits={edits} />
         </View>
       </DialogHeader>

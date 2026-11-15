@@ -318,6 +318,24 @@ def test_pending_validation_splits_ready_from_needs_input(app, coach_world):
     assert private["players"][0]["response"] == "none"
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-53")
+def test_a_pending_class_carries_its_end_beside_its_start(app, coach_world):
+    """Every row prints "10:30–12:00": the end is served with the same wall-clock digits as the start."""
+    from padel_app.services.presence_overview_service import list_pending_validation
+
+    start, end = _window()
+    with app.app_context():
+        payload = list_pending_validation(
+            coach_id=coach_world["coach_id"], range_start=start, range_end=end
+        )
+
+    assert payload["pending"]
+    for klass in payload["pending"]:
+        started = datetime.fromisoformat(klass["startDatetime"])
+        ended = datetime.fromisoformat(klass["endDatetime"])
+        assert ended - started == timedelta(hours=1), "fixture classes last one hour; no zone shift"
+
+
 @pytest.mark.criterion("ATTENDANCE-VALIDATION-2")
 def test_count_pending_validation_is_the_listings_count(app, coach_world):
     """attendance.validation rule 18: the count is `len(pending)`, never a second query."""

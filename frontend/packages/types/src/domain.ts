@@ -2042,6 +2042,8 @@ export interface PendingValidationClass {
   type: 'academy' | 'private' | null;
   color?: string | null;
   startDatetime: string;
+  /** Same wall-clock digits as `startDatetime` (attendance.validation rule 15); null when the class has no end. */
+  endDatetime?: string | null;
   date: string;
   players: PendingValidationPlayer[];
   /** How many players never answered — the only thing that blocks validating. */
