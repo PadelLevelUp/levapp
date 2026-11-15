@@ -157,9 +157,6 @@ Readings:
      validated, "Cancelado pelo aluno · <when>" is rendered as a **detail line in secondary text**,
      with clearly lesser weight than the state word — a quiet fact beside one status, never a
      second status. The student's own row never shows it: they know they cancelled.
-   - Code to follow: `frontend/apps/mobile/src/features/calendar/attendance-decline.ts` (lines 58 and 105)
-     and `app/class/[id].tsx` must gate the cancel action and the declined hint on `attendanceState`, not on
-     `status` or `justification`.
 
 26. **Superseded by rule 28: PAD-570 (2026-10-09) made "Não vou" final; PAD-684 (owner, 2026-10-21) restored this negotiation as rule 28's "Afinal vou", with the screen now showing the spot state (`comeBack`) first.** The text below is kept as the record of PAD-315. ~~A student who said "I am not coming" can say they can come after all (PAD-315; number
    self-assigned, unconfirmed). The client offers it; the SERVER decides it.~~ The negotiation
@@ -301,9 +298,6 @@ Readings:
    The PAD-570 hint ("Respondeste que não vais…", `calendar.detail.declinedFinalHint`) stays only
    for App Store builds that do not read `comeBack`; the server never answers `already_declined`
    to a come-back on a class that has not started.
-   - Code to follow: rename the test `has no way back after 'Não vou' (rule 28)` in
-     `vou-after-reminder-render.test.ts` and the test `not_coming is final (rule 28)` in
-     `reminder-answer.test.ts` so their names no longer say PAD-570's "final".
 
 29. **The coach's own mark stands (orchestrator relaying the owner, 2026-10-09).** When the coach
    marked the student present or absent before the reminder (`validated`, `attendance.presence`
