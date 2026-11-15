@@ -12,6 +12,7 @@ export * from "./dateLocale";
 export * from "./presence-status";
 export * from "./presences-csv";
 export * from "./presence-columns";
+export * from "./presence-periods";
 export * from "./validation-tier";
 export * from "./presence-scope";
 export * from "./eligibility-report";

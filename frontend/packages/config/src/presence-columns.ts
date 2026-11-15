@@ -61,3 +61,20 @@ export function toggleColumn(
 export function visibleColumns(visible: PresenceColumnKey[]): PresenceColumn[] {
   return PRESENCE_COLUMNS.filter((column) => visible.includes(column.key));
 }
+
+/**
+ * The columns to show for a saved view (settings.coach-presences-view rule 3), whatever was
+ * stored: the server checks the shape, not the ids, so the list is the judge here.
+ *
+ * An id the list does not know is ignored (a column retired since the save); `name` is shown
+ * whether or not it was stored; the order is the list's, never the stored one; a stored empty
+ * list is `name` alone. Anything that is not `{columns: string[]}` (null: never saved, or a load
+ * that failed) is the defaults.
+ */
+export function resolvePresencesView(stored: unknown): PresenceColumnKey[] {
+  const columns = (stored as { columns?: unknown } | null | undefined)?.columns;
+  if (!Array.isArray(columns)) return DEFAULT_VISIBLE_COLUMNS;
+  return PRESENCE_COLUMNS.filter(
+    (column) => column.key === PINNED_COLUMN || columns.includes(column.key)
+  ).map((column) => column.key);
+}
