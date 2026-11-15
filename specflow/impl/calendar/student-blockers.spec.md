@@ -168,3 +168,9 @@ test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `te
 - Code to follow: rename
   `test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week` in
   `test_pad367_falsy_values_at_the_route.py` to say the student is free again two weeks later.
+
+#### CALENDAR-STUDENT-BLOCKERS-14: Deleting or moving one occurrence keeps the rest of the series a blocker (rules 3, 5; B-727)
+- **Given** a student's weekly blocker on Mondays 10:00–11:00 from 2026-10-05 to 2026-10-26
+- **When** the student deletes the 2026-10-12 occurrence alone (`scope: "single"`), which splits the series
+- **Then** the continuation row keeps `blocks_auto_invitations`: the student is still blocked on 2026-10-19 for both the live engine's predicate (`blocked_user_ids_for_window`) and the new engine's store (`availability_blocker` in `TableStore._own_blocks`), is free on 2026-10-12, and the student's list still shows the continuation
+test: `backend/padel_app/tests/test_b727_split_blocker_keeps_suppression.py` › `test_deleting_one_occurrence_keeps_the_rest_blocking_the_live_engine` (+1 more)
