@@ -8,7 +8,7 @@ on those two days; how the charts must draw that last bucket is
 attendance.validation rule 17b.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -138,3 +138,26 @@ def test_the_first_bucket_starts_before_the_window(app, pinned_world):
 
     assert payload["from"] == "2026-08-04T00:00:00"
     assert payload["buckets"][0]["start"] == "2026-08-01"
+
+
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-51")
+def test_an_aware_now_is_read_on_the_clubs_clock(app, pinned_world):
+    """The route's `now` is an aware UTC instant; the window ends on the club's today.
+
+    23:30Z on 31 October is 23:30 in Lisbon (WET since 25 October): October is still running.
+    23:30Z on 31 August is 00:30 on 1 September in Lisbon (WEST): September is already running,
+    though the UTC date is still August.
+    """
+    october = _default_trend(
+        app, pinned_world["coach_id"], now=datetime(2026, 10, 31, 23, 30, tzinfo=timezone.utc)
+    )
+    assert october["to"] == "2026-10-31T23:59:59"
+    assert october["buckets"][-1]["start"] == "2026-10-01"
+    assert october["buckets"][-1]["count"] == 2 * len(OCTOBER_DAYS)
+
+    september = _default_trend(
+        app, pinned_world["coach_id"], now=datetime(2026, 8, 31, 23, 30, tzinfo=timezone.utc)
+    )
+    assert september["to"] == "2026-09-01T23:59:59"
+    assert september["buckets"][-1]["start"] == "2026-09-01"
+    assert september["buckets"][-1]["count"] == 0
