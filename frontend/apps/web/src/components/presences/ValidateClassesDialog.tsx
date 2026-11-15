@@ -471,9 +471,16 @@ export function ValidateClassesDialog({
                     >
                       <span className="flex min-w-0 items-center gap-2 text-sm">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                        <span className="truncate">{klass.title}</span>
-                        <ClassWhen klass={klass} />
-                        <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
+                        {/* PAD-924: wraps when narrow, so the day and time drop under the title instead of
+                            squeezing it to "…"; one line, as before, whenever everything fits. */}
+                        <span
+                          data-testid="presences-validated-row-text"
+                          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5"
+                        >
+                          <span className="min-w-0 max-w-full truncate">{klass.title}</span>
+                          <ClassWhen klass={klass} />
+                          <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
+                        </span>
                       </span>
                       <span className="flex shrink-0 gap-1">
                         <Button

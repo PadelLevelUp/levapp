@@ -550,11 +550,17 @@ export function ValidateClassesSheet({
                           size={16}
                           color={lightTheme.success ?? lightTheme.primary}
                         />
-                        <Text className="flex-1 text-sm" numberOfLines={1}>
-                          {klass.title}
-                        </Text>
-                        <ClassWhen klass={klass} />
-                        <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
+                        {/* PAD-924: two lines, so the title keeps the row's width at 402 pt and is not
+                            squeezed to one letter by the day, time and count beside it. */}
+                        <View testID="presences-validated-row-text" className="flex-1">
+                          <Text className="text-sm" numberOfLines={1}>
+                            {klass.title}
+                          </Text>
+                          <View className="flex-row flex-wrap items-center gap-x-2">
+                            <ClassWhen klass={klass} />
+                            <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
+                          </View>
+                        </View>
                       </View>
                       <View className="flex-row items-center gap-1">
                         <Button
@@ -1016,11 +1022,14 @@ function ClassDetail({
               color={lightTheme.foreground}
             />
           </Pressable>
-          <DialogTitle className="flex-1" numberOfLines={1}>
-            {klass.title}
-          </DialogTitle>
-          <ClassWhen klass={klass} />
-          <PresentCount players={klass.players} edits={edits} />
+          {/* PAD-924: the title on its own line, the day, time and count under it, as on the rows. */}
+          <View testID="presences-detail-heading" className="flex-1">
+            <DialogTitle numberOfLines={1}>{klass.title}</DialogTitle>
+            <View className="flex-row flex-wrap items-center gap-x-2">
+              <ClassWhen klass={klass} />
+              <PresentCount players={klass.players} edits={edits} />
+            </View>
+          </View>
         </View>
       </DialogHeader>
 
