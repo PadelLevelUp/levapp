@@ -66,10 +66,17 @@ def test_a_request_already_sent_is_not_sent_again_on_the_next_run():
     assert _asked(due(s, EngineSettings(), FIRST + timedelta(minutes=5))) == []
 
 
-def test_automatic_entrants_and_direct_joiners_are_asked_and_invitation_acceptors_are_not():
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-17")
+def test_every_going_student_is_asked_and_an_invitation_acceptor_only_when_placed_by_the_first_send():
+    # PAD-820 (owner, option b): an acceptor placed before the first send is asked like everyone.
     s = _snapshot((("R", "regular"), ("W", "auto_from_waiting_list"), ("J", "direct"),
-                   ("I", "invitation")))
-    assert _asked(due(s, EngineSettings(), FIRST)) == ["J", "R", "W"]
+                   ("I", "invitation")), absent={"R"})
+    assert _asked(due(s, EngineSettings(), FIRST)) == ["I", "J", "W"]
+    # Between the first and the second send, I2 accepts an invitation and J2 joins directly: at the
+    # second send J2 is asked (the next one) and I2 is not (they have just said yes).
+    later = _snapshot((("I2", "invitation"), ("J2", "direct")),
+                      placed_at={"I2": FIRST + timedelta(hours=1), "J2": FIRST + timedelta(hours=1)})
+    assert _asked(due(later, EngineSettings(), FIRST + timedelta(hours=2))) == ["J2"]
 
 
 def test_a_regular_who_said_they_are_not_going_is_not_asked():

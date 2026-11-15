@@ -47,7 +47,7 @@ import type {
 } from "@/types";
 
 
-import { assignedSideOf, blockedNames, classEvaluationsAction, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, sideLongKeyOf, sideWordKey } from "@levelup/config";
+import { assignedSideOf, blockedNames, classBarRefusal, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, sideLongKeyOf, sideWordKey } from "@levelup/config";
 import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -838,6 +838,15 @@ export function ClassDetailSheet({
   };
 
   const saveEdit = () => {
+    // eligibility.rules rule 13: the class's own bar holding a rule with no value refuses the Save
+    // before any overlap or scope dialog, but only when this edit sends the bar.
+    if (draft && classInstance) {
+      const refusal = classBarRefusal(diffInstance(classInstance, draft, EDITABLE_FIELDS));
+      if (refusal) {
+        toast({ variant: "destructive", title: t(refusal) });
+        return;
+      }
+    }
     // B-275 (PAD-508): a cleared native time input reads ""; never send it (the server would refuse it).
     if (draft && (!isHhMm(draft.startTime) || !isHhMm(draft.endTime))) {
       toast({
@@ -902,19 +911,6 @@ export function ClassDetailSheet({
       }
     }
     return diff;
-  }
-
-  function diffParticipants(
-    original: { id: string }[],
-    updated: { id: string }[]
-  ) {
-    const originalIds = new Set(original.map((p) => p.id));
-    const updatedIds = new Set(updated.map((p) => p.id));
-
-    const addPlayers = [...updatedIds].filter((id) => !originalIds.has(id));
-    const removePlayers = [...originalIds].filter((id) => !updatedIds.has(id));
-
-    return { addPlayers, removePlayers };
   }
 
   const EDITABLE_FIELDS = [
@@ -1850,9 +1846,11 @@ export function ClassDetailSheet({
                   </>
                 ) : (
                   <>
-                    {active.myJoinRequest && active.myJoinRequest.status !== "withdrawn" && (
+                    {/* PAD-842 (event-detail rule 26): no "Está marcado!" here; this block shows only
+                        while the student holds no place, which an accepted request outlives. */}
+                    {joinRequestStatusKey(active.myJoinRequest) && (
                       <p className="text-xs text-muted-foreground">
-                        {t(`calendar.joinRequest.${active.myJoinRequest.status}`)}
+                        {t(joinRequestStatusKey(active.myJoinRequest)!)}
                       </p>
                     )}
                     {event.openSpot && (

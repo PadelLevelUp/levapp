@@ -1,7 +1,7 @@
 """What the engine tells people (plan §8 step 3, §6 step 4): attendance requests and coach alerts.
 
-Owns: who gets the attendance request and its repeats (regulars, automatic entrants and direct
-joiners; not invitation acceptors), and the coach alert when no tier can fill a spot. The
+Owns: who gets the attendance request and its repeats (every going student; an invitation acceptor
+only when placed by the first send, PAD-820), and the coach alert when no tier can fill a spot. The
 wording of invitations (D11) is the planner's, through ``Invited.side_named``.
 
 The attendance request (engine-timeline rule 2, notifications.reminders) runs on one schedule per
@@ -21,7 +21,7 @@ from padel_app.invitation_engine.snapshot import SessionSnapshot
 from padel_app.invitation_engine.timeline import attendance_request_at, is_quiet
 from padel_app.utils.dates import wall_to_utc_naive
 
-ASKED = ("regular", "regular_returns", "auto_from_waiting_list", "direct")   # never "invitation"
+ASKED = ("regular", "regular_returns", "auto_from_waiting_list", "direct", "invitation")
 
 
 def _current_slot(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> datetime | None:
@@ -41,6 +41,7 @@ def due(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> t
     slot = _current_slot(snapshot, settings, now)
     if slot is None:
         return ()
+    first = attendance_request_at(snapshot, settings)
     out: list[Effect] = []
     for p in snapshot.going:
         if p.how not in ASKED or p.student in snapshot.absent or p.student in snapshot.confirmed:
@@ -49,6 +50,8 @@ def due(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> t
         if student is not None and student.blocks_all:   # blocked all notifications (engine-timeline rule 2)
             continue
         if p.how != "regular" and p.at > slot:        # going since after this slot: the next one
+            continue
+        if p.how == "invitation" and p.at > first:    # PAD-820: said yes after the first send, not asked
             continue
         if any(sent >= slot for sent in snapshot.attendance_requested.get(p.student, ())):
             continue

@@ -1,4 +1,5 @@
 import type { ClassInstance } from "@levelup/types";
+import { diffParticipants } from "@levelup/config";
 
 /** Fields the edit-class UI is allowed to change, diffed against the
  * original instance to build the `updates` payload for `useEditClass`.
@@ -46,23 +47,8 @@ export function diffInstance<T extends object>(
   return diff;
 }
 
-/** Diffs two participant lists down to id sets for the addPlayers/removePlayers
- * edit-class payload keys. Ports web's ClassDetailSheet.tsx diffParticipants.
- * Ids compare as strings (PAD-474): the API serialises a participant id as a
- * number and the picker hands back a string, so unticking and re-ticking a
- * student must cancel out. */
-export function diffParticipants(
-  original: { id: string }[],
-  updated: { id: string }[]
-): { addPlayers: string[]; removePlayers: string[] } {
-  const originalIds = new Set(original.map((p) => String(p.id)));
-  const updatedIds = new Set(updated.map((p) => String(p.id)));
-
-  const addPlayers = [...updatedIds].filter((id) => !originalIds.has(id));
-  const removePlayers = [...originalIds].filter((id) => !updatedIds.has(id));
-
-  return { addPlayers, removePlayers };
-}
+/** The participant diff is `@levelup/config`'s, shared with web (classes.edit rule 9, PAD-842). */
+export { diffParticipants };
 
 /** The edit screen's change set: the field diff plus the participant diff
  * (classes.edit rule 9, PAD-474). Web's commitEdit builds both before deciding

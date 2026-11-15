@@ -234,19 +234,23 @@ async function createApprovalTestClass(
   });
 }
 
-/** Navigate the calendar until the given class is visible, then click it. */
+/**
+ * Navigate the calendar until the given class is visible, then click it. Each week is given time to
+ * load before moving on: weeks start on Sunday (calendar.view rule 5a, PAD-682), so on a Sunday the
+ * class ("next Monday") is in the week shown first, and a check made before that week's events
+ * rendered clicked past it and never came back (PR #986's subset run, 2026-11-15).
+ */
 async function openClassDetail(page: Page, title: string = CLASS_TITLE) {
   await openCalendar(page);
+  const target = page.getByText(title).first();
   for (let i = 0; i < 5; i++) {
-    const visible = await page
-      .getByText(title)
-      .isVisible()
-      .catch(() => false);
+    const visible = await target
+      .waitFor({ state: "visible", timeout: 5000 })
+      .then(() => true, () => false);
     if (visible) break;
     await page.getByRole("button", { name: ui("calendar.toolbar.nextWeek") }).first().click();
-    await page.waitForTimeout(400);
   }
-  await page.getByText(title).first().click();
+  await target.click();
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
 }
 

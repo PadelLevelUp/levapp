@@ -149,6 +149,12 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         **key,
     )
     db.session.expire(instance, ["presences"])
+    from padel_app.utils.dates import utcnow_naive
+
+    if created:
+        # PAD-820 (notifications.reminders rule 24): when this seat was taken; the reminder pass reads
+        # it to tell a student placed before the first reminder from one placed after it.
+        presence.placed_at = utcnow_naive()
 
     # PAD-316: a re-enrolment of someone who gave their spot up is a RETURN, not
     # a no-op. The row already existed, so `created` is False, and before this
@@ -190,6 +196,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # an engine fill arrives already confirmed. Claiming they said yes would
         # be the same over-reach as `confirmed` meaning "coming".
         presence.confirmed = confirmed
+        presence.placed_at = utcnow_naive()            # a new seat (rule 24 reads it)
 
     if created and player_id in _COUNTED_AS_COMING.get():
         # PAD-489 (rule 22): the class was created after its reminder time, so there was no
@@ -258,11 +265,14 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
             )
     commit_or_flush()
     db.session.expire(instance, ["presences"])
-    if source == "coach" and (created or returning):
+    from padel_app.services.engine_switch import engine_for
+
+    if source == "coach" and (created or returning) and engine_for(instance) != "new":
         # PAD-805 (join-requests rule 20): a pending request whose side just lost its last spot
         # waits on that side's list, as on the fill path, which also runs it after the enrolment's
         # commit (it commits its own move). An occurrence created under `unit_of_work` has no
-        # request yet, so it returns before any commit there.
+        # request yet, so it returns before any commit there. A new-engine session runs it once the
+        # engine placed the student (join-requests NJ4, engine_entry.coach_added).
         from padel_app.services.class_join_request_service import move_side_requests_to_waiting_list
 
         move_side_requests_to_waiting_list(instance, filled_by_player_id=player_id)
@@ -1260,11 +1270,11 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
          "start_time": data.get("startTime"), "end_time": data.get("endTime")}, recurring=False,
     )
     if isinstance(data.get("eligibilityRules"), list):
-        # eligibility.rules rule 6 (PAD-481), as on /edit_class: an unknown level operation
+        # eligibility.rules rules 6, 12, as on /edit_class: a rule the evaluator does not know
         # is refused before anything is written.
-        from padel_app.services.notification_service import unknown_eligibility_level_operations
+        from padel_app.services.notification_service import unknown_eligibility_rules
 
-        if unknown_eligibility_level_operations(data["eligibilityRules"]):
+        if unknown_eligibility_rules(data["eligibilityRules"]):
             refused = list(refused or []) + ["eligibilityRules"]
     if refused:
         raise NotNullableFieldError(refused)
@@ -1759,6 +1769,18 @@ def _future_occurrences(lesson_ids) -> list:
     )
 
 
+def _player_ids(values) -> list:
+    """The edit's player ids by value (PAD-842): ``"834"`` and ``834`` are one player. An id that is
+    not a number is kept as sent, for the writer to refuse as before."""
+    out = []
+    for v in values or []:
+        try:
+            out.append(int(v))
+        except (TypeError, ValueError):
+            out.append(v)
+    return out
+
+
 def edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code).
 
@@ -1832,11 +1854,11 @@ def _edit_class_service(data):
     eligibility_touched = "eligibilityRules" in updates
     eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
     if eligibility_touched:
-        # eligibility.rules rule 6 (PAD-481): an unknown level operation is
+        # eligibility.rules rules 6, 12: a rule the evaluator does not know is
         # refused before any write, as on the coach tier.
-        from padel_app.services.notification_service import unknown_eligibility_level_operations
+        from padel_app.services.notification_service import unknown_eligibility_rules
 
-        if unknown_eligibility_level_operations(eligibility_rules):
+        if unknown_eligibility_rules(eligibility_rules):
             return {"error": "invalid_fields", "fields": ["eligibilityRules"]}, 400
     # PAD-130: same tri-state contract for the open-spot toggle (None = inherit).
     visibility_touched = "openSpotsVisible" in updates
@@ -1862,8 +1884,13 @@ def _edit_class_service(data):
         for key, field in _EDIT_CLASS_FIELDS.items()
         if key in updates
     }
-    payload["add_player_ids"] = updates.get("addPlayers", [])
-    payload["remove_player_ids"] = updates.get("removePlayers", [])
+    # PAD-842 (classes.edit rule 9): ids compare by value, and a player named in both lists (an older
+    # web build sent a re-ticked student as "834" in one and 834 in the other) is left as they were:
+    # applying both restored her cancelled row, told her "adicionei-te", then deleted the row.
+    added, removed = _player_ids(updates.get("addPlayers", [])), _player_ids(updates.get("removePlayers", []))
+    both = set(added) & set(removed)
+    payload["add_player_ids"] = [pid for pid in added if pid not in both]
+    payload["remove_player_ids"] = [pid for pid in removed if pid not in both]
     model = event.get("model")
     original_id = event.get("originalId")
 

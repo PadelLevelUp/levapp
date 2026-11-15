@@ -294,10 +294,10 @@ describe("a both player's assigned side (PAD-672 slice 3, instance-enrollment ru
     return groupParticipants(input)[0].rows[0];
   };
 
-  it("carries assignedSide only for a both player", () => {
+  it("carries assignedSide for a both player, and for a one-sided player only on the other side", () => {
     expect(withAssigned("both", "left").assignedSide).toBe("left");
     expect(withAssigned("both", "right").assignedSide).toBe("right");
-    expect(withAssigned("left", "right").assignedSide).toBeNull();
+    expect(withAssigned("left", "left").assignedSide).toBeNull();
     expect(withAssigned("both", null).assignedSide).toBeNull();
     expect(withAssigned("both", undefined).assignedSide).toBeNull();
   });
@@ -312,13 +312,44 @@ describe("a both player's assigned side (PAD-672 slice 3, instance-enrollment ru
     expect(sideShortKeyOf("both", "left")).toBe("calendar.participants.sideShort.both_left");
     expect(sideLongKeyOf("both", null)).toBe(SIDE_LONG_KEYS.both);
     expect(sideShortKeyOf("both")).toBe(SIDE_SHORT_KEYS.both);
-    expect(sideLongKeyOf("left", "right")).toBe(SIDE_LONG_KEYS.left);
-    expect(sideShortKeyOf("right", "left")).toBe(SIDE_SHORT_KEYS.right);
+    expect(sideLongKeyOf("left", "left")).toBe(SIDE_LONG_KEYS.left);
+    expect(sideShortKeyOf("right", "right")).toBe(SIDE_SHORT_KEYS.right);
   });
 
   it("assignedSideOf rejects anything but left/right on a both player", () => {
     expect(assignedSideOf("both", "both")).toBeNull();
     expect(assignedSideOf(null, "left")).toBeNull();
     expect(assignedSideOf("both", "left")).toBe("left");
+  });
+});
+
+describe("a one-sided player placed on the other side (PAD-819, instance-enrollment rule 13a)", () => {
+  const row = (side: Side, assignedSide: "left" | "right" | null, override?: Side) => {
+    const input = build([[1, "Ana", "coming", side]]);
+    input.presences = [
+      { ...input.presences[0], side: override, sideOverride: override !== undefined, assignedSide },
+    ] as typeof input.presences;
+    return groupParticipants(input)[0].rows[0];
+  };
+
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] a one-sided player on the other side reads side → other side", () => {
+    expect(row("left", "right").assignedSide).toBe("right");
+    expect(row("right", "left").assignedSide).toBe("left");
+    expect(sideShortKeyOf("left", "right")).toBe("calendar.participants.sideShort.left_right");
+    expect(sideLongKeyOf("left", "right")).toBe("calendar.participants.sideLong.left_right");
+    expect(sideShortKeyOf("right", "left")).toBe("calendar.participants.sideShort.right_left");
+    expect(sideLongKeyOf("right", "left")).toBe("calendar.participants.sideLong.right_left");
+  });
+
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] an assignedSide equal to the player's side keeps today's label", () => {
+    expect(row("left", "left").assignedSide).toBeNull();
+    expect(sideShortKeyOf("left", "left")).toBe(SIDE_SHORT_KEYS.left);
+    expect(assignedSideOf("right", "right")).toBeNull();
+  });
+
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] the side compared is this class's side (rule 13's override)", () => {
+    expect(row("left", "right", "right").side).toBe("right");
+    expect(row("left", "right", "right").assignedSide).toBeNull();
+    expect(row("right", "right", "left").assignedSide).toBe("right");
   });
 });

@@ -382,8 +382,9 @@ def test_a_yes_closes_another_coachs_invitation_only_at_the_same_start():
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-27")
 def test_a_coachs_add_closes_the_students_same_time_invitations():
     """engine-answers rule 10: a coach's add outside the engine reaches it as CoachAdded on the session
-    added to; it writes no placement, closes the student's same-time invitations elsewhere (not one
-    later that day), re-plans that session, and each touched session re-plans in its own unit."""
+    added to; it writes no second enrolment (a student already placed on a side keeps it), closes the
+    student's same-time invitations elsewhere (not one later that day), re-plans that session, and each
+    touched session re-plans in its own unit."""
     from padel_app.invitation_engine import Engine
     from padel_app.invitation_engine import effects as fx
     from padel_app.invitation_engine.requests import CoachAdded
@@ -439,3 +440,36 @@ def test_a_regular_the_coach_removed_is_never_invited_back():
     invited = {(e.session, e.student) for e in effects if isinstance(e, fx.Invited)}
     assert ("S", "R4") not in invited and ("S", "OTHER") in invited
     assert ("T", "R4") in {(e.session, e.student) for e in engine.tick(SENT) if isinstance(e, fx.Invited)}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-32")
+def test_a_coachs_add_places_the_student_on_a_side():
+    """engine-answers rule 10: a coach's add places a going student on a side: a firm side as given, even
+    off their sides; otherwise, while they have none, the app's side when they play it, else their single
+    side; a SideAssigned and never a message. CoachSetsSide is a firm side on a placed student."""
+    from padel_app.invitation_engine import Engine, planner
+    from padel_app.invitation_engine.requests import CoachAdded, CoachSetsSide
+    from padel_app.invitation_engine.store import MemoryStore
+
+    def run(student, sides, request, placed_side=None, going=True):
+        store = MemoryStore()
+        store.add_student(_student(student, sides))
+        store.add_session("A", 3, 10, START, [(_student(sid, s), s) for sid, s in _regs(4, 4)], SENT)
+        if going:
+            store.apply([fx.Placed("A", NOW, student, placed_side, "direct")])     # the app's own enrolment
+        effects = Engine(store, EngineSettings()).handle("A", request, NOW)
+        assigned = [(e.student, e.side, e.firm) for e in effects if isinstance(e, fx.SideAssigned)]
+        messages = [e for e in effects if isinstance(e, fx.Message) and e.student == student]
+        return assigned, messages, store.snapshot("A")
+
+    assigned, messages, snap = run("x", "L", CoachAdded("x"))                     # one-sided, no side given
+    assert (assigned, messages) == ([("x", "L", False)], [])
+    assert planner.spot_types(snap) == ((R, 1),)                                 # one right `must`, nothing else
+    assert run("x", "L", CoachAdded("x", "R", firm=True))[0] == [("x", "R", True)]   # firm: off their sides
+    assert run("x", "L", CoachAdded("x", "R"))[0] == [("x", "L", False)]          # not firm: their own side
+    assigned, _, snap = run("z", "LR", CoachAdded("z"))                          # flexible, no side given
+    assert assigned == [] and planner.spot_counts(snap).flexible_unplaced == ("z",)
+    assert run("w", "L", CoachAdded("w", "R"), placed_side="L")[0] == []          # placed, not firm: kept
+    assert run("v", "L", CoachAdded("v", "L", firm=True), going=False)[0] == []   # not going: nothing
+    assigned, messages, _ = run("y", "LR", CoachSetsSide("y", "R"), placed_side="L")
+    assert (assigned, messages) == ([("y", "R", True)], [])
