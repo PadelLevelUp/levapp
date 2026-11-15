@@ -49,6 +49,15 @@ Define student notification groups for organizing who gets notified.
    already freed count for their side too; a player with no side or who plays both counts for
    neither and can be invited either way; an already balanced class keeps the departing player's
    side. The copy lives in `settings.invitationGroups.sideBalanceHelp.*` (pt, en).
+7. **A group's default name reads in the coach's language (PAD-838).** `notification_groups` is per-coach
+   data, seeded in English from `DEFAULT_NOTIFICATION_GROUPS` (`same_level` "Same level",
+   `recent_absences` "Recent absences", `justified_absences` "Justified absences", `all_students` "All
+   students"). Wherever a group of rule 1 is named (web `ManualNotificationModal` and its select-all
+   label, web's settings editor, iOS `notify-modal` and its select-all label), a stored label still
+   equal to its id's default, exactly, is shown in the reader's language
+   (`settings.notificationGroups.labels.*`); any other label is the coach's own and is shown as stored.
+   The stored data is never rewritten, and the server sends the label as stored. Both shells use one
+   function (`notificationGroupLabel` in `@levelup/config`), whose defaults must match the backend's.
 
 ### Acceptance Criteria
 
@@ -72,6 +81,25 @@ Define student notification groups for organizing who gets notified.
 - **Then** the student is in "all students" and in neither absence group
 - **And** had the absence been in one of Ana's classes, the student would be in both
 test: `backend/padel_app/tests/test_pad382_attendance_readers_are_coach_scoped.py` › `test_an_absence_in_another_coachs_class_does_not_shape_this_coachs_dialog` (+1 more)
+
+#### NOTIFICATIONS-GROUPS-4: A default group name is translated by its id, a renamed one is kept (rule 7, PAD-838)
+- **Given** a group `same_level` stored as "Same level", and a group `all_students` the coach renamed "Os meus alunos"
+- **When** a Portuguese reader's client names them
+- **Then** the first reads "Mesmo nível" and the second "Os meus alunos"
+- **And** each of the four default ids has its name in pt and en, and the four defaults match both backend seeders
+test: `frontend/packages/config/src/notification-group-label.test.ts` › `[NOTIFICATIONS-GROUPS-4] a default label reads in the coach's language, a renamed one as stored` (+2 more)
+
+#### NOTIFICATIONS-GROUPS-5: Web names the groups by rule 7 in the manual picker and in Settings (PAD-838)
+- **Given** a coach whose `same_level` group still reads "Same level" and whose `all_students` group they renamed "Os do sábado"
+- **When** they open the manual invite picker on web, and Settings → Manual invite groups
+- **Then** both show `same_level` in the coach's language and "Os do sábado" as stored, and the picker's select-all control is named the same way
+test: `frontend/apps/web/src/components/calendar/ManualNotificationModal.groupLabels.test.tsx` › `[NOTIFICATIONS-GROUPS-5] a default label is translated by its id, a renamed one is shown as stored` (+1 more)
+
+#### NOTIFICATIONS-GROUPS-6: iOS names the groups by rule 7 in the manual picker (PAD-838)
+- **Given** the same two groups
+- **When** the coach opens "Notificar alunos" on iOS
+- **Then** `same_level` shows in the coach's language and "Os do sábado" as stored, in the row and in its select-all label
+test: `frontend/apps/mobile/src/features/calendar/notify-modal.group-labels.test.tsx` › `[NOTIFICATIONS-GROUPS-6] a default label is translated by its id, a renamed one is shown as stored`
 
 ### Notes
 - Secondary outcome: the matching order these groups define is what a student actually experiences

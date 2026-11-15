@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { formatConversationTimestamp } from '@/lib/conversationTime';
-import { searchPeopleByName, unreadBadgeLabel } from '@levelup/config';
+import { initialsOf, searchPeopleByName, unreadBadgeLabel } from '@levelup/config';
 import type { Conversation } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -56,15 +56,6 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
   }, [onLoadMore, hasMore]);
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const formatTime = (iso: string | null) =>
     formatConversationTimestamp(iso, {
@@ -160,7 +151,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                 <Avatar className="w-10 h-10 shrink-0">
                   <AvatarImage src={conversation.participantAvatar} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
-                    {getInitials(displayName(conversation))}
+                    {initialsOf(displayName(conversation))}
                   </AvatarFallback>
                 </Avatar>
 
