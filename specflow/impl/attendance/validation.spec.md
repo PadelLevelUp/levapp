@@ -183,6 +183,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - The stats window (trailing 90 days) and the validation week stay independent, as before.
     iOS renders the charts under its own filter sheet with the same rule (the charts are built
     from the same filtered `rows` the list shows), so the decision holds on both shells.
+17b. **(PAD-814) The running period is not a finished one.** The trend's default window (the trailing
+    90 days, `default_overview_range`) spans more than 31 days, so `pick_granularity` buckets it by
+    month, and `_bucket_series` gap-fills up to the window's end, which is the end of the club's today.
+    The running month is therefore always the series' last bucket, counted only up to today: 0 on the
+    1st, a partial count later in the month. The window starts on a day 89 days back, so its first
+    month is partial too. A chart must not draw the running month as if it had closed: today a
+    `monotone` line falls to 0 on the 1st and reads as "activity stopped". How the payload or the
+    shells mark it, and whether the student's history chart follows, is open (Open questions, PAD-814).
 
 18. **(PAD-190 / PAD-201, B-045; amended by PAD-539, B-342) One count for "classes to validate",
     and it is the whole backlog.** A class is *pending* when it has ended (`end_datetime <=` the
@@ -719,6 +727,23 @@ test: `frontend/apps/mobile/src/features/presences/validate-state.test.ts` › `
 - **Then** each student's total, private, academy, justified and unjustified counts are those of their rows
 - **And** the student with no activity is listed with zeros
 test: `backend/padel_app/tests/test_presence_overview.py` › `test_roster_player_with_no_activity_still_appears` (+1 more)
+
+#### ATTENDANCE-VALIDATION-51: The running month is the trend's last bucket, counted up to today (rule 17b, PAD-814)
+- **Given** a coach whose students were present in October 2026, five classes, two students each
+- **When** the trend is read with the default window on 1 November 2026
+- **Then** it is bucketed by month, ends today at 23:59:59, and its last bucket is November at 0 after October's 10
+- **And** on 15 November, with two classes so far, November's bucket holds those 4 presences only
+- **And** the window's first bucket (August) starts before the window does (4 August)
+test: `backend/padel_app/tests/test_pad814_trend_running_month.py` › `test_on_the_first_the_running_month_is_a_zero_last_bucket` (+2 more)
+
+### Open questions
+- **(PAD-814, owner question Q6, unanswered 2026-11-15)** How the running month is marked (rule 17b).
+  Proposal, not a decision: (a) the server marks the last bucket `inProgress: true` when the window's end
+  is today or later, and both shells draw that point hollow with a dashed segment from the previous one,
+  dropping it while it is 0; (b) instead, each shell compares the last bucket's start with the club's
+  today. Also open: whether the student's history chart (`attendance.history`, a bar chart over calendar
+  presets that run past today) follows. Recommended either way: a straight (`linear`) line for counts.
+  The analysis is in the stream's PAD-814 cause note.
 
 ### Notes
 - Source: ticket PAD-140.
