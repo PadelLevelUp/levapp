@@ -129,6 +129,9 @@
       "leaveYes": "Leave",
       "cancel": "Cancel",
       "leaveFailed": "Couldn't leave the waiting list. Please try again."
+    },
+    "busySameHour": {
+      "studentLine": "{{name}} is already in another class at the same time ({{title}}, {{date}} {{time}})."
     }
   }
 }

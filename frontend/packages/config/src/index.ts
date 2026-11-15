@@ -96,3 +96,4 @@ export * from "./initials";
 export * from "./notification-group-label";
 export * from "./participant-diff";
 export * from "./join-request-status";
+export * from "./class-request-refusal";

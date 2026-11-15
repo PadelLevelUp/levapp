@@ -653,7 +653,7 @@ def _require_owner(row: ClassRequest, coach):
 def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
     """Rule 4: a one-off private class at the slot, the student enrolled, via
     the same service the coach's own "Add class" uses."""
-    from padel_app.services.lesson_service import add_class_service
+    from padel_app.services.lesson_service import BusySameHourError, add_class_service
 
     coach = row.coach
     club = coach.current_club if coach else None
@@ -697,19 +697,26 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
             "recurrenceRule": {"frequency": "weekly", "daysOfWeek": _app_days_of_week(row.recurrence)},
             "endDate": row.recurrence["endDate"],
         })
-    lesson = add_class_service(
-        payload,
-        coach,
-        club,
-        # PAD-330: the student ASKED for this class and already gets the
-        # acceptance message. Telling them a coach added them would be a second
-        # message for one event, about something they initiated.
-        notify_students=False,
-        # PAD-489 (notifications.reminders rule 22): accepted after the class's reminder
-        # time, the requester is counted as coming; the invitees did not ask and are told
-        # and asked like anyone added to a class.
-        counted_player_ids=[row.player_id],
-    )
+    try:
+        lesson = add_class_service(
+            payload,
+            coach,
+            club,
+            # PAD-330: the student ASKED for this class and already gets the
+            # acceptance message. Telling them a coach added them would be a second
+            # message for one event, about something they initiated.
+            notify_students=False,
+            # PAD-489 (notifications.reminders rule 22): accepted after the class's reminder
+            # time, the requester is counted as coming; the invitees did not ask and are told
+            # and asked like anyone added to a class.
+            counted_player_ids=[row.player_id],
+        )
+    except BusySameHourError as e:
+        # B-729 (rule 4a; instance-enrollment rule 15): someone is going to another class at that hour,
+        # placed after the slot check above. Nothing is kept (the released hold comes back with the
+        # rollback) and the answer is /add_class's 409.
+        db.session.rollback()
+        _refuse(e.code, str(e), clashes=e.clashes)
     # PAD-357 rule 14: the people they brought did not ask — they are told.
     from padel_app.services.system_messages import notify_student_added_to_class
     for p in invitees:

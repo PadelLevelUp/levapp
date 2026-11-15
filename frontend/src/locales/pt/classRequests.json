@@ -129,6 +129,9 @@
       "leaveYes": "Sair",
       "cancel": "Cancelar",
       "leaveFailed": "Não foi possível sair da lista de espera. Tenta novamente."
+    },
+    "busySameHour": {
+      "studentLine": "{{name}} já está inscrito noutra aula à mesma hora ({{title}}, {{date}} {{time}})."
     }
   }
 }
