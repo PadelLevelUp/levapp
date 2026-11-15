@@ -73,7 +73,8 @@ export function visibleColumns(visible: PresenceColumnKey[]): PresenceColumn[] {
  */
 export function resolvePresencesView(stored: unknown): PresenceColumnKey[] {
   const columns = (stored as { columns?: unknown } | null | undefined)?.columns;
-  if (!Array.isArray(columns)) return DEFAULT_VISIBLE_COLUMNS;
+  // A copy: the caller owns what it is handed, and the defaults must not change under it.
+  if (!Array.isArray(columns)) return [...DEFAULT_VISIBLE_COLUMNS];
   return PRESENCE_COLUMNS.filter(
     (column) => column.key === PINNED_COLUMN || columns.includes(column.key)
   ).map((column) => column.key);

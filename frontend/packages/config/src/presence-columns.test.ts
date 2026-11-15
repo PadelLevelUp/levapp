@@ -64,4 +64,12 @@ describe("resolvePresencesView (PAD-837, settings.coach-presences-view rule 3)",
       expect(resolvePresencesView(stored)).toEqual(DEFAULT_VISIBLE_COLUMNS);
     }
   });
+
+  it("[SETTINGS-COACH-PRESENCES-VIEW-3] hands back a list the caller may change without touching the defaults", () => {
+    const before = [...DEFAULT_VISIBLE_COLUMNS];
+    const shown = resolvePresencesView(null);
+    expect(shown).not.toBe(DEFAULT_VISIBLE_COLUMNS);
+    shown.push("justified");
+    expect(DEFAULT_VISIBLE_COLUMNS).toEqual(before);
+  });
 });
