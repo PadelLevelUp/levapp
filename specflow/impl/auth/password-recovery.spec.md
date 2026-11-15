@@ -236,8 +236,8 @@ back at all.
 #### AUTH-PASSWORD-RECOVERY-14: A hung mail server does not hold the recovery (rule 3, PAD-734)
 - **Given** `ana734` has an email and a password, and the mail server accepts and never answers
 - **When** POST `/api/auth/password-recovery/request` with her email
-- **Then** the response is the standard 200 within 2 seconds and her code hash is stored, committed
-  before the send began
+- **Then** the response is the standard 200 while the send is still held (the reply never waits for
+  the mail), and her code hash is stored, committed before the send began
 - **And** when the send then times out, she has no code stored, `password_reset_sent_at` still
   holds the attempt's time (rule 3a), and an `email_failed` incident names her on engine health
 

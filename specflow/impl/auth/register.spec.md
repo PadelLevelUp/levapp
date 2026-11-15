@@ -253,8 +253,8 @@ create one, or ask to join an existing one — happens right after approval (`cl
 #### AUTH-REGISTER-11: A hung mail server does not hold the signup (rule 14, PAD-734)
 - **Given** the mail server accepts the connection and never answers
 - **When** POST `/api/auth/register` for student `ana734`
-- **Then** the response is 201 within 2 seconds, the User exists, and the mail's send began only
-  after the registration committed
+- **Then** the response is 201 while the send is still held (the reply never waits for the mail),
+  the User exists, and the mail's send began only after the registration committed
 - **And** when the send then times out (`MAIL_TIMEOUT`), the account is still there with no code
   stored, and an `email_failed` incident names the user on engine health
 
