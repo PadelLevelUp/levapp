@@ -6389,7 +6389,7 @@ Untagged tests: 4261
   - **NOTIFICATIONS-ENGINE-ANSWERS-32** A coach's add places the student on a side, and a firm side holds (rule 10)
     - test: `backend/padel_app/tests/test_invitation_engine_answers.py` › test_a_coachs_add_places_the_student_on_a_side
   - **NOTIFICATIONS-ENGINE-ANSWERS-33** A request that loses the same-hour race is run again and answers as if it came later, never 500 (rule 10, B-730)
-    - test: `backend/padel_app/tests/test_b730_same_hour_race.py` › test_a_yes_that_loses_the_race_answers_closed_same_hour
+    - test: `backend/padel_app/tests/test_b730_same_hour_race.py` › test_a_yes_that_loses_the_race_answers_as_without_it
     - test: `backend/padel_app/tests/test_b730_same_hour_race.py` › test_a_request_that_loses_another_students_automatic_entry_goes_through
   - **NOTIFICATIONS-ENGINE-ANSWERS-34** A refusal that still escapes a request is a 409 busy_same_hour, not a 500 (rule 10, B-730)
     - test: `backend/padel_app/tests/test_b730_same_hour_race.py` › test_a_refusal_that_keeps_escaping_answers_409_busy_same_hour
