@@ -27,8 +27,9 @@ point that composes them (PAD-358).
 1. **One coach, fourteen club-local days.** The list covers the club's calendar days from today
    00:00 to today + 14 00:00 (R-023: class times are Lisbon wall-clock, "today" is the club's date).
    Classes that have already started on the club's clock are not listed.
-2. **Only classes the student may join are listed** — each must pass every condition the join
-   request itself checks (`classes.join-requests` rule 1), except having room:
+2. **Only academy classes the student may join are listed** — each is an academy class and passes
+   every condition the join request itself checks (`classes.join-requests` rule 1), except having
+   room:
    - the class is an **academy** class (`Lesson.type == "academy"`). A private class is never listed
      in this step, visible or not (PAD-929); the coach's visible private lessons are listed only by
      rule 12;
@@ -76,12 +77,16 @@ point that composes them (PAD-358).
    (`notifications.waiting-list` rule 10); leaving removes that class's entry only and leaves the
    standing entry itself untouched.
 8. **Additive API only.** Old App Store builds never call these endpoints; nothing existing changes
-   shape. The endpoints are new, so they are not gated by `X-LevApp-Capabilities` (PAD-352 gates
-   an existing response, the calendar's).
+   shape. The endpoints' existing behaviour is not gated by `X-LevApp-Capabilities` (PAD-352 gates
+   an existing response, the calendar's); the capabilities named in rules 6 and 9 (`join-side`,
+   `private-confirm`) gate only the refusals they add.
 9. **Wire contract (PAD-358).**
-   - `GET /api/app/academy-classes?coachId=<coach id>[&type=academy|private]` — `type` is one of
-     `const:LESSON_LIST_TYPES`, default the first (`academy`), any other value `400`; the rows are
-     of that type only (rules 2, 12; PAD-929). Student only; `403` when the student is not
+   - `GET /api/app/academy-classes?coachId=<coach id>[&type=academy|private]` — absent, `type` is the
+     first of `const:LESSON_LIST_TYPES` (`academy`); present, it must be exactly one of them, so an
+     empty or differently-cased value is `400`, and that `400` comes before the roster `403`. The rows
+     are of that type only (rules 2, 12; PAD-929); `openSpotsVisible` keeps its meaning, the coach's
+     standard toggle, which the private list does not use (rule 3a of
+     `eligibility.open-spot-visibility` decides a private lesson). Student only; `403` when the student is not
      on that coach's roster, `400` without `coachId`. → `200 {from: "YYYY-MM-DD", to: "YYYY-MM-DD",
      openSpotsVisible: boolean, classes: [...], profileSide}` sorted by start. `openSpotsVisible` is
      the coach's standard toggle, so an empty list can say why (rule 2); `profileSide` is the
@@ -110,9 +115,10 @@ point that composes them (PAD-358).
      side" is the reason to be on the list. Without the capability the join is as before (no side
      check; `side` stored as the profile side or `null`). The answer echoes the stored `side`. The standing list's
      `POST /api/app/notify/standing_waiting_list` takes `side` the same way, chosen per entry (Q4),
-     and the entries it fans out carry it. The body also takes `privateConfirmed` (boolean,
-     optional), and the refusals gain `const:REFUSAL_PRIVATE_UNCONFIRMED`
-     (`classes.join-requests` rule 22, PAD-929).
+     and the entries it fans out carry it. `POST /api/app/class-waiting-list` also takes
+     `privateConfirmed` (boolean, optional), and its refusals gain
+     `const:REFUSAL_PRIVATE_UNCONFIRMED` (`classes.join-requests` rule 22, PAD-929); the coach's
+     standing-list add and its fan-out never need it.
    - `POST /api/app/class-waiting-list/<lessonInstanceId>/leave` → `200 {lessonInstanceId,
      onWaitingList: false}`; deactivates the caller's active entry for that class, whatever its origin
      (rule 7); `404` when they have none.
@@ -143,7 +149,8 @@ point that composes them (PAD-358).
     request events). Old builds never call the endpoint; nothing existing changes (rule 8).
 12. **The coach's visible private lessons, for a request with no free time (PAD-929 C).**
     `type=private` lists the coach's private lessons that pass every condition of rule 2 except the
-    type, over the same window (rule 1), in the same row shape and states (rule 3) and with the same
+    type, and except the confirmation (`classes.join-requests` rule 22), which comes at the action,
+    over the same window (rule 1), in the same row shape and states (rule 3) and with the same
     "what you already did" (rule 7). In particular:
     - a private lesson whose spots resolve to hidden (`eligibility.open-spot-visibility` rule 3a) is
       never listed;
@@ -276,16 +283,16 @@ test: `backend/padel_app/tests/test_pad358_academy_classes.py` › `test_a_stand
 test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.waitingList.test.tsx` › `history places carry their state and no action` (+4 more)
 
 #### CLASSES-ACADEMY-CLASS-BOOKING-20: The academy step lists academy classes only, whatever a private class's setting (rule 2)
-- **Given** coach Ana with an academy class and a private lesson, both with visible spots, and Bruno eligible for both
+- **Given** coach Ana with an academy class and a private lesson, both with visible spots, a private lesson left hidden, and Bruno eligible for all
 - **When** Bruno reads `GET /academy-classes?coachId=ana`
 - **Then** only the academy class is listed
-- **And** with `type=academy` the answer is the same, and with any value outside `const:LESSON_LIST_TYPES` it is `400`
+- **And** with `type=academy` the answer is the same; with any value outside `const:LESSON_LIST_TYPES`, an empty `type` or `Private`, it is `400`, also for a student off Ana's roster
 test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_the_academy_step_lists_academy_classes_only`
 
 #### CLASSES-ACADEMY-CLASS-BOOKING-21: The private read lists the visible private lessons the student may join, under the same checks (rule 12)
 - **Given** Ana's visible private lesson with room, a visible full private lesson, a private lesson left hidden, a visible private lesson above Bruno's level, a visible private lesson Bruno is enrolled in, and an academy class
 - **When** Bruno reads `type=private`
-- **Then** only the two visible ones he passes the bar for and is not in are listed, `open` and `full`
+- **Then** only the two visible ones he passes the bar for and is not in are listed, `open` and `full`, each with `classType: "private"`
 - **And** a student off Ana's roster is `403`, and the read creates no row
 test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_the_private_read_lists_only_visible_private_lessons_the_student_may_join`
 

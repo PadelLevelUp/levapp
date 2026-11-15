@@ -36,10 +36,12 @@ separate browse screen. A coach controls whether their open spots are advertised
     already exist get it too, and an explicit lesson or instance value is kept (coordinator,
     2026-09-25, option a). Everything gated on `effective_open_spots_visible` follows: calendar
     discovery and join requests (`classes.join-requests`). **Where a visible private class is found
-    (PAD-929):** by a student who is not in it, only in their calendar (rules 1, 1a) and in the
+    (PAD-929):** by browsing, a student who is not in it finds it only in their calendar (rules 1, 1a) and in the
     private-request wizard's no-free-time list (`classes.academy-class-booking` rule 12). It is never
     found in the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2). A student
-    enrolled in it sees it as their own class whatever the setting (`calendar.view`).
+    enrolled in it sees it as their own class whatever the setting (`calendar.view`). Invitations
+    (`calendar.view` rule 22, PAD-609) and the coach's standing list are not browsing and are
+    outside this rule.
 3. **Visibility is a coach toggle that cascades exactly like eligibility** — coach standard,
    overridable per recurring group and per single class, most specific wins, tiers do not merge
    (`eligibility.cascade` rules 1–3). Coach-facing label: "make empty spots for future classes
@@ -226,7 +228,7 @@ test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_rou
 #### ELIGIBILITY-OPEN-SPOT-VISIBILITY-18: A private lesson is found by other students only in the two places, and only when visible (rule 3a)
 - **Given** Ana's private lesson with Carla enrolled and one spot left, and Bruno eligible
 - **When** the lesson is visible, and again when it is hidden (the default)
-- **Then** visible: Bruno's calendar (`open-spots` declared) has it as an open spot, the `type=private` read lists it, and the academy read does not; hidden: none of the three has it
+- **Then** visible: Bruno's calendar (`open-spots` declared) has it as an open spot; hidden: it does not (the two lists are CLASSES-ACADEMY-CLASS-BOOKING-20 and -21)
 - **And** Carla's calendar shows it as her own class in both cases
 test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_a_private_lesson_is_found_only_in_the_calendar_and_the_private_list`
 
