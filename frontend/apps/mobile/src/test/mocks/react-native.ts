@@ -178,7 +178,15 @@ export const Switch = forwardRef<unknown, AnyProps>(function Switch(props, ref) 
 });
 export const Modal = host("Modal");
 export const Image = host("Image");
-export const StyleSheet = { create: (s: unknown) => s, flatten: (s: unknown) => s, hairlineWidth: 1 };
+const absoluteFillObject = { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 } as const;
+export const StyleSheet = {
+  create: (s: unknown) => s,
+  flatten: (s: unknown) => s,
+  hairlineWidth: 1,
+  // As in RN 0.7x+: `absoluteFill` IS the object (a frozen one there).
+  absoluteFill: absoluteFillObject,
+  absoluteFillObject,
+};
 export const Dimensions = { get: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) };
 export const useWindowDimensions = () => ({ width: 390, height: 844, scale: 3, fontScale: 1 });
 export const useColorScheme = () => "light" as const;

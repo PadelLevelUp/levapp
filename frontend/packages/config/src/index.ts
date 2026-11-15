@@ -10,6 +10,11 @@ export * from "./class-colors";
 export * from "./dashboard-format";
 export * from "./dateLocale";
 export * from "./presence-status";
+export * from "./presences-view-state";
+export * from "./presences-csv";
+export * from "./presence-columns";
+export * from "./presence-hours";
+export * from "./presence-periods";
 export * from "./validation-tier";
 export * from "./presence-scope";
 export * from "./eligibility-report";
@@ -34,6 +39,7 @@ export * from "./board-history";
 export * from "./board-logic";
 export * from "./countries";
 export * from "./club-date";
+export * from "./custom-range";
 export * from "./evaluation-form";
 export * from "./evaluation-evolution";
 export * from "./evaluation-class-panel";
@@ -51,6 +57,7 @@ export * from "./message-day";
 export * from "./recurrence-end";
 export * from "./email-prompt";
 export * from "./class-time";
+export * from "./class-when";
 export * from "./standing-end";
 
 /**

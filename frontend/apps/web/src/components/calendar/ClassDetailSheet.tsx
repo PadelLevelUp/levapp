@@ -812,8 +812,8 @@ export function ClassDetailSheet({
   // is what makes the "not attending" badge survive a reload — there is no extra
   // column and no extra request behind it.
   const ownPresence = !canManage ? classInstance?.presences?.[0] : undefined;
-  const declinedOnServer =
-    ownPresence?.status === "absent" && ownPresence?.justification === "justified";
+  // attendance.confirm rule 25: the server's `attendanceState`, not `status`/`justification`.
+  const declinedOnServer = attendanceStateOf(ownPresence) === "not_coming";
   const hasDeclined = attendanceCancelled || declinedOnServer;
 
   // PAD-313 rule 25: `canDeclineProactively` is no longer a render condition —

@@ -14,6 +14,7 @@ vi.mock("react-native-safe-area-context", () => ({
 }));
 vi.mock("@/lib/font-class", () => ({ resolveFontClass: (c: string) => c }));
 vi.mock("@/lib/dialog-motion", () => ({ dialogEntering: () => undefined, dialogExiting: () => undefined }));
+const { onOpenChange } = vi.hoisted(() => ({ onOpenChange: vi.fn() }));
 vi.mock("@rn-primitives/dialog", async () => {
   const { View } = await import("react-native");
   const pass = (name: string) => (props: Record<string, unknown>) =>
@@ -27,7 +28,7 @@ vi.mock("@rn-primitives/dialog", async () => {
     Content: pass("Content"),
     Title: pass("Title"),
     Description: pass("Description"),
-    useRootContext: () => ({ open: true, onOpenChange: () => undefined }),
+    useRootContext: () => ({ open: true, onOpenChange }),
   };
 });
 
@@ -55,9 +56,46 @@ const overlayOf = (node: { parent: unknown; props: Record<string, unknown> } | n
 afterEach(() => {
   __resetReactNativeMock();
   Platform.OS = "ios";
+  onOpenChange.mockReset();
 });
 
 describe("DialogContent", () => {
+  /**
+   * PAD-829 (attendance.validation rule 30): on Fabric a scroll view never starts its pan while an
+   * ancestor is the JS responder, so nothing above the panel may claim touches. The press-outside
+   * backdrop is a sibling behind the panel, and the panel's own claim (the primitive's) is off.
+   */
+  it("[ATTENDANCE-VALIDATION-52] keeps nothing above the panel that claims touches, and the backdrop still closes", async () => {
+    const ui = await renderNative(
+      <Dialog open>
+        <DialogContent testID="some-dialog">
+          <React.Fragment />
+        </DialogContent>
+      </Dialog>,
+    );
+    const panel = ui.byTestId("some-dialog");
+    const backdrop = ui.byTestId("dialog-backdrop");
+
+    // The panel claims no touch: the primitive's always-true claim is overridden.
+    expect(panel.props.onStartShouldSetResponder()).toBe(false);
+    // Overlay: the primitive's Pressable is replaced (asChild) and its own close-on-press is off.
+    const overlay = overlayOf(panel);
+    expect(overlay.props.asChild).toBe(true);
+    expect(overlay.props.closeOnPress).toBe(false);
+    // The backdrop is never an ancestor of the panel.
+    for (let n = panel.parent as typeof panel | null; n; n = n.parent as typeof panel | null) {
+      expect(n.props.testID).not.toBe("dialog-backdrop");
+    }
+    // It sits beside the panel's host, behind it (rendered first), full screen, and closes.
+    const host = backdrop.parent as typeof panel;
+    const siblings = host.children.map((c) => (typeof c === "string" ? c : c.props.testID ?? c.type));
+    expect(siblings[0]).toBe("dialog-backdrop");
+    expect(flat(backdrop.props.style).position).toBe("absolute");
+    expect(backdrop.props.accessible).toBe(false);
+    await act(() => backdrop.props.onPress());
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("is never taller than the window between its safe areas", async () => {
     const ui = await renderNative(
       <Dialog open>

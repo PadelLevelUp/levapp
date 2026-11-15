@@ -74,6 +74,13 @@ describe("attendanceStateOf — fallback for payloads without the field", () => 
     expect(attendanceStateOf({ confirmed: true, status: null, validated: false })).toBe("coming");
   });
 
+  it("[ATTENDANCE-PRESENCE-2] a validated row with no status falls back to the student's intent (rule 9)", () => {
+    // The coach validated the sheet without marking this student: never `missed`, and a yes stays a yes.
+    expect(attendanceStateOf({ validated: true, status: null, confirmed: true })).toBe("coming");
+    expect(attendanceStateOf({ validated: true, status: null, confirmed: false })).toBe("planned");
+    expect(attendanceStateOf({ validated: true, status: null })).toBe("planned");
+  });
+
   it("[ATTENDANCE-PRESENCE-2] reads an unanswered row as planned", () => {
     expect(attendanceStateOf({ confirmed: false, status: null, validated: false })).toBe("planned");
     expect(attendanceStateOf({})).toBe("planned");
