@@ -152,8 +152,26 @@ answered for any future class whether or not a spot is currently open.
       saver may throw a `SectionSaveError(reason)` and the screen's failure toast reads
       "<part> — <reason>". Other refusals keep naming only the part until they adopt it.
     - Without this, a half-filled rule is stored and does something other than the coach meant
-      (Today). This rule is the clients' only; the server's refusal and what a stored blank rule
-      does at evaluation are a later step (Open questions).
+      (Today). This rule is the clients'; the server refuses the same rules (rule 14).
+
+14. **The server refuses a rule that needs a value and has none, on every save path (blank rules wave 3).**
+    - **Needs a value, missing:** as rule 13, in either list: `unjustified_absences`, `justified_absences`,
+      `attendance_rate` and `subscription_status` always, and `level` with the three `within_n_*`
+      operations. Missing is `null` or absent, a blank string, or (for anything but `subscription_status`,
+      whose value is text) a value that is not a finite number. `0` and `"2"` are values.
+    - **Refused** by rule 12's one validator, before anything is written, on the same paths and in the
+      same shapes: `POST /api/app/notify/config` (`invitationGroups`, `eligibilityRules`: `400` naming
+      the field), `edit_class` `updates.eligibilityRules` (`{"error": "invalid_fields", "fields":
+      ["eligibilityRules"]}`) and the class create and clone `eligibilityRules` (the refused-fields
+      error naming `eligibilityRules`). A bar sent as `null` or `[]` is never refused, and a part the
+      request does not carry is not read.
+    - **Released iOS builds** have no rule 13 and can still send a blank. They get the same `400`s,
+      which they already show as their generic failure (the engine card's "could not save" naming the
+      part, the class screen's update or create failure), and nothing is stored. Not stripped: a
+      silently dropped rule would save a bar the coach did not write (the lead, 2026-11-15).
+    - **Evaluation is unchanged** (rule 12's last bullet): a stored blank count rule is ignored, a
+      `within_n_*` rule with no N reads 0, and a blank `subscription_status` fails every student. The prod
+      count of 2026-11-15 found no stored blank rule, and no save path can store a new one.
 
 ### Acceptance Criteria
 
@@ -307,6 +325,15 @@ test: `frontend/packages/config/src/rule-values.test.ts` › `[ELIGIBILITY-RULES
 - **And** a name-only edit of a class whose stored bar already holds a blank rule saves, and so does switching that class to the standard bar or to everyone after adding a blank row
 test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.blankRule.test.tsx` › `[ELIGIBILITY-RULES-21] a class bar rule with no value blocks the class save, only when sent` (+ iOS `frontend/apps/mobile/src/features/calendar/class-save-flow.test.ts` › `[ELIGIBILITY-RULES-21] a class bar rule with no value blocks the class save, only when sent`)
 
+#### ELIGIBILITY-RULES-22: The server refuses a rule with no value on every save path, and accepts 0 and "2" (rule 14)
+- **Given** a coach
+- **When** they save `eligibilityRules` holding `{attendance_rate, greater_than}` with no value, `{level, within_n_of_class}` with no N or `{unjustified_absences, less_than, ""}`, or `invitationGroups` holding `{subscription_status, equals}` with no value or `{justified_absences, less_than, null}`
+- **Then** the save answers `400` naming the field, and nothing is stored
+- **And** `edit_class` `updates.eligibilityRules` and the class create with `eligibilityRules` refuse a blank rule in their own error shapes, writing nothing
+- **When** they save the same rules with `0`, `"2"` (and `"active"` for account status), or a bar of `null` or `[]`
+- **Then** the save succeeds and stores them as sent
+test: `backend/padel_app/tests/test_blank_rules_server.py` › `test_saving_refuses_a_rule_with_no_value_on_every_path` (+ `test_saving_accepts_zero_and_numeric_text`)
+
 ### Today (blank rules, 2026-11-14)
 - The bar editors start a new or re-attributed rule with `value: undefined` and an emptied input sets it back:
   web `frontend/apps/web/src/components/settings/EligibilitySection.tsx` (row `onValueChange` ~:110, its own
@@ -347,24 +374,23 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.blankRule.test
    section opening) and iOS (`eligibility-section`, `tiers-editor`, `auto-invite-section`'s saver and `tiersOpen`).
 2. ELIGIBILITY-RULES-21 — the class Save on web (`ClassDetailSheet` `saveEdit`) and iOS (`saveEdit`,
    `commitClassEdit`).
-3. (later, the lead's go after `engine/fail-open` merges) the server's refusal and the evaluation of a stored blank
-   rule; not in this spec yet.
+3. ELIGIBILITY-RULES-22 — the server's refusal (rule 14) in rule 12's validator
+   (`notification_service._rules_outside`), on the config save, `edit_class` and the class create and clone.
+   Evaluation unchanged.
 
 ### Open questions
-- **Refuse at save, not fail at evaluation, for now (agent 3, engine stream; the lead can reverse it).** Failing a
-  stored blank rule closed would turn a coach's half-filled absence rule from "ignored" into "nobody is invited";
-  the clients stop new blanks first. Rows already stored blank stay as they are until wave 3.
+- **Refuse at save, not fail at evaluation (agent 3; kept at wave 3, 2026-11-15).** Failing a stored blank rule
+  closed would turn a coach's half-filled absence rule from "ignored" into "nobody is invited". The prod count found
+  none stored, so evaluation stays as it is (rule 14).
 - **A stored blank row blocks its own part (agent 3).** A part holding a blank row from before this change is not
   refused while untouched, but any edit to that part re-sends the whole list (`invitationGroups` or
   `eligibilityRules`) and is refused until the coach fills or removes that row. Wave 3's count of stored blank rules
   should be read with that in mind.
-- **Released iOS builds still send blanks.** Until wave 3 the server accepts them, so nothing changes for those
-  builds. If wave 3 makes the server refuse, a released build's whole engine Save fails with its generic failure;
-  options for wave 3: refuse (and accept that), strip the blank rule on save, or keep accepting and fail it at
-  evaluation. To decide at wave 3, with a count of stored blank rules.
+- **Released iOS builds still send blanks (decided at wave 3, the lead, 2026-11-15): refuse.** Such a build's whole
+  engine Save, or its class save, fails with the generic failure it already shows; nothing is stored (rule 14).
 - **The clone path is not covered.** Cloning a class copies its `eligibilityRules` with no editor (web
-  `AddClassSheet.tsx` ~:422, iOS `app/class/new.tsx` ~:357), so a stored blank class bar carries over; the server's
-  wave-3 refusal is what would catch it.
+  `AddClassSheet.tsx` ~:422, iOS `app/class/new.tsx` ~:357), so a stored blank class bar would carry over; the
+  server refuses it at the create (rule 14), and the prod count found none stored.
 - **Words (proposed, for the owner's approval):** the row: "Falta o valor desta regra." / "This rule needs a
   value."; the Save's reasons: "Elegibilidade: há uma regra sem valor." / "Eligibility: a rule has no value." and
   "Grupos de convite: há uma regra sem valor." / "Invitation groups: a rule has no value."
