@@ -18,7 +18,7 @@ notifications one.
 
 ### Entities
 - **Coach** (`coaches`): `presences_view` (JSON, nullable; one migration, parented on staging's
-  head at implementation time, checked with `flask db heads`). Shape: `{"columns": ["total", "private", ...]}`. **null means not set**,
+  head at implementation time, checked with `flask db heads`). Shape: `{"columns": ["total", "private", ...], "defaultPeriod": "thisMonth"}`. **null means not set**,
   and the shells show the column list's defaults (`attendance.validation` rule 17c).
 
 ### Rules
@@ -38,10 +38,14 @@ notifications one.
 3. **The shells read the saved value against the column list.** An id the list does not know is
    ignored; `name` is shown whether or not it is stored (it is pinned, `attendance.validation`
    rule 17); the columns show in the list's order, whatever order was stored; a stored empty list
-   shows `name` alone. A null value, or a load that fails, shows the list's defaults.
-4. **What is saved, and when.** Only which columns show. Web saves when the coach changes the
-   chooser; iOS when the coach applies the columns sheet (rule 17: the sheet commits on Apply).
-   Each save sends the whole list. This is a choice made on the Presences tab, not a Settings
+   shows `name` alone. A null value, or a load that fails, shows the list's defaults. The view's
+   `defaultPeriod` is one of `"thisWeek"`, `"thisMonth"`, `"lastMonth"`, `"season"`; anything else,
+   or no value, reads as `"thisMonth"` (`attendance.validation` rule 17f).
+4. **What is saved, and when.** Which columns show, and the coach's default period
+   (`defaultPeriod`, beside `columns`). Web saves the columns when the coach changes the chooser;
+   iOS when the coach applies the columns sheet (rule 17: the sheet commits on Apply). The default
+   period is saved only by the period control's "Usar como predefinido"; picking a period does not
+   save it. Each save sends the whole view, both fields, so one never erases the other. This is a choice made on the Presences tab, not a Settings
    form: `settings.explicit-save` (one "Guardar alterações" per Settings tab) does not apply, and
    there is no Settings section for it.
 5. **A load never undoes a choice** (the `settings.coach-working-hours` rule 7 precedent, PAD-392).
@@ -53,7 +57,8 @@ notifications one.
 ### Not this spec
 - Column order chosen by the coach: the order is the list's (`attendance.validation` rule 17c;
   proposed in that spec's Open questions, an owner question).
-- Saving the sort or the period (`attendance.validation` Open questions, Q5; proposal: neither).
+- Saving the sort, or the period picked for a session (`attendance.validation` Open questions, Q5,
+  decided: only the default period is saved).
 - A Settings section to edit or reset the view.
 - Android as its own lane: the Expo app is the same as iOS.
 
@@ -106,6 +111,13 @@ test: `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx`
 - **Then** the column stays shown and a notice says the choice was not saved
 test: `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `says when the view was not saved` (+ `frontend/apps/mobile/src/features/presences/presences-view.test.ts` › `says when the view was not saved`)
 
+#### SETTINGS-COACH-PRESENCES-VIEW-6: The coach's default period comes back, and "Este mês" when there is none (rules 3, 4)
+- **Given** stored views `null`, `{"columns": ["total"]}`, `{"columns": ["total"], "defaultPeriod": "lastMonth"}` and `{"columns": ["total"], "defaultPeriod": "nextYear"}`
+- **When** a shell resolves the default period
+- **Then** it is `thisMonth`, `thisMonth`, `lastMonth` and `thisMonth`
+- **And** saving the columns keeps the stored `defaultPeriod`, and saving the default keeps the stored `columns`
+test: `frontend/packages/config/src/presence-columns.test.ts` › `resolves the default period of a stored view` (+ `frontend/packages/config/src/presences-view-state.test.ts` › `a save keeps the other field`)
+
 ### Waves
 1. SETTINGS-COACH-PRESENCES-VIEW-1, 2: the migration (written only on the lead's go; one Alembic
    head, checked with `flask db heads`), the model column, the two routes.
@@ -113,6 +125,9 @@ test: `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx`
    (after `attendance.validation` wave 837a lifts the list).
 3. SETTINGS-COACH-PRESENCES-VIEW-4, 5, then ATTENDANCE-VALIDATION-66: `@levelup/api`, a hook in
    `@levelup/hooks`, web and iOS.
+4. SETTINGS-COACH-PRESENCES-VIEW-6 (PAD-837 batch 2): `resolveDefaultPeriod` beside the resolver,
+   the view state keeping both fields, then the period control on both shells.
 
 ### Open questions
-- None of its own. What else is saved (sort, period) is `attendance.validation` Q5.
+- None of its own. What is saved beyond the columns (the default period, not the sort) is
+  `attendance.validation` Q5, decided 2026-11-15.

@@ -215,11 +215,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       are then read only for roster players, which leaves out disabled accounts (rule 12); the sum runs in Python over the fetched rows' start and end, so it is the
       same on SQLite and Postgres (the suite runs both).
     - **Saldo de horas** (`balanceMinutes`) is computed on the server and only there: guest presence
-      minutes minus justified-absence minutes (Open questions, Q2). Positive reads "recovered more
+      minutes minus justified-absence minutes (Open questions, Q2, decided). Positive reads "recovered more
       than missed", negative "still to recover". The sign is always written (`+`, `−`, none for 0);
       a colour (green, red) may follow but never carries the meaning alone.
     - **One formatter**, in `@levelup/config`, renders minutes as hours on both shells and in both
-      CSVs (Open questions, Q3). Sorting an hours column sorts by minutes, never by the text.
+      CSVs (Open questions, Q3, decided): whole hours, then "h", then the minutes in two digits when
+      they are not zero ("1h30", "2h", "0h45", "0h"), the same in pt and en, never a decimal. The
+      balance writes its sign first ("+1h30", "−0h45" with U+2212, "0h"). The CSV cell is the same
+      text. Sorting an hours column sorts by minutes, never by the text.
     - The hours columns are hidden by default; the coach adds them with the column chooser.
 17e. **(PAD-837a) "Aulas como convidado" says what it counts.** It counts every presence row of
     the student on a class they are not enrolled in, present or not (rule 10): guest appearances,
@@ -229,7 +232,10 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     (rule 17), shows it in the columns sheet under the column's name.
 17f. **(PAD-837b) The coach's column choice is kept on their account.** The columns a coach shows
     are saved through `settings.coach-presences-view` and come back on the next open, on web and
-    on iOS alike (one account, one view). Sorting and the period are not saved (Open questions, Q5).
+    on iOS alike (one account, one view). The same saved view holds the coach's **default period**
+    (Open questions, Q5, decided): the tab opens on it, "Este mês" until the coach makes another
+    shortcut their default from the period control. Picking a period for the session does not
+    change the default, and the sort is never saved.
 17g. **(PAD-837c) The tab has one period, visible at its top.** A period control (from / to, and
     shortcuts) sits at the top of the reporting surface on both shells. The statistics, every
     column, the KPI tiles and the three charts are computed for that one period: the clients send
@@ -237,8 +243,9 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     keys carry the bounds, so the two reads can never be for different windows. The period shown
     is the one the payload echoes (`from`/`to`), not the one the client meant to ask for. The
     shortcuts and the custom-range check are one function each in `@levelup/config`, on the
-    club's day (rule 15). What the period covers beyond the reporting surface, and its default, are
-    open (Open questions, Q4, Q5).
+    club's day (rule 15). The period covers the reporting surface only: the validation week and the
+    classes-to-validate count stay apart (rule 17a; Open questions, Q4, decided). Its default is the
+    coach's (rule 17f; Q5, decided).
 17h. **(PAD-837c) A period never counts the future and never draws an unfinished bucket as a
     finished one.** A period that runs past the club's today ("Esta semana", "Este mês") is read
     up to the end of today: the server clamps the window's end to the end of the club's today
@@ -876,9 +883,10 @@ test: `backend/padel_app/tests/test_pad837_presence_hours.py` › `test_balance_
 #### ATTENDANCE-VALIDATION-63: Hours read the same on both shells and in both files (rules 17, 17d, PAD-837a)
 - **Given** a student with 90 presence minutes and another with 60
 - **When** the coach shows the hours columns, sorts by one and exports
-- **Then** web, iOS and both CSVs show the text the one `@levelup/config` formatter gives for those minutes (Q3), and the sort follows the minutes
+- **Then** web, iOS and both CSVs show the text the one `@levelup/config` formatter gives for those minutes, and the sort follows the minutes
+- **And** the formatter gives 90 → "1h30", 60 → "1h", 120 → "2h", 45 → "0h45", 75 → "1h15", 0 → "0h", in pt and en alike (Q3, decided); the balance gives +30 → "+0h30", −45 → "−0h45" (U+2212), 0 → "0h"
 - **And** each shell's test asserts its cell equals that formatter's output for the same minutes, not a literal
-test: `frontend/packages/config/src/presence-hours.test.ts` › `formats minutes as hours in pt and en` (+ `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `exports hours columns as the screen shows them`, `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `sorts an hours column by minutes`)
+test: `frontend/packages/config/src/presence-hours.test.ts` › `formats minutes as hours` (+ `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `exports hours columns as the screen shows them`, `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `sorts an hours column by minutes`)
 
 #### ATTENDANCE-VALIDATION-64: Both shells draw the table from one column list (rule 17c, PAD-837a)
 - **Given** the column list in `@levelup/config`
@@ -928,17 +936,16 @@ test: `backend/padel_app/tests/test_pad837_presence_period.py` › `test_a_perio
 test: `frontend/packages/config/src/presence-periods.test.ts` › `computes each shortcut on the club's day`
 
 #### ATTENDANCE-VALIDATION-71: The validation week does not follow the period (rules 17a, 17g, PAD-837c; Q4)
-Pending Q4: written to the proposal; it restates rule 17a's recorded decision, and is dropped or rewritten if the owner extends the period to the validation week.
 - **Given** the period is "Mês passado" and the validation view shows this week
 - **When** the coach changes either
 - **Then** the other does not move, and the classes-to-validate count stays the whole backlog (rule 18)
 test: `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `keeps the validation week apart from the period` (+ `frontend/apps/mobile/src/features/presences/PresencesScreen.test.tsx` › `keeps the validation week apart from the period`)
 
-#### ATTENDANCE-VALIDATION-72: Each open starts from the default period (rule 17f, PAD-837c; Q5)
-Pending Q5: written to the proposal.
-- **Given** the coach picked "Mês passado" and sorted by name
+#### ATTENDANCE-VALIDATION-72: Each open starts from the coach's default period (rule 17f, PAD-837c; Q5)
+- **Given** a coach with no saved default, who picked "Mês passado" for the session and sorted by name
 - **When** they leave the tab and come back
-- **Then** the period is the default again and the sort is the default again, while the columns are the saved ones
+- **Then** the period is "Este mês" and the sort is the default again, while the columns are the saved ones
+- **And** after they make "Mês passado" their default ("Usar como predefinido"), every later open, on web and on iOS, starts from "Mês passado"
 test: `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `opens on the default period and sort` (+ `frontend/apps/mobile/src/features/presences/PresencesScreen.test.tsx` › `opens on the default period and sort`)
 
 ### Today (PAD-837)
@@ -985,7 +992,7 @@ test: `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `opens on the def
    lands after PAD-814 (rule 17b), whose running-bucket drawing it reuses.
 
 ### Open questions
-PAD-837. Q1 is decided (owner, 2026-11-15); the rest are open. Each open line gives the lead's
+PAD-837. Q1 to Q5 are decided (owner, 2026-11-15); the rest are open. Each open line gives the lead's
 provisional reading (or, where marked, the spec writer's) as a **proposal, not a decision**. The
 criteria above are written to the proposal and change with the answer.
 - **Q1, the name of "Aulas como convidado".** It counts guest appearances of any status, not
@@ -997,23 +1004,31 @@ criteria above are written to the proposal and change with the answer.
   (rule 17e, criterion 65); the owner may still overturn the help text's wording, so the tests
   never pin it.
 - **Q2, Saldo de horas.** Proposal (lead): as the ticket proposes: guest presence hours minus
-  justified-absence hours; unjustified absences stay out.
+  justified-absence hours; unjustified absences stay out. **Decided (owner, 2026-11-15):** yes, as
+  proposed (rule 17d, criterion 62).
 - **Q3, the hours format.** Options: "1,5 h" or "1h30". Proposal (lead): "1,5 h" with the
   Portuguese decimal comma. To pin with the answer (spec writer's proposal): English "1.5 h";
   whole hours without decimals ("1 h"); otherwise up to two decimals with trailing zeros dropped
   (75 min "1,25 h", 20 min "0,33 h"); 0 is "0 h". The CSV carries the same text as the screen
   (rule 17: the file is what the screen shows); a numeric CSV cell is the alternative.
+  **Decided (owner, 2026-11-15):** "1h30", never "1,5 h"; the same text in pt, en and the CSV
+  (rule 17d, criterion 63).
 - **Q4, what the period covers.** The ticket says "tudo o que a tab mostra". Rule 17a records a
   decision (DEC 2026-09-09, PAD-192) that the stats window and the validation week stay
   independent, so applying the period to the validation week or its count **contradicts that
   recorded decision** and needs the owner. Proposal (lead): statistics, columns, KPIs and charts
-  only (ATTENDANCE-VALIDATION-71).
+  only (ATTENDANCE-VALIDATION-71). **Decided (owner, 2026-11-15):** the validation week stays
+  separate; rule 17a stands.
 - **Q5, the default period and what is saved.** The ticket proposes "Este mês". Today's default is
   the trailing 90 days, chosen because one month of a small academy is too sparse for a trend
   (`default_overview_range`). Proposal (lead): keep 90 days, and do not save the period. Proposal
   (spec writer, the lead gave no reading): do not save the sort either (ATTENDANCE-VALIDATION-72).
   The ticket lists "Esta época" as "a confirmar". Proposal: offer it when the coach has a current
-  season (`calendar.seasons`), as the student's history page does.
+  season (`calendar.seasons`), as the student's history page does. **Decided (owner, 2026-11-15):**
+  the default is "Este mês", and each coach can make another shortcut their own default, saved
+  per coach in `settings.coach-presences-view` (rule 17f, criterion 72); the sort is not saved.
+  "Esta época" is left out of this release (lead, 2026-11-15: the season lookup is not at hand on
+  both shells); a later change adds it.
 - **Column order (owner question; proposal by the spec writer).** The ticket asks for the order
   "se der". Proposal: the columns keep the list's order (rule 17c) and the saved view stores which
   columns show, not where. Reordering needs a drag control on both shells that nobody has designed,
