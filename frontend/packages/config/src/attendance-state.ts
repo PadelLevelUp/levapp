@@ -85,7 +85,9 @@ function derive(presence: AttendancePresenceLike): AttendanceState {
   if (presence.validated === true) {
     if (present) return "attended";
     if (absent) return "missed";
-    return "planned";
+    // Validated with no status recorded: the student's own intent (attendance.presence rule 9),
+    // as the server derives it: a yes reads `coming`, no answer `planned`.
+    return presence.confirmed === true ? "coming" : "planned";
   }
 
   if (absent) {
