@@ -84,7 +84,7 @@ test: `backend/padel_app/tests/test_pad837_presences_view.py` › `test_a_coach_
 test: `backend/padel_app/tests/test_pad837_presences_view.py` › `test_a_malformed_view_is_refused`
 
 #### SETTINGS-COACH-PRESENCES-VIEW-3: The shells read any stored view safely (rule 3)
-- **Given** stored views `null`, `["retiredColumn", "justified"]`, `["invitesJoined", "total"]` and `[]`
+- **Given** stored views `null`, `{"columns": ["retiredColumn", "justified"]}`, `{"columns": ["invitesJoined", "total"]}` and `{"columns": []}`
 - **When** a shell resolves the columns to show
 - **Then** it shows the defaults; `name` and `justified`; `name`, `total` and `invitesJoined` in the list's order; and `name` alone
 test: `frontend/packages/config/src/presence-columns.test.ts` › `resolves a stored view against the column list`

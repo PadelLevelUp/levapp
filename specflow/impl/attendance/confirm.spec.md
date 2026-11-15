@@ -600,7 +600,8 @@ test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `r
 - **Given** an enrolled student looking at a class on iOS
 - **When** the screen decides whether to offer "Não vou poder ir"
 - **Then** it is offered whether or not the early-decline window is open, and also when the student has no presence row yet
-- **And** it is not offered once the student is absent, once the class has started, on a cancelled class, to a coach, or to someone who is not in the class
+- **And** it is not offered once the student's `attendanceState` is `not_coming`, once the class has started, on a cancelled class, to a coach, or to someone who is not in the class
+- **And** a row the coach validated absent (`missed`) is not hidden by its state: it belongs to a class that has already run, so the started-class gate hides the action
 test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` › `stays available after the proactive window closes` (+3 more)
 
 ### Open questions

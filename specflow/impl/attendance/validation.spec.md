@@ -211,8 +211,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - **The server sends integer minutes** per player (`presenceMinutes`, `justifiedMinutes`,
       `guestPresenceMinutes`, `balanceMinutes`) and the shells format them; they never add durations
       themselves. The minutes come from the same filtered query as the counts
-      (`_coach_presence_query`, same window, same disabled-account filter), so the two row sets
-      cannot diverge; the sum runs in Python over the fetched rows' start and end, so it is the
+      (`_coach_presence_query`, same window, same joins), so the two row sets cannot diverge; both
+      are then read only for roster players, which leaves out disabled accounts (rule 12); the sum runs in Python over the fetched rows' start and end, so it is the
       same on SQLite and Postgres (the suite runs both).
     - **Saldo de horas** (`balanceMinutes`) is computed on the server and only there: guest presence
       minutes minus justified-absence minutes (Open questions, Q2). Positive reads "recovered more
@@ -794,6 +794,7 @@ test: `frontend/apps/mobile/src/features/presences/validate-state.test.ts` › `
 test: `backend/padel_app/tests/test_presence_overview.py` › `test_roster_player_with_no_activity_still_appears` (+1 more)
 
 #### ATTENDANCE-VALIDATION-51: The running month is the trend's last bucket, counted up to today (rule 17b, PAD-814)
+Pending Q6: this is the payload as of today, a characterisation of what rule 17b forbids the charts to draw as a finished month; how the running bucket is marked is added when the owner answers.
 - **Given** a coach whose students were present in October 2026, five classes, two students each
 - **When** the trend is read with the default window on 1 November 2026
 - **Then** it is bucketed by month, ends today at 23:59:59, and its last bucket is November at 0 after October's 10
