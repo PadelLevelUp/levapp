@@ -57,7 +57,7 @@ describe("the class screen offers 'Vou' only on the server's flag (rule 27)", ()
     expect(src).not.toMatch(/proactiveDeclineDeadline[^\n]*(<|>|>=|<=)/);
     expect(src).not.toContain("hours_before");
   });
-  it("has no way back after 'Não vou' (rule 28): the hint and the chat shortcut instead", () => {
+  it("shows the hint and the chat shortcut after 'Não vou', and no come-back control of its own (rule 28)", () => {
     expect(src).not.toContain("canComeBack");
     expect(src).not.toContain("class-come-back");
     expect(src).toContain('testID="class-declined-hint"');
