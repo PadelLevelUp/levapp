@@ -7,8 +7,15 @@ import { getApi } from "../client";
  * academy step. Requests go through `classJoinRequestsApi.createClassJoinRequest`
  * (with a note); a full class's waiting list is joined here.
  */
-export async function listAcademyClasses(coachId: string | number): Promise<AcademyClassesResponse> {
-  const res = await getApi().get("/app/academy-classes", { params: { coachId } });
+export async function listAcademyClasses(
+  coachId: string | number,
+  type?: "academy" | "private",
+): Promise<AcademyClassesResponse> {
+  // PAD-929 (rule 9): `type=private` is the coach's visible private lessons (rule 12); the academy
+  // default is never sent, so the academy step's call is unchanged.
+  const res = await getApi().get("/app/academy-classes", {
+    params: type && type !== "academy" ? { coachId, type } : { coachId },
+  });
   return res.data;
 }
 

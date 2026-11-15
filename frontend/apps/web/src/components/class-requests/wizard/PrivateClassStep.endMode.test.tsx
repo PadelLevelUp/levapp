@@ -27,7 +27,9 @@ const availabilityApi = vi.hoisted(() => ({
   getRequestParticipants: vi.fn().mockResolvedValue([]),
   getCoachAvailability: vi.fn(),
 }));
-vi.mock("@levelup/api", () => ({ requestAvailabilityApi: availabilityApi }));
+// PAD-929 (rule 13b): an empty answer also reads the coach's private lessons; none here.
+const academyApi = vi.hoisted(() => ({ listAcademyClasses: vi.fn().mockResolvedValue({ classes: [] }) }));
+vi.mock("@levelup/api", () => ({ requestAvailabilityApi: availabilityApi, academyClassesApi: academyApi }));
 
 import { PrivateClassStep } from "./PrivateClassStep";
 

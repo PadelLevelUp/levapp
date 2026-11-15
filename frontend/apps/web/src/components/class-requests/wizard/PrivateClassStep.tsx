@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Minus, Plus, X } from "lucide-react";
 import {
   CLASS_REQUEST_DURATIONS,
@@ -19,15 +19,19 @@ import {
   endDateAfterClasses,
   firstFreeDay,
   formatShortDate,
+  availabilityReadKey,
+  lessonMinutes,
   occurrenceDates,
+  readsPrivateLessons,
   slotStarts,
   weeklyIntersection,
   type Window,
 } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
-import { requestAvailabilityApi } from "@levelup/api";
+import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
 import { classRequestRefusal, createClassRequest } from "@/api/classRequests";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +84,9 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   // ── Slot ──
   const [duration, setDuration] = useState<number>(60);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+  // PAD-929 (rule 13b): the read the current answer belongs to. A failed read, one still on its way,
+  // or an answer for an earlier choice is not "no free time" and never offers the private lessons.
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<Window | null>(null);
   const [note, setNote] = useState("");
@@ -153,7 +160,11 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     let active = true;
     setLoadingSlots(true);
     requestAvailabilityApi.getCoachAvailability({ coachId, from, to, participants: invitees })
-      .then((res) => active && setAvailability(res))
+      .then((res) => {
+        if (!active) return;
+        setAvailability(res);
+        setAnsweredFor(availabilityReadKey({ coachId, from, to, participants: invitees }));
+      })
       .catch(() => active && setAvailability(null))
       .finally(() => active && setLoadingSlots(false));
     return () => {
@@ -168,6 +179,28 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     return slotStarts(availability.freeWindows[date] ?? [], duration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availability, duration, date, recurring, weekdays.join(","), startDate, effectiveEndDate]);
+
+  const slotsState = !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
+
+  // PAD-929 (classes.class-requests rule 13b): no free time offers the coach's visible private
+  // lessons (classes.academy-class-booking rule 12). Rows only for now; their actions come with the
+  // private-lesson warning (classes.join-requests rule 22).
+  const answered =
+    answeredFor !== null &&
+    answeredFor ===
+      availabilityReadKey({
+        coachId,
+        from: recurrence ? startDate : date,
+        to: recurrence ? effectiveEndDate : date,
+        participants: invitees,
+      });
+  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
+  const privateLessons = useQuery({
+    queryKey: ["academy-classes", coachId, "private"],
+    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
+    enabled: showPrivateLessons,
+  });
+  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
 
   const send = async () => {
     if (!slot) return;
@@ -431,11 +464,39 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           </p>
         )}
 
-        <div data-testid="wizard-slots" data-state={!allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty"}>
+        <div data-testid="wizard-slots" data-state={slotsState}>
           {loadingSlots ? (
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           ) : !allInviteesOk || !recurrenceValid ? null : starts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}</p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}</p>
+              {lessons.length > 0 && (
+                <div className="space-y-2" data-testid="wizard-private-lessons">
+                  <p className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</p>
+                  {lessons.map((c) => (
+                    <div
+                      key={c.id}
+                      data-testid={`wizard-private-lesson-row-${c.state}`}
+                      data-class-id={c.id}
+                      className={cn("flex items-center justify-between gap-2 rounded-lg border p-3", c.state === "full" && "border-destructive/60 bg-destructive/5")}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {formatShortDate(c.date, i18n.language)} · {c.startTime}–{c.endTime}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("classRequests.minutes", { count: lessonMinutes(c) })}
+                          {c.club?.name ? ` · ${c.club.name}` : ""}
+                        </p>
+                      </div>
+                      <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
+                        {c.state === "full" ? t("classRequests.academy.full") : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {starts.map((s) => (

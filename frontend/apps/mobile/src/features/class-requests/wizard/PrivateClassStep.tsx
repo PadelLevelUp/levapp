@@ -10,7 +10,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CLASS_REQUEST_DURATIONS,
   FIRST_FREE_DAY_HORIZON_DAYS,
@@ -18,15 +18,19 @@ import {
   endDateAfterClasses,
   firstFreeDay,
   formatShortDate,
+  availabilityReadKey,
+  lessonMinutes,
   occurrenceDates,
+  readsPrivateLessons,
   slotStarts,
   weeklyIntersection,
   type Window,
 } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
-import { requestAvailabilityApi } from "@levelup/api";
+import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { EndModeControls, type EndMode } from "./EndModeControls";
@@ -127,6 +131,9 @@ export function PrivateClassStep({
   // ── Slot ──
   const [duration, setDuration] = React.useState<number>(60);
   const [availability, setAvailability] = React.useState<AvailabilityResponse | null>(null);
+  // PAD-929 (rule 13b): the read the current answer belongs to. A failed read, one still on its way,
+  // or an answer for an earlier choice is not "no free time" and never offers the private lessons.
+  const [answeredFor, setAnsweredFor] = React.useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = React.useState(false);
   const [slot, setSlot] = React.useState<Window | null>(null);
   const [note, setNote] = React.useState("");
@@ -215,7 +222,11 @@ export function PrivateClassStep({
     setLoadingSlots(true);
     requestAvailabilityApi
       .getCoachAvailability({ coachId, from, to, participants: invitees })
-      .then((res) => active && setAvailability(res))
+      .then((res) => {
+        if (!active) return;
+        setAvailability(res);
+        setAnsweredFor(availabilityReadKey({ coachId, from, to, participants: invitees }));
+      })
       .catch(() => active && setAvailability(null))
       .finally(() => active && setLoadingSlots(false));
     return () => {
@@ -265,6 +276,26 @@ export function PrivateClassStep({
   // leave the slots stuck on a spinner (web fcd894769).
   const slotsState =
     !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
+
+  // PAD-929 (classes.class-requests rule 13b), as on web: no free time offers the coach's visible
+  // private lessons (classes.academy-class-booking rule 12). Rows only for now; their actions come
+  // with the private-lesson warning (classes.join-requests rule 22).
+  const answered =
+    answeredFor !== null &&
+    answeredFor ===
+      availabilityReadKey({
+        coachId,
+        from: recurrence ? startDate : date,
+        to: recurrence ? effectiveEndDate : date,
+        participants: invitees,
+      });
+  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
+  const privateLessons = useQuery({
+    queryKey: ["academy-classes", coachId, "private"],
+    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
+    enabled: showPrivateLessons,
+  });
+  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
 
   return (
     <View className="gap-5" testID="wizard-private">
@@ -431,9 +462,43 @@ export function PrivateClassStep({
           ) : slotsState === "waiting" ? (
             <View style={{ height: 1 }} accessible={false} />
           ) : slotsState === "empty" ? (
-            <Text className="text-sm text-muted-foreground">
-              {t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}
-            </Text>
+            <View className="gap-3">
+              <Text className="text-sm text-muted-foreground">
+                {t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}
+              </Text>
+              {lessons.length > 0 ? (
+                <View className="gap-2" testID="wizard-private-lessons">
+                  <Text className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</Text>
+                  {lessons.map((c) => (
+                    <View
+                      key={c.id}
+                      testID={`wizard-private-lesson-row-${c.state}`}
+                      className={cn(
+                        "flex-row items-center justify-between gap-2 rounded-lg border p-3",
+                        c.state === "full" ? "border-destructive/60 bg-destructive/5" : "border-border"
+                      )}
+                    >
+                      <View className="min-w-0 flex-1">
+                        <Text className="font-medium">
+                          {formatShortDate(c.date, nativeLocaleTag(i18n.language))} · {c.startTime}–{c.endTime}
+                        </Text>
+                        <Text className="text-sm text-muted-foreground">
+                          {t("classRequests.minutes", { count: lessonMinutes(c) })}
+                          {c.club?.name ? ` · ${c.club.name}` : ""}
+                        </Text>
+                      </View>
+                      <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
+                        <Text>
+                          {c.state === "full"
+                            ? t("classRequests.academy.full")
+                            : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
+                        </Text>
+                      </Badge>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           ) : (
             <View className="flex-row flex-wrap gap-1.5">
               {starts.map((s) => (
