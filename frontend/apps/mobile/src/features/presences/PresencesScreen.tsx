@@ -6,16 +6,18 @@ import {
   applyLoadedView,
   chartScope,
   chooseColumns,
+  chooseDefaultPeriod,
   initialPresencesView,
   lightTheme,
   narrowedTotals,
   presencesViewPayload,
   saveFailed,
   saveSucceeded,
+  type PresencePeriodShortcut,
 } from "@levelup/config";
 import { useCoachPresencesView, useSaveCoachPresencesView } from "@levelup/hooks";
 import type { PresencePlayerStats } from "@levelup/types";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { ErrorState } from "@/components/error-state";
 import { Input } from "@/components/ui/input";
@@ -26,10 +28,18 @@ import { cn } from "@/lib/utils";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { refetchAll } from "@/lib/pull-refresh";
 import { PresenceReportCharts } from "./PresenceReportCharts";
+import { PresencePeriodControl } from "./PresencePeriodControl";
 import {
   PresenceColumnsSheet,
   PresenceFiltersSheet,
 } from "./PresenceReportSheets";
+import {
+  echoedPeriodLabel,
+  effectiveChoice,
+  periodBounds,
+  tabOpenState,
+  type PresencePeriodChoice,
+} from "./presences-period";
 import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { ValidateClassesSheet } from "./ValidateClassesSheet";
 import { sharePresencesCsv } from "./csv-share";
@@ -44,6 +54,7 @@ import {
   csvFileName,
   filterPlayers,
   presenceRows,
+  rowChips,
   visibleColumns,
 } from "./report-state";
 import {
@@ -131,8 +142,45 @@ export function PresencesScreen() {
     });
   };
 
+  // PAD-837c (rule 17g): the tab's one period. `null` is "the coach's default" (criterion 72), so
+  // the saved view landing after mount, or a new default, applies without a choice being undone.
+  const defaultPeriod = columnsView.defaultPeriod;
+  const [periodChoice, setPeriodChoice] = React.useState<PresencePeriodChoice | null>(null);
+  const choice = effectiveChoice(periodChoice, defaultPeriod);
+  // Each open starts from the default period and the default sort (criterion 72). The tab stays
+  // mounted between visits, so "open" is a focus, not a mount.
+  useFocusEffect(
+    React.useCallback(() => {
+      const open = tabOpenState();
+      setPeriodChoice(open.choice);
+      setSort(open.sort);
+    }, [])
+  );
+  // A shortcut on offer always has bounds ("season" is not offered without a season); a custom
+  // choice is only stored once accepted. The fallback is unreachable and keeps the type honest.
+  const period = React.useMemo(
+    () => periodBounds(choice) ?? periodBounds(effectiveChoice(null, "thisMonth"))!,
+    [choice]
+  );
+  // "Usar como predefinido" (Q5): the whole view, columns included (rule 4); a failed save keeps
+  // the period on screen and says so (rule 6).
+  const makeDefault = (shortcut: PresencePeriodShortcut) => {
+    const next = chooseDefaultPeriod(columnsView, shortcut);
+    setColumnsView(next);
+    saveView.mutate(presencesViewPayload(next), {
+      onSuccess: () => {
+        setColumnsView((s) => saveSucceeded(s));
+        toast.success(t("presences.period.defaultSaved"));
+      },
+      onError: () => {
+        setColumnsView((s) => saveFailed(s));
+        toast.error(t("presences.view.defaultNotSavedTitle"), t("presences.period.defaultNotSavedBody"));
+      },
+    });
+  };
+
   const week = React.useMemo(() => weekBounds(weekOffset), [weekOffset]);
-  const stats = usePresenceStats();
+  const stats = usePresenceStats(period);
   const queue = usePendingValidation(week);
   const pendingCountQuery = usePendingValidationCount(week);
   const roster = useCoachRoster();
@@ -162,7 +210,7 @@ export function PresencesScreen() {
     () => (filterCount > 0 ? filterPlayers(players, filters) : null),
     [players, filters, filterCount]
   );
-  const trend = usePresenceTrend(filteredPlayers?.map((p) => p.playerId));
+  const trend = usePresenceTrend(filteredPlayers?.map((p) => p.playerId), period);
 
   // PAD-786 (client.pull-to-refresh rule 1): the tab and the validation sheet each have a pull.
   // Both reload everything the tab and the sheet show; each keeps its own spinner.
@@ -250,6 +298,17 @@ export function PresencesScreen() {
         </View>
         <Ionicons name="chevron-forward" size={18} color={lightTheme.mutedForeground} />
       </Pressable>
+
+      {/* PAD-837c (rule 17g): the period, at the top of the reporting surface; the validation
+          trigger above it keeps its own week (rule 17a, criterion 71). */}
+      <PresencePeriodControl
+        choice={choice}
+        defaultPeriod={defaultPeriod}
+        label={echoedPeriodLabel(stats.data)}
+        onChoose={setPeriodChoice}
+        onMakeDefault={makeDefault}
+        savingDefault={saveView.isPending}
+      />
 
       <View className="flex-row flex-wrap gap-3">
         <StatTile
@@ -529,14 +588,9 @@ function PlayerRow({
   const showTotal = columns.includes("total");
   // `total` leads in the avatar circle rather than repeating as a chip, and
   // `name` is the row's own title. Everything else the coach ticked becomes a
-  // chip, in `PRESENCE_COLUMNS` order — the same order the CSV uses.
-  const chips = visibleColumns(columns)
-    .filter((column) => column.key !== "name" && column.key !== "total")
-    .map((column) => ({
-      key: column.key,
-      value: player[column.key] as number,
-      tone: column.key === "unjustified" ? ("bad" as const) : undefined,
-    }));
+  // chip, in `PRESENCE_COLUMNS` order — the same order the CSV uses, with the
+  // same text (PAD-837, criterion 63: the hours through the one formatter).
+  const chips = rowChips(player, visibleColumns(columns));
 
   return (
     <Pressable
@@ -557,19 +611,22 @@ function PlayerRow({
           {player.displayName ?? player.name}
         </Text>
         <View className="mt-1 flex-row flex-wrap gap-x-3 gap-y-0.5">
-          {chips
-            .filter((c) => c.value > 0)
-            .map((c) => (
-              <Text
-                key={c.key}
-                className={cn(
-                  "text-[11px]",
-                  c.tone === "bad" ? "text-destructive" : "text-muted-foreground"
-                )}
-              >
-                {t(`presences.column.${c.key}`)}: {c.value}
-              </Text>
-            ))}
+          {chips.map((c) => (
+            <Text
+              key={c.key}
+              testID={`presences-chip-${c.key}`}
+              className={cn(
+                "text-[11px]",
+                c.tone === "bad"
+                  ? "text-destructive"
+                  : c.tone === "good"
+                    ? "text-success"
+                    : "text-muted-foreground"
+              )}
+            >
+              {t(`presences.column.${c.key}`)}: {c.text}
+            </Text>
+          ))}
         </View>
       </View>
       <Ionicons name="chevron-forward" size={16} color={lightTheme.mutedForeground} />

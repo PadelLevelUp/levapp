@@ -4,7 +4,9 @@ import type {
 } from "@levelup/types";
 
 import {
+  balanceSign,
   presenceCellText,
+  presenceCellValue,
   presencesCsvFileName,
   rosterSearchFields,
   searchPlayers,
@@ -194,7 +196,8 @@ export function buildPresencesCsv(
   const body = rows.map((row) =>
     // PAD-837 (rule 17d): the same text the screen shows; hours through the one formatter.
     columns
-      .map((column) => csvField(column.key === "name" ? row.name : presenceCellText(row, column.key)))
+      // The name cell is the real name, as before PAD-837 (`row[column.key]`, not the coach's label).
+      .map((column) => csvField(column.key === "name" ? row[column.key] : presenceCellText(row, column.key)))
       .join(",")
   );
   return [header.join(","), ...body].join("\n");
@@ -269,4 +272,41 @@ export function splitPoints(
       value: totals?.academy ?? 0,
     },
   ];
+}
+
+/**
+ * PAD-837 (rule 17d): the balance's colour follows its sign and never carries the meaning alone
+ * (the sign is in the text). Zero is plain.
+ */
+export function balanceTone(minutes: number): "good" | "bad" | undefined {
+  const sign = balanceSign(minutes);
+  return sign === "positive" ? "good" : sign === "negative" ? "bad" : undefined;
+}
+
+/**
+ * The chips a row shows for its chosen columns, each with the text the CSV writes for the same
+ * cell (`presenceCellText`, criterion 63). A zero count or zero hours is left out — a row of
+ * "0" chips says nothing — but the balance is always shown once chosen: "0min" means "even",
+ * and a negative one is the point of the column.
+ */
+export function rowChips(
+  player: PresencePlayerStats,
+  columns: PresenceColumn[]
+): Array<{ key: PresenceColumnKey; text: string; tone?: "good" | "bad" }> {
+  return columns
+    .filter(
+      (column): column is PresenceColumn & { key: Exclude<PresenceColumnKey, "name"> } =>
+        column.key !== "name" && column.key !== "total"
+    )
+    .filter((column) => column.key === "balanceMinutes" || presenceCellValue(player, column.key) > 0)
+    .map((column) => ({
+      key: column.key,
+      text: presenceCellText(player, column.key),
+      tone:
+        column.key === "unjustified"
+          ? ("bad" as const)
+          : column.key === "balanceMinutes"
+            ? balanceTone(presenceCellValue(player, column.key))
+            : undefined,
+    }));
 }

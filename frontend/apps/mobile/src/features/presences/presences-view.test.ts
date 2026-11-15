@@ -3,8 +3,10 @@ import {
   DEFAULT_VISIBLE_COLUMNS,
   applyLoadedView,
   chooseColumns,
+  chooseDefaultPeriod,
   initialPresencesView,
   presencesViewPayload,
+  resolveDefaultPeriod,
   saveFailed,
   saveSucceeded,
   toggleColumn,
@@ -50,5 +52,26 @@ describe("the saved Presences columns on iOS", () => {
     expect(saveSucceeded(failed).unsaved).toBe(false);
     // The next choice starts clean.
     expect(chooseColumns(failed, chosen.columns).unsaved).toBe(false);
+  });
+
+  // PAD-837c (Q5, criterion 72): the default period lives in the same view, "thisMonth" until
+  // the coach makes another shortcut theirs; "Usar como predefinido" sends the whole view, so the
+  // columns ride along and a late load never undoes the choice.
+  it("[ATTENDANCE-VALIDATION-72] reads the coach's default period from the saved view, 'thisMonth' when unset", () => {
+    expect(resolveDefaultPeriod(null)).toBe("thisMonth");
+    expect(resolveDefaultPeriod({ columns: ["total"] })).toBe("thisMonth");
+    expect(resolveDefaultPeriod({ columns: ["total"], defaultPeriod: "lastMonth" })).toBe("lastMonth");
+    expect(resolveDefaultPeriod({ columns: ["total"], defaultPeriod: "fortnight" })).toBe("thisMonth");
+    const loaded = applyLoadedView(initialPresencesView(), { columns: ["total"], defaultPeriod: "lastMonth" });
+    expect(loaded.defaultPeriod).toBe("lastMonth");
+    expect(loaded.columns).toEqual(["name", "total"]);
+  });
+
+  it("[ATTENDANCE-VALIDATION-72] 'make this my default' sends the whole view and survives a late load", () => {
+    const chosen = chooseDefaultPeriod(initialPresencesView(), "lastMonth");
+    expect(presencesViewPayload(chosen)).toEqual({ columns: DEFAULT_VISIBLE_COLUMNS, defaultPeriod: "lastMonth" });
+    const afterLoad = applyLoadedView(chosen, { columns: ["total", "justified"], defaultPeriod: "thisWeek" });
+    expect(afterLoad.defaultPeriod).toBe("lastMonth");
+    expect(afterLoad.columns).toEqual(["name", "total", "justified"]);
   });
 });

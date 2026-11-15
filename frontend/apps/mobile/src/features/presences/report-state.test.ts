@@ -4,7 +4,7 @@ import type {
 } from "@levelup/types";
 import { describe, expect, it } from "vitest";
 
-import { applyLoadedView, initialPresencesView } from "@levelup/config";
+import { applyLoadedView, formatBalanceHours, formatMinutesAsHours, initialPresencesView } from "@levelup/config";
 import {
   DEFAULT_SORT,
   DEFAULT_VISIBLE_COLUMNS,
@@ -12,11 +12,13 @@ import {
   PRESENCE_COLUMNS,
   abbreviateName,
   activeFilterCount,
+  balanceTone,
   buildPresencesCsv,
   csvFileName,
   filterPlayers,
   nextSort,
   presenceRows,
+  rowChips,
   sortPlayerStats,
   splitPoints,
   toggleColumn,
@@ -434,5 +436,47 @@ describe("the saved columns on iOS (PAD-837b)", () => {
     expect(state.columns).toEqual(["name", "total", "invitesJoined"]);
     const csv = buildPresencesCsv([], visibleColumns(state.columns), (key) => key);
     expect(csv.split("\n")[0]).toBe('"name","total","invitesJoined"');
+  });
+});
+
+describe("the hours columns on iOS (PAD-837a)", () => {
+  // 90 and 60 presence minutes; guest 90 − justified 60 = +30, 60 − 90 = −30, 60 − 60 = 0.
+  const PLUS = player("Mais", { presenceMinutes: 90, guestPresenceMinutes: 90, justifiedMinutes: 60, balanceMinutes: 30 });
+  const MINUS = player("Menos", { presenceMinutes: 60, guestPresenceMinutes: 60, justifiedMinutes: 90, balanceMinutes: -30 });
+  const EVEN = player("Igual", { presenceMinutes: 600, guestPresenceMinutes: 60, justifiedMinutes: 60, balanceMinutes: 0 });
+  const HOURS = visibleColumns(["name", "presenceMinutes", "balanceMinutes"]);
+
+  it("[ATTENDANCE-VALIDATION-63] exports hours columns as the screen shows them", () => {
+    // The cell is the shared formatter's text for the same minutes, never a literal of this shell's.
+    const csv = buildPresencesCsv([PLUS, MINUS, EVEN], HOURS, (key) => key).split("\n");
+    expect(csv[1]).toBe(`"Mais","${formatMinutesAsHours(90)}","${formatBalanceHours(30)}"`);
+    expect(csv[2]).toBe(`"Menos","${formatMinutesAsHours(60)}","${formatBalanceHours(-30)}"`);
+    expect(csv[3]).toBe(`"Igual","${formatMinutesAsHours(600)}","${formatBalanceHours(0)}"`);
+    // And the row's chips carry the same text.
+    const chip = (p: PresencePlayerStats, key: PresenceColumnKey) => rowChips(p, HOURS).find((c) => c.key === key)?.text;
+    expect(chip(PLUS, "presenceMinutes")).toBe(formatMinutesAsHours(90));
+    expect(chip(PLUS, "balanceMinutes")).toBe(formatBalanceHours(30));
+    expect(chip(MINUS, "balanceMinutes")).toBe(formatBalanceHours(-30));
+  });
+
+  it("[ATTENDANCE-VALIDATION-63] sorts an hours column by minutes, not by its text", () => {
+    // "10h" would sort before "1h30" as text; 600 minutes come first as a number.
+    const desc = sortPlayerStats([PLUS, MINUS, EVEN], { key: "presenceMinutes", direction: "desc" });
+    expect(desc.map((p) => p.presenceMinutes)).toEqual([600, 90, 60]);
+    const asc = sortPlayerStats([PLUS, MINUS, EVEN], { key: "balanceMinutes", direction: "asc" });
+    expect(asc.map((p) => p.balanceMinutes)).toEqual([-30, 0, 30]);
+    // The sort chips offer every column of the list, the hours ones included.
+    expect(PRESENCE_COLUMNS.map((c) => c.key)).toEqual(expect.arrayContaining(["presenceMinutes", "balanceMinutes"]));
+  });
+
+  it("[ATTENDANCE-VALIDATION-62] the balance chip carries its sign in the text and a colour that only follows it", () => {
+    const tone = (p: PresencePlayerStats) => rowChips(p, HOURS).find((c) => c.key === "balanceMinutes")?.tone;
+    expect(tone(PLUS)).toBe("good");
+    expect(tone(MINUS)).toBe("bad");
+    expect(tone(EVEN)).toBeUndefined();
+    expect(balanceTone(0)).toBeUndefined();
+    // Zero hours of presence are not a chip; a zero balance is (it says "even").
+    const zero = player("Zero", { presenceMinutes: 0, balanceMinutes: 0 });
+    expect(rowChips(zero, HOURS).map((c) => c.key)).toEqual(["balanceMinutes"]);
   });
 });
