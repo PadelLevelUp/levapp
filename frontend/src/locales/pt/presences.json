@@ -144,7 +144,8 @@
     },
     "view": {
       "notSavedTitle": "Não foi possível guardar as colunas",
-      "notSavedBody": "Ficam visíveis por agora; ao abrir as Presenças outra vez vê o que ficou guardado."
+      "notSavedBody": "Ficam visíveis por agora; ao abrir as Presenças outra vez vê o que ficou guardado.",
+      "defaultNotSavedTitle": "Não foi possível guardar o período predefinido"
     },
     "toast": {
       "validated_one": "Aula validada",
@@ -162,6 +163,20 @@
       "undoBody": "A aula continua validada. Tente novamente.",
       "exportTitle": "Não foi possível exportar",
       "exportBody": "O ficheiro CSV não foi criado. Tente novamente."
+    },
+    "period": {
+      "label": "Período",
+      "thisWeek": "Esta semana",
+      "thisMonth": "Este mês",
+      "lastMonth": "Mês passado",
+      "season": "Esta época",
+      "custom": "Personalizado",
+      "from": "De",
+      "to": "Até",
+      "apply": "Aplicar",
+      "showing": "{{from}} – {{to}}",
+      "makeDefault": "Usar como predefinido",
+      "isDefault": "Predefinido"
     }
   }
 }
