@@ -119,3 +119,16 @@ def club_day_start_utc(instant: datetime, *, days_offset: int = 0) -> datetime:
     target_date = local.date() + timedelta(days=days_offset)
     local_midnight = datetime.combine(target_date, time.min, tzinfo=CLUB_TZ)
     return local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def duration_minutes(start: Optional[datetime], end: Optional[datetime]) -> int:
+    """A class's length in whole minutes, floored: 0 without both times or a positive span.
+
+    PAD-837 (attendance.validation rule 17d): the one minute computation. The Presences hours
+    columns sum it, and `{duration}` in messages (notifications.message-templates rule 21) renders
+    it, so a class lasts the same in a report as in the message about it. Both times are on the
+    same clock (a class's wall-clock start and end), so no conversion is needed.
+    """
+    if start is None or end is None or end <= start:
+        return 0
+    return int((end - start).total_seconds() // 60)

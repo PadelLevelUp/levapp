@@ -56,6 +56,7 @@ from padel_app.services.attendance_history_service import (
     pick_granularity,
 )
 from padel_app.sql_db import db
+from padel_app.utils.dates import duration_minutes
 
 
 def default_overview_range(now: Optional[datetime] = None) -> Tuple[datetime, datetime]:
@@ -142,6 +143,34 @@ def build_presence_stats(
     )
     by_player = {row.player_id: row for row in rows}
 
+    # PAD-837 (rule 17d): the hours twins of `total`, `justified` and `invitesJoined`, over the
+    # same query and so the same rows. Summed in Python from each occurrence's own start and end:
+    # datetime arithmetic in SQL differs between SQLite and Postgres, and `duration_minutes` is
+    # the one place a class's length is computed.
+    minutes: Dict[int, Dict[str, int]] = {}
+    for player_id, status, justification, enrolled_id, started, ended in (
+        _coach_presence_query(coach_id, start, end)
+        .with_entities(
+            Presence.player_id,
+            Presence.status,
+            Presence.justification,
+            Association_PlayerLesson.id,
+            LessonInstance.start_datetime,
+            LessonInstance.end_datetime,
+        )
+        .all()
+    ):
+        length = duration_minutes(started, ended)
+        sums = minutes.setdefault(
+            player_id, {"presence": 0, "justified": 0, "guestPresence": 0}
+        )
+        if status == "present":
+            sums["presence"] += length
+            if enrolled_id is None:
+                sums["guestPresence"] += length
+        elif status == "absent" and justification == "justified":
+            sums["justified"] += length
+
     roster = (
         db.session.query(Player)
         .join(
@@ -171,6 +200,9 @@ def build_presence_stats(
                 "unjustified": int(row.unjustified) if row else 0,
                 "invitesReceived": int(row.invites_received) if row else 0,
                 "invitesJoined": int(row.invites_joined) if row else 0,
+                "presenceMinutes": minutes.get(player.id, {}).get("presence", 0),
+                "justifiedMinutes": minutes.get(player.id, {}).get("justified", 0),
+                "guestPresenceMinutes": minutes.get(player.id, {}).get("guestPresence", 0),
             }
         )
 

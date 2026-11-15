@@ -26,6 +26,9 @@ const ana: PresencePlayerStats = {
   unjustified: 0,
   invitesReceived: 1,
   invitesJoined: 1,
+  presenceMinutes: 180,
+  justifiedMinutes: 60,
+  guestPresenceMinutes: 60,
 };
 
 describe("PresencePlayersTable columns (PAD-837)", () => {

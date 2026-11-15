@@ -48,6 +48,9 @@ function player(
     unjustified: 0,
     invitesReceived: 0,
     invitesJoined: 0,
+    presenceMinutes: 0,
+    justifiedMinutes: 0,
+    guestPresenceMinutes: 0,
     ...over,
   };
 }

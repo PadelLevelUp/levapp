@@ -1979,6 +1979,14 @@ export interface PresencePlayerStats {
   invitesReceived: number;
   /** Of those, the ones they actually turned up to. */
   invitesJoined: number;
+  /**
+   * PAD-837 (attendance.validation rule 17d): the hours twins, in whole minutes, of `total`,
+   * `justified` and `invitesJoined`, over the same rows. Each class adds its occurrence's
+   * length as `{duration}` renders it; the shells format, they never add durations themselves.
+   */
+  presenceMinutes: number;
+  justifiedMinutes: number;
+  guestPresenceMinutes: number;
 }
 
 export interface PresenceStatsTotals {
