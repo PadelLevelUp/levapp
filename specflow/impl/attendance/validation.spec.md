@@ -223,8 +223,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - The hours columns are hidden by default; the coach adds them with the column chooser.
 17e. **(PAD-837a) "Aulas como convidado" says what it counts.** It counts every presence row of
     the student on a class they are not enrolled in, present or not (rule 10): guest appearances,
-    not invitations sent. Whether it is renamed is open (Open questions, Q1); either way the column
-    carries a help line stating its rule, and so does "Presenças como convidado" (guest and
+    not invitations sent. The name stays (Open questions, Q1, decided); the column carries a help
+    line stating its rule, and so does "Presenças como convidado" (guest and
     present). Web shows it in the column chooser and on the heading; iOS, which has no tooltips
     (rule 17), shows it in the columns sheet under the column's name.
 17f. **(PAD-837b) The coach's column choice is kept on their account.** The columns a coach shows
@@ -888,7 +888,7 @@ test: `frontend/packages/config/src/presence-columns.test.ts` › `lists every c
 
 #### ATTENDANCE-VALIDATION-65: The guest columns explain what they count (rule 17e, PAD-837a)
 - **Given** the coach opens the column chooser on web or the columns sheet on iOS
-- **When** they read "Aulas como convidado" (or its new name, Q1) and "Presenças como convidado"
+- **When** they read "Aulas como convidado" and "Presenças como convidado"
 - **Then** each carries a help line stating its rule (every class of another group the student was on, whatever they answered; and those where they were present)
 - **And** on web the same line is on the column's heading
 - **And** the tests assert a non-empty help element per column id, never its wording
@@ -985,15 +985,17 @@ test: `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `opens on the def
    lands after PAD-814 (rule 17b), whose running-bucket drawing it reuses.
 
 ### Open questions
-PAD-837. None of these is answered on 2026-11-15. Each line gives the lead's provisional reading
-(or, where marked, the spec writer's) as a **proposal, not a decision**. The criteria above are
-written to the proposal and change with the answer.
+PAD-837. Q1 is decided (owner, 2026-11-15); the rest are open. Each open line gives the lead's
+provisional reading (or, where marked, the spec writer's) as a **proposal, not a decision**. The
+criteria above are written to the proposal and change with the answer.
 - **Q1, the name of "Aulas como convidado".** It counts guest appearances of any status, not
   invitations sent (rule 10; the ticket's first branch does not apply). Options: keep the name and
   add the help line (rule 17e); rename (e.g. "Aulas como convidado (todas)"). Proposal (lead): keep
   the name plus the help line; rule 10 already labels these "guest appearances, not invites".
   English already reads "Guest appearances" (`invitesReceived`) and "Attended as guest"
-  (`invitesJoined`).
+  (`invitesJoined`). **Decided (owner, 2026-11-15):** the name is kept and the help text is added
+  (rule 17e, criterion 65); the owner may still overturn the help text's wording, so the tests
+  never pin it.
 - **Q2, Saldo de horas.** Proposal (lead): as the ticket proposes: guest presence hours minus
   justified-absence hours; unjustified absences stay out.
 - **Q3, the hours format.** Options: "1,5 h" or "1h30". Proposal (lead): "1,5 h" with the
