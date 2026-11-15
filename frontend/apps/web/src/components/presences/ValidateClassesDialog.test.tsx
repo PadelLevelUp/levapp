@@ -3,7 +3,7 @@
  * flight, EVERY queued class is disabled — not just the first.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentType } from "react";
 import type { PendingValidationClass } from "@/types";
 import { ValidateClassesDialog } from "./ValidateClassesDialog";
@@ -399,5 +399,39 @@ describe("every row shows its day and time range (PAD-924)", () => {
     );
     fireEvent.click(screen.getByTestId("presences-validate-trigger"));
     expect(screen.getByTestId("presences-class-when").textContent).toBe("Mon 09/11 · 10:30–12:00");
+  });
+
+  it("[ATTENDANCE-VALIDATION-53] pending classes run oldest first whatever order they arrive in", async () => {
+    const onValidate = vi.fn(async () => {});
+    render(
+      <Dialog
+        // Within a day the later class arrives first here.
+        pending={[
+          peak(3, "2026-11-11T18:00:00", "2026-11-11T19:30:00"),
+          peak(2, "2026-11-09T18:00:00", "2026-11-09T19:30:00"),
+          peak(1, "2026-11-09T10:30:00", "2026-11-09T12:00:00"),
+        ]}
+        validated={[]}
+        pendingCount={3}
+        pendingTotal={3}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={onValidate}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    const labels = screen.getAllByTestId("presences-class-when").map((el) => el.textContent);
+    expect(labels).toEqual(["Mon 09/11 · 10:30–12:00", "Mon 09/11 · 18:00–19:30", "Wed 11/11 · 18:00–19:30"]);
+
+    // The bulk run sends them in the same order, not the order the server listed them in.
+    fireEvent.click(screen.getByRole("button", { name: "presences.validate.selectReady" }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("presences-validate-selected"));
+    });
+    expect(onValidate).toHaveBeenCalledTimes(1);
+    const sent = (onValidate.mock.calls[0] as unknown as [{ lessonInstanceId: number }[]])[0];
+    expect(sent.map((c) => c.lessonInstanceId)).toEqual([1, 2, 3]);
   });
 });

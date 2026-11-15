@@ -168,7 +168,11 @@ export function ValidateClassesDialog({
     return { ...klass, players: [...klass.players, ...added] };
   };
 
-  const pendingClasses = useMemo(() => pending.map(withExtras), [pending, extras]);
+  // Rule 29 (PAD-924): both lists run oldest start first, as on iOS; not left to the server's order.
+  const pendingClasses = useMemo(
+    () => sortClassesByStart(pending.map(withExtras)),
+    [pending, extras]
+  );
   const validatedClasses = useMemo(
     () => sortClassesByStart(validated.map(withExtras)),
     [validated, extras]
