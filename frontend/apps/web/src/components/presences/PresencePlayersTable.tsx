@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { presencesCsvFileName } from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { searchPresencePlayers } from "./presenceSearch";
@@ -140,9 +141,9 @@ export function PresencePlayersTable({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    // Date-stamped: a coach exporting monthly ends up with distinct files
+    // Date-stamped on the club's day: a coach exporting monthly ends up with distinct files
     // rather than presences(3).csv.
-    link.download = `presences-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = presencesCsvFileName();
     link.click();
     URL.revokeObjectURL(url);
   }

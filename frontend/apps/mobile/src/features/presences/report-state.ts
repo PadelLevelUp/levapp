@@ -3,7 +3,7 @@ import type {
   PresenceStatsTotals,
 } from "@levelup/types";
 
-import { rosterSearchFields, searchPlayers } from "@levelup/config";
+import { presencesCsvFileName, rosterSearchFields, searchPlayers } from "@levelup/config";
 
 import type { ChartPoint } from "@/components/charts/chart-geometry";
 
@@ -238,10 +238,10 @@ function csvField(value: string | number): string {
  * Date-stamped, matching web's `link.download`: a coach exporting monthly ends
  * up with distinct files rather than `presences(3).csv`. On iOS the name is
  * also what the share sheet shows and what Mail attaches, so it has to be
- * meaningful on its own.
+ * meaningful on its own. The date is the club's day, not the UTC date (rule 17).
  */
 export function csvFileName(now: Date): string {
-  return `presences-${now.toISOString().slice(0, 10)}.csv`;
+  return presencesCsvFileName(now);
 }
 
 /**
