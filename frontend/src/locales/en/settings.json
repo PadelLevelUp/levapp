@@ -450,6 +450,10 @@
           "moveUp": "Move up",
           "moveDown": "Move down"
         }
+      },
+      "blankRule": {
+        "eligibility": "Eligibility: a rule has no value.",
+        "groups": "Invitation groups: a rule has no value."
       }
     },
     "reminders": {
@@ -509,7 +513,8 @@
         "special": "Spots other students have already freed count for their side too. A player with no side, or who plays both, counts for neither and can be invited either way; an already balanced class keeps the leaving player's side."
       },
       "subscriptionActive": "Active",
-      "subscriptionInactive": "Inactive"
+      "subscriptionInactive": "Inactive",
+      "valueMissing": "This rule needs a value."
     },
     "tiebreakers": {
       "fewestUnjustified": "Fewest unjustified absences",
@@ -713,7 +718,8 @@
       },
       "openSpots": {
         "label": "Make empty spots for future classes visible to eligible students (they can request to join)"
-      }
+      },
+      "valueMissing": "This rule needs a value."
     },
     "connections": {
       "title": "My connections",
