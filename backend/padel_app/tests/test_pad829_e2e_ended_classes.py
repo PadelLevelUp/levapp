@@ -89,10 +89,23 @@ def test_on_the_flag_the_coach_gets_ended_ready_classes_and_delete_removes_them(
     assert client.post(ROUTE, headers=headers, json={"count": 31}).status_code == 400
     assert client.post(ROUTE, headers=headers, json={"count": 2, "weeksAgo": 0}).status_code == 400
     assert client.post(ROUTE, headers=headers, json={"count": "ten"}).status_code == 400
+    assert client.post(ROUTE, headers=headers, json={"count": 2, "durationMinutes": 0}).status_code == 400
+    assert client.post(ROUTE, headers=headers, json={"count": 2, "durationMinutes": 181}).status_code == 400
+
+    # PAD-837: a class length for the hours columns; the classes stay back to back.
+    from padel_app.models.lesson_instances import LessonInstance
+
+    res = client.post(ROUTE, headers=headers, json={"count": 2, "weeksAgo": 2, "durationMinutes": 90})
+    assert res.status_code == 200
+    long_ids = res.get_json()["lessonInstanceIds"]
+    with app.app_context():
+        first, second = (LessonInstance.query.get(i) for i in long_ids)
+        assert (first.end_datetime - first.start_datetime) == timedelta(minutes=90)
+        assert second.start_datetime == first.end_datetime
 
     res = client.delete(ROUTE, headers=headers)
     assert res.status_code == 200
-    assert res.get_json() == {"deleted": 10}
+    assert res.get_json() == {"deleted": 12}
     with app.app_context():
         assert Lesson.query.filter(Lesson.title.like(TITLE_PREFIX + "%")).count() == 0
         listing = list_pending_validation(

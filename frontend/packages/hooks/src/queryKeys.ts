@@ -67,11 +67,16 @@ export const queryKeys = {
   // client.query-cache rule 7 (PAD-586): the shared roster and the presences reads. The key strings
   // are the mobile ones (`features/presences/presence-invalidation.ts`, `hooks.ts`) so both apps invalidate alike.
   coachRoster: ["coach-players"] as const,
-  presenceStats: ["presence-stats"] as const,
+  // attendance.validation rule 17g (PAD-837): stats and trend are keyed by the same period, so the
+  // two reads can never be for different windows. "" is the server's default window. Every presence
+  // write invalidates by the prefixes, as before.
+  presenceStatsPrefix: ["presence-stats"] as const,
+  presenceStats: (from = "", to = "") => ["presence-stats", from, to] as const,
   // settings.coach-presences-view (PAD-837b): the coach's saved Presences columns.
   coachPresencesView: ["coach-presences-view"] as const,
   presenceTrendPrefix: ["presence-trend"] as const,
-  presenceTrend: (playerIdsKey: string) => ["presence-trend", playerIdsKey] as const,
+  presenceTrend: (playerIdsKey: string, from = "", to = "") =>
+    ["presence-trend", playerIdsKey, from, to] as const,
   presencePendingPrefix: ["presence-pending"] as const,
   presencePending: (from: string, to: string) => ["presence-pending", from, to] as const,
   presencePendingCount: (from: string, to: string) =>

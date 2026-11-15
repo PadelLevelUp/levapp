@@ -8,9 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DEFAULT_VISIBLE_COLUMNS, PRESENCE_COLUMNS } from "@levelup/config";
+import { DEFAULT_VISIBLE_COLUMNS, PRESENCE_COLUMNS, formatBalanceHours, formatMinutesAsHours } from "@levelup/config";
 import type { PresencePlayerStats } from "@/types";
 import { PresencePlayersTable } from "./PresencePlayersTable";
+import { usePresencesView } from "./usePresencesView";
 
 // jsdom has no PointerEvent, and Radix's menu trigger acts only on a primary-button pointerdown.
 if (typeof window.PointerEvent === "undefined") {
@@ -47,11 +48,17 @@ vi.mock("react-i18next", () => {
   return { useTranslation: () => translation };
 });
 
-function renderTable() {
+/** The table as the page mounts it: its columns come from the page's saved view. */
+function TableWithView({ players }: { players: PresencePlayerStats[] }) {
+  const view = usePresencesView();
+  return <PresencePlayersTable players={players} columns={view.columns} onChooseColumn={view.chooseColumn} />;
+}
+
+function renderTable(players: PresencePlayerStats[] = [ana]) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter>
-        <PresencePlayersTable players={[ana]} />
+        <TableWithView players={players} />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -133,6 +140,92 @@ describe("PresencePlayersTable chooser and CSV (PAD-837)", () => {
   });
 });
 
+describe("PresencePlayersTable guest columns (PAD-837, rule 17e)", () => {
+  it("[ATTENDANCE-VALIDATION-65] explains the guest columns", async () => {
+    // A heading only renders for a shown column: show both guest columns first.
+    renderTable();
+    for (const key of GUEST_COLUMNS) await chooseColumn(key);
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: /presences\.table\.columns/ }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    for (const key of GUEST_COLUMNS) {
+      // In the chooser: a non-empty line, tied to the column's checkbox. Never the wording.
+      const help = await screen.findByTestId(`presences-column-help-${key}`);
+      expect(help.textContent?.trim()).toBeTruthy();
+      const box = screen.getByRole("checkbox", { name: `presences.column.${key}` });
+      expect(box.getAttribute("aria-describedby")).toBe(help.id);
+    }
+    // No other column carries one.
+    expect(screen.queryAllByTestId(/^presences-column-help-/)).toHaveLength(GUEST_COLUMNS.length);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+    // On the heading: the same line.
+    for (const key of GUEST_COLUMNS) {
+      const th = within(screen.getByRole("table"))
+        .getAllByRole("columnheader")
+        .find((h) => h.textContent?.trim() === `presences.column.${key}`);
+      expect(th?.getAttribute("title")).toBe(`presences.columnHelp.${key}`);
+    }
+  });
+});
+
+// Named here, not read from HELPED_COLUMNS: an emptied list must fail this test, not pass it.
+const GUEST_COLUMNS = ["invitesReceived", "invitesJoined"] as const;
+
+describe("PresencePlayersTable hours columns (PAD-837, rule 17d)", () => {
+  // 600, 120 and 90 minutes: by the text "2h" > "1h30" > "10h", by the minutes 600 > 120 > 90.
+  const players: PresencePlayerStats[] = [
+    { ...ana, playerId: 1, name: "A", displayName: "A", presenceMinutes: 90, balanceMinutes: 45 },
+    { ...ana, playerId: 2, name: "B", displayName: "B", presenceMinutes: 600, balanceMinutes: -45 },
+    { ...ana, playerId: 3, name: "C", displayName: "C", presenceMinutes: 120, balanceMinutes: 0 },
+  ];
+
+  it("[ATTENDANCE-VALIDATION-63] sorts an hours column by minutes", async () => {
+    let csv: Blob | null = null;
+    URL.createObjectURL = vi.fn((blob: Blob) => {
+      csv = blob;
+      return "blob:presences";
+    }) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    renderTable(players);
+    await chooseColumn("presenceMinutes");
+    // Sort by "Presenças (h)": biggest first.
+    fireEvent.click(screen.getByRole("button", { name: "presences.column.presenceMinutes" }));
+    const cells = screen.getAllByTestId("presences-cell-presenceMinutes").map((td) => td.textContent);
+    expect(cells).toEqual([600, 120, 90].map(formatMinutesAsHours));
+
+    // The CSV cell is the screen's text (rule 17).
+    fireEvent.click(screen.getByRole("button", { name: /presences\.table\.export/ }));
+    const text = await act(
+      () =>
+        new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.readAsText(csv as unknown as Blob);
+        })
+    );
+    const header = text.split("\n")[0].split(",");
+    const at = header.indexOf('"presences.column.presenceMinutes"');
+    expect(text.split("\n").slice(1).map((line) => line.split(",")[at])).toEqual(
+      [600, 120, 90].map((m) => `"${formatMinutesAsHours(m)}"`)
+    );
+  });
+
+  it("[ATTENDANCE-VALIDATION-62] writes the balance with its sign, the colour following it", async () => {
+    renderTable(players);
+    await chooseColumn("balanceMinutes");
+    fireEvent.click(screen.getByRole("button", { name: "presences.column.balanceMinutes" }));
+    const cells = screen.getAllByTestId("presences-cell-balanceMinutes");
+    expect(cells.map((td) => td.textContent)).toEqual([45, 0, -45].map(formatBalanceHours));
+    expect(cells.map((td) => (td.className.includes("text-emerald-600") ? "+" : td.className.includes("text-destructive") ? "-" : "0"))).toEqual(["+", "0", "-"]);
+  });
+});
+
 async function chooseColumn(key: string) {
   fireEvent.pointerDown(screen.getByRole("button", { name: /presences\.table\.columns/ }), {
     button: 0,
@@ -203,8 +296,10 @@ describe("PresencePlayersTable saved view (PAD-837b)", () => {
     await waitFor(() => expect(viewApi.get).toHaveBeenCalled());
     await chooseColumn("justified");
     await waitFor(() => expect(viewApi.put).toHaveBeenCalledTimes(1));
+    // The whole view: the columns and the default period beside them (rule 4).
     expect(viewApi.put).toHaveBeenCalledWith({
       columns: ["name", "total", "private", "academy", "justified", "unjustified"],
+      defaultPeriod: "thisMonth",
     });
   });
 

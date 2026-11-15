@@ -26,15 +26,19 @@ PLAYERS_PER_CLASS = 4
 # a day in the past, so every one has ended whatever the clock says now.
 FIRST_START_HOUR = 6
 CLASS_MINUTES = 30
+# PAD-837: the hours columns need classes of a known length (60, 90); `minutes` sets it. The cap
+# keeps 30 classes on one day (06:00 + 30 × 180 min would run past it, so the count is capped too).
+MAX_CLASS_MINUTES = 180
 
 
 def _now_naive():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def create_ended_classes(coach, *, count, weeks_ago, now=None):
-    """`count` ended classes for `coach`, `weeks_ago` weeks back. Returns their instance ids in
-    start order (the first id is the earliest class) and the day they sit on."""
+def create_ended_classes(coach, *, count, weeks_ago, now=None, minutes=CLASS_MINUTES):
+    """`count` ended classes for `coach`, `weeks_ago` weeks back, each `minutes` long and back to
+    back from 06:00. Returns their instance ids in start order (the first id is the earliest
+    class) and the day they sit on."""
     now = now or _now_naive()
     day = (now - timedelta(days=7 * weeks_ago)).replace(
         hour=FIRST_START_HOUR, minute=0, second=0, microsecond=0
@@ -48,8 +52,8 @@ def create_ended_classes(coach, *, count, weeks_ago, now=None):
     )
     ids = []
     for i in range(count):
-        start = day + timedelta(minutes=CLASS_MINUTES * i)
-        end = start + timedelta(minutes=CLASS_MINUTES)
+        start = day + timedelta(minutes=minutes * i)
+        end = start + timedelta(minutes=minutes)
         lesson = Lesson(
             title=f"{TITLE_PREFIX}{i + 1:02d}",
             start_datetime=start,

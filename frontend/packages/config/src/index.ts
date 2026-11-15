@@ -13,6 +13,7 @@ export * from "./presence-status";
 export * from "./presences-view-state";
 export * from "./presences-csv";
 export * from "./presence-columns";
+export * from "./presence-hours";
 export * from "./presence-periods";
 export * from "./validation-tier";
 export * from "./presence-scope";

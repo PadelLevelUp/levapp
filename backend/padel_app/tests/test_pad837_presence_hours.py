@@ -203,3 +203,38 @@ def test_duration_text_is_unchanged_by_the_shared_helper():
     for length in (1, 45, 60, 75, 90, 120):
         end = start + timedelta(minutes=length)
         assert _format_duration(start, end) == f"{duration_minutes(start, end)} min" == f"{length} min"
+
+
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-62")
+def test_balance_is_guest_presence_minus_justified_absence(app, hours_world):
+    w = hours_world
+    with app.app_context():
+        ninety = datetime(2026, 10, 6, 18, 0)
+        sixty = datetime(2026, 10, 8, 18, 0)
+        sixty_b = datetime(2026, 10, 10, 18, 0)
+        # Ana: 90 guest minutes, 60 justified -> +30. Bruno: 60 guest, 90 justified -> -30.
+        # Carla: 60 guest, 60 justified -> 0, plus an unjustified absence that must not move it.
+        # Duda is enrolled everywhere, so she has no guest minutes: only her justified 60 counts.
+        _add_class(w, ninety, ninety + timedelta(minutes=90), [w["bruno_id"]], {
+            w["ana_id"]: ("present", None),
+            w["bruno_id"]: ("absent", "justified"),
+        })
+        _add_class(w, sixty, sixty + timedelta(minutes=60), [w["ana_id"], w["carla_id"], w["duda_id"]], {
+            w["ana_id"]: ("absent", "justified"),
+            w["bruno_id"]: ("present", None),
+            w["carla_id"]: ("absent", "justified"),
+            w["duda_id"]: ("absent", "justified"),
+        })
+        _add_class(w, sixty_b, sixty_b + timedelta(minutes=60), [w["duda_id"]], {
+            w["carla_id"]: ("present", None),
+            w["duda_id"]: ("absent", "unjustified"),
+        })
+
+    rows = _stats_by_player(app, w)
+    ana, bruno, carla, duda = (rows[w[f"{n}_id"]] for n in ("ana", "bruno", "carla", "duda"))
+
+    assert (ana["guestPresenceMinutes"], ana["justifiedMinutes"], ana["balanceMinutes"]) == (90, 60, 30)
+    assert (bruno["guestPresenceMinutes"], bruno["justifiedMinutes"], bruno["balanceMinutes"]) == (60, 90, -30)
+    assert (carla["guestPresenceMinutes"], carla["justifiedMinutes"], carla["balanceMinutes"]) == (60, 60, 0)
+    assert duda["unjustified"] == 1
+    assert duda["balanceMinutes"] == -60, "only the justified absence moves it; the unjustified one does not"

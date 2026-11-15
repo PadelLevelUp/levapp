@@ -25,18 +25,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   PINNED_COLUMN,
   PRESENCE_COLUMNS,
-  applyLoadedView,
-  chooseColumns,
-  initialPresencesView,
+  HELPED_COLUMNS,
+  balanceSign,
+  presenceCellText,
+  presenceCellValue,
   presencesCsvFileName,
-  presencesViewPayload,
-  saveFailed,
-  saveSucceeded,
-  toggleColumn,
   type PresenceColumnKey,
 } from "@levelup/config";
-import { useCoachPresencesView, useSaveCoachPresencesView } from "@levelup/hooks";
-import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { searchPresencePlayers } from "./presenceSearch";
@@ -56,18 +51,36 @@ type ColumnKey = PresenceColumnKey;
  * Rows link into the existing per-player attendance history page rather than
  * duplicating it here.
  */
-/** A cell's value: the `name` column prints the coach's display name (PAD-683, rule 9a). */
-function cellOf(row: PresencePlayerStats, key: ColumnKey): string | number {
-  return key === "name" ? (row.displayName ?? row.name) : row[key];
+/**
+ * A cell's text: the `name` column prints the coach's display name (PAD-683, rule 9a); a number
+ * column prints what the one formatter gives (PAD-837, rule 17d: hours as "1h30", the balance
+ * with its sign).
+ */
+function cellOf(row: PresencePlayerStats, key: ColumnKey): string {
+  return key === "name" ? (row.displayName ?? row.name) : presenceCellText(row, key);
+}
+
+/** The balance's colour follows its sign, never carries it alone (rule 17d). */
+function balanceTone(row: PresencePlayerStats): string | undefined {
+  const sign = balanceSign(presenceCellValue(row, "balanceMinutes"));
+  return sign === "positive" ? "text-emerald-600" : sign === "negative" ? "text-destructive" : undefined;
 }
 
 export function PresencePlayersTable({
   players,
   loading,
   onFilteredChange,
+  columns: visible,
+  onChooseColumn,
 }: {
   players: PresencePlayerStats[];
   loading?: boolean;
+  /**
+   * settings.coach-presences-view (PAD-837): the shown columns and the chooser's change, from the
+   * page's saved view (`usePresencesView`), which also holds the coach's default period.
+   */
+  columns: ColumnKey[];
+  onChooseColumn: (key: ColumnKey) => void;
   /**
    * PAD-192 (attendance.validation rule 17a): the rows the filters left
    * visible, or `null` when no filter is active. Sorting and the column
@@ -82,35 +95,6 @@ export function PresencePlayersTable({
   const [query, setQuery] = useState("");
   const [minTotal, setMinTotal] = useState("");
   const [maxUnjustified, setMaxUnjustified] = useState("");
-  // settings.coach-presences-view (PAD-837b): the columns come from the coach's saved view.
-  const { toast } = useToast();
-  const savedView = useCoachPresencesView();
-  const saveView = useSaveCoachPresencesView();
-  const [columnsView, setColumnsView] = useState(initialPresencesView);
-  const visible = columnsView.columns;
-
-  // Rule 5: the load applies once it answers, unless the coach already chose; a failed load
-  // (no data) leaves the defaults.
-  useEffect(() => {
-    if (savedView.isSuccess) setColumnsView((s) => applyLoadedView(s, savedView.data.presencesView));
-  }, [savedView.isSuccess, savedView.data]);
-
-  // Rules 4 and 6: every change sends the whole list; a failed save keeps the columns and says so.
-  function chooseColumn(key: ColumnKey) {
-    const next = toggleColumn(visible, key);
-    setColumnsView((s) => chooseColumns(s, next));
-    saveView.mutate(presencesViewPayload(next), {
-      onSuccess: () => setColumnsView((s) => saveSucceeded(s)),
-      onError: () => {
-        setColumnsView((s) => saveFailed(s));
-        toast({
-          title: t("presences.view.notSavedTitle"),
-          description: t("presences.view.notSavedBody"),
-          variant: "destructive",
-        });
-      },
-    });
-  }
   const [sortKey, setSortKey] = useState<ColumnKey>("total");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -137,7 +121,8 @@ export function PresencePlayersTable({
     return [...filtered].sort((a, b) => {
       // PAD-683 (rule 9a): sorted by the name the coach reads, the server's displayName.
       if (sortKey === "name") return (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name) * dir;
-      return ((a[sortKey] as number) - (b[sortKey] as number)) * dir;
+      // Every other column sorts by its number, hours by minutes, never by the text (rule 17d).
+      return (presenceCellValue(a, sortKey) - presenceCellValue(b, sortKey)) * dir;
     });
   }, [filtered, query, sortKey, sortDir]);
 
@@ -157,7 +142,8 @@ export function PresencePlayersTable({
     const header = shown.map((c) => escape(t(`presences.column.${c.key}`)));
     const body = rows.map((row) =>
       // The CSV is a file the coach may send on: it keeps the real name (players.nickname rule 7).
-      shown.map((c) => escape(row[c.key])).join(",")
+      // PAD-837 (rule 17): the same text the screen shows, hours through the one formatter.
+      shown.map((c) => escape(c.key === "name" ? row.name : presenceCellText(row, c.key))).join(",")
     );
     const csv = [header.join(","), ...body].join("\n");
 
@@ -249,18 +235,32 @@ export function PresencePlayersTable({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {COLUMNS.map((column) => (
-                <label
-                  key={column.key}
-                  className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm"
-                >
-                  <Checkbox
-                    checked={visible.includes(column.key)}
-                    // The player column is what every other cell is about.
-                    disabled={column.key === PINNED_COLUMN}
-                    onCheckedChange={() => chooseColumn(column.key)}
-                  />
-                  {t(`presences.column.${column.key}`)}
-                </label>
+                <div key={column.key} className="px-2 py-1.5 text-sm">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <Checkbox
+                      checked={visible.includes(column.key)}
+                      // The player column is what every other cell is about.
+                      disabled={column.key === PINNED_COLUMN}
+                      onCheckedChange={() => onChooseColumn(column.key)}
+                      aria-describedby={
+                        HELPED_COLUMNS.includes(column.key)
+                          ? `presences-column-help-${column.key}`
+                          : undefined
+                      }
+                    />
+                    {t(`presences.column.${column.key}`)}
+                  </label>
+                  {/* PAD-837 (rule 17e): the guest columns say what they count. */}
+                  {HELPED_COLUMNS.includes(column.key) && (
+                    <p
+                      id={`presences-column-help-${column.key}`}
+                      data-testid={`presences-column-help-${column.key}`}
+                      className="ml-6 text-xs text-muted-foreground"
+                    >
+                      {t(`presences.columnHelp.${column.key}`)}
+                    </p>
+                  )}
+                </div>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -289,6 +289,11 @@ export function PresencePlayersTable({
                     <th
                       key={column.key}
                       scope="col"
+                      title={
+                        HELPED_COLUMNS.includes(column.key)
+                          ? t(`presences.columnHelp.${column.key}`)
+                          : undefined
+                      }
                       aria-sort={
                         active
                           ? sortDir === "asc"
@@ -336,11 +341,13 @@ export function PresencePlayersTable({
                   {shown.map((column) => (
                     <td
                       key={column.key}
+                      data-testid={`presences-cell-${column.key}`}
                       className={cn(
                         "whitespace-nowrap px-4 py-3",
                         column.numeric
                           ? "text-right tabular-nums"
-                          : "font-medium"
+                          : "font-medium",
+                        column.key === "balanceMinutes" && balanceTone(row)
                       )}
                     >
                       {cellOf(row, column.key)}
