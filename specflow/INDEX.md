@@ -621,6 +621,7 @@ Untagged tests: 4251
     - test: `backend/padel_app/tests/test_pad313_attendance_state.py` › test_a_real_cancellation_through_the_service_reports_not_coming
     - test: `frontend/packages/config/src/attendance-state.test.ts` › [ATTENDANCE-PRESENCE-2] reads a cancellation as not_coming, never as coming, even though confirmed is true
     - test: `frontend/packages/config/src/attendance-state.test.ts` › [ATTENDANCE-PRESENCE-2] reads an answered yes as coming
+    - test: `frontend/packages/config/src/attendance-state.test.ts` › [ATTENDANCE-PRESENCE-2] a validated row with no status falls back to the student's intent (rule 9)
     - test: `frontend/packages/config/src/attendance-state.test.ts` › [ATTENDANCE-PRESENCE-2] reads an unanswered row as planned
     - test: `frontend/packages/config/src/attendance-state.test.ts` › [ATTENDANCE-PRESENCE-2] reports the coach's record once validated, and only then
     - test: `frontend/packages/config/src/attendance-state.test.ts` › [ATTENDANCE-PRESENCE-2] keeps an unvalidated absence as intent, whatever its justification
