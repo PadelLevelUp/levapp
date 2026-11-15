@@ -2289,6 +2289,30 @@ def put_coach_working_hours():
     })
 
 
+@bp.get("/coach/presences-view")
+@jwt_required()
+def get_coach_presences_view():
+    """settings.coach-presences-view rule 1."""
+    coach = require_coach()
+    return jsonify({"presencesView": coach.presences_view})
+
+
+@bp.put("/coach/presences-view")
+@jwt_required()
+def put_coach_presences_view():
+    """settings.coach-presences-view rules 1-2: replaces the whole value; null clears it."""
+    from padel_app.services.presences_view_service import set_presences_view
+
+    coach = require_coach()
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or "presencesView" not in body:
+        # A body with no `presencesView` must not read as "clear it".
+        from padel_app.services.availability_service import refuse
+
+        refuse(400, "INVALID_PRESENCES_VIEW", "the body is {presencesView: <object or null>}")
+    return jsonify({"presencesView": set_presences_view(coach, body["presencesView"])})
+
+
 @bp.post("/class-requests")
 @jwt_required()
 def create_class_request():

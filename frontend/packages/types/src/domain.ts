@@ -433,6 +433,10 @@ export type CoachWorkingHours = Partial<
   Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", [string, string][]>
 > | null;
 
+/** settings.coach-presences-view (PAD-837b): the Presences columns the coach shows; `null` is "not set"
+ *  and the shells show the column list's defaults. The server checks the shape, never the ids. */
+export type CoachPresencesView = { columns: string[] } | null;
+
 /** classes.availability rule 2: everyone's free time, and nothing about anyone's busy time. */
 export interface AvailabilityResponse {
   coachId: string;
