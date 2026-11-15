@@ -1065,6 +1065,45 @@ def debug_stall_disarm():
     return jsonify({"stalled": None}), 200
 
 
+@bp.post("/debug/ended-classes")
+@jwt_required()
+def debug_ended_classes_create():
+    """attendance.validation rule 30 (PAD-829): E2E only, 404 unless E2E_DEBUG_ENDPOINTS is on.
+    `{"count": n, "weeksAgo": w}` gives the calling coach `n` ended classes (at most 30) on the
+    day `w` weeks ago (1 to 8), every roster player on them confirmed, so each is ready to
+    validate and the validate list is long enough to drag (flow 323). Answers their instance ids
+    in start order. Like every debug route it takes a JWT as well as the flag."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    coach = require_coach()
+    from padel_app.utils import e2e_fixtures
+
+    data = request.get_json(silent=True) or {}
+    try:
+        count = int(data.get("count", 10))
+        weeks_ago = int(data.get("weeksAgo", 1))
+    except (TypeError, ValueError):
+        return jsonify({"error": "COUNT_INVALID"}), 400
+    if not 1 <= count <= e2e_fixtures.MAX_ENDED_CLASSES:
+        return jsonify({"error": "COUNT_INVALID"}), 400
+    if not 1 <= weeks_ago <= e2e_fixtures.MAX_WEEKS_AGO:
+        return jsonify({"error": "WEEKS_AGO_INVALID"}), 400
+    return jsonify(e2e_fixtures.create_ended_classes(coach, count=count, weeks_ago=weeks_ago)), 200
+
+
+@bp.delete("/debug/ended-classes")
+@jwt_required()
+def debug_ended_classes_delete():
+    """Rule 30: removes the classes the POST created for this coach. 404 unless
+    E2E_DEBUG_ENDPOINTS is on; takes a JWT."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    coach = require_coach()
+    from padel_app.utils import e2e_fixtures
+
+    return jsonify(e2e_fixtures.delete_ended_classes(coach)), 200
+
+
 @bp.get("/coach_players_paginated")
 @jwt_required()
 def coach_players_paginated():
