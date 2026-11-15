@@ -463,6 +463,24 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     loads the window's rows to take their length. `pendingCount` still equals the listing's length
     for the same bounds (rule 18).
 
+30. **(PAD-829) The validate list takes every drag, before and after a confirm.** On iOS the
+    sheet's class list and a class's detail list scroll wherever the finger lands in them — on a
+    class card, on a validated row's text, on a group label or in a gap between rows — and keep
+    doing so after a confirm has moved classes into "validated this week". The cause was in the
+    shared dialog, not the sheet: the primitive's overlay and panel were Pressables above the
+    list, and on Fabric a scroll view whose ancestor is the JS responder never starts its pan
+    (`RCTScrollViewComponentView._shouldDisableScrollInteraction`), so a drag that began on a
+    non-pressable spot stood still; after a confirm the list is mostly such rows. The shared
+    `DialogContent` therefore keeps nothing above a list that claims touches: the backdrop that
+    closes on a press outside is a sibling behind the panel (`dialog-backdrop`), and the panel
+    claims no touch. Every list inside a dialog is covered by the same change. The E2E fixture
+    for a long list is `POST /api/app/debug/ended-classes` `{ "count": n, "weeksAgo": w }`: under
+    `E2E_DEBUG_ENDPOINTS` only, with a JWT (401 without, 404 with the flag off), it gives the
+    calling coach `n` ended classes (at most 30) on the day `w` weeks ago (1 to 8), every roster
+    player confirmed, and answers their instance ids in start order; `DELETE` removes them.
+    Web is not affected: its dialog's list is a plain `overflow-y-auto` block with no responder
+    system between the finger and the scroll.
+
 ### Acceptance Criteria
 
 #### ATTENDANCE-VALIDATION-1: The count does not load the rows (rule 27, PAD-591)
@@ -801,6 +819,26 @@ Pending Q6: this is the payload as of today, a characterisation of what rule 17b
 - **And** on 15 November, with two classes so far, November's bucket holds those 4 presences only
 - **And** the window's first bucket (August) starts before the window does (4 August)
 test: `backend/padel_app/tests/test_pad814_trend_running_month.py` › `test_on_the_first_the_running_month_is_a_zero_last_bucket` (+2 more)
+
+#### ATTENDANCE-VALIDATION-52: The validate list scrolls before and after a confirm (rule 30, PAD-829)
+- **Given** the iOS validate sheet on a week with ten ended, ready classes
+- **When** the coach drags the list to its end and back to the top, confirms them all, and drags
+  the list of validated rows to its end and back to the top
+- **Then** each drag moves the list: the last class's control takes a tap at the end and the
+  first class's control takes one at the top, before the confirm and after it
+- **And** the shared dialog's backdrop is a sibling behind the panel, not an ancestor of it, a
+  press on it closes the dialog, and the panel claims no touch
+test: `frontend/apps/mobile/.maestro/flows/323-validate-sheet-scrolls-after-confirm.yaml`;
+`frontend/apps/mobile/src/components/ui/dialog.test.tsx` › `[ATTENDANCE-VALIDATION-52] keeps nothing above the panel that claims touches, and the backdrop still closes`
+
+#### ATTENDANCE-VALIDATION-54: The ended-classes fixture exists only for E2E (rule 30, PAD-829)
+- **Given** a coach with a roster
+- **When** they POST `/debug/ended-classes` `{ "count": 10, "weeksAgo": 1 }` under `E2E_DEBUG_ENDPOINTS`
+- **Then** ten classes a week ago are listed as pending for that week, every player confirmed, and
+  the answer carries their ten instance ids in start order
+- **And** `DELETE /debug/ended-classes` removes them, and both answer 404 with the flag off and
+  401 without a token
+test: `backend/padel_app/tests/test_pad829_e2e_ended_classes.py` › `test_on_the_flag_the_coach_gets_ended_ready_classes_and_delete_removes_them` (+1 more)
 
 #### ATTENDANCE-VALIDATION-53: Every validate row says its day and time range (rule 29, PAD-924)
 - **Given** a week with three classes of the same title, validated on different days and hours
