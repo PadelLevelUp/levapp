@@ -186,3 +186,20 @@ def test_the_minutes_helper_answers_zero_without_a_span():
     # Floored to whole minutes, as `{duration}` renders it.
     assert duration_minutes(start, start + timedelta(minutes=89, seconds=59)) == 89
     assert _format_duration(start, start + timedelta(minutes=89, seconds=59)) == "89 min"
+
+
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-61")
+def test_duration_text_is_unchanged_by_the_shared_helper():
+    """`_format_duration` reads its minutes from `duration_minutes` and renders what it did before.
+
+    A positive span under a minute stays "0 min" (only a missing or non-positive span is empty),
+    which is why the span check stays in `_format_duration` rather than reading 0 as "no span".
+    """
+    from padel_app.services.message_text import _format_duration
+    from padel_app.utils.dates import duration_minutes
+
+    start = datetime(2026, 10, 5, 19, 0)
+    assert _format_duration(start, start + timedelta(seconds=30)) == "0 min"
+    for length in (1, 45, 60, 75, 90, 120):
+        end = start + timedelta(minutes=length)
+        assert _format_duration(start, end) == f"{duration_minutes(start, end)} min" == f"{length} min"
