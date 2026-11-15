@@ -435,7 +435,9 @@ export type CoachWorkingHours = Partial<
 
 /** settings.coach-presences-view (PAD-837b): the Presences columns the coach shows; `null` is "not set"
  *  and the shells show the column list's defaults. The server checks the shape, never the ids. */
-export type CoachPresencesView = { columns: string[] } | null;
+// PAD-837 (attendance.validation rule 17f): `defaultPeriod` is the coach's default period shortcut;
+// absent on views saved before it, which read as "thisMonth".
+export type CoachPresencesView = { columns: string[]; defaultPeriod?: string } | null;
 
 /** classes.availability rule 2: everyone's free time, and nothing about anyone's busy time. */
 export interface AvailabilityResponse {
@@ -1991,6 +1993,12 @@ export interface PresencePlayerStats {
   presenceMinutes: number;
   justifiedMinutes: number;
   guestPresenceMinutes: number;
+  /**
+   * "Saldo de horas" (rule 17d, Q2): `guestPresenceMinutes − justifiedMinutes`, computed on the
+   * server only. Optional until the server side lands in this batch; the shells read a missing
+   * value as 0.
+   */
+  balanceMinutes?: number;
 }
 
 export interface PresenceStatsTotals {

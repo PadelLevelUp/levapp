@@ -100,7 +100,7 @@ export function PresencePlayersTable({
   function chooseColumn(key: ColumnKey) {
     const next = toggleColumn(visible, key);
     setColumnsView((s) => chooseColumns(s, next));
-    saveView.mutate(presencesViewPayload(next), {
+    saveView.mutate(presencesViewPayload({ ...columnsView, columns: next }), {
       onSuccess: () => setColumnsView((s) => saveSucceeded(s)),
       onError: () => {
         setColumnsView((s) => saveFailed(s));

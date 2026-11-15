@@ -122,7 +122,7 @@ export function PresencesScreen() {
   // columns and says so.
   const applyColumns = (next: PresenceColumnKey[]) => {
     setColumnsView((s) => chooseColumns(s, next));
-    saveView.mutate(presencesViewPayload(next), {
+    saveView.mutate(presencesViewPayload({ ...columnsView, columns: next }), {
       onSuccess: () => setColumnsView((s) => saveSucceeded(s)),
       onError: () => {
         setColumnsView((s) => saveFailed(s));

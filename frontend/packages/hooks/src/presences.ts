@@ -21,25 +21,37 @@ export function useCoachRoster(options?: { enabled?: boolean }) {
   });
 }
 
-export function usePresenceStats() {
+/** The tab's one period (attendance.validation rule 17g): bare inclusive `YYYY-MM-DD` bounds. */
+export interface PresencePeriodBounds {
+  from: string;
+  to: string;
+}
+
+/** `period`: the tab's period, sent as `from`/`to`; `undefined` is the server's default window. */
+export function usePresenceStats(period?: PresencePeriodBounds) {
   return useQuery({
-    queryKey: queryKeys.presenceStats,
-    queryFn: () => presencesApi.getPresenceStats(),
+    queryKey: queryKeys.presenceStats(period?.from, period?.to),
+    queryFn: () => presencesApi.getPresenceStats(period ? { from: period.from, to: period.to } : {}),
   });
 }
 
 /**
  * `playerIds`: the players the filter left visible, so the over-time chart follows the filters.
- * `undefined` is the whole roster.
+ * `undefined` is the whole roster. `period`: the same bounds the stats read (rule 17g).
  */
 export function usePresenceTrend(
   playerIds?: number[],
+  period?: PresencePeriodBounds,
   options?: QueryOverrides<Awaited<ReturnType<typeof presencesApi.getPresenceTrend>>>
 ) {
   const key = playerIds ? [...playerIds].sort((a, b) => a - b).join(",") : "all";
   return useQuery({
-    queryKey: queryKeys.presenceTrend(key),
-    queryFn: () => presencesApi.getPresenceTrend(playerIds ? { playerIds } : {}),
+    queryKey: queryKeys.presenceTrend(key, period?.from, period?.to),
+    queryFn: () =>
+      presencesApi.getPresenceTrend({
+        ...(period ? { from: period.from, to: period.to } : {}),
+        ...(playerIds ? { playerIds } : {}),
+      }),
     ...options,
   });
 }
@@ -67,7 +79,7 @@ export function useInvalidatePresences() {
   const queryClient = useQueryClient();
   return () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.presenceStats }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.presenceStatsPrefix }),
       queryClient.invalidateQueries({ queryKey: queryKeys.presenceTrendPrefix }),
       queryClient.invalidateQueries({ queryKey: queryKeys.presencePendingPrefix }),
     ]);

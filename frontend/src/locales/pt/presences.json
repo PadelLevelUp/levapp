@@ -101,7 +101,11 @@
       "justified": "Faltas justificadas",
       "unjustified": "Faltas injustificadas",
       "invitesReceived": "Aulas como convidado",
-      "invitesJoined": "Presenças como convidado"
+      "invitesJoined": "Presenças como convidado",
+      "presenceMinutes": "Presenças (h)",
+      "justifiedMinutes": "Faltas justificadas (h)",
+      "guestPresenceMinutes": "Presenças como convidado (h)",
+      "balanceMinutes": "Saldo de horas"
     },
     "columnHelp": {
       "invitesReceived": "Aulas de outro grupo em que o jogador esteve, qualquer que fosse a resposta.",

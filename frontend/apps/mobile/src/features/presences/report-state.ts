@@ -4,6 +4,7 @@ import type {
 } from "@levelup/types";
 
 import {
+  presenceCellText,
   presencesCsvFileName,
   rosterSearchFields,
   searchPlayers,
@@ -191,7 +192,10 @@ export function buildPresencesCsv(
 ): string {
   const header = columns.map((column) => csvField(columnLabel(column.key)));
   const body = rows.map((row) =>
-    columns.map((column) => csvField(row[column.key])).join(",")
+    // PAD-837 (rule 17d): the same text the screen shows; hours through the one formatter.
+    columns
+      .map((column) => csvField(column.key === "name" ? row.name : presenceCellText(row, column.key)))
+      .join(",")
   );
   return [header.join(","), ...body].join("\n");
 }

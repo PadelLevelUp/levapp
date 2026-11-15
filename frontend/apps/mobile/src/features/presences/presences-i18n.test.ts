@@ -102,6 +102,11 @@ const TEMPLATE_SUFFIXES: Record<string, string[]> = {
     "unjustified",
     "invitesReceived",
     "invitesJoined",
+    // PAD-837 (rule 17d): the hours twins and the balance.
+    "presenceMinutes",
+    "justifiedMinutes",
+    "guestPresenceMinutes",
+    "balanceMinutes",
   ],
   // PAD-837 (rule 17e): the guest columns' help lines, under the column's name in the sheet.
   "presences.columnHelp.": ["invitesReceived", "invitesJoined"],

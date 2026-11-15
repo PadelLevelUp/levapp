@@ -36,7 +36,10 @@ describe("the saved Presences columns on iOS", () => {
   });
 
   it("[SETTINGS-COACH-PRESENCES-VIEW-4] sends the whole list on apply", () => {
-    expect(presencesViewPayload(["name", "total"])).toEqual({ columns: ["name", "total"] });
+    expect(presencesViewPayload({ columns: ["name", "total"], defaultPeriod: "thisMonth" })).toEqual({
+      columns: ["name", "total"],
+      defaultPeriod: "thisMonth",
+    });
   });
 
   it("[SETTINGS-COACH-PRESENCES-VIEW-5] says when the view was not saved, and keeps the columns", () => {

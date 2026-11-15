@@ -238,8 +238,10 @@ describe("PresencePlayersTable saved view (PAD-837b)", () => {
     await waitFor(() => expect(viewApi.get).toHaveBeenCalled());
     await chooseColumn("justified");
     await waitFor(() => expect(viewApi.put).toHaveBeenCalledTimes(1));
+    // The whole view: the columns and the default period beside them (rule 4).
     expect(viewApi.put).toHaveBeenCalledWith({
       columns: ["name", "total", "private", "academy", "justified", "unjustified"],
+      defaultPeriod: "thisMonth",
     });
   });
 

@@ -6,6 +6,9 @@
  * chooses which columns show, never where.
  */
 
+import { formatBalanceHours, formatMinutesAsHours } from "./presence-hours";
+import type { PresencePeriodShortcut } from "./presence-periods";
+
 /** What a column's cells hold: the player's name, a number of classes, or (PAD-837) minutes. */
 export type PresenceColumnUnit = "name" | "count" | "minutes";
 
@@ -13,12 +16,18 @@ export type PresenceColumnUnit = "name" | "count" | "minutes";
 export const PRESENCE_COLUMNS = [
   { key: "name", numeric: false, unit: "name", defaultVisible: true },
   { key: "total", numeric: true, unit: "count", defaultVisible: true },
+  // PAD-837 (rule 17d): each hours twin sits right after its count column; hidden by default.
+  { key: "presenceMinutes", numeric: true, unit: "minutes", defaultVisible: false },
   { key: "private", numeric: true, unit: "count", defaultVisible: true },
   { key: "academy", numeric: true, unit: "count", defaultVisible: true },
   { key: "justified", numeric: true, unit: "count", defaultVisible: false },
+  { key: "justifiedMinutes", numeric: true, unit: "minutes", defaultVisible: false },
   { key: "unjustified", numeric: true, unit: "count", defaultVisible: true },
   { key: "invitesReceived", numeric: true, unit: "count", defaultVisible: false },
   { key: "invitesJoined", numeric: true, unit: "count", defaultVisible: false },
+  { key: "guestPresenceMinutes", numeric: true, unit: "minutes", defaultVisible: false },
+  // "Saldo de horas": guest presence minus justified absence, computed on the server (Q2).
+  { key: "balanceMinutes", numeric: true, unit: "minutes", defaultVisible: false },
 ] as const satisfies readonly {
   key: string;
   numeric: boolean;
@@ -85,4 +94,51 @@ export function resolvePresencesView(stored: unknown): PresenceColumnKey[] {
   return PRESENCE_COLUMNS.filter(
     (column) => column.key === PINNED_COLUMN || columns.includes(column.key)
   ).map((column) => column.key);
+}
+
+/** The default period a coach can save (attendance.validation rule 17f): every shortcut. */
+export const DEFAULT_PERIOD_CHOICES: readonly PresencePeriodShortcut[] = [
+  "thisWeek",
+  "thisMonth",
+  "lastMonth",
+  "season",
+];
+
+/** "Este mês" until the coach makes another shortcut their default (Q5, decided 2026-11-15). */
+export const FALLBACK_DEFAULT_PERIOD: PresencePeriodShortcut = "thisMonth";
+
+/**
+ * The coach's default period from a saved view (settings.coach-presences-view rule 3): the stored
+ * `defaultPeriod` when it is one of the shortcuts, otherwise "thisMonth" (never saved, an older
+ * view with columns only, a value a later release retired, or a load that failed).
+ */
+export function resolveDefaultPeriod(stored: unknown): PresencePeriodShortcut {
+  const period = (stored as { defaultPeriod?: unknown } | null | undefined)?.defaultPeriod;
+  return DEFAULT_PERIOD_CHOICES.includes(period as PresencePeriodShortcut)
+    ? (period as PresencePeriodShortcut)
+    : FALLBACK_DEFAULT_PERIOD;
+}
+
+/** The number behind a cell: a stats row read by its column id (the ids are the wire's). */
+export function presenceCellValue(
+  row: Partial<Record<PresenceColumnKey, unknown>>,
+  key: Exclude<PresenceColumnKey, "name">
+): number {
+  const value = row[key];
+  return typeof value === "number" ? value : 0;
+}
+
+/**
+ * The text of a numeric cell, on screen and in the CSV alike (attendance.validation rules 17,
+ * 17d): a count as is, minutes through the one formatter, the balance with its sign. A missing
+ * value (a server without the field yet) is 0.
+ */
+export function presenceCellText(
+  row: Partial<Record<PresenceColumnKey, unknown>>,
+  key: Exclude<PresenceColumnKey, "name">
+): string {
+  const value = presenceCellValue(row, key);
+  if (key === "balanceMinutes") return formatBalanceHours(value);
+  const column = PRESENCE_COLUMNS.find((c) => c.key === key);
+  return column?.unit === "minutes" ? formatMinutesAsHours(value) : String(value);
 }

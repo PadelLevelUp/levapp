@@ -115,7 +115,7 @@ export default function PresencesPage() {
     return () => window.clearTimeout(handle);
   }, [filteredIdsKey]);
   // The previous series stays on screen while the next one arrives (rule 5).
-  const trendQuery = usePresenceTrend(trendPlayerIds, { placeholderData: keepPreviousData });
+  const trendQuery = usePresenceTrend(trendPlayerIds, undefined, { placeholderData: keepPreviousData });
   const trend = trendQuery.data ?? null;
 
   useEffect(() => {

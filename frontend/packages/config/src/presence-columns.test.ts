@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { formatBalanceHours, formatMinutesAsHours } from "./presence-hours";
 import {
   DEFAULT_VISIBLE_COLUMNS,
   PINNED_COLUMN,
   PRESENCE_COLUMNS,
+  presenceCellText,
+  resolveDefaultPeriod,
   resolvePresencesView,
   toggleColumn,
   visibleColumns,
@@ -23,6 +26,27 @@ describe("the Presences column list (PAD-837, attendance.validation rule 17c)", 
       PRESENCE_COLUMNS.filter((column) => column.defaultVisible).map((column) => column.key)
     );
     expect(DEFAULT_VISIBLE_COLUMNS).toContain(PINNED_COLUMN);
+  });
+
+  it("[ATTENDANCE-VALIDATION-64] puts each hours twin right after its count column, hidden by default", () => {
+    const keys: string[] = PRESENCE_COLUMNS.map((column) => column.key);
+    // rule 17d: the ids are the wire's, so a cell reads the stats row by its column id.
+    for (const [count, minutes] of [
+      ["total", "presenceMinutes"],
+      ["justified", "justifiedMinutes"],
+      ["invitesJoined", "guestPresenceMinutes"],
+    ]) {
+      expect(keys.indexOf(minutes), minutes).toBe(keys.indexOf(count) + 1);
+    }
+    expect(keys.indexOf("balanceMinutes")).toBe(keys.indexOf("guestPresenceMinutes") + 1);
+    const minutesColumns = PRESENCE_COLUMNS.filter((column) => column.unit === "minutes");
+    expect(minutesColumns.map((c) => c.key)).toEqual([
+      "presenceMinutes",
+      "justifiedMinutes",
+      "guestPresenceMinutes",
+      "balanceMinutes",
+    ]);
+    expect(minutesColumns.every((c) => !c.defaultVisible)).toBe(true);
   });
 
   it("[ATTENDANCE-VALIDATION-64] keeps the list's order whatever the tap order", () => {
@@ -71,5 +95,30 @@ describe("resolvePresencesView (PAD-837, settings.coach-presences-view rule 3)",
     expect(shown).not.toBe(DEFAULT_VISIBLE_COLUMNS);
     shown.push("justified");
     expect(DEFAULT_VISIBLE_COLUMNS).toEqual(before);
+  });
+});
+
+describe("resolveDefaultPeriod (PAD-837, settings.coach-presences-view rule 3)", () => {
+  it("[SETTINGS-COACH-PRESENCES-VIEW-6] resolves the default period of a stored view", () => {
+    expect(resolveDefaultPeriod(null)).toBe("thisMonth");
+    expect(resolveDefaultPeriod({ columns: ["total"] })).toBe("thisMonth");
+    expect(resolveDefaultPeriod({ columns: ["total"], defaultPeriod: "lastMonth" })).toBe("lastMonth");
+    expect(resolveDefaultPeriod({ columns: ["total"], defaultPeriod: "nextYear" })).toBe("thisMonth");
+    for (const stored of [undefined, "lastMonth", 3, {}, { defaultPeriod: 2 }]) {
+      expect(resolveDefaultPeriod(stored)).toBe("thisMonth");
+    }
+  });
+});
+
+describe("presenceCellText (PAD-837, attendance.validation rules 17, 17d)", () => {
+  it("[ATTENDANCE-VALIDATION-63] writes a cell as the one formatter does, on screen and in the CSV", () => {
+    const row = { total: 3, presenceMinutes: 150, justifiedMinutes: 45, guestPresenceMinutes: 90, balanceMinutes: -45 };
+    expect(presenceCellText(row, "total")).toBe("3");
+    expect(presenceCellText(row, "presenceMinutes")).toBe(formatMinutesAsHours(150));
+    expect(presenceCellText(row, "justifiedMinutes")).toBe(formatMinutesAsHours(45));
+    expect(presenceCellText(row, "guestPresenceMinutes")).toBe(formatMinutesAsHours(90));
+    expect(presenceCellText(row, "balanceMinutes")).toBe(formatBalanceHours(-45));
+    // A server without the balance yet: read as 0.
+    expect(presenceCellText({ total: 1 }, "balanceMinutes")).toBe(formatBalanceHours(0));
   });
 });

@@ -101,7 +101,11 @@
       "justified": "Justified absences",
       "unjustified": "Unjustified absences",
       "invitesReceived": "Guest appearances",
-      "invitesJoined": "Attended as guest"
+      "invitesJoined": "Attended as guest",
+      "presenceMinutes": "Presences (h)",
+      "justifiedMinutes": "Excused absences (h)",
+      "guestPresenceMinutes": "Guest presences (h)",
+      "balanceMinutes": "Hours balance"
     },
     "columnHelp": {
       "invitesReceived": "Classes of another group the player was on, whatever they answered.",
