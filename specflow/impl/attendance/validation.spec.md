@@ -219,10 +219,12 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       than missed", negative "still to recover". The sign is always written (`+`, `−`, none for 0);
       a colour (green, red) may follow but never carries the meaning alone.
     - **One formatter**, in `@levelup/config`, renders minutes as hours on both shells and in both
-      CSVs (Open questions, Q3, decided): whole hours, then "h", then the minutes in two digits when
-      they are not zero ("1h30", "2h", "0h45", "0h"), the same in pt and en, never a decimal. The
-      balance writes its sign first ("+1h30", "−0h45" with U+2212, "0h"). The CSV cell is the same
-      text. Sorting an hours column sorts by minutes, never by the text.
+      CSVs (Open questions, Q3, decided): from one hour up, whole hours, then "h", then the minutes
+      in two digits when they are not zero ("1h30", "1h", "2h", "1h15"); under one hour, the minutes
+      then "min", with no space ("45min"), never "0h45". Zero is "0min" (the lead's reading of the
+      owner's rule; the owner may overturn it). The same in pt and en, never a decimal. The balance
+      writes its sign first ("+45min", "−45min" with U+2212, "+1h30") and zero without one ("0min").
+      The CSV cell is the same text. Sorting an hours column sorts by minutes, never by the text.
     - The hours columns are hidden by default; the coach adds them with the column chooser.
 17e. **(PAD-837a) "Aulas como convidado" says what it counts.** It counts every presence row of
     the student on a class they are not enrolled in, present or not (rule 10): guest appearances,
@@ -884,7 +886,7 @@ test: `backend/padel_app/tests/test_pad837_presence_hours.py` › `test_balance_
 - **Given** a student with 90 presence minutes and another with 60
 - **When** the coach shows the hours columns, sorts by one and exports
 - **Then** web, iOS and both CSVs show the text the one `@levelup/config` formatter gives for those minutes, and the sort follows the minutes
-- **And** the formatter gives 90 → "1h30", 60 → "1h", 120 → "2h", 45 → "0h45", 75 → "1h15", 0 → "0h", in pt and en alike (Q3, decided); the balance gives +30 → "+0h30", −45 → "−0h45" (U+2212), 0 → "0h"
+- **And** the formatter gives 45 → "45min", 90 → "1h30", 60 → "1h", 120 → "2h", 75 → "1h15", 0 → "0min" (zero is the lead's reading), in pt and en alike (Q3, decided); the balance gives +45 → "+45min", −45 → "−45min" (U+2212), +90 → "+1h30", 0 → "0min"
 - **And** each shell's test asserts its cell equals that formatter's output for the same minutes, not a literal
 test: `frontend/packages/config/src/presence-hours.test.ts` › `formats minutes as hours` (+ `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `exports hours columns as the screen shows them`, `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `sorts an hours column by minutes`)
 
@@ -1011,8 +1013,9 @@ criteria above are written to the proposal and change with the answer.
   whole hours without decimals ("1 h"); otherwise up to two decimals with trailing zeros dropped
   (75 min "1,25 h", 20 min "0,33 h"); 0 is "0 h". The CSV carries the same text as the screen
   (rule 17: the file is what the screen shows); a numeric CSV cell is the alternative.
-  **Decided (owner, 2026-11-15):** "1h30", never "1,5 h"; the same text in pt, en and the CSV
-  (rule 17d, criterion 63).
+  **Decided (owner, 2026-11-15):** "1h30", never "1,5 h"; under one hour "45min", never "0h45"
+  (owner's correction, same evening); zero "0min" is the lead's reading. The same text in pt, en and
+  the CSV (rule 17d, criterion 63).
 - **Q4, what the period covers.** The ticket says "tudo o que a tab mostra". Rule 17a records a
   decision (DEC 2026-09-09, PAD-192) that the stats window and the validation week stay
   independent, so applying the period to the validation week or its count **contradicts that
