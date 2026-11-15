@@ -180,7 +180,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       affect the charts — they change how rows are shown, not which.
     - the chart block says so when narrowed ("Following the table filters · n of N players")
       so nobody reads a filtered chart as the whole roster.
-    - The stats window (trailing 90 days) and the validation week stay independent, as before.
+    - The stats window (the tab's period, rule 17h) and the validation week stay independent, as before.
     iOS renders the charts under its own filter sheet with the same rule (the charts are built
     from the same filtered `rows` the list shows), so the decision holds on both shells.
 17b. **(PAD-814) The running period is not a finished one.** The trend's default window (the trailing
@@ -191,6 +191,65 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     month is partial too. A chart must not draw the running month as if it had closed: today a
     `monotone` line falls to 0 on the 1st and reads as "activity stopped". How the payload or the
     shells mark it, and whether the student's history chart follows, is open (Open questions, PAD-814).
+17c. **(PAD-837a) One column list, shared by both shells.** The players table's columns (ids,
+    order, numeric or not, the unit, and which are visible by default) are one list in
+    `@levelup/config` that web's table, iOS's list and columns sheet, both CSVs and the saved view
+    (`settings.coach-presences-view`) all read. Today it is two copies of the same eight ids
+    (`PresencePlayersTable.tsx` `COLUMNS`, `report-state.ts` `PRESENCE_COLUMNS`). The display order
+    stays the list's order; the coach chooses which columns show, not where.
+17d. **(PAD-837a) Every count column about time has an hours twin over the same rows.** Three
+    columns gain a version measured in time: "Total de presenças" (`total`), "Faltas justificadas"
+    (`justified`) and "Presenças como convidado" (`invitesJoined`). Each twin sums, over **exactly
+    the presence rows its count column counts** (rule 12, rule 10), the length of each row's
+    occurrence. The count columns are unchanged and stay.
+    - **The length of a class is computed once in the backend.** It is the whole minutes from the
+      occurrence's own `start_datetime` to its `end_datetime`, floored per class, 0 when the end is
+      missing or not after the start: the same number `{duration}` renders in messages
+      (`notifications.message-templates` rule 21, `_format_duration` in
+      `backend/padel_app/services/message_text.py`). That integer is lifted into one helper which
+      `_format_duration` then formats and the hours columns sum; there is no second duration.
+    - **The server sends integer minutes** per player (`presenceMinutes`, `justifiedMinutes`,
+      `guestPresenceMinutes`, `balanceMinutes`) and the shells format them; they never add durations
+      themselves. The minutes come from the same filtered query as the counts
+      (`_coach_presence_query`, same window, same disabled-account filter), so the two row sets
+      cannot diverge; the sum runs in Python over the fetched rows' start and end, so it is the
+      same on SQLite and Postgres (the suite runs both).
+    - **Saldo de horas** (`balanceMinutes`) is computed on the server and only there: guest presence
+      minutes minus justified-absence minutes (Open questions, Q2). Positive reads "recovered more
+      than missed", negative "still to recover". The sign is always written (`+`, `−`, none for 0);
+      a colour (green, red) may follow but never carries the meaning alone.
+    - **One formatter**, in `@levelup/config`, renders minutes as hours on both shells and in both
+      CSVs (Open questions, Q3). Sorting an hours column sorts by minutes, never by the text.
+    - The hours columns are hidden by default; the coach adds them with the column chooser.
+17e. **(PAD-837a) "Aulas como convidado" says what it counts.** It counts every presence row of
+    the student on a class they are not enrolled in, present or not (rule 10): guest appearances,
+    not invitations sent. Whether it is renamed is open (Open questions, Q1); either way the column
+    carries a help line stating its rule, and so does "Presenças como convidado" (guest and
+    present). Web shows it in the column chooser and on the heading; iOS, which has no tooltips
+    (rule 17), shows it in the columns sheet under the column's name.
+17f. **(PAD-837b) The coach's column choice is kept on their account.** The columns a coach shows
+    are saved through `settings.coach-presences-view` and come back on the next open, on web and
+    on iOS alike (one account, one view). Sorting and the period are not saved (Open questions, Q5).
+17g. **(PAD-837c) The tab has one period, visible at its top.** A period control (from / to, and
+    shortcuts) sits at the top of the reporting surface on both shells. The statistics, every
+    column, the KPI tiles and the three charts are computed for that one period: the clients send
+    the same `from`/`to` to `GET /presence_stats` and `GET /presence_trend`, and both shells' query
+    keys carry the bounds, so the two reads can never be for different windows. The period shown
+    is the one the payload echoes (`from`/`to`), not the one the client meant to ask for. The
+    shortcuts and the custom-range check are one function each in `@levelup/config`, on the
+    club's day (rule 15). What the period covers beyond the reporting surface, and its default, are
+    open (Open questions, Q4, Q5).
+17h. **(PAD-837c) A period never counts the future and never draws an unfinished bucket as a
+    finished one.** A period that runs past the club's today ("Esta semana", "Este mês") is read
+    up to the end of today: the server clamps the window's end to the end of the club's today
+    (23:59:59), for the statistics and the trend alike, so a justified absence declared for next
+    Tuesday is not counted and the trend has no buckets after today. "Future" means after today:
+    a class later today counts, as it does in today's default window. The clamp lives in the stats
+    and trend services (`build_presence_stats`, `build_presence_trend`), **never** in the shared
+    range parser `_presence_overview_range`, which the three `pending_validation` routes also read
+    (rules 17a, 18). A period that starts after today is answered empty: every roster row at zero,
+    no trend buckets, the requested bounds echoed. The running bucket is drawn as rule 17b says.
+    Bounds are inclusive: a class on the first or the last day of the period counts.
 
 18. **(PAD-190 / PAD-201, B-045; amended by PAD-539, B-342) One count for "classes to validate",
     and it is the whole backlog.** A class is *pending* when it has ended (`end_datetime <=` the
@@ -736,7 +795,180 @@ test: `backend/padel_app/tests/test_presence_overview.py` › `test_roster_playe
 - **And** the window's first bucket (August) starts before the window does (4 August)
 test: `backend/padel_app/tests/test_pad814_trend_running_month.py` › `test_on_the_first_the_running_month_is_a_zero_last_bucket` (+2 more)
 
+#### ATTENDANCE-VALIDATION-60: Each hours column sums the minutes of exactly the rows its count column counts (rule 17d, PAD-837a)
+- **Given** a coach's roster with a 60-minute and a 90-minute class: one student present at both, one present at the 90-minute class as a guest, one absent justified from the 60-minute class, one absent unjustified from the 90-minute class
+- **When** the statistics are read for a period holding both classes
+- **Then** each student's `presenceMinutes`, `justifiedMinutes` and `guestPresenceMinutes` are the summed minutes of the rows behind `total`, `justified` and `invitesJoined` (150, 60 and 90 for the right students), and the unjustified absence adds to none of them
+- **And** the same test passes on SQLite and on Postgres (CI runs the suite on both)
+test: `backend/padel_app/tests/test_pad837_presence_hours.py` › `test_each_hours_column_sums_the_rows_its_count_column_counts`
+
+#### ATTENDANCE-VALIDATION-61: A class lasts in the statistics what `{duration}` says it lasts (rule 17d, PAD-837a)
+- **Given** occurrences of 60, 90 and 75 minutes, and one whose end is not after its start
+- **When** the statistics count them and a message renders their `{duration}`
+- **Then** each class adds to the hours columns the minutes its `{duration}` renders, and the broken one adds 0 (and renders empty)
+- **And** an occurrence moved to other times counts its own times, not its series'
+- **And** the minutes helper answers 0 for a missing start or end (`end_datetime` is NOT NULL in the table, so that case is the helper's alone), and the existing rule 21 tests of `{duration}` pass unchanged
+test: `backend/padel_app/tests/test_pad837_presence_hours.py` › `test_a_class_counts_the_minutes_its_duration_placeholder_renders` (+ `test_the_minutes_helper_answers_zero_without_a_span`)
+
+#### ATTENDANCE-VALIDATION-62: Saldo de horas is guest presence minus justified absence, with its sign (rule 17d, PAD-837a)
+- **Given** three students: 90 guest minutes and 60 justified; 60 guest and 90 justified; 60 and 60
+- **When** the statistics are read
+- **Then** `balanceMinutes` is +30, −30 and 0, and an unjustified absence never moves it
+- **And** both shells show "+", "−" or no sign before the formatted hours, the colour only following the sign
+test: `backend/padel_app/tests/test_pad837_presence_hours.py` › `test_balance_is_guest_presence_minus_justified_absence` (+ `frontend/packages/config/src/presence-hours.test.ts` › `writes the sign before the hours`)
+
+#### ATTENDANCE-VALIDATION-63: Hours read the same on both shells and in both files (rules 17, 17d, PAD-837a)
+- **Given** a student with 90 presence minutes and another with 60
+- **When** the coach shows the hours columns, sorts by one and exports
+- **Then** web, iOS and both CSVs show the text the one `@levelup/config` formatter gives for those minutes (Q3), and the sort follows the minutes
+- **And** each shell's test asserts its cell equals that formatter's output for the same minutes, not a literal
+test: `frontend/packages/config/src/presence-hours.test.ts` › `formats minutes as hours in pt and en` (+ `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `exports hours columns as the screen shows them`, `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `sorts an hours column by minutes`)
+
+#### ATTENDANCE-VALIDATION-64: Both shells draw the table from one column list (rule 17c, PAD-837a)
+- **Given** the column list in `@levelup/config`
+- **When** web's table and chooser and iOS's list and columns sheet render, and either CSV is built
+- **Then** each offers exactly the list's ids, in its order, with its defaults visible and `name` pinned, and neither shell declares a column list of its own
+test: `frontend/packages/config/src/presence-columns.test.ts` › `lists every column once with its unit and default` (+ `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `offers the shared column list`, `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `reads the shared column list`)
+
+#### ATTENDANCE-VALIDATION-65: The guest columns explain what they count (rule 17e, PAD-837a)
+- **Given** the coach opens the column chooser on web or the columns sheet on iOS
+- **When** they read "Aulas como convidado" (or its new name, Q1) and "Presenças como convidado"
+- **Then** each carries a help line stating its rule (every class of another group the student was on, whatever they answered; and those where they were present)
+- **And** on web the same line is on the column's heading
+- **And** the tests assert a non-empty help element per column id, never its wording
+test: `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `explains the guest columns` (+ `frontend/apps/mobile/src/features/presences/PresencesColumnsSheet.test.tsx` › `explains the guest columns`)
+
+#### ATTENDANCE-VALIDATION-66: The chosen columns come back after leaving the tab (rule 17f, PAD-837b)
+- **Given** a coach who adds "Presenças (h)" and hides "Aulas privadas" on web
+- **When** they leave the tab, come back, and then open the tab on iOS
+- **Then** both show the same columns, in the list's order, and the CSV carries the same
+test: `frontend/apps/web/src/components/presences/PresencePlayersTable.test.tsx` › `restores the saved columns` (+ `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `restores the saved columns`)
+
+#### ATTENDANCE-VALIDATION-67: Statistics and trend always read one window, and the tab shows it (rule 17g, PAD-837c)
+- **Given** the coach picks 01/09/2026 to 01/10/2026
+- **When** the tab loads
+- **Then** both `GET /presence_stats` and `GET /presence_trend` are requested with those bounds, both query keys carry them, and the period shown at the top is the payload's `from`/`to`
+- **And** picking another period refetches both, never one
+test: `frontend/packages/hooks/src/presences.test.ts` › `keys stats and trend by the same period` (+ `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `shows the period the server echoed`, `frontend/apps/mobile/src/features/presences/PresencesScreen.test.tsx` › `shows the period the server echoed`)
+
+#### ATTENDANCE-VALIDATION-68: A period cuts classes at its edges, inclusively (rule 17h, PAD-837c)
+- **Given** classes on 31/08, 01/09, 01/10 and 02/10 with the student present at each
+- **When** the statistics and the trend are read for 01/09 to 01/10
+- **Then** the classes of 01/09 and 01/10 count, in totals, hours and buckets, and the other two do not
+test: `backend/padel_app/tests/test_pad837_presence_period.py` › `test_a_period_counts_its_first_and_last_day_and_nothing_outside`
+
+#### ATTENDANCE-VALIDATION-69: A period running past today stops at today (rule 17h, PAD-837c)
+- **Given** a pinned club today (the test pins the clock and passes `now=`), presences earlier in the month, a class later today, and a justified absence already declared for a day after today
+- **When** the statistics and the trend are read for the whole running month
+- **Then** the echoed `to` is the end of the club's today, the class later today counts, the later absence does not, and the trend has no bucket after today
+- **And** a period that starts after today answers every roster row at zero, no buckets, and the requested bounds
+- **And** the `pending_validation` routes answer the same with or without this change for the same `from`/`to`
+test: `backend/padel_app/tests/test_pad837_presence_period.py` › `test_a_period_past_today_is_read_up_to_today` (+ `test_a_period_after_today_is_empty`, `test_the_validation_routes_are_not_clamped`)
+
+#### ATTENDANCE-VALIDATION-70: The shortcuts mean the same days on both shells (rule 17g, PAD-837c)
+- **Given** the club's today at 23:30 on a Sunday and at 00:30 on the 1st (Lisbon), in summer and winter time
+- **When** each shortcut is computed
+- **Then** one function in `@levelup/config` gives the bounds both shells send, on the club's day, and a custom range is checked by `isValidCustomRange`
+test: `frontend/packages/config/src/presence-periods.test.ts` › `computes each shortcut on the club's day`
+
+#### ATTENDANCE-VALIDATION-71: The validation week does not follow the period (rules 17a, 17g, PAD-837c; Q4)
+Pending Q4: written to the proposal; it restates rule 17a's recorded decision, and is dropped or rewritten if the owner extends the period to the validation week.
+- **Given** the period is "Mês passado" and the validation view shows this week
+- **When** the coach changes either
+- **Then** the other does not move, and the classes-to-validate count stays the whole backlog (rule 18)
+test: `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `keeps the validation week apart from the period` (+ `frontend/apps/mobile/src/features/presences/PresencesScreen.test.tsx` › `keeps the validation week apart from the period`)
+
+#### ATTENDANCE-VALIDATION-72: Each open starts from the default period (rule 17f, PAD-837c; Q5)
+Pending Q5: written to the proposal.
+- **Given** the coach picked "Mês passado" and sorted by name
+- **When** they leave the tab and come back
+- **Then** the period is the default again and the sort is the default again, while the columns are the saved ones
+test: `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `opens on the default period and sort` (+ `frontend/apps/mobile/src/features/presences/PresencesScreen.test.tsx` › `opens on the default period and sort`)
+
+### Today (PAD-837)
+- The statistics are `build_presence_stats` (`backend/padel_app/services/presence_overview_service.py`),
+  counted in SQL with `_count(condition)` per column: `total` = present, `justified` /
+  `unjustified` = absent with that justification, `invitesReceived` = guest (no
+  `Association_PlayerLesson` row) of any status, `invitesJoined` = guest and present. Pinned by
+  `backend/padel_app/tests/test_presence_overview.py` (ATTENDANCE-VALIDATION-15, -50). There is no
+  duration anywhere in it.
+- The class length exists once, as text: `_format_duration(start, end)` in
+  `backend/padel_app/services/message_text.py` (PAD-836, `notifications.message-templates` rule 21),
+  whole minutes floored, empty without a positive span.
+- Both routes parse `from`/`to` (`_presence_overview_range`, `frontend_api.py`) and fall back to
+  `default_overview_range` (trailing 90 days to the end of the club's today). Neither clamps a
+  `to` after today. `@levelup/api` `getPresenceStats` / `getPresenceTrend` accept the bounds;
+  `usePresenceStats()` and `usePresenceTrend(playerIds)` never pass them, and their query keys
+  (`["presence-stats"]`, `["presence-trend", ids]`) carry none.
+- The columns are two copies of one list: web `PresencePlayersTable.tsx` `COLUMNS` (line 31),
+  iOS `report-state.ts` `PRESENCE_COLUMNS` (line 28); defaults `name, total, private, academy,
+  unjustified`; choice and sort are `useState` (web line 88-90, iOS `PresencesScreen.tsx` 100-101).
+  CSVs: web `exportCsv` (`PresencePlayersTable.tsx:129`), iOS `buildPresencesCsv`
+  (`report-state.ts:221`). Labels: `src/locales/{pt,en}/presences.json` `presences.column.*`
+  ("Aulas como convidado" / "Guest appearances"); no column has a help line.
+- The only date control on the tab is the validation week (`weekBounds`, `weekOffset`). The
+  shortcuts of the student's history page are `presetRange`, written once per shell (web
+  `components/attendance/dateRanges.ts`, iOS `features/attendance/date-ranges.ts`);
+  `isValidCustomRange` is already in `@levelup/config` (PAD-855).
+- `attendance.history` rule 4 (bucketing) needs no new text: the period filter's trend is bucketed
+  by it as is. Its partial-bucket problem is rule 17b (PAD-814).
+
+### Waves (PAD-837)
+1. **837a**, ATTENDANCE-VALIDATION-61, 60, 62, 64, 63, 65: backend helper first (the minutes helper
+   that `_format_duration` then calls; `message_text.py` is the messages stream's file, touched only
+   with the lead's word), then `build_presence_stats` minutes and saldo, then `@levelup/config`
+   column list and hours formatter, then web table/CSV and iOS list/sheet/CSV, then the locales.
+   Needs Q1, Q2 and Q3 answered.
+2. **837b**, after 837a (it stores the ids of 837a's shared list), SETTINGS-COACH-PRESENCES-VIEW-1
+   to 5, then ATTENDANCE-VALIDATION-66: the migration (one `Coach` JSON column, parented on
+   staging's head at implementation time, checked with `flask db heads`; written only on the lead's
+   go, and the orchestrator is told before any push), the two routes, `@levelup/api` and a hook,
+   then both shells.
+3. **837c**, ATTENDANCE-VALIDATION-70, 68, 69, 67, 71, 72: `@levelup/config` periods, the server
+   clamp, the hooks' keys, then the period control on both shells. Needs Q4 and Q5 answered, and
+   lands after PAD-814 (rule 17b), whose running-bucket drawing it reuses.
+
 ### Open questions
+PAD-837. None of these is answered on 2026-11-15. Each line gives the lead's provisional reading
+(or, where marked, the spec writer's) as a **proposal, not a decision**. The criteria above are
+written to the proposal and change with the answer.
+- **Q1, the name of "Aulas como convidado".** It counts guest appearances of any status, not
+  invitations sent (rule 10; the ticket's first branch does not apply). Options: keep the name and
+  add the help line (rule 17e); rename (e.g. "Aulas como convidado (todas)"). Proposal (lead): keep
+  the name plus the help line; rule 10 already labels these "guest appearances, not invites".
+  English already reads "Guest appearances" (`invitesReceived`) and "Attended as guest"
+  (`invitesJoined`).
+- **Q2, Saldo de horas.** Proposal (lead): as the ticket proposes: guest presence hours minus
+  justified-absence hours; unjustified absences stay out.
+- **Q3, the hours format.** Options: "1,5 h" or "1h30". Proposal (lead): "1,5 h" with the
+  Portuguese decimal comma. To pin with the answer (spec writer's proposal): English "1.5 h";
+  whole hours without decimals ("1 h"); otherwise up to two decimals with trailing zeros dropped
+  (75 min "1,25 h", 20 min "0,33 h"); 0 is "0 h". The CSV carries the same text as the screen
+  (rule 17: the file is what the screen shows); a numeric CSV cell is the alternative.
+- **Q4, what the period covers.** The ticket says "tudo o que a tab mostra". Rule 17a records a
+  decision (DEC 2026-09-09, PAD-192) that the stats window and the validation week stay
+  independent, so applying the period to the validation week or its count **contradicts that
+  recorded decision** and needs the owner. Proposal (lead): statistics, columns, KPIs and charts
+  only (ATTENDANCE-VALIDATION-71).
+- **Q5, the default period and what is saved.** The ticket proposes "Este mês". Today's default is
+  the trailing 90 days, chosen because one month of a small academy is too sparse for a trend
+  (`default_overview_range`). Proposal (lead): keep 90 days, and do not save the period. Proposal
+  (spec writer, the lead gave no reading): do not save the sort either (ATTENDANCE-VALIDATION-72).
+  The ticket lists "Esta época" as "a confirmar". Proposal: offer it when the coach has a current
+  season (`calendar.seasons`), as the student's history page does.
+- **Column order (owner question; proposal by the spec writer).** The ticket asks for the order
+  "se der". Proposal: the columns keep the list's order (rule 17c) and the saved view stores which
+  columns show, not where. Reordering needs a drag control on both shells that nobody has designed,
+  and saving an order nobody can change would be a stored value with no surface.
+- **The ticket's screenshot of the test examples.** A deliverable of each wave, not a criterion:
+  each wave's report attaches a render of its tests' examples (hours with 60 and 90 minutes, saldo
+  positive, negative and zero, a period cutting classes at its edges, the view coming back).
+- **The real-student check.** The ticket asks to verify the hours sums against a real student over
+  a short known period. That is a check on production data, not a test, and is the lead's or the
+  owner's step after the wave lands.
+- **Android.** The ticket says "Web, iOS e Android". Android is the same Expo app as iOS, and
+  `cortex/world/decisions/android-scoping.md` is still a draft. This spec promises web and iOS; no
+  Android lane.
 - **(PAD-814, owner question Q6, unanswered 2026-11-15)** How the running month is marked (rule 17b).
   Proposal, not a decision: (a) the server marks the last bucket `inProgress: true` when the window's end
   is today or later, and both shells draw that point hollow with a dashed segment from the previous one,
