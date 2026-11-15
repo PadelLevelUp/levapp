@@ -344,10 +344,11 @@ approval.**
       own, not folded into visibility, since a visible private lesson must still exempt them.
     - Surfaces. The client asks on the class sheet's request and waiting-list buttons (web
       `ClassDetailSheet` → `ClassSideChoice`, iOS `class/[id]` → `ClassSideSheet`) and on the rule 12
-      list's rows. It never asks, and the server exempts, on an invitation accept (web
-      `MessageBubble`, iOS `message-bubble`), a come-back (`ComeBackSlot`) and the sheet's direct
-      waiting-list join for a student who is invited or gave up their place (`studentRelation`
-      invited / not coming).
+      list's rows. It never asks on the PAD-684 come-back, the direct waiting-list join offered only
+      to a student whose own presence is "not coming" (they gave up their place, so the server
+      exempts them): web `ClassDetailSheet`, `MessageBubble` (the reminder's come-back) and
+      `ComeBackSlot`; iOS `class/[id]`, `message-bubble` and the dashboard block. An invitation is
+      answered, not joined (Not covered, below).
     - Not covered: the coach's adds, the coach's standing-list add and its fan-out, an invitation
       accept and the coach's accept of a request never need the student's confirmation.
     - `private-confirm` is a `compat` capability (`admin.clubs-and-switches`): switched off, the
@@ -684,6 +685,21 @@ test: `frontend/apps/web/src/components/calendar/ClassSideChoice.privateConfirm.
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.
+- **[PAD-929 wave 1, 2026-11-15] The six direct waiting-list callers, traced** (booking-m1; the lead's ask, review
+  R6). Each calls `joinClassWaitingList` with no side sheet and no `privateConfirmed`, and each is the PAD-684
+  come-back: shown only after the student's own "vou afinal" found no spot (`comeBackFromAnswer` →
+  `waiting_list`) or on a dashboard row of a class they said they would miss (`declineTarget`), so their
+  presence is `not_coming` and the server exempts them (`gave_up_place`, rule 22):
+  - web `ClassDetailSheet.tsx` `handleComeBackWaitingList` — come-back, exempt;
+  - web `MessageBubble.tsx` `handleComeBackWaitingList` (the reminder bubble) — come-back, exempt;
+  - web `ComeBackSlot.tsx` `joinWaitingList` (`item.declineTarget`) — come-back, exempt;
+  - iOS `app/class/[id].tsx` `handleComeBackWaitingList` — come-back, exempt;
+  - iOS `features/calendar/hooks.ts` `useJoinWaitingListFromDashboard` (dashboard `blocks.tsx`) — come-back, exempt;
+  - iOS `features/messages/components/message-bubble.tsx` `handleComeBackWaitingList` — come-back, exempt.
+  None reaches a private lesson for a student who is neither invited nor gave up their place. The one
+  edge: a coach who removes the student between the offer and the tap; the student is then no longer
+  part of the class, so a declaring client's join is refused `private_unconfirmed`, which is right. The
+  gave-up case is pinned by CLASSES-JOIN-REQUESTS-42's test.
 
 ### Open questions
 - What happens on a new-engine class when the engine refuses rule 20's move (NJ4)? — closed (lead,
