@@ -1072,7 +1072,9 @@ def debug_ended_classes_create():
     `{"count": n, "weeksAgo": w}` gives the calling coach `n` ended classes (at most 30) on the
     day `w` weeks ago (1 to 8), every roster player on them confirmed, so each is ready to
     validate and the validate list is long enough to drag (flow 323). Answers their instance ids
-    in start order. Like every debug route it takes a JWT as well as the flag."""
+    in start order. `durationMinutes` (PAD-837, optional, 30 by default, 5 to 180) is each class's
+    length, for the hours columns' evidence. Like every debug route it takes a JWT as well as the
+    flag."""
     if not debug_endpoints_enabled():
         abort(404)
     coach = require_coach()
@@ -1082,13 +1084,19 @@ def debug_ended_classes_create():
     try:
         count = int(data.get("count", 10))
         weeks_ago = int(data.get("weeksAgo", 1))
+        minutes = int(data.get("durationMinutes", e2e_fixtures.CLASS_MINUTES))
     except (TypeError, ValueError):
         return jsonify({"error": "COUNT_INVALID"}), 400
     if not 1 <= count <= e2e_fixtures.MAX_ENDED_CLASSES:
         return jsonify({"error": "COUNT_INVALID"}), 400
     if not 1 <= weeks_ago <= e2e_fixtures.MAX_WEEKS_AGO:
         return jsonify({"error": "WEEKS_AGO_INVALID"}), 400
-    return jsonify(e2e_fixtures.create_ended_classes(coach, count=count, weeks_ago=weeks_ago)), 200
+    if not 5 <= minutes <= e2e_fixtures.MAX_CLASS_MINUTES:
+        return jsonify({"error": "DURATION_INVALID"}), 400
+    return (
+        jsonify(e2e_fixtures.create_ended_classes(coach, count=count, weeks_ago=weeks_ago, minutes=minutes)),
+        200,
+    )
 
 
 @bp.delete("/debug/ended-classes")
