@@ -69,6 +69,29 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    withdrawal is the store's own `withdraw(invitation_id, at)`, which rule 19's route calls; it is no
    engine effect. An `AlertCleared` drops that alert.
 
+9. **The side of a coach's add (PAD-808, `classes.join-requests` NJ4; `notifications.engine-answers`
+   rule 10).** The app hands the engine `CoachAdded(student, side, firm)` with the side the app knows:
+   - for an accepted join request, the request's side, firm (`left`/`right`; `both` passes none);
+   - for the coach's add to the class, `presences.side` only when the row already has one (a re-add of
+     a presence that kept the side the coach set for that session, PAD-551), firm; otherwise none, and
+     the engine places a one-sided student on their side;
+   - for an old invitation's Yes on a new-engine session (`notifications.manual` NM3), the old
+     vacancy's side when it named one, not firm.
+   On a new-engine session the coach's per-session side (`presence_side_service`, PAD-551) reaches the
+   engine as `CoachSetsSide(student, side)` after that change's own commit, instead of the old engine's
+   re-count. If that call fails, the change stands and the coach's request still succeeds (the failure
+   is logged and the engine's part rolled back): at the start of each unit of a session, the store
+   writes a going presence's `side`, when it is `left` or `right` and differs from its `assigned_side`,
+   as its `assigned_side`, so the engine's next run counts the coach's side, firm. An engine placement
+   (`Placed`) on a side other than the presence's set `side` clears that `side`: it was the coach's choice
+   for an earlier stay (a cancelled one), not this placement, so neither the start-of-unit write nor
+   firmness overrides the engine's own placement. Clearing the side
+   tells the engine nothing, and the placement is then no longer firm: `last_invite_at` may move a
+   student who plays both sides. A firm `SideAssigned` is written as both the presence's
+   `assigned_side` and `presences.side`, so `sides_in_occurrence` and every other reader agree with the
+   engine; any `SideAssigned` writes `assigned_side`. The snapshot's placement is firm when the
+   presence's `side` is `left` or `right` and is the side it holds.
+
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
 - The locks a unit takes (`notifications.engine-answers` rule 10).
@@ -142,10 +165,46 @@ start, then both are still going in the snapshot and the roster stays full; when
 by the coach before the start, then they are not going and their spot is open.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_no_show_stays_placed`
 
+#### NOTIFICATIONS-ENGINE-STORE-11: A coach's accept or re-add reaches the engine with its side (rule 9)
+Given a new-engine session of 10 with 4 left and 4 right going, when the coach accepts a left join request
+from a student who plays both sides, then their presence has `assigned_side` and `side` left, the
+placement is firm and the engine's only open spot type is one right `must`; a `both` request passes no
+side; and when the coach adds a student who plays both sides, sets their side for the session to right,
+the student cancels and the coach adds them again through the class edit, then they are going on the
+right, firm.
+test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_a_coachs_accept_or_add_reaches_the_engine_with_its_side`
+
+#### NOTIFICATIONS-ENGINE-STORE-12: The coach's per-session side and an old invitation's Yes reach the engine (rule 9)
+Given a new-engine session with a going student who plays both sides placed left, when the coach sets
+their side for the session to right (PAD-551), then their `assigned_side` is right, the placement is firm,
+the old engine's re-count does not run and no message is sent; and when a student who plays both sides
+says Yes to an old-engine invitation for a right vacancy of a session now on the new engine (NM3), then
+their `assigned_side` is right and the placement is not firm.
+test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_the_coachs_session_side_and_an_old_yes_reach_the_engine`
+
+#### NOTIFICATIONS-ENGINE-STORE-13: A failed engine call on the coach's per-session side heals on the next unit (rule 9)
+Given a new-engine session with a going student who plays both sides placed left, firm, when the coach sets
+their side for the session to right and the engine's call raises, then the request still returns the
+presence with `side` right, the engine's `assigned_side` is still left, and the session's next unit (a
+planning run) has `assigned_side` right and counts the student on the right, firm.
+test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_a_failed_engine_call_on_the_coachs_side_heals_on_the_next_unit`
+
+#### NOTIFICATIONS-ENGINE-STORE-14: An engine placement on another side clears a stale per-session side (rule 9)
+Given a new-engine session where a student who plays both sides joined by an accepted left request and then
+cancelled, when the engine places them on the right (a direct join), then their `side` is cleared,
+`assigned_side` is right, the placement is not firm, and a later unit leaves them on the right.
+test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_an_engine_placement_on_another_side_clears_a_stale_session_side`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
 2. (PAD-916) STORE-9, STORE-10 — `padel_app/services/engine_store.py` (each session's end; what going means).
+3. (PAD-808) STORE-11 to STORE-14 — `services/engine_entry.py` (`coach_added`, `coach_sets_side`), `services/engine_store.py`
+   (`SideAssigned.firm`, the placement's firmness), `presence_side_service.py`, NM3's `_tell_new_engine_placed`; with
+   engine-answers ANSWERS-32.
 
 ### Open questions
-- None.
+- A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
+  by an accepted request for a side, cancelled, and is placed again by the engine on that same side reads
+  firm, so `last_invite_at` never moves them. Rare, and clearing `presences.side` on every engine
+  placement is a wider change than PAD-808.

@@ -90,10 +90,12 @@ class Placed(Effect):
 
 @dataclass(frozen=True)
 class SideAssigned(Effect):
-    """A going student's side is fixed or moved (plan §8 step 6, flexible students)."""
+    """A going student's side is fixed or moved (plan §8 step 6, flexible students). ``firm``: the coach
+    chose it (engine-answers rule 10), so ``last_invite_at`` never moves it."""
 
     student: str
     side: Side
+    firm: bool = False
 
 
 @dataclass(frozen=True)

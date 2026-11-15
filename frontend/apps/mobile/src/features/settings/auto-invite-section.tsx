@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { notificationEngineApi } from "@levelup/api";
-import { lightTheme } from "@levelup/config";
+import { blankRuleParts, blankRuleReason, lightTheme } from "@levelup/config";
 import type { InvitationGroup, InvitationMode, NotificationConfig, NotificationRestrictions } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -25,7 +25,7 @@ import { REMINDER_FALLBACKS, RemindersSection } from "./reminders-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
 import { TiersEditor } from "./tiers-editor";
-import { useSectionSave } from "./unsaved-registry";
+import { SectionSaveError, useSectionSave } from "./unsaved-registry";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
@@ -136,6 +136,14 @@ export function AutoInviteSection() {
     save: async () => {
       if (Object.keys(changed).length === 0) return;
       const patch = changed;
+      // eligibility.rules rule 13: a bar or group rule this Save would send with no value refuses the
+      // whole card before any request; every edit stays held. The groups open on the blank row (the bar
+      // is always shown here), and the screen's toast carries the reason.
+      const blank = blankRuleParts(patch);
+      if (blank.length > 0) {
+        if (blank[0] === "groups") setTiersOpen(true);
+        throw new SectionSaveError(blankRuleReason(blank, t));
+      }
       const saved = await notificationEngineApi.updateNotificationConfig(patch);
       const confirmed: Partial<NotificationConfig> = {};
       for (const key of ENGINE_FIELDS) if (key in saved) (confirmed as Record<string, unknown>)[key] = saved[key];

@@ -1872,8 +1872,16 @@ def _retime_pending_followups(coach_id: int, config) -> None:
         owed = False
         anchor = None
         if instance.status not in ("canceled", "completed") and instance.id not in seen_instances:
+            from padel_app.services.engine_switch import engine_for
+            from padel_app.services.notification_service import answered_for_reminders
+            first_reminder = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
+            on_new_engine = None
             for presence in list(instance.presences):
-                if presence.confirmed:
+                # PAD-820 (reminders rule 24): the pass's own test, so a chain owed only to an
+                # invitation joiner is re-timed too.
+                if on_new_engine is None and presence.confirmed and presence.response == "none":
+                    on_new_engine = engine_for(instance) == "new"
+                if answered_for_reminders(presence, first_reminder, new_engine=bool(on_new_engine)):
                     continue
                 sent = attempts.count_attempts(instance.id, presence.player_id)
                 if sent >= reminder_count:

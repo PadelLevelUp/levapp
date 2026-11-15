@@ -47,25 +47,26 @@ export const SIDE_LONG_KEYS: Record<Side, string> = {
 };
 
 /**
- * PAD-672 slice 3 (`classes.instance-enrollment` rule 13a): the side a `both` player was given once
- * the class is full ("Ambos → esquerda"). Only a `both` player has one; anything else is null so
- * the label stays today's.
+ * `classes.instance-enrollment` rule 13a: the side a player was given in this class, when it is news.
+ * A `both` player's side once the class is full ("Ambos → esquerda", PAD-672 slice 3), or a one-sided
+ * player placed on the other side by the new engine ("Esq → Dir", PAD-819). An assigned side equal to
+ * the player's own is null, so the label stays today's.
  */
 export function assignedSideOf(side: Side | null | undefined, assigned: unknown): "left" | "right" | null {
-  if (side !== "both") return null;
-  return assigned === "left" || assigned === "right" ? assigned : null;
+  if (!side || (assigned !== "left" && assigned !== "right")) return null;
+  return assigned === side ? null : assigned;
 }
 
-/** i18n key of the chip text: "Amb → Esq" for a `both` player with an assigned side, else today's. */
+/** i18n key of the chip text: "Amb → Esq" / "Esq → Dir" with an assigned side, else today's. */
 export function sideShortKeyOf(side: Side, assigned?: unknown): string {
   const a = assignedSideOf(side, assigned);
-  return a ? `calendar.participants.sideShort.both_${a}` : SIDE_SHORT_KEYS[side];
+  return a ? `calendar.participants.sideShort.${side}_${a}` : SIDE_SHORT_KEYS[side];
 }
 
-/** i18n key of the tooltip / long label: "Ambos → esquerda", else today's. */
+/** i18n key of the tooltip / long label: "Ambos → esquerda" / "Esquerda → direita", else today's. */
 export function sideLongKeyOf(side: Side, assigned?: unknown): string {
   const a = assignedSideOf(side, assigned);
-  return a ? `calendar.participants.sideLong.both_${a}` : SIDE_LONG_KEYS[side];
+  return a ? `calendar.participants.sideLong.${side}_${a}` : SIDE_LONG_KEYS[side];
 }
 
 /** Group titles ("Vão · 4") and the pop-up's "Nesta aula" word ("Vai"). */

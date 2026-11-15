@@ -315,14 +315,16 @@ _COMPARISONS = {
 
 
 def _compare(value: float, operation: str, threshold: object) -> bool:
-    """Today's ``notification_service._compare``: a threshold that is not a number passes, and so
-    does an operation it does not know."""
+    """Today's ``notification_service._compare``: an operation it does not know fails
+    (``eligibility.rules`` rule 12), and a threshold that is not a number passes."""
+    compare = _COMPARISONS.get(operation)
+    if compare is None:
+        return False
     try:
         number = float(threshold)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return True
-    compare = _COMPARISONS.get(operation)
-    return True if compare is None else compare(value, number)
+    return compare(value, number)
 
 
 def _level_rule_passes(operation: str, value: object, student: int, klass: int) -> bool:
@@ -367,8 +369,13 @@ def group_rule_passes(rule: GroupRule, student: Student, spot_type: SpotType, co
     read as today's vacancy-anchored ``_group_rule_failures`` with the class's level as the
     vacancy's. A class with no level applies no level rule (engine-spots rule 8, D3: the one
     difference from today, which fails closed); a student with no level fails one. An attribute or
-    (outside level) an operation it does not know passes, as today."""
+    an operation it does not know fails, as today (``eligibility.rules`` rule 12)."""
     attribute, operation = rule.attribute, rule.operation
+    known = {"side": ("same_as_vacancy", "different_from_vacancy"), "has_makeups": ("is_true",),
+             "unjustified_absences": _COMPARISONS, "justified_absences": _COMPARISONS,
+             "attendance_rate": _COMPARISONS, "subscription_status": ("equals",)}
+    if attribute != "level" and operation not in known.get(attribute, ()):
+        return False
     if attribute == "level":
         if snapshot.level is None:
             return True

@@ -10,6 +10,7 @@ import {
   FIXED_TIERS,
   MAX_TIERS,
   SIDE_BALANCE_EXAMPLES,
+  isRuleBlank,
   moveTier,
   perTierAfterMove,
   perTierAfterRemove,
@@ -152,6 +153,12 @@ function RuleRow({
       >
         <X className="w-3.5 h-3.5" />
       </button>
+      {/* eligibility.rules rule 13: a rule that needs a value and has none is marked where it stands. */}
+      {isRuleBlank(rule, "groups") && (
+        <p className="basis-full text-xs text-destructive" data-testid="invitation-group-value-missing">
+          {t("settings.invitationGroups.valueMissing")}
+        </p>
+      )}
       {rule.attribute === "side" && <SideBalanceHelp />}
     </div>
   );
