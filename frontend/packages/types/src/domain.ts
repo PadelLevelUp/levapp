@@ -1994,9 +1994,9 @@ export interface PresencePlayerStats {
   justifiedMinutes: number;
   guestPresenceMinutes: number;
   /**
-   * "Saldo de horas" (rule 17d, Q2): `guestPresenceMinutes − justifiedMinutes`, computed on the
-   * server only. Optional until the server side lands in this batch; the shells read a missing
-   * value as 0.
+   * PAD-837 (rule 17d): `guestPresenceMinutes − justifiedMinutes`, signed, computed on the
+   * server. Unexcused absences never move it. Optional on the type only so older fixtures and
+   * payloads still type-check; the server always sends it and the shells read a missing value as 0.
    */
   balanceMinutes?: number;
 }

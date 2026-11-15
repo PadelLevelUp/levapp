@@ -80,6 +80,25 @@ def _normalize_range(range_start: datetime, range_end: datetime) -> Tuple[dateti
     return start, end
 
 
+def _clamp_to_today(
+    start: datetime, end: datetime, now: Optional[datetime]
+) -> Tuple[datetime, datetime, bool]:
+    """PAD-837c (rule 17h): a period never counts the future.
+
+    Returns ``(start, end, empty)``. ``end`` is cut to the end of the club's today (23:59:59, the
+    same edge ``default_overview_range`` uses); a period that starts after today is ``empty`` and
+    keeps its requested bounds so the payload can echo them. This lives here, in the stats and
+    trend builders, and never in ``_presence_overview_range``, which the pending-validation routes
+    share.
+    """
+    today_end = _as_club_wall(now or datetime.now(timezone.utc)).replace(
+        hour=23, minute=59, second=59, microsecond=0
+    )
+    if start > today_end:
+        return start, end, True
+    return start, min(end, today_end), False
+
+
 def _coach_presence_query(coach_id: int, start: datetime, end: datetime):
     """Every presence on a class this coach owns, inside the window.
 
@@ -108,6 +127,7 @@ def build_presence_stats(
     coach_id: int,
     range_start: datetime,
     range_end: datetime,
+    now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """Per-player presence aggregates across a coach's whole roster.
 
@@ -116,8 +136,12 @@ def build_presence_stats(
 
     Returns a dict with ``from``/``to``, a ``players`` list (one row per roster
     player) and a ``totals`` block feeding the KPI tiles and the donut chart.
+
+    The window's end is clamped to the club's today (``now`` pins it; rule 17h) and ``to`` echoes
+    the clamped end; a window that starts after today counts nothing and echoes what was asked.
     """
     start, end = _normalize_range(range_start, range_end)
+    start, end, empty = _clamp_to_today(start, end, now)
 
     present = Presence.status == "present"
     absent = Presence.status == "absent"
@@ -126,7 +150,7 @@ def build_presence_stats(
     def _count(condition):
         return func.coalesce(func.sum(case((condition, 1), else_=0)), 0)
 
-    rows = (
+    rows = [] if empty else (
         _coach_presence_query(coach_id, start, end)
         .with_entities(
             Presence.player_id.label("player_id"),
@@ -148,7 +172,7 @@ def build_presence_stats(
     # datetime arithmetic in SQL differs between SQLite and Postgres, and `duration_minutes` is
     # the one place a class's length is computed.
     minutes: Dict[int, Dict[str, int]] = {}
-    for player_id, status, justification, enrolled_id, started, ended in (
+    for player_id, status, justification, enrolled_id, started, ended in [] if empty else (
         _coach_presence_query(coach_id, start, end)
         .with_entities(
             Presence.player_id,
@@ -205,6 +229,11 @@ def build_presence_stats(
                 "guestPresenceMinutes": minutes.get(player.id, {}).get("guestPresence", 0),
             }
         )
+        # PAD-837a (rule 17d): guest presence minus justified absence; unexcused absences never
+        # move it. Computed here so both shells and both files show one number.
+        players[-1]["balanceMinutes"] = (
+            players[-1]["guestPresenceMinutes"] - players[-1]["justifiedMinutes"]
+        )
 
     # PAD-683 (players.nickname rule 9a): coach-private rows carry the REQUESTING coach's nickname.
     coach_relation_payloads(coach_id, players, lambda r: r["name"])
@@ -239,6 +268,7 @@ def build_presence_trend(
     range_end: datetime,
     granularity: Optional[str] = None,
     player_ids: Optional[Sequence[int]] = None,
+    now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """Roster-wide attended-class counts over time, gap-filled.
 
@@ -252,8 +282,19 @@ def build_presence_trend(
     empty list is a filter that matched nobody and yields an all-zero series.
     """
     start, end = _normalize_range(range_start, range_end)
+    requested_start, requested_end = start, end
+    start, end, empty = _clamp_to_today(start, end, now)
     if granularity not in GRANULARITIES:
-        granularity = pick_granularity(start, end)
+        granularity = pick_granularity(requested_start, requested_end)
+    if empty:
+        # Rule 17h: a period that starts after today has no buckets; the requested bounds echo.
+        return {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "granularity": granularity,
+            "total": 0,
+            "buckets": [],
+        }
 
     query = (
         _coach_presence_query(coach_id, start, end)
