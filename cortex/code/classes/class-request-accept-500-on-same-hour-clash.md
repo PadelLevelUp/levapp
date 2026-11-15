@@ -11,7 +11,7 @@ need:
 aliases:
   - B-729
   - B-729-class-request-accept-500-on-same-hour-clash
-status: open
+status: resolved
 ---
 
 # B-729 — Accepting a class request answers 500 when the same-hour refusal fires
@@ -49,3 +49,9 @@ and caught it only in the `/add_class` route. The class-request accept reaches t
 5. The request screens map refusals to `classRequests.refusal.<code>`, and neither locale has
    `busy_same_hour`. With `returnNull: false` (web `i18n.ts:99`, mobile `i18n.ts:173`), the 409 alone
    would show the raw key.
+
+**Resolved (2026-11-15, `engine/b-729`, c944c5443):** `_create_class_and_accept` catches
+`BusySameHourError`, rolls back and refuses `409 {code: "busy_same_hour", message, clashes}`, covering
+both routes. The request screens on web and iOS show one line per clash through `@levelup/config`
+`classRequestRefusalLines` (CLASSES-CLASS-REQUESTS-39 to 42). Released iOS builds that predate this
+still look up `classRequests.refusal.busy_same_hour`, which they don't have.
