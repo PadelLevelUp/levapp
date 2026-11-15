@@ -15,6 +15,8 @@ export const JOIN_REFUSAL_CODES = [
   "busy_same_hour",
   "already_on_list",
   "has_spots",
+  // PAD-929 (rule 22): a private join from a client that shows the warning, sent without the yes.
+  "private_unconfirmed",
 ] as const;
 
 export type KnownJoinRefusalCode = (typeof JOIN_REFUSAL_CODES)[number];

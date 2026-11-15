@@ -111,3 +111,4 @@ export * from "./pending-age";
 export * from "./roster-filter";
 export * from "./player-card";
 export * from "./class-type-chip";
+export * from "./private-lesson-warning";
