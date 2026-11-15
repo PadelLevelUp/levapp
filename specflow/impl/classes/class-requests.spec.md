@@ -1,6 +1,6 @@
 ---
 id: classes.class-requests
-status: implemented
+status: implementing
 depends_on: [classes.create, calendar.view, calendar.blocks, messaging.messages]
 serves: [P-CLASSES-3]
 governed_by: []
@@ -168,6 +168,17 @@ held on the coach's calendar while the request is open.
     future occurrence gets its Presence only when it materialises (#338 review F1). Durations
     offered are `CLASS_REQUEST_DURATIONS` (60, 90, 120 min), default 60. The coach's own
     free-blocks endpoint (rule 1) reads the same windows.
+13b. **No free time offers the coach's visible private lessons (PAD-929 C).** When the private
+    step's availability read **succeeded** and left no start time, single or weekly, the step reads
+    `classes.academy-class-booking` rule 12's list for that coach (`type=private`).
+    - If it has rows, it shows them under today's message, each with its day, time, length and club,
+      and its one action: request (open) or join the waiting list (full), both through
+      `classes.join-requests` rule 22.
+    - With no rows, the step shows today's message alone.
+    - A **failed** availability read is not "no free time": it shows its own state and no list
+      (PAD-927), and the step never reads `type=private` while there are start times.
+    - Web and iOS, the same test ids (`wizard-private-lesson-*`; on iOS the state is in the id, as
+      `classes.academy-class-booking` rule 10).
 14. **A weekly request is one request (PAD-357).** `recurrence = {weekdays, startDate, endDate}`
     with `startDate ≤ endDate`, at least one weekday, `date` = the first occurrence; the hold
     (rule 3) is one recurring CalendarBlock covering every occurrence; a proposal or
@@ -586,3 +597,11 @@ test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wi
 - **When** either is selected
 - **Then** the selected segment has the primary fill with its readable foreground, and the other keeps the muted track with muted text, so the choice can be seen without a shadow (iOS draws none)
 test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx`, `frontend/apps/mobile/src/features/class-requests/wizard/EndModeControls.test.tsx`
+
+#### CLASSES-CLASS-REQUESTS-45: With no free time, the private step lists the coach's visible private lessons, or only today's message when none (rule 13b)
+- **Given** an availability answer that leaves no start time, and a `type=private` read that returns one open and one full private lesson
+- **When** the student opens the private step (single, then weekly)
+- **Then** the empty message shows, and under it the two lessons, the open one with the request action and the full one with the waiting-list action
+- **And** when the read returns no lesson, only the empty message shows
+- **And** the step never reads `type=private` while there are start times, nor when the availability read failed
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-CLASS-REQUESTS-45] no free time lists the coach's visible private lessons`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-CLASS-REQUESTS-45] no free time lists the coach's visible private lessons`
