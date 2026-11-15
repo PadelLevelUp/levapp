@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LAUNCH_RELEASE_GRACE_MS, overlayMayRelease } from "./launch-overlay";
 
 describe("the launch overlay's release (PAD-587, mobile.launch rule 2)", () => {
-  it("never releases before the fonts are ready, whatever the screen says", () => {
+  it("[MOBILE-LAUNCH-1] never releases before the fonts are ready, whatever the screen says", () => {
     expect(overlayMayRelease({ fontsReady: false, firstScreenReady: true })).toBe(false);
   });
 

@@ -87,6 +87,7 @@ def _class_payload(**overrides):
 # Rules 1–3: membership-scoped creation and listing
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COURTS-1")
 def test_courts_are_managed_by_the_clubs_coaches_only(client, world):
     c1 = world["club1"]
     r1 = client.post(f"/api/app/club/{c1}/courts", json={"name": "Campo 1"}, headers=world["a"])
@@ -107,6 +108,7 @@ def test_courts_are_managed_by_the_clubs_coaches_only(client, world):
     assert client.delete(f"/api/app/courts/{court_id}", headers=world["student"]).status_code == 403
 
 
+@pytest.mark.criterion("CLUBS-COURTS-2")
 def test_names_are_validated(client, world):
     c1 = world["club1"]
     assert client.post(f"/api/app/club/{c1}/courts", json={"name": "Campo 1"}, headers=world["a"]).status_code == 201
@@ -121,6 +123,7 @@ def test_names_are_validated(client, world):
 # Rules 4–5: rename, reorder, delete
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COURTS-3")
 def test_rename_reorder_delete(client, world):
     c1 = world["club1"]
     h = world["a"]
@@ -148,6 +151,7 @@ def test_rename_reorder_delete(client, world):
 # Rules 6–7: the court on a class, and club + court on the event
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COURTS-4")
 def test_a_class_carries_a_court(client, world):
     from padel_app.models import Lesson
 
@@ -203,6 +207,7 @@ def test_class_detail_carries_club_and_court(client, world):
         assert detail["courtName"] == "Campo 1"
 
 
+@pytest.mark.criterion("CLUBS-COURTS-6")
 def test_deleting_a_court_keeps_its_classes(client, world):
     from padel_app.models import Lesson
 
@@ -254,6 +259,7 @@ def test_future_split_copies_the_court(client, world):
 # Migration
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COURTS-11")
 def test_migration_is_guarded():
     import pathlib
 

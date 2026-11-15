@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe("\"after N classes\" (rule 14a, PAD-428)", () => {
-  it("Tue+Thu from 2026-10-06 with N=4 shows the last class 2026-10-15 and submits endDate 2026-10-15", async () => {
+  it("[CLASSES-CLASS-REQUESTS-20] Tue+Thu from 2026-10-06 with N=4 shows the last class 2026-10-15 and submits endDate 2026-10-15", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({
       freeWindows: {
         "2026-10-06": [WINDOW],
@@ -121,7 +121,7 @@ describe("editing the class count (rule 14a, PAD-428, found by flow 121 on iOS)"
 });
 
 describe("\"on a date\" (rule 14a, PAD-428)", () => {
-  it("propagates the picked end date exactly as before PAD-428", async () => {
+  it("[CLASSES-CLASS-REQUESTS-21] propagates the picked end date exactly as before PAD-428", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({
       freeWindows: { "2026-10-06": [WINDOW] },
       workingHoursSource: "custom",

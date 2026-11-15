@@ -1,0 +1,44 @@
+id: 61
+title: falta justificada e injustificada na mesma aula
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1373, 1391]}
+what_it_tests: a hora limite definida pelo professor muda o tipo de falta, não o preenchimento da vaga
+tags: [absences, regulars, rounds]
+depends_on: [U29]
+corrections: []
+notes: >
+  The cutoff is 24 h, so 2 Nov 10:30. A is R-1 and B is R-2. At 10:40 the second spot opens and the 20-minute
+  round timer from 10:20 expires at the same instant; either reading sends the 3 remaining L2R (6 candidates,
+  3 already invited), which is what the PDF says (R1, R11).
+
+settings:
+  absence_cutoff_before: 24h
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 6, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 10:20
+    events: [{regular_no: R-1}]
+    expect:
+      absences: [{who: R-1, kind: justified}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 10:40
+    events: [{regular_no: R-2}]
+    expect:
+      absences: [{who: R-2, kind: unjustified}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 2}
+  - at: 2026-11-02 11:00
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: r1}}
+      - {accepts: {cohort: L2R, state: invited, as: r2}}
+    expect:
+      placed:
+        - {who: r1, side: R, how: invitation}
+        - {who: r2, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

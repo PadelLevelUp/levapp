@@ -24,6 +24,7 @@ def _import(app, ids, rows):
 
 
 @pytest.mark.parametrize("score", [0, 0.5, 5.5, 8, 10])
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-6")
 def test_a_wide_row_score_off_1_5_is_a_row_error_and_nothing_is_stored(app, score):
     ids = _seed(app)
     result = _import(app, ids, [
@@ -38,6 +39,7 @@ def test_a_wide_row_score_off_1_5_is_a_row_error_and_nothing_is_stored(app, scor
     assert result["imported"] == 1
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-6")
 def test_a_normalized_row_score_off_1_5_is_a_row_error_and_nothing_is_stored(app):
     ids = _seed(app)
     result = _import(app, ids, [
@@ -53,6 +55,7 @@ def test_a_normalized_row_score_off_1_5_is_a_row_error_and_nothing_is_stored(app
 
 
 @pytest.mark.parametrize("score", [1, 1.5, 3, "4", 5])
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-6")
 def test_every_score_on_1_5_is_imported(app, score):
     ids = _seed(app)
     result = _import(app, ids, [{"player_name": "Test Student", "date": "2026-02-01", "Forehand": score}])

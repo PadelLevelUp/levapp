@@ -9,6 +9,7 @@ The cap now counts the seat they hold NOW — a return voids the earlier round,
 which also retires its bubbles, because an un-actioned Yes/No about a seat they
 had given up must not stay tappable (PAD-49, PAD-94).
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -30,6 +31,7 @@ def _state(app, iid, player_id):
         return row.attendance_state
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-13")
 def test_a_re_added_student_is_asked_again(app):
     from padel_app.models import LessonInstance
     from padel_app.services.lesson_service import enrol
@@ -51,6 +53,7 @@ def test_a_re_added_student_is_asked_again(app):
     assert _state(app, iid, ids["student_id"]) == "planned"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-13")
 def test_the_old_bubble_is_retired_so_it_cannot_be_answered(app):
     """PAD-49/94: an un-actioned Yes/No about a seat they gave up must not stay live."""
     from padel_app.models import LessonInstance, ReminderAttempt
@@ -71,6 +74,7 @@ def test_the_old_bubble_is_retired_so_it_cannot_be_answered(app):
         assert voided.superseded and voided.expired, "the earlier round is void"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-13")
 def test_the_coach_is_not_told_a_reminder_is_outstanding_for_a_voided_round(app):
     """The class sheet must not show "reminder sent" for a student about to be
     asked for the first time about the seat they now hold (raised by Session J)."""
@@ -96,6 +100,7 @@ def test_the_coach_is_not_told_a_reminder_is_outstanding_for_a_voided_round(app)
         assert serialize_presences([row])[0]["reminderSentAt"] is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-12")
 def test_a_student_added_inside_the_reminder_window_is_still_asked(app):
     """The case a reviewer assumes is fine, and it is not.
 
@@ -121,6 +126,7 @@ def test_a_student_added_inside_the_reminder_window_is_still_asked(app):
             )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-13")
 def test_the_cap_still_holds_for_an_ordinary_student(app):
     """The guard against over-correcting: reminders are still capped.
 

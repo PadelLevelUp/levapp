@@ -1,0 +1,240 @@
+"""What the engine does, as records (plan §4-§8; harness design §5).
+
+Every rule returns effects; the store applies them and the caller reads them. They are the
+engine's whole observable output, so a test or an adapter never reads internal state to learn
+what happened. ``at`` is naive UTC (R-023).
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal
+
+from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotQueues, SpotType, WaitingListSides
+
+MessageKind = Literal["sorry", "added", "waiting_list_invite", "side_moved", "invite"]
+AbsenceNotice = Literal["on_time", "late", "none"]
+LeftReason = Literal["regular_no", "cancel", "no_show"]
+AlertReason = Literal["no_candidate"]
+AnsweredBy = Literal["student", "coach"]
+#: Why a join was refused, a code the route answers as 409 {code} (classes.join-requests NJ1).
+#: A coach's invitation by hand adds its own (engine-answers rule 15), which the route lists as
+#: ``blocked[].cause`` (``notifications.manual`` NM1).
+RefusalCode = Literal["already_enrolled", "class_closed", "ineligible", "side_full", "busy_same_hour",
+                      "already_on_list", "no_open_spot", "already_invited", "already_in_class", "same_hour"]
+
+
+@dataclass(frozen=True)
+class Effect:
+    session: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class Invited(Effect):
+    """``counts_until`` is the instant it stops counting, fixed at send (engine-timeline rule 4);
+    ``manual``: the coach sent it by hand (engine-answers rule 15)."""
+
+    student: str
+    offer: frozenset[SpotType]
+    side_named: Side | None
+    tier: int | None
+    counts_until: datetime | None = None
+    manual: bool = False
+
+
+@dataclass(frozen=True)
+class Sorry(Effect):
+    """A Yes with no room (plan §7, D4; engine-answers rule 4): the invitation stays open but stops
+    counting until the planner re-offers it. Comes with ``Message(kind="sorry")``; never with
+    ``Answered``, which would close it."""
+
+    student: str
+
+
+@dataclass(frozen=True)
+class Reopened(Effect):
+    """A "sorry" invitation reopened for a student who joined the session's waiting list, when the
+    list's turn reaches them (engine-answers rule 4, engine-planning rule 5.3; the owner's decision 1):
+    its offer, named side, tier and counting-until replace the old ones and it counts again. Never a
+    second invitation (D1). Comes with ``Message(kind="waiting_list_invite")``.
+
+    ``manual``: the coach's invitation by hand reopened the row (engine-answers rule 15), whatever it
+    was: stopped counting, answered, sorry or closed; it clears the answer and the close, and comes with
+    ``Message(kind="invite")``."""
+
+    student: str
+    offer: frozenset[SpotType]
+    side_named: Side | None
+    tier: int | None
+    counts_until: datetime | None = None
+    manual: bool = False
+
+
+@dataclass(frozen=True)
+class Answered(Effect):
+    """``by``: who gave the answer, the student or the coach on their behalf (engine-answers)."""
+
+    student: str
+    answer: Literal["yes", "no"]
+    on: Literal["invitation", "attendance_request"]
+    by: AnsweredBy = "student"
+
+
+@dataclass(frozen=True)
+class Placed(Effect):
+    student: str
+    side: Side | None
+    how: PlacedHow
+
+
+@dataclass(frozen=True)
+class SideAssigned(Effect):
+    """A going student's side is fixed or moved (plan §8 step 6, flexible students). ``firm``: the coach
+    chose it (engine-answers rule 10), so ``last_invite_at`` never moves it."""
+
+    student: str
+    side: Side
+    firm: bool = False
+
+
+@dataclass(frozen=True)
+class Left(Effect):
+    student: str
+    reason: LeftReason
+
+
+@dataclass(frozen=True)
+class Message(Effect):
+    """``sorry``: Yes with no room (D4), never another side; ``added``: automatic entry;
+    ``waiting_list_invite``: the waiting-list invitation, a reopened "sorry" one included (today's
+    template key of that meaning; today's
+    ``waiting_list_offer`` is the engine's ``sorry``, ruling D8); ``side_moved``: a going student
+    told their side was moved at ``last_invite_at`` (plan §4, §8 step 6)."""
+
+    student: str
+    kind: MessageKind
+
+
+@dataclass(frozen=True)
+class AttendanceRequested(Effect):
+    """A reminder: the plan's attendance request (§8 step 3) sent to one student."""
+
+    student: str
+
+
+@dataclass(frozen=True)
+class Absence(Effect):
+    """A student left the session: the notice they gave by the cutoff (owner ruling D4). The engine
+    never judges an absence justified or unjustified; the coach does, outside it."""
+
+    student: str
+    notice: AbsenceNotice
+
+
+@dataclass(frozen=True)
+class Refused(Effect):
+    """A join turned down, with a code and never text; ``sides`` names the open sides on
+    ``side_full``."""
+
+    student: str
+    action: Literal["direct_join", "waiting_list", "coach_invite"]
+    reason: RefusalCode
+    sides: frozenset[Side] = frozenset()
+
+
+@dataclass(frozen=True)
+class WaitingListJoined(Effect):
+    student: str
+    list: Literal["coach", "students"]
+    side: Side | None = None
+    sides: WaitingListSides | None = None
+
+
+@dataclass(frozen=True)
+class WaitingListLeft(Effect):
+    student: str
+    list: Literal["coach", "students"]
+
+
+@dataclass(frozen=True)
+class CoachAlert(Effect):
+    """No tier can take an open spot of ``spot_type`` (plan §6 step 4, engine-planning rule 11);
+    ``spots`` is how many of that type were uncovered, so the store alerts again only when it changes.
+
+    Everything the app needs to tell the coach, with no text to parse (PAD-915): the session and
+    instant, ``reason`` a code (``constants.ALERT_NO_CANDIDATE``), the type's side (``None``: either
+    side) and level, and the count. The store turns it into the coach's message (``COACH_ALERT``) or
+    a dashboard card; the wording is the app's."""
+
+    reason: AlertReason
+    spot_type: SpotType
+    spots: int
+
+
+@dataclass(frozen=True)
+class AlertCleared(Effect):
+    """An alerted type is covered, gone or has a candidate again (engine-planning rule 11): the store
+    drops its alert, so the alerts it keeps are only live ones."""
+
+    spot_type: SpotType
+
+
+@dataclass(frozen=True)
+class InvitationClosed(Effect):
+    """The student's open invitation for this session closed because they were placed in another
+    session at the same hour (engine-answers rule 10, D4's one exception). Nothing is sent."""
+
+    student: str
+
+
+# --- semi-automatic mode (engine-planning rule 14; the owner's decisions 5 and 10) --------------------
+
+@dataclass(frozen=True)
+class ApprovalRequest(Effect):
+    """The run would start sending from group ``tier``, not approved for this session, so it asks the
+    coach instead: ``queues`` is the group's queue per open spot type from the dry run at ``at``;
+    ``request`` its id. Replaces that group's pending request."""
+
+    tier: int
+    queues: SpotQueues
+    request: str
+
+
+@dataclass(frozen=True)
+class ApprovalWithdrawn(Effect):
+    """Group ``tier``'s pending request ``request`` went stale: nothing is left to send from the group,
+    or the coach turned automatic."""
+
+    tier: int
+    request: str
+
+
+@dataclass(frozen=True)
+class GroupApproved(Effect):
+    """The coach approved group ``tier`` for this session; ``removed`` adds to the students never
+    invited automatically here."""
+
+    tier: int
+    removed: frozenset[str]
+
+
+@dataclass(frozen=True)
+class GroupDismissed(Effect):
+    """The coach dismissed group ``tier``'s request ("Ignorar"): the group is skipped as if it had no
+    candidates while the session's open spot types stay ``spots``."""
+
+    tier: int
+    spots: tuple[tuple[SpotType, int], ...]
+
+
+@dataclass(frozen=True)
+class GroupReopened(Effect):
+    """Group ``tier``'s dismissal ends: the coach reopened it from the class, or the spot count changed."""
+
+    tier: int
+
+
+@dataclass(frozen=True)
+class GroupsCleared(Effect):
+    """The coach turned automatic: no group stays approved, so a return to semi-automatic asks again."""

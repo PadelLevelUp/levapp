@@ -19,7 +19,7 @@ describe("mergeEditedMessage", () => {
     metadata: { notificationEventId: 11, responded: false },
   };
 
-  it("takes the payload's metadata and edited flag, so a coach-recorded answer retires the buttons live", () => {
+  it("[MESSAGING-SSE-REALTIME-13] takes the payload's metadata and edited flag, so a coach-recorded answer retires the buttons live", () => {
     const merged = mergeEditedMessage(cached, {
       ...cached,
       isRead: false,
@@ -33,7 +33,7 @@ describe("mergeEditedMessage", () => {
     expect(merged.status).toBe("read");
   });
 
-  it("still applies a text edit as edited", () => {
+  it("[MESSAGING-SSE-REALTIME-13] still applies a text edit as edited", () => {
     const merged = mergeEditedMessage(cached, { ...cached, content: "Convite (corrigido)", edited: true });
     expect(merged.content).toBe("Convite (corrigido)");
     expect(merged.edited).toBe(true);
@@ -66,7 +66,7 @@ describe("eraseDeletedMessage", () => {
     metadata: { notificationEventId: 11, responded: false },
   };
 
-  it("drops the text, metadata, reactions and reply link and marks it deleted", () => {
+  it("[MESSAGING-MESSAGES-11] drops the text, metadata, reactions and reply link and marks it deleted", () => {
     const erased = eraseDeletedMessage(live);
     expect(erased.isDeleted).toBe(true);
     expect(erased.content).toBe("");

@@ -15,6 +15,7 @@ class at its `maxTotal` budget holds its spots instead of moving their rounds on
    follow-up advanced the round although nobody could be invited; the tick already held such a
    spot (its `_check_restrictions` refuses the class first).
 """
+import pytest
 import json
 from collections import Counter
 from datetime import datetime, timedelta
@@ -122,6 +123,7 @@ def _count_rule_checks():
     return groups, bars, prefs, patches
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-56")
 def test_one_trigger_evaluates_each_student_once_per_spot_shape_and_invites_the_same(app):
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.services import notification_service as ns
@@ -152,6 +154,7 @@ def test_one_trigger_evaluates_each_student_once_per_spot_shape_and_invites_the_
         assert prefs and max(prefs.values()) == 1, sorted(prefs.values())
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-56")
 def test_a_tick_evaluates_each_student_once_per_spot_shape(app):
     """The tick's later rounds (`_send_batch_locked`) share the run too."""
     from padel_app.services import notification_service as ns
@@ -182,6 +185,7 @@ BY_LEVEL = [{"id": "1", "rules": [{"attribute": "level", "operation": "same_as_v
             {"id": "2", "rules": []}]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-57")
 def test_a_spot_after_the_budget_ran_out_in_the_same_trigger_holds_its_round(app):
     """maxTotal 1: the first spot invites the one L1 student; the second spot (level L2) has
     nobody in group 1. Its round stays 1 and its start is given back, as on the tick."""
@@ -207,6 +211,7 @@ def test_a_spot_after_the_budget_ran_out_in_the_same_trigger_holds_its_round(app
         assert Vacancy.query.get(first.id).current_round_number == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-57")
 def test_a_decline_follow_up_at_the_budget_holds_its_round(app):
     """maxTotal 1, already used by another spot's live invitation; a started spot whose group 1
     matches nobody is asked for its next student after a decline. Nothing can be sent, so its

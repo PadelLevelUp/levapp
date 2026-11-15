@@ -59,7 +59,7 @@ function card(over: Partial<EvaluationCard> = {}): EvaluationCard {
 }
 
 describe("ShareStep1 — evaluations.sharing rule 2 (pre-selection) and rule 6 (gating)", () => {
-  it("pre-selects every rated competency, in the record's own order, and defaults evolution to 'last'", async () => {
+  it("[EVALUATIONS-SHARING-2] pre-selects every rated competency, in the record's own order, and defaults evolution to 'last'", async () => {
     const r = record({});
     const selection = initialShareSelection(r);
     expect(selection).toEqual({ categoryIds: [1, 2], evolution: "last", includeNote: false });
@@ -98,7 +98,7 @@ describe("ShareStep1 — evaluations.sharing rule 2 (pre-selection) and rule 6 (
     expect(n.byTestId("share-preview").props.disabled).toBe(true);
   });
 
-  it("omits the note switch when the record has no note, off by default when it does", async () => {
+  it("[EVALUATIONS-SHARING-2] omits the note switch when the record has no note, off by default when it does", async () => {
     const withoutNote = record({ note: null });
     const n1 = await renderNative(
       createElement(ShareStep1, {

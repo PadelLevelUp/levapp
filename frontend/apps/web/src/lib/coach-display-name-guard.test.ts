@@ -49,7 +49,7 @@ if (process.env.UPDATE_COACH_NAME_LIST === "1") {
 }
 
 describe("coach display-name guard (PAD-683)", () => {
-  it("the scanner catches a bypass and passes a resolved name", () => {
+  it("[PLAYERS-NICKNAME-8] the scanner catches a bypass and passes a resolved name", () => {
     const src = [
       '<span className="text-sm">{inv.playerName}</span>',
       "<Row name={p.name} />",
@@ -66,7 +66,7 @@ describe("coach display-name guard (PAD-683)", () => {
     expect(walk(SRC).length, "source files scanned").toBeGreaterThan(100);
   });
 
-  it("every hit is in a listed file, with the exact count", () => {
+  it("[PLAYERS-NICKNAME-8] every hit is in a listed file, with the exact count", () => {
     const listed = new Map(COACH_NAME_LIST.map((e) => [e.file, e.max]));
     const unlisted = hits.filter((h) => !listed.has(h.file)).map((h) => `${h.file}:${h.line}  ${h.text}`);
     expect(unlisted, "resolve these through useCoachDisplayName / coachDisplayName").toEqual([]);

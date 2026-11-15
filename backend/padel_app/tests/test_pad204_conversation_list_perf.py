@@ -139,6 +139,7 @@ def _statement_counter(app):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-12")
 def test_list_is_ordered_by_the_denormalised_last_message(app, client):
     """
     AC — "Ordered by the denormalised last message".
@@ -203,6 +204,7 @@ def test_list_is_ordered_by_the_denormalised_last_message(app, client):
     assert by_id[empty_id]["lastMessageAt"] is None
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-13")
 def test_every_message_insert_path_moves_the_pointer(app):
     """
     AC — "A system message moves the thread to the top", first half.
@@ -258,6 +260,7 @@ def test_every_message_insert_path_moves_the_pointer(app):
         assert conversation.last_message_id == prompt.id
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-13")
 def test_a_back_dated_insert_does_not_rewind_the_pointer(app):
     """
     AC — "A system message moves the thread to the top", second half.
@@ -308,6 +311,7 @@ def _seed_conversations(caller_id, prefix, count, messages_each):
     return conversation_ids
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-14")
 def test_list_statement_count_is_constant(app, client):
     """
     AC — "The list costs the same whether it shows 3 threads or 20, holding 3
@@ -389,6 +393,7 @@ def test_list_statement_count_is_constant(app, client):
     )
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-14")
 def test_serializing_the_list_never_loads_the_message_bodies(app):
     """
     AC — "The list costs the same…", the mechanism rather than the symptom.
@@ -423,6 +428,7 @@ def test_serializing_the_list_never_loads_the_message_bodies(app):
             )
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-15")
 def test_listed_unread_counts_sum_to_the_badge(app, client):
     """
     AC — "Per-conversation unread agrees with the badge".
@@ -478,6 +484,7 @@ def test_listed_unread_counts_sum_to_the_badge(app, client):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-16")
 def test_duplicate_participant_row_is_rejected(app):
     """
     AC — "A duplicate participant row is rejected".
@@ -514,6 +521,7 @@ def test_duplicate_participant_row_is_rejected(app):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-11")
 def test_detail_statement_count_is_constant_in_thread_length(app, client):
     """
     AC — "Reactions load in one query, not one per message".

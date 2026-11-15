@@ -54,6 +54,7 @@ def _by_key(body):
     return {c["key"]: c for c in body["competencies"] if c["key"]}
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-10")
 def test_a_new_coach_starts_with_the_whole_default_tree(app, client):
     """Rules 4, 15 — criterion "A new coach starts with the whole default tree"."""
     from padel_app.models import EvaluationCategory
@@ -111,6 +112,7 @@ def test_a_sub_category_is_created_under_a_category(app, client):
     assert _post(app, client, ids, {"catalogueKey": "consistency", "parentId": grit}).status_code == 400
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-11")
 def test_two_levels_only_and_legacy_stays_out_of_the_tree(app, client):
     """Rule 15 — criterion "Two levels only; legacy stays out of the tree"."""
     from padel_app.models import EvaluationCategory
@@ -131,6 +133,7 @@ def test_two_levels_only_and_legacy_stays_out_of_the_tree(app, client):
         assert EvaluationCategory.query.count() == before
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-8")
 def test_renaming_a_default_makes_it_the_coachs_own(app, client):
     """Rule 8 — criterion "Renaming a default makes it the coach's own"."""
     ids = _seed(app)
@@ -147,6 +150,7 @@ def test_renaming_a_default_makes_it_the_coachs_own(app, client):
     assert "bandeja" in [c["key"] for c in _get(app, client, ids)["catalogue"]]
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-9")
 def test_deleting_a_category_takes_its_sub_categories_with_it(app, client):
     """Rule 9 — criterion "Deleting a category takes its sub-categories with it"."""
     from padel_app.models import EvaluationCategory, EvaluationEntry
@@ -177,6 +181,7 @@ def test_deleting_a_category_takes_its_sub_categories_with_it(app, client):
     assert {"tactics", "transition", "doubles_play"} <= set(offered)
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-12")
 def test_a_score_for_a_category_with_sub_categories_is_kept_as_history(app, client):
     """Rule 16 (D6 as ruled) — a stray score is stored, never dropped."""
     from padel_app.models import EvaluationEntry

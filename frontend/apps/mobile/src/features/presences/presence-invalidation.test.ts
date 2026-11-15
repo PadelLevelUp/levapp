@@ -12,7 +12,7 @@ import { invalidateAfterPresenceWrite } from "./presence-invalidation";
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("a presence write refreshes the Presences tab badge (PAD-443)", () => {
-  it("refetches the badge query", async () => {
+  it("[ATTENDANCE-VALIDATION-26] refetches the badge query", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     let fetches = 0;
     const observer = new QueryObserver(client, {

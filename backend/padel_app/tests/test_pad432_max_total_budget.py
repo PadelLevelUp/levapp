@@ -9,6 +9,7 @@ occurrence, not per spot — and `queued`/`expired` rows never count. These
 tests pin that behaviour directly against the two engine chokepoints named in
 the spec.
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -83,6 +84,7 @@ def _counted(instance_id):
     ).count()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-31")
 def test_maxtotal_budget_is_shared_across_the_occurrences_open_spots(app):
     """Criterion 1: two open spots on one occurrence share one maxTotal
     budget. 3 sent/confirmed events spread across BOTH vacancies at
@@ -111,6 +113,7 @@ def test_maxtotal_budget_is_shared_across_the_occurrences_open_spots(app):
         assert _check_restrictions(instance, coach.id, cfg.get_restrictions()) is False
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-31")
 def test_send_invitation_batch_trims_to_the_remaining_shared_budget(app):
     """Criterion 1 (trimming): 2 already sent (on one spot), maxTotal 3, 5
     eligible candidates for the OTHER spot -> at most 1 goes out."""
@@ -141,6 +144,7 @@ def test_send_invitation_batch_trims_to_the_remaining_shared_budget(app):
         assert _counted(instance.id) == 3
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-32")
 def test_expired_invitation_gives_its_place_back_to_the_budget(app):
     """Criterion 2: at budget 3, expiring one invitation (plus an unrelated
     `queued` one, which never counted) frees exactly one more slot."""

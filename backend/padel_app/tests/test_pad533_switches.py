@@ -34,6 +34,7 @@ def test_every_capability_is_registered():
     assert set(cc.CAPABILITIES.values()) <= {"feature", "compat"}
 
 
+@pytest.mark.criterion("ADMIN-CLUBS-AND-SWITCHES-6")
 def test_a_kill_switch_withholds_a_capability_from_every_client(app, client, staff):
     from flask_jwt_extended import create_access_token
     from padel_app.models.players import Player
@@ -68,6 +69,7 @@ def test_a_kill_switch_withholds_a_capability_from_every_client(app, client, sta
     assert [(r["before"]["off"], r["after"]["off"]) for r in rows] == [(False, True), (True, False)]
 
 
+@pytest.mark.criterion("ADMIN-CLUBS-AND-SWITCHES-7")
 def test_the_cache_bounds_the_delay(app, monkeypatch):
     """A worker that read at T sees a change made elsewhere at T+1 s by T+31 s, and not before T+30 s."""
     from padel_app.models.app_setting import AppSetting
@@ -87,6 +89,7 @@ def test_the_cache_bounds_the_delay(app, monkeypatch):
         assert cc.switched_off()["open-spots"]["off"] is True            # within the bound
 
 
+@pytest.mark.criterion("ADMIN-CLUBS-AND-SWITCHES-8")
 def test_switching_off_needs_a_reason_and_unknown_capabilities_are_refused(app, client, staff):
     r = client.put("/admin/api/settings/capabilities/open-spots", headers=staff["owner"], json={"off": True})
     assert r.status_code == 400 and r.get_json() == {"error": "REASON_REQUIRED"}
@@ -100,6 +103,7 @@ def test_switching_off_needs_a_reason_and_unknown_capabilities_are_refused(app, 
         assert capability_kill_switches() == {}
 
 
+@pytest.mark.criterion("ADMIN-CLUBS-AND-SWITCHES-5")
 def test_operators_and_support_cannot_flip_a_kill_switch(app, client, staff):
     for who in ("operator", "support"):
         r = client.put("/admin/api/settings/capabilities/open-spots", headers=staff[who],

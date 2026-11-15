@@ -14,6 +14,7 @@ nothing is written, so existing private classes get them and explicit overrides 
 
     pytest padel_app/tests/test_pad429_private_class_defaults.py -v
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -85,6 +86,7 @@ def _set(app, model, obj_id, **fields):
         db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-1")
 def test_a_private_class_is_not_filled_automatically(app):
     ids = _class_with_a_candidate(app, lesson_type="private", name="priv")
 
@@ -96,6 +98,7 @@ def test_a_private_class_is_not_filled_automatically(app):
     assert payload["autoInvitesSource"] == "type"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-1")
 def test_a_private_class_still_reminds_its_own_students(app):
     """Rule 6: reminders are untouched. Same class, same reminder result as an academy class."""
     from padel_app.services.notification_service import send_class_reminders
@@ -108,6 +111,7 @@ def test_a_private_class_still_reminds_its_own_students(app):
     assert results["private"]["sent"] == results["academy"]["sent"] >= 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-2")
 def test_a_coach_turns_automatic_invitations_on_for_a_private_class(app):
     from padel_app.models.lessons import Lesson
 
@@ -120,6 +124,7 @@ def test_a_coach_turns_automatic_invitations_on_for_a_private_class(app):
     assert payload["autoInvitesSource"] == "lesson"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-3")
 def test_an_academy_class_is_filled_automatically_by_default(app):
     ids = _class_with_a_candidate(app, lesson_type="academy", name="acad")
 
@@ -143,6 +148,7 @@ def test_an_instance_override_wins_over_the_lesson(app):
     assert payload["autoInvitesSource"] == "instance"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-4")
 def test_turning_automatic_invitations_off_mid_fill_stops_the_rounds(app):
     """Rule 6: the sweep holds the class's open vacancies once auto-invites resolve off."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -173,6 +179,7 @@ def test_turning_automatic_invitations_off_mid_fill_stops_the_rounds(app):
     assert _invites_sent(app, ids) == sent_before
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-6")
 def test_manual_invitations_ignore_the_setting(app):
     from padel_app.services.notification_service import send_manual_notifications
 
@@ -196,6 +203,7 @@ def _private_seed(app):
     return ids
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-8")
 def test_a_private_class_is_hidden_unless_the_coach_makes_it_visible(app):
     from padel_app.models.lessons import Lesson
 
@@ -211,6 +219,7 @@ def test_a_private_class_is_hidden_unless_the_coach_makes_it_visible(app):
     assert len(_open_spots(app, bruno)) == 1
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-9")
 def test_an_academy_class_still_follows_the_coach_standard(app):
     ids = _seed(app, eligibility_rules=None)
     _config(app, ids, open_spots_visible=True)
@@ -219,6 +228,7 @@ def test_an_academy_class_still_follows_the_coach_standard(app):
     assert payload["openSpotsSource"] == "coach"
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-10")
 def test_a_client_without_class_type_defaults_never_sees_the_type_source(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.serializers.lesson import serialize_class_instance
@@ -292,6 +302,7 @@ def test_creating_a_private_class_stores_nothing_unless_the_coach_chose(app):
         assert chosen.auto_invites is True
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-5")
 def test_a_decline_after_automatic_invitations_go_off_invites_no_one_next(app):
     """Rule 6 (Session-B's #445 review): a decline normally invites the next student at once
     (`_send_next_on_decline`). With auto-invites off for the class, it must not."""
@@ -324,6 +335,7 @@ def test_a_decline_after_automatic_invitations_go_off_invites_no_one_next(app):
     assert _invites_sent(app, ids) == 1, "the decline invited the next student with auto-invites off"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-5")
 def test_a_decline_with_automatic_invitations_on_still_invites_the_next(app):
     """The control for the cell above: with auto-invites on, the next student is invited at once."""
     from padel_app.models.lesson_instances import LessonInstance

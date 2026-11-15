@@ -26,6 +26,8 @@ from padel_app.sql_db import db
 PATCHES = [
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 ]
 
 ALL_TEMPLATE_KEYS = [
@@ -175,6 +177,7 @@ class TestBlankTemplateResolution:
     """``get_message_templates`` / ``resolve_message_template`` never yield blanks."""
 
     @pytest.mark.parametrize("blank", ["", "   ", "\n\t ", None, 0, [], {}])
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-5")
     def test_blank_stored_template_falls_back_to_default(self, app, blank):
         from padel_app.models.notification_config import (
             DEFAULT_MESSAGE_TEMPLATES_PT,
@@ -192,6 +195,7 @@ class TestBlankTemplateResolution:
         assert resolved["reminder_declined"] == DEFAULT_MESSAGE_TEMPLATES_PT["reminder_declined"]
         assert resolved["reminder_declined"].strip()
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-6")
     def test_every_key_falls_back_when_all_blank(self, app):
         """The whole template set cleared → every key still resolves to a default."""
         from padel_app.models.notification_config import (
@@ -232,6 +236,7 @@ class TestBlankTemplateResolution:
         assert resolved["reminder_declined"] == "Custom decline text"
         assert resolved["confirm"].strip()
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-5")
     def test_whitespace_only_template_is_treated_as_blank(self, app):
         """A template of spaces/newlines only is blank — it renders an empty bubble."""
         from padel_app.models.notification_config import (
@@ -299,6 +304,7 @@ class TestDeclineConfirmationNeverEmpty:
                 send_class_reminders(instance_id, now=now)
                 respond_to_reminder(instance_id, "no", ids["student_user_id"], now=now)
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-5")
     def test_blank_reminder_declined_template_sends_default_not_empty(self, app):
         """PAD-67 core regression: blank ``reminder_declined`` → default text, never ''."""
         from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES_PT
@@ -315,6 +321,7 @@ class TestDeclineConfirmationNeverEmpty:
         for t in _messages(app):
             assert (t or "").strip(), f"an empty message was delivered: {t!r}"
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-6")
     def test_blank_reminder_confirmed_template_sends_default_not_empty(self, app):
         """Same hole on the "yes, I'm coming" reply."""
         from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES_PT
@@ -346,6 +353,7 @@ class TestDeclineConfirmationNeverEmpty:
 
         assert "Ok, ficas de fora!" in _messages(app, message_type="text")
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-6")
     def test_no_message_is_ever_created_with_blank_text(self, app):
         """Every template blank → still zero empty messages anywhere."""
         ids = _seed_coach_and_student(app)
@@ -359,6 +367,7 @@ class TestDeclineConfirmationNeverEmpty:
         for t in all_texts:
             assert (t or "").strip(), f"an empty message was delivered: {t!r}"
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-6")
     def test_blank_reminder_template_still_sends_reminder(self, app):
         """Blank ``reminder`` → the scheduled reminder itself falls back too."""
         from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES_PT
@@ -387,7 +396,7 @@ class TestEmptyMessageBackstop:
 
     def test_send_system_message_skips_blank_text(self, app):
         from padel_app.models.messages import Message
-        from padel_app.services.notification_service import _send_system_message
+        from padel_app.services.system_messages import _send_system_message
 
         ids = _seed_coach_and_student(app)
 
@@ -402,7 +411,7 @@ class TestEmptyMessageBackstop:
 
     def test_send_system_message_still_sends_real_text(self, app):
         from padel_app.models.messages import Message
-        from padel_app.services.notification_service import _send_system_message
+        from padel_app.services.system_messages import _send_system_message
 
         ids = _seed_coach_and_student(app)
 

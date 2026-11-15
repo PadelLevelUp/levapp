@@ -13,6 +13,7 @@ dismissed.
 Pinned clock (`NOW`, the class tomorrow 09:00, the invitation window open), no scheduler: the
 approval prompt is written inline, as in the rest of the suite.
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -62,6 +63,7 @@ def _set_mode_behind_the_engine(coach_id, mode):
     db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-25")
 def test_switching_to_automatic_releases_the_pending_spot_and_stales_its_prompt(app, monkeypatch):
     from padel_app.services.notification_service import process_invitation_batches, update_config
 
@@ -76,6 +78,7 @@ def test_switching_to_automatic_releases_the_pending_spot_and_stales_its_prompt(
         assert len(_live_events(instance_id)) == 3, "the sweep starts the released spot (maxSimultaneous 3)"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-26")
 def test_the_sweep_starts_a_pending_spot_stranded_by_an_earlier_switch(app, monkeypatch):
     from padel_app.services.notification_service import process_invitation_batches
 
@@ -88,6 +91,7 @@ def test_the_sweep_starts_a_pending_spot_stranded_by_an_earlier_switch(app, monk
         assert len(_live_events(instance_id)) == 3, "the stranded spot is invited on the first tick"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-27")
 def test_a_dismissed_spot_stays_dismissed_on_the_switch_and_in_the_sweep(app, monkeypatch):
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
     from padel_app.models.vacancy import Vacancy

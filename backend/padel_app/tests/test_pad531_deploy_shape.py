@@ -42,6 +42,7 @@ def _job(text, name):
 
 
 @pytest.mark.parametrize("env", sorted(ENVIRONMENTS))
+@pytest.mark.criterion("ADMIN-FOUNDATION-22")
 def test_the_deploy_builds_and_runs_the_admin_image(env):
     cfg = ENVIRONMENTS[env]
     text = (WORKFLOWS / cfg["workflow"]).read_text()
@@ -64,6 +65,7 @@ def test_the_deploy_builds_and_runs_the_admin_image(env):
 
 
 @pytest.mark.parametrize("env", sorted(ENVIRONMENTS))
+@pytest.mark.criterion("ADMIN-FOUNDATION-22")
 def test_the_tracked_nginx_block_routes_the_admin_host(env):
     cfg = ENVIRONMENTS[env]
     text = (NGINX / cfg["nginx"]).read_text()

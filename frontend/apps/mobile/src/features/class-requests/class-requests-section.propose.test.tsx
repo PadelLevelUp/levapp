@@ -95,21 +95,21 @@ async function sent(n: N) {
 afterEach(() => api.proposeClassRequest.mockClear());
 
 describe("propose another time keeps the length on iOS (PAD-491, rule 20)", () => {
-  it("moving the start moves the end by the request's length", async () => {
+  it("[CLASSES-CLASS-REQUESTS-5] moving the start moves the end by the request's length", async () => {
     const n = await openForm();
     await pick(n, "class-request-proposal-start", "14:30");
     expect(n.byTestId("class-request-proposal-end").props.value).toBe("15:30");
     expect(await sent(n)).toEqual([7, { date: "2026-10-07", startTime: "14:30", endTime: "15:30" }]);
   });
 
-  it("after the coach sets the end, moving the start keeps the coach's length", async () => {
+  it("[CLASSES-CLASS-REQUESTS-5] after the coach sets the end, moving the start keeps the coach's length", async () => {
     const n = await openForm();
     await pick(n, "class-request-proposal-end", "11:30");
     await pick(n, "class-request-proposal-start", "15:00");
     expect(await sent(n)).toEqual([7, { date: "2026-10-07", startTime: "15:00", endTime: "16:30" }]);
   });
 
-  it("changing the end never moves the start", async () => {
+  it("[CLASSES-CLASS-REQUESTS-5] changing the end never moves the start", async () => {
     const n = await openForm();
     await pick(n, "class-request-proposal-end", "12:00");
     expect(await sent(n)).toEqual([7, { date: "2026-10-07", startTime: "10:00", endTime: "12:00" }]);

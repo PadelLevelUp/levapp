@@ -33,14 +33,14 @@ beforeEach(() => {
 });
 
 describe("ClaimRequestsList re-reads /me after an accepted claim (PAD-444)", () => {
-  it("refreshes the signed-in user once the claim is accepted", async () => {
+  it("[PLAYERS-JOIN-TOKEN-13] refreshes the signed-in user once the claim is accepted", async () => {
     render(<ClaimRequestsList variant="banner" />);
     fireEvent.click(await screen.findByTestId("claim-accept-5"));
     await waitFor(() => expect(acceptClaimRequest).toHaveBeenCalledWith("5"));
     await waitFor(() => expect(refreshUser).toHaveBeenCalledTimes(1));
   });
 
-  it("refreshes nothing on a reject", async () => {
+  it("[PLAYERS-JOIN-TOKEN-13] refreshes nothing on a reject", async () => {
     render(<ClaimRequestsList variant="banner" />);
     fireEvent.click(await screen.findByTestId("claim-reject-5"));
     await waitFor(() => expect(rejectClaimRequest).toHaveBeenCalled());

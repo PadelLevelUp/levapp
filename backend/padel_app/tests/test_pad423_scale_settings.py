@@ -44,6 +44,7 @@ def _scales(app, ids):
         return {c.name: (c.scale_min, c.scale_max) for c in EvaluationCategory.query.filter_by(coach_id=ids["coach_id"])}
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-1")
 def test_a_coach_who_never_set_a_scale_reads_5_and_no_row_is_made(app, client):
     from padel_app.models import NotificationConfig
 
@@ -55,6 +56,7 @@ def test_a_coach_who_never_set_a_scale_reads_5_and_no_row_is_made(app, client):
         assert NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).first() is None
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-7")
 def test_setting_10_rescales_catalogue_and_custom_but_not_legacy(app, client):
     ids = _world(app)
     res = client.put(SCALE, json={"scaleMax": 10}, headers=_headers(app, ids["coach_user_id"]))
@@ -72,6 +74,7 @@ def test_setting_10_rescales_catalogue_and_custom_but_not_legacy(app, client):
     {"scaleMax": 0},
     {},                     # absent
 ])
+@pytest.mark.criterion("EVALUATIONS-SCALE-4")
 def test_anything_but_the_four_scales_is_refused_and_nothing_changes(app, client, body):
     ids = _world(app)
     headers = _headers(app, ids["coach_user_id"])

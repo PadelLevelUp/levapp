@@ -111,7 +111,7 @@ describe("held until the one Save (settings.explicit-save)", () => {
     expect(registry.hasUnsaved()).toBe(true);
   });
 
-  it("retyping the stored number after an invalid one is clean and clears the error", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] retyping the stored number after an invalid one is clean and clears the error", async () => {
     const n = await open({ reminder: "every_n_classes", everyN: 7 });
 
     await n.changeText(FIELD, "0");
@@ -122,7 +122,7 @@ describe("held until the one Save (settings.explicit-save)", () => {
     expect(registry.hasUnsaved()).toBe(false);
   });
 
-  it("a failed Save keeps the choice held and unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed Save keeps the choice held and unsaved", async () => {
     const n = await open({ reminder: "never" });
     hooks.mutateAsync.mockRejectedValue(new Error("offline"));
 

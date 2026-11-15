@@ -30,6 +30,7 @@ def _queue(app, coach_id, user_id, now):
         return build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)["data"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-1")
 def test_a_snoozed_card_leaves_the_queue_and_the_count_follows(app):
     from padel_app.helpers.dashboard.snooze import snooze_item
 
@@ -49,6 +50,7 @@ def test_a_snoozed_card_leaves_the_queue_and_the_count_follows(app):
     assert after["count"] == before["count"] - 1
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-1")
 def test_a_snooze_lapses_after_24_hours(app):
     from padel_app.helpers.dashboard.snooze import snooze_item
 
@@ -89,6 +91,7 @@ def test_snoozing_again_restarts_the_clock_instead_of_stacking(app):
         assert NeedsYouSnooze.query.filter_by(coach_id=coach_id).count() == 1
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-1")
 def test_a_snooze_is_the_coachs_own(app):
     """Another coach's queue is untouched by this coach's "Later"."""
     from padel_app.helpers.dashboard.snooze import snooze_item, snoozed_item_ids
@@ -105,6 +108,7 @@ def test_a_snooze_is_the_coachs_own(app):
     assert _queue(app, coach_id, user_id, now)["items"][0]["kind"] == "empty_seats"
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-1")
 def test_snooze_endpoint_hides_the_card_for_the_calling_coach(app, client, monkeypatch):
     # PAD-253: a fixed daytime instant, with the routes' own clock pinned to it.
     # This read the wall clock. Between 22:15 and 23:15 UTC the seeded one-hour
@@ -132,6 +136,7 @@ def test_snooze_endpoint_hides_the_card_for_the_calling_coach(app, client, monke
     assert all(i["id"] != item_id for i in queue["data"]["items"])
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-1")
 def test_snooze_endpoint_rejects_students_and_garbage_ids(app, client):
     from padel_app.sql_db import db
     from padel_app.models import User

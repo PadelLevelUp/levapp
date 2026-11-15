@@ -1,0 +1,35 @@
+id: 81
+title: todo o grupo recusa antes do fim do tempo entre grupos
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1747, 1762]}
+what_it_tests: o tempo entre grupos só se aplica quando ainda há alguém de quem esperar resposta
+tags: [groups, timers]
+depends_on: [U12]
+corrections: []
+notes: >
+  Method A from the base profile. 19:05 all of group 3 refused, so group 4 is invited at once without the
+  60 minutes ("Se todos os convidados de um grupo recusarem, o grupo seguinte é convidado logo", line 172; R2).
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:05
+    events:
+      - {declines: {cohort: L2R, state: invited, as: n1}}
+      - {declines: {cohort: L2R, state: invited, as: n2}}
+      - {declines: {cohort: L2R, state: invited, as: n3}}
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-01 19:15
+    events: [{accepts: {cohort: L3R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

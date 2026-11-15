@@ -84,6 +84,7 @@ def _reminders(app, sender_user_id):
 
 # ── coach (PAD-486) ───────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-1")
 def test_the_coach_sees_who_is_missing_what(client, app, world):
     block = _block(client, app, world["coach_user_id"], "incomplete_players")
     assert block is not None
@@ -118,6 +119,7 @@ def test_the_coach_block_lists_five_names_and_the_full_count(client, app, world)
     assert data["count"] == 7 and len(data["players"]) == 5
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-2")
 def test_the_coach_block_is_gone_when_everything_is_set(client, app, world):
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 
@@ -131,6 +133,7 @@ def test_the_coach_block_is_gone_when_everything_is_set(client, app, world):
 
 # ── student (PAD-490) ─────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-3")
 def test_a_student_who_joined_by_link_sees_why(client, app, world):
     block = _block(client, app, world["s_user_id"], "profile_incomplete")
     assert block["data"]["coaches"] == [{
@@ -140,6 +143,7 @@ def test_a_student_who_joined_by_link_sees_why(client, app, world):
     assert _block(client, app, world["d_user_id"], "profile_incomplete") is None
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-4")
 def test_a_reminder_reaches_the_coach_once_a_day(client, app, world):
     first = _remind(client, app, world["s_user_id"], world["coach_id"])
     assert first.status_code == 200, first.get_json()
@@ -154,6 +158,7 @@ def test_a_reminder_reaches_the_coach_once_a_day(client, app, world):
     assert block["data"]["coaches"][0]["remindedToday"] is True
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-4")
 def test_the_reminder_lands_in_the_coach_thread_from_the_student(client, app, world):
     from padel_app.models import Message
     from padel_app.models.conversation_participants import ConversationParticipant
@@ -167,6 +172,7 @@ def test_the_reminder_lands_in_the_coach_thread_from_the_student(client, app, wo
         assert msg.msg_metadata == {"profileReminder": {"coachId": world["coach_id"], "missing": ["level", "side"]}}
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-5")
 def test_the_day_turns_at_lisbon_midnight(client, app, world, monkeypatch):
     """Summer: 23:30 Lisbon = 22:30 UTC; 00:10 Lisbon the next day = 23:10 UTC, the same UTC day.
     A UTC day boundary would refuse the second reminder; the club day allows it."""
@@ -182,6 +188,7 @@ def test_the_day_turns_at_lisbon_midnight(client, app, world, monkeypatch):
     assert _reminders(app, world["s_user_id"]) == 2
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-6")
 def test_no_reminder_for_a_complete_profile_or_a_stranger(client, app, world):
     done = _remind(client, app, world["d_user_id"], world["coach_id"])
     assert done.status_code == 409 and done.get_json()["code"] == "profile_complete"
@@ -207,6 +214,7 @@ def _block_pair(app, blocker_id, blocked_id):
 
 
 @pytest.mark.parametrize("direction", ["coach_blocked_student", "student_blocked_coach"])
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-8")
 def test_a_blocked_pair_gets_no_reminder_and_no_button(client, app, world, monkeypatch, direction):
     """Messaging's block check applies: nothing is written and nothing is pushed, either way.
     The card still explains the cost but offers no button (`canRemind: false`); the refusal is a
@@ -227,6 +235,7 @@ def test_a_blocked_pair_gets_no_reminder_and_no_button(client, app, world, monke
     assert pushes == []
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-9")
 def test_a_disabled_coach_is_neither_shown_nor_reminded(client, app, world):
     from padel_app.models import User
 

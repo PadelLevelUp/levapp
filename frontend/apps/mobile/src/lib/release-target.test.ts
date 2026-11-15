@@ -20,18 +20,18 @@ function readJson(rel: string): Record<string, unknown> {
 }
 
 describe("release targets (PAD-351)", () => {
-  it("names levapp.app as production and staging.levapp.app as staging (rule 1)", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-1] names levapp.app as production and staging.levapp.app as staging (rule 1)", () => {
     expect(readJson("release-targets.json")).toEqual({
       production: "https://levapp.app/api",
       staging: "https://staging.levapp.app/api",
     });
   });
 
-  it("uses the table's production URL as the source's release fallback (rule 2)", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-1] uses the table's production URL as the source's release fallback (rule 2)", () => {
     expect(PRODUCTION_API_URL).toBe(readJson("release-targets.json").production);
   });
 
-  it("sets each EAS release profile's API URL from the table (rule 2)", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-1] sets each EAS release profile's API URL from the table (rule 2)", () => {
     const targets = readJson("release-targets.json");
     const build = (readJson("eas.json").build ?? {}) as Record<
       string,
@@ -49,18 +49,18 @@ describe("release targets (PAD-351)", () => {
       return fs.readFileSync(script, "utf8");
     }
 
-    it("found the archive step before judging the script (R-032)", () => {
+    it("[MOBILE-RELEASE-BUILD-TARGET-5] found the archive step before judging the script (R-032)", () => {
       expect(source()).toMatch(/xcodebuild[^\n]*archive/);
     });
 
-    it("takes the target from its first argument and resolves it through the table", () => {
+    it("[MOBILE-RELEASE-BUILD-TARGET-5] takes the target from its first argument and resolves it through the table", () => {
       const text = source();
       expect(text).toMatch(/TARGET="\$\{1:-\}"/);
       expect(text).toMatch(/release-targets\.json/);
       expect(text).toMatch(/export EXPO_PUBLIC_API_URL="\$API_URL"/);
     });
 
-    it("runs the bundle checker between archive and export", () => {
+    it("[MOBILE-RELEASE-BUILD-TARGET-5] runs the bundle checker between archive and export", () => {
       const text = source();
       const archive = text.search(/xcodebuild[^\n]*archive/);
       const verify = text.indexOf("verify-release-bundle.mjs");

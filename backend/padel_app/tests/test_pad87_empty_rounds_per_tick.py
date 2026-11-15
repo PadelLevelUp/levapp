@@ -5,6 +5,7 @@ Before: `_send_invitation_batch` → no candidates → `_advance_round` →
 `_send_invitation_batch` … synchronously, so with 8 groups of which the first
 7 were empty the 8th group was notified in the same call as the trigger.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -48,6 +49,7 @@ def _events(vacancy_id):
     return NotificationEvent.query.filter_by(vacancy_id=vacancy_id).all()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-27")
 def test_seven_empty_groups_reach_the_eighth_one_tick_at_a_time(app):
     from padel_app.models import Vacancy
     from padel_app.services.notification_service import (
@@ -83,6 +85,7 @@ def test_seven_empty_groups_reach_the_eighth_one_tick_at_a_time(app):
             assert vacancy.status == "open"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-27")
 def test_all_empty_groups_expire_after_the_last_tick_without_inviting(app):
     from padel_app.models import Vacancy
     from padel_app.services.notification_service import (

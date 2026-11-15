@@ -87,6 +87,7 @@ def _with_code(app, client, outbox, issued_at):
 
 # --- Signup issues a code and reports pending ------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-1")
 def test_signup_issues_code_and_reports_pending(client, app, outbox):
     body = _register(client)
     assert body["user"]["emailVerification"] == "pending"
@@ -111,6 +112,7 @@ def test_verification_mail_is_in_the_users_language(client, app, outbox):
 
 # --- Correct code verifies and routes -----------------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-2")
 def test_correct_code_verifies(client, app, outbox):
     user_id, code, _ = _with_code(app, client, outbox, datetime(2026, 9, 7, 10, 0))
     from padel_app.services.email_verification_service import confirm_code
@@ -132,6 +134,7 @@ def test_correct_code_verifies(client, app, outbox):
     assert res.get_json()["error"] == "CODE_EXPIRED"
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-2")
 def test_confirm_route_answers_with_the_me_payload(client, app, outbox):
     body = _register(client)
     code = _code_from(outbox[0])
@@ -144,6 +147,7 @@ def test_confirm_route_answers_with_the_me_payload(client, app, outbox):
 
 # --- Wrong code counts attempts and locks on the fifth --------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-3")
 def test_wrong_code_counts_down_and_locks(client, app, outbox):
     _register(client)
     code = _code_from(outbox[0])
@@ -166,6 +170,7 @@ def test_wrong_code_counts_down_and_locks(client, app, outbox):
 
 # --- Expired code ---------------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-4")
 def test_expired_code(client, app, outbox):
     user_id, code, _ = _with_code(app, client, outbox, datetime(2026, 9, 7, 10, 0))
     from padel_app.services.email_verification_service import EmailVerificationError, confirm_code
@@ -182,6 +187,7 @@ def test_expired_code(client, app, outbox):
 
 # --- Resend is rate-limited and replaces the code ------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-5")
 def test_resend_rate_limited_and_replaces(client, app, outbox):
     user_id, code_a, _ = _with_code(app, client, outbox, datetime(2026, 9, 7, 10, 0, 0))
     from padel_app.services.email_verification_service import EmailVerificationError, confirm_code, send_code
@@ -207,6 +213,7 @@ def test_resend_rate_limited_and_replaces(client, app, outbox):
         assert user.email_verified_at is not None
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-5")
 def test_send_route_is_429_right_after_signup(client, app, outbox):
     _register(client)
     res = client.post("/api/auth/email-verification/send", headers=_auth(app, _user(app).id))
@@ -217,6 +224,7 @@ def test_send_route_is_429_right_after_signup(client, app, outbox):
 
 # --- Malformed code does not consume an attempt ---------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-6")
 def test_malformed_code_does_not_consume_an_attempt(client, app, outbox):
     _register(client)
     code = _code_from(outbox[0])
@@ -231,6 +239,7 @@ def test_malformed_code_does_not_consume_an_attempt(client, app, outbox):
 
 # --- Already verified and no email ----------------------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-7")
 def test_already_verified_and_no_email(client, app, outbox):
     _register(client)
     code = _code_from(outbox[0])
@@ -254,6 +263,7 @@ def test_already_verified_and_no_email(client, app, outbox):
 
 # --- Mail failure at signup does not fail the signup ------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-8")
 def test_mail_failure_does_not_fail_signup(client, app, monkeypatch):
     from padel_app.tools import email_tools
 
@@ -303,6 +313,7 @@ def _configure_sender(app, allowed):
     app.config["MAIL_ALLOWED_RECIPIENTS"] = allowed
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-12")
 def test_allowlist_keeps_domain_and_exact_matches_only(app, smtp):
     from padel_app.tools.email_tools import MailRecipientNotAllowed, send_email
 
@@ -318,6 +329,7 @@ def test_allowlist_keeps_domain_and_exact_matches_only(app, smtp):
             send_email("x", ["ana@levapp.app.evil.com", "levapp.app@gmail.com"], body="y")
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-12")
 def test_empty_allowlist_allows_everyone(app, smtp):
     from padel_app.tools.email_tools import send_email
 
@@ -341,6 +353,7 @@ def test_allowlist_is_parsed_from_the_environment(monkeypatch):
         importlib.reload(config_module)
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-12")
 def test_dropped_verification_mail_is_a_503_not_a_silent_success(client, app, smtp):
     with app.app_context():
         _configure_sender(app, ("@levapp.app",))
@@ -353,6 +366,7 @@ def test_dropped_verification_mail_is_a_503_not_a_silent_success(client, app, sm
 
 # --- Coach-created players are not stopped -----------------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-10")
 def test_coach_created_player_is_not_stopped(client, app, outbox):
     from padel_app.models import Player, User
 
@@ -385,6 +399,7 @@ def test_migration_backfills_users_with_an_email():
 
 # --- Gate switched off -----------------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-13")
 def test_gate_off_verifies_at_signup(client, app, outbox):
     app.config["EMAIL_VERIFICATION_REQUIRED"] = False
     body = _register(client)
@@ -395,6 +410,7 @@ def test_gate_off_verifies_at_signup(client, app, outbox):
 
 # --- Changing the email re-verifies ----------------------------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-14")
 def test_changing_email_reverifies(client, app, outbox):
     _register(client)
     code = _code_from(outbox[0])
@@ -420,6 +436,7 @@ def test_changing_email_reverifies(client, app, outbox):
 
 # --- Admin sees the verification state ------------------------------------------------
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-24")
 def test_admin_list_carries_email_verified(client, app, outbox):
     from padel_app.models import User
 

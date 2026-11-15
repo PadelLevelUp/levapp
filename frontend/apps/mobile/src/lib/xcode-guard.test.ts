@@ -36,27 +36,27 @@ function runCheck(versionOutput: string, env: Record<string, string> = {}) {
 }
 
 describe("scripts/check-xcode.sh (rule 3a)", () => {
-  it("passes Xcode 26.6", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-6] passes Xcode 26.6", () => {
     const r = runCheck("Xcode 26.6\nBuild version 17F113");
     expect(r.status, r.stderr).toBe(0);
   });
 
-  it("refuses Xcode 27.0 and names PAD-467 and DEVELOPER_DIR", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-6] refuses Xcode 27.0 and names PAD-467 and DEVELOPER_DIR", () => {
     const r = runCheck("Xcode 27.0\nBuild version 27A266a");
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/PAD-467/);
     expect(r.stderr).toMatch(/DEVELOPER_DIR/);
   });
 
-  it("refuses a later major too", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-6] refuses a later major too", () => {
     expect(runCheck("Xcode 28.1\nBuild version 28B1").status).not.toBe(0);
   });
 
-  it("refuses when the version cannot be read (fails closed)", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-6] refuses when the version cannot be read (fails closed)", () => {
     expect(runCheck("something unexpected").status).not.toBe(0);
   });
 
-  it("lets an explicit override through, loudly", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-6] lets an explicit override through, loudly", () => {
     const r = runCheck("Xcode 27.0\nBuild version 27A266a", { LEVAPP_ALLOW_XCODE_27: "1" });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stderr).toMatch(/LEVAPP_ALLOW_XCODE_27/);
@@ -64,7 +64,7 @@ describe("scripts/check-xcode.sh (rule 3a)", () => {
 });
 
 describe("scripts/ios-release.sh runs the check first (rule 3a)", () => {
-  it("calls check-xcode.sh before it edits app.json or prebuilds", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-6] calls check-xcode.sh before it edits app.json or prebuilds", () => {
     const text = fs.readFileSync(RELEASE, "utf8");
     // The invocation itself, anchored to its own line: the header comment also names the
     // script, and matching that would let a deleted or moved call pass.

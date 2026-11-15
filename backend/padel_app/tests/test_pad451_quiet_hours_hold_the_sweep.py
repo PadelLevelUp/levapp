@@ -6,6 +6,7 @@ can also be opened another way — a student's cancellation creates it directly 
 `process_invitation_batches` (every 2 minutes) sends its first batch ("Fresh vacancy —
 trigger immediately"). This pins what that sweep does inside the quiet window.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -14,6 +15,8 @@ from padel_app.sql_db import db
 PATCHES = (
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 )
 
 # 22:30 UTC on 10 June is 23:30 in Lisbon (WEST, UTC+1): inside the default 22:00-07:00 window.
@@ -83,6 +86,7 @@ def _sent(vacancy_id):
     return NotificationEvent.query.filter_by(vacancy_id=vacancy_id).count()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-38")
 def test_the_sweep_sends_nothing_inside_quiet_hours(app):
     from padel_app.services.notification_service import process_invitation_batches
 
@@ -92,6 +96,7 @@ def test_the_sweep_sends_nothing_inside_quiet_hours(app):
         assert _sent(vid) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-38")
 def test_the_held_vacancy_is_invited_once_the_window_ends(app):
     from padel_app.services.notification_service import process_invitation_batches
 
@@ -102,6 +107,7 @@ def test_the_held_vacancy_is_invited_once_the_window_ends(app):
         assert _sent(vid) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-38")
 def test_without_quiet_hours_the_night_sweep_sends(app):
     from padel_app.services.notification_service import process_invitation_batches
 
@@ -111,6 +117,7 @@ def test_without_quiet_hours_the_night_sweep_sends(app):
         assert _sent(vid) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-39")
 def test_a_start_trigger_inside_quiet_hours_still_invites_after_the_window(app):
     """The one-shot invite_start trigger for a never-filled spot fires at 23:30 Lisbon. Nothing
     may be sent then, but the spot must not be lost: once the window ends, it is invited."""

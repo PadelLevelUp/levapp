@@ -220,8 +220,24 @@ def _candidates(coach_id: int, now: datetime) -> list[dict]:
                 "_date": occ_wall.date(),
             })
 
+    if (config.engine_version or "old") == "new":   # only a switched coach's classes can be new-engine
+        found = [c for c in found if not _on_new_engine(c)]
     found.sort(key=lambda c: c["startsAt"])
     return found
+
+
+def _on_new_engine(candidate: dict) -> bool:
+    """PAD-918 (engine-timeline rule 2; CONFIG-78): a class the new engine runs, or will run once it is
+    created (its series' coach is switched), has no app reminder to catch up on."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.lessons import Lesson
+    from padel_app.services.engine_entry import _series_is_new_engine
+    from padel_app.services.engine_switch import engine_for
+    from padel_app.sql_db import db
+
+    if "_instance_id" in candidate:
+        return engine_for(db.session.get(LessonInstance, candidate["_instance_id"])) == "new"
+    return _series_is_new_engine(db.session.get(Lesson, candidate["_lesson_id"]))
 
 
 def _public(candidate: dict) -> dict:

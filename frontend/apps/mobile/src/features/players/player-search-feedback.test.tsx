@@ -26,24 +26,24 @@ const text = (n: ReactTestInstance): string =>
   n.children.map((c) => (typeof c === "string" ? c : text(c))).join("");
 
 describe("PlayerSearchFeedback (iOS)", () => {
-  it("renders nothing for a blank query, whatever the state", async () => {
+  it("[PLAYERS-SEARCH-7] renders nothing for a blank query, whatever the state", async () => {
     const n = await renderNative(createElement(PlayerSearchFeedback, { query: "  ", searching: true, count: 0 }));
     expect(n.queryByTestId("player-search-searching")).toBeNull();
     expect(n.queryByTestId("player-search-empty")).toBeNull();
   });
 
-  it("renders nothing when something was found", async () => {
+  it("[PLAYERS-SEARCH-7] renders nothing when something was found", async () => {
     const n = await renderNative(createElement(PlayerSearchFeedback, { query: "rui", count: 2 }));
     expect(n.queryByTestId("player-search-empty")).toBeNull();
   });
 
-  it("says it is searching, in place of the empty line", async () => {
+  it("[PLAYERS-SEARCH-8] says it is searching, in place of the empty line", async () => {
     const n = await renderNative(createElement(PlayerSearchFeedback, { query: "rui", searching: true, count: 0 }));
     expect(text(n.byTestId("player-search-searching"))).toBe("players.search.searching");
     expect(n.queryByTestId("player-search-empty")).toBeNull();
   });
 
-  it("names the trimmed query when nobody matches, and goes away when the box is cleared", async () => {
+  it("[PLAYERS-SEARCH-7] names the trimmed query when nobody matches, and goes away when the box is cleared", async () => {
     const n = await renderNative(createElement(PlayerSearchFeedback, { query: "  xavier ", count: 0 }));
     expect(text(n.byTestId("player-search-empty"))).toBe("players.search.noResults|xavier");
     await n.rerender(createElement(PlayerSearchFeedback, { query: "", count: 0 }));
@@ -71,7 +71,7 @@ describe("a server search waits for the typing to stop (rule 10)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("types r-u-i faster than 200 ms apart: one request, for rui, 200 ms after the last letter", async () => {
+  it("[PLAYERS-SEARCH-8] types r-u-i faster than 200 ms apart: one request, for rui, 200 ms after the last letter", async () => {
     const ask = vi.fn();
     const n = await renderNative(createElement(Probe, { ask }));
     for (const value of ["r", "ru", "rui"]) {

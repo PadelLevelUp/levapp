@@ -58,7 +58,7 @@ describe("attendanceStateOf — the server's field wins", () => {
 });
 
 describe("attendanceStateOf — fallback for payloads without the field", () => {
-  it("reads a cancellation as not_coming, never as coming, even though confirmed is true", () => {
+  it("[ATTENDANCE-PRESENCE-2] reads a cancellation as not_coming, never as coming, even though confirmed is true", () => {
     // The defect this ticket exists for: `confirmed` is tested AFTER `status`.
     expect(
       attendanceStateOf({
@@ -70,18 +70,25 @@ describe("attendanceStateOf — fallback for payloads without the field", () => 
     ).toBe("not_coming");
   });
 
-  it("reads an answered yes as coming", () => {
+  it("[ATTENDANCE-PRESENCE-2] reads an answered yes as coming", () => {
     expect(attendanceStateOf({ confirmed: true, status: null, validated: false })).toBe("coming");
   });
 
-  it("reads an unanswered row as planned", () => {
+  it("[ATTENDANCE-PRESENCE-2] a validated row with no status falls back to the student's intent (rule 9)", () => {
+    // The coach validated the sheet without marking this student: never `missed`, and a yes stays a yes.
+    expect(attendanceStateOf({ validated: true, status: null, confirmed: true })).toBe("coming");
+    expect(attendanceStateOf({ validated: true, status: null, confirmed: false })).toBe("planned");
+    expect(attendanceStateOf({ validated: true, status: null })).toBe("planned");
+  });
+
+  it("[ATTENDANCE-PRESENCE-2] reads an unanswered row as planned", () => {
     expect(attendanceStateOf({ confirmed: false, status: null, validated: false })).toBe("planned");
     expect(attendanceStateOf({})).toBe("planned");
     expect(attendanceStateOf(null)).toBe("planned");
     expect(attendanceStateOf(undefined)).toBe("planned");
   });
 
-  it("reports the coach's record once validated, and only then", () => {
+  it("[ATTENDANCE-PRESENCE-2] reports the coach's record once validated, and only then", () => {
     expect(attendanceStateOf({ status: "present", validated: true })).toBe("attended");
     expect(
       attendanceStateOf({ status: "absent", justification: "justified", validated: true })
@@ -93,7 +100,7 @@ describe("attendanceStateOf — fallback for payloads without the field", () => 
     expect(attendanceStateOf({ status: "present", validated: false })).toBe("coming");
   });
 
-  it("keeps an unvalidated absence as intent, whatever its justification", () => {
+  it("[ATTENDANCE-PRESENCE-2] keeps an unvalidated absence as intent, whatever its justification", () => {
     // Agreed with the server's derivation (2026-09-12): `missed` means "the coach
     // validated them absent", so an unvalidated row cannot be `missed` — that
     // would assert a record nobody made. `not_coming` is justification-blind.

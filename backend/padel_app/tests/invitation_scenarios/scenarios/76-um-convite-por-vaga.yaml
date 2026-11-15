@@ -1,0 +1,43 @@
+id: 76
+title: o professor define 1 convite por vaga
+source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1655, 1669]}
+what_it_tests: o número de convites por vaga é respeitado, incluindo o valor mínimo
+tags: [rounds]
+depends_on: []
+corrections: []
+notes: >
+  X=1 with 3 spots sends 3. The No at 19:10 is replaced at once from the same group (R2). After the three
+  Yes at 19:15 no invitation is open and none is sent.
+
+settings:
+  invites_per_spot: 1
+
+roster:
+  regulars: {L: 8, R: 5}
+students:
+  - {cohort: L2R, count: 10, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 3}
+  - at: 2026-11-01 19:10
+    events: [{declines: {cohort: L2R, state: invited, as: n1}}]
+    expect:
+      invitations: [{cohort: L2R, count: 1, side_named: null, group: 3}]
+  - at: 2026-11-01 19:15
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: r1}}
+      - {accepts: {cohort: L2R, state: invited, as: r2}}
+      - {accepts: {cohort: L2R, state: invited, as: r3}}
+    expect:
+      placed:
+        - {who: r1, side: R, how: invitation}
+        - {who: r2, side: R, how: invitation}
+        - {who: r3, side: R, how: invitation}
+      invitations: none
+      open_unanswered: 0
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

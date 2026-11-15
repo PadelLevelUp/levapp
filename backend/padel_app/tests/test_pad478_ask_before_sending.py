@@ -66,6 +66,7 @@ def _put_attempts_on_the_pinned_clock(when):
 
 # ── what the save answers ───────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_class_whose_reminder_time_is_past_is_listed_and_nothing_is_sent(klass):
     _save(klass["coach"], PAST)
 
@@ -78,11 +79,13 @@ def test_a_class_whose_reminder_time_is_past_is_listed_and_nothing_is_sent(klass
     assert _attempts(klass) == 0, "listing, like the save, sends nothing"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_class_whose_reminder_time_is_still_ahead_is_not_listed(klass):
     _save(klass["coach"], FUTURE)
     assert _listed(klass["coach"])["reminders"] == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_class_already_reminded_or_answered_is_not_listed(klass):
     from padel_app.models.presences import Presence
 
@@ -99,6 +102,7 @@ def test_a_class_already_reminded_or_answered_is_not_listed(klass):
 
 
 @pytest.mark.parametrize("status", ["canceled", "completed"])
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_cancelled_or_completed_class_is_not_listed_nor_sent(klass, status):
     """Review of #499: cancelling a class keeps its presences, so its students still look
     "not reminded". The coach must not be asked about a class that will not take place."""
@@ -116,6 +120,7 @@ def test_a_cancelled_or_completed_class_is_not_listed_nor_sent(klass, status):
     assert _attempts(klass) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-15")
 def test_the_form_never_names_more_classes_in_one_request_than_the_server_takes():
     """The listing has no cap and the send refuses more than MAX_KEYS, so the form sends a long
     list in several requests. Its chunk size and the server's limit are one number."""
@@ -130,6 +135,7 @@ def test_the_form_never_names_more_classes_in_one_request_than_the_server_takes(
     assert int(declared.group(1)) == MAX_KEYS
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_only_the_primary_coach_is_asked_about_a_class(klass):
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.tests.test_pad478_primary_coach_decides import _new_coach, _store_timing
@@ -175,6 +181,7 @@ def test_a_class_not_materialised_yet_is_listed_when_its_lesson_has_a_roster(kla
     assert sorted(j.id for j in klass["sched"].get_jobs()) == jobs_before, "nor arm or remove a job"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_the_save_response_carries_the_list(app, klass, client):
     from flask_jwt_extended import create_access_token
 
@@ -218,6 +225,7 @@ def test_a_listing_that_fails_does_not_turn_a_saved_config_into_an_error(app, kl
 
 # ── the explicit yes ────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_yes_sends_one_reminder_through_the_ordinary_pass_and_arms_the_follow_up(klass, monkeypatch):
     _save(klass["coach"], PAST, reminderCount=2, hoursBetweenReminders=3)
 
@@ -229,6 +237,7 @@ def test_yes_sends_one_reminder_through_the_ordinary_pass_and_arms_the_follow_up
     assert follow_ups == [datetime(2027, 7, 10, 13, 0)]            # now + the coach's 3 h
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_repeated_request_sends_nothing_more(klass):
     _save(klass["coach"], PAST, reminderCount=2, hoursBetweenReminders=3)
     assert _send(klass["coach"], klass["key"])["sent"] == 1
@@ -241,6 +250,7 @@ def test_a_repeated_request_sends_nothing_more(klass):
     assert len([j for j in klass["sched"].get_jobs() if "_retry_" in j.id]) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_class_that_is_another_coachs_is_skipped(klass):
     from padel_app.tests.test_pad478_primary_coach_decides import _new_coach, _store_timing
 
@@ -256,6 +266,7 @@ def test_a_class_that_is_another_coachs_is_skipped(klass):
     assert _attempts(klass) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_class_that_is_no_longer_past_due_is_skipped(klass):
     _save(klass["coach"], PAST)
     _save(klass["coach"], FUTURE)            # the coach changed their mind before confirming
@@ -303,6 +314,7 @@ def _quiet(coach_id):
     config.save()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_inside_quiet_hours_nothing_is_sent_at_once_and_one_pass_is_armed_for_their_end(klass, monkeypatch):
     _quiet(klass["coach"])
     _save(klass["coach"], PAST)
@@ -343,6 +355,7 @@ def test_a_class_that_starts_before_quiet_hours_end_is_not_offered(klass, monkey
     assert [j for j in klass["sched"].get_jobs() if j.id.startswith("pastdue_")] == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_later_save_that_arms_the_ordinary_reminder_removes_the_armed_pass(klass, monkeypatch):
     _quiet(klass["coach"])
     _save(klass["coach"], PAST)
@@ -356,6 +369,7 @@ def test_a_later_save_that_arms_the_ordinary_reminder_removes_the_armed_pass(kla
     assert klass["sched"].get_job(f"reminder_{klass['instance']}") is not None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_a_later_save_that_leaves_it_past_due_keeps_the_one_armed_pass(klass, monkeypatch):
     _quiet(klass["coach"])
     _save(klass["coach"], PAST)
@@ -369,6 +383,7 @@ def test_a_later_save_that_leaves_it_past_due_keeps_the_one_armed_pass(klass, mo
 
 # ── never by itself ─────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_the_startup_and_daily_passes_send_nothing_and_leave_an_armed_pass(app, klass, monkeypatch):
     _quiet(klass["coach"])
     _save(klass["coach"], PAST)
@@ -413,6 +428,7 @@ def _all_attempts(app):
         return out
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_yes_twice_in_a_row_reminds_each_student_once_on_the_real_clock(app, live_scheduler):
     """The same duplicated yes without the pinned clock or the hand-set `sent_at`: whatever
     the backend, the second request reminds nobody."""
@@ -433,6 +449,7 @@ from padel_app.tests.test_pad407_reminder_double_send import POSTGRES_ONLY  # no
 
 @POSTGRES_ONLY
 @pytest.mark.parametrize("reminder_count", [1, 3])
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_two_yeses_at_once_remind_each_student_once(app, monkeypatch, live_scheduler, reminder_count):
     """Two requests for the same class at the same moment (a double click, a retried
     request). PAD-407's forced interleave holds both at their first count; the per-class
@@ -450,6 +467,7 @@ def test_two_yeses_at_once_remind_each_student_once(app, monkeypatch, live_sched
 
 @POSTGRES_ONLY
 @pytest.mark.parametrize("reminder_count", [1, 3])
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_two_yeses_at_once_for_a_class_not_materialised_end_with_one_reminder_each(app, monkeypatch, live_scheduler, reminder_count):
     """The OUTCOME for a class that both requests have to materialise first: one class, one
     reminder per student. This does NOT show which guard did it: it stays green with
@@ -468,6 +486,7 @@ def test_two_yeses_at_once_for_a_class_not_materialised_end_with_one_reminder_ea
     assert _all_attempts(app) == {(pid, 1): 1 for pid in ids["player_ids"]}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_the_endpoint_only_acts_for_the_calling_coach(app, klass, client):
     """The body is a request: a coach who names another coach's class gets it skipped."""
     from flask_jwt_extended import create_access_token
@@ -503,6 +522,7 @@ def test_the_endpoint_only_acts_for_the_calling_coach(app, klass, client):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-14")
 def test_without_the_class_lock_the_same_two_yeses_double_send(app, monkeypatch, live_scheduler):
     """The harness has teeth: take PAD-407's per-class lock away and the same race sends twice."""
     import contextlib

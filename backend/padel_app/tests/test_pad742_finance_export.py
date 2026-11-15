@@ -1,4 +1,5 @@
 """PAD-742 admin.finance rule 10: the CSV has one line per charge and sums to the summary."""
+import pytest
 import csv
 import io
 from datetime import date, datetime
@@ -9,6 +10,7 @@ from padel_app.tests.admin_helpers import admin_token, bearer, make_role
 from padel_app.tests.helpers import pin_clock
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-23")
 def test_the_csv_matches_the_summary(app, client, monkeypatch):
     from padel_app.models.finance import FinanceCost, FinanceGcpCost
 

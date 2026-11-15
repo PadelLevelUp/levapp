@@ -433,6 +433,12 @@ export type CoachWorkingHours = Partial<
   Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", [string, string][]>
 > | null;
 
+/** settings.coach-presences-view (PAD-837b): the Presences columns the coach shows; `null` is "not set"
+ *  and the shells show the column list's defaults. The server checks the shape, never the ids. */
+// PAD-837 (attendance.validation rule 17f): `defaultPeriod` is the coach's default period shortcut;
+// absent on views saved before it, which read as "thisMonth".
+export type CoachPresencesView = { columns: string[]; defaultPeriod?: string } | null;
+
 /** classes.availability rule 2: everyone's free time, and nothing about anyone's busy time. */
 export interface AvailabilityResponse {
   coachId: string;
@@ -513,7 +519,18 @@ export interface ClassWaitingListRow {
 }
 
 /** PAD-548 (calendar.event-detail rule 16): the one word both shells render for an invitee. */
-export type InvitationOutcome = 'accepted' | 'declined' | 'withdrawn' | 'pending' | 'spot_filled' | 'expired';
+export type InvitationOutcome =
+  | 'accepted'
+  | 'declined'
+  | 'withdrawn'
+  | 'pending'
+  | 'spot_filled'
+  | 'expired'
+  // PAD-920 (calendar.event-detail ND1): a new-engine session's outcomes.
+  | 'closed_same_hour'
+  | 'sorry'
+  | 'not_counting'
+  | 'cancelled';
 
 export interface ClassInvitation {
   id: number;
@@ -527,9 +544,19 @@ export interface ClassInvitation {
   answeredBy: 'student' | 'coach' | null;
   /** PAD-719 (invitations rule 18a): when the engine moved it from another spot of the class; null if never. */
   movedAt?: string | null;
+  /** PAD-920 (ND1): new-engine sessions only — where the invitation came from; null a manual invitation. */
+  tierSource?: import("./engine").InviteeTierSource;
+  /** PAD-920 (ND1): with `tierSource` `pool`, the group's number in the coach's order, 1-based. */
+  groupNumber?: number | null;
+  /** PAD-920 (ND1): new-engine sessions only — set when the invitation was reopened from the waiting list. */
+  reopenedAt?: string | null;
 }
 
 export interface ClassInstance {
+  /** PAD-920 (notifications.config rules 18, 20): the session's engine; absent on older servers. */
+  engineVersion?: "old" | "new";
+  /** PAD-920 (rule 20): the student picks own/other/both on the waiting list; false on `old`. */
+  waitingListSideChoice?: boolean;
   /**
    * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
    * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
@@ -726,6 +753,10 @@ export interface NamedRef {
 }
 
 export interface CalendarEvent {
+  /** PAD-920 (notifications.config rules 18, 20): the session's engine; absent on older servers. */
+  engineVersion?: "old" | "new";
+  /** PAD-920 (rule 20): the student picks own/other/both on the waiting list; false on `old`. */
+  waitingListSideChoice?: boolean;
   /** clubs.courts rule 7: the class's club and court; absent on blocks. */
   club?: NamedRef | null;
   court?: NamedRef | null;
@@ -1071,6 +1102,10 @@ export interface DashboardNeedsYouEmptySeats {
   filled: number;
   capacity: number;
   href: string;
+  /** PAD-933 (DASHBOARD-BLOCKS-58): the class's engine; absent on older servers, read as `old`. */
+  engineVersion?: "old" | "new";
+  /** PAD-933 (DASHBOARD-BLOCKS-58): new engine only, the class's counting invitations. */
+  pendingInvites?: number;
 }
 
 /** An unread inbound message — one per conversation, most recent first. */
@@ -1130,7 +1165,10 @@ export interface DashboardNeedsYouValidation {
 export interface DashboardNeedsYouVacancyInvite {
   kind: "vacancy_invite";
   id: string;
-  notificationEventId: number;
+  /** The old engine's card: answered through `respondToNotification`. */
+  notificationEventId?: number;
+  /** PAD-920 (dashboard.blocks new-engine readings): a new-engine card, answered by this id on `/notify/respond`. */
+  invitationId?: number;
   lessonInstanceId: number;
   classTitle: string;
   /** ISO date, `YYYY-MM-DD`. */
@@ -1159,6 +1197,7 @@ export interface DashboardNeedsYouWaitingListOffer {
 }
 
 export type DashboardNeedsYouItem =
+  | import("./engine").DashboardNeedsYouEngineAlert
   | DashboardNeedsYouEmptySeats
   | DashboardNeedsYouInvite
   | DashboardNeedsYouVacancyInvite
@@ -1204,6 +1243,8 @@ export interface DashboardSchedule7dBlock {
       inProgress: boolean;
       /** PAD-425: coach rows only, the class with Notificar/Convidar open (the empty-seats link). */
       inviteHref?: string;
+      /** PAD-933 (DASHBOARD-BLOCKS-61): the class's engine; absent on older servers, read as `old`. */
+      engineVersion?: "old" | "new";
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
@@ -1400,6 +1441,13 @@ export interface MessageTemplates {
    *  and the server falls back to its defaults. */
   added_to_class?: string;
   added_to_class_coming?: string;
+  /** PAD-920 (notifications.message-templates N1): the new engine's keys. Optional: older configs lack them. */
+  waiting_list_added?: string;
+  side_moved?: string;
+  /** PAD-928 (notifications.message-templates rule 24): the coach took the student off one date, or off a
+   *  recurring class. Optional: older configs lack them and the server falls back to its defaults. */
+  removed_from_class?: string;
+  removed_from_series?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────
@@ -1408,6 +1456,10 @@ export type InvitationMode = "automatic" | "semi_automatic";
 
 export interface NotificationConfig {
   autoNotifyEnabled: boolean;
+  /** PAD-920 (notifications.config rules 18, 20): which engine runs this coach; absent on older servers. */
+  engineVersion?: import("./engine").EngineVersion;
+  /** PAD-920 (notifications.config rule 20): the new engine's own settings. */
+  engine?: import("./engine").EngineConfig;
   invitationMode?: InvitationMode;
   /**
    * PAD-672 slice 2 (notifications.config rule 3a): accept an eligible student's join request the
@@ -1530,7 +1582,10 @@ export type InviteSimulationGateCode =
   | "invitation_window"
   | "quiet_hours"
   | "min_time_before_class"
-  | "max_total_reached";
+  | "max_total_reached"
+  // PAD-920 (invite-simulation N4): the new engine's dry run.
+  | "last_invite_before"
+  | "class_auto_invites_off";
 
 export interface InviteSimulationGate {
   code: InviteSimulationGateCode;
@@ -1640,6 +1695,9 @@ export interface InviteSimulation {
   waitingList?: InviteSimulationWaitingListEntry[];
   spot: InviteSimulationSpot;
   rounds: InviteSimulationRound[];
+  /** PAD-920 (invite-simulation N2): a new-engine session's answer, per open spot type. */
+  engine?: "new";
+  spotTypes?: import("./engine").EngineSpotType[];
 }
 
 export type InviteExplainStage =
@@ -1659,6 +1717,9 @@ export type InviteExplainStage =
   | "invited";
 
 export interface InviteExplain {
+  /** PAD-920 (invite-simulation N5): a new-engine session's explain, one entry per open spot type. */
+  engine?: "new";
+  entries?: Array<import("./engine").EngineSpotTypeKey & { stage: string; tier: number | null; reasons?: import("./engine").EngineNotInPoolReason[] }>;
   playerId: string;
   name: string | null;
   /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
@@ -1924,6 +1985,20 @@ export interface PresencePlayerStats {
   invitesReceived: number;
   /** Of those, the ones they actually turned up to. */
   invitesJoined: number;
+  /**
+   * PAD-837 (attendance.validation rule 17d): the hours twins, in whole minutes, of `total`,
+   * `justified` and `invitesJoined`, over the same rows. Each class adds its occurrence's
+   * length as `{duration}` renders it; the shells format, they never add durations themselves.
+   */
+  presenceMinutes: number;
+  justifiedMinutes: number;
+  guestPresenceMinutes: number;
+  /**
+   * PAD-837 (rule 17d): `guestPresenceMinutes − justifiedMinutes`, signed, computed on the
+   * server. Unexcused absences never move it. Optional on the type only so older fixtures and
+   * payloads still type-check; the server always sends it and the shells read a missing value as 0.
+   */
+  balanceMinutes?: number;
 }
 
 export interface PresenceStatsTotals {
@@ -1987,6 +2062,8 @@ export interface PendingValidationClass {
   type: 'academy' | 'private' | null;
   color?: string | null;
   startDatetime: string;
+  /** Same wall-clock digits as `startDatetime` (attendance.validation rule 15); null when the class has no end. */
+  endDatetime?: string | null;
   date: string;
   players: PendingValidationPlayer[];
   /** How many players never answered — the only thing that blocks validating. */

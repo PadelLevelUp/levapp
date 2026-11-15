@@ -20,13 +20,13 @@ describe("walkInOptions (PAD-537, attendance.validation rule 8a)", () => {
   });
 
   // PAD-665 (players.search rules 5, 6): a typed search lists the best match first.
-  it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
+  it("[PLAYERS-SEARCH-1] finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
     const people = [{ id: 1, name: "Rui Pedro Basto" }, { id: 2, name: "André Nunes" }];
     expect(walkInOptions(people, "rui basto").map((o) => o.id)).toEqual([1]);
     expect(walkInOptions(people, "andre").map((o) => o.id)).toEqual([2]);
   });
 
-  it("lists the best match first: 'rita' → 'Rita Zé' before 'Ana Rita' (was alphabetical)", () => {
+  it("[PLAYERS-SEARCH-2] lists the best match first: 'rita' → 'Rita Zé' before 'Ana Rita' (was alphabetical)", () => {
     const people = [{ id: 1, name: "Ana Rita" }, { id: 2, name: "Rita Zé" }];
     expect(walkInOptions(people, "rita").map((o) => o.id)).toEqual([2, 1]);
     expect(walkInOptions(people, "").map((o) => o.id)).toEqual([1, 2]);
@@ -49,7 +49,7 @@ describe("walkInOptions: the nickname (PAD-683)", () => {
     { id: 2, name: "Ana Rita" },
   ];
 
-  it("finds the student by either name", () => {
+  it("[PLAYERS-NICKNAME-3] finds the student by either name", () => {
     expect(walkInOptions(people, "tigre").map((o) => o.id)).toEqual([1]);
     expect(walkInOptions(people, "rui basto").map((o) => o.id)).toEqual([1]);
   });

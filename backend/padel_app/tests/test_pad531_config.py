@@ -14,6 +14,7 @@ BACKEND = pathlib.Path(__file__).resolve().parents[2]
 GOOD = {"FLASK_SECRET_KEY": "real-secret", "JWT_SECRET_KEY": "real-jwt", "ADMIN_HOSTS": "admin.levapp.app"}
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-21")
 def test_production_refuses_to_start_without_admin_hosts():
     env = dict(GOOD, ADMIN_HOSTS="")
     with pytest.raises(RuntimeError) as exc:
@@ -21,6 +22,7 @@ def test_production_refuses_to_start_without_admin_hosts():
     assert "ADMIN_HOSTS" in str(exc.value)
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-21")
 def test_an_empty_google_client_id_does_not_stop_production():
     assert_production_secrets(dict(GOOD, ADMIN_GOOGLE_CLIENT_ID="")) is None
 

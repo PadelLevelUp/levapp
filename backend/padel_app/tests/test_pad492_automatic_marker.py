@@ -100,6 +100,7 @@ def _marks_itself(call: ast.Call, helpers=frozenset()) -> bool:
     return False
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-17")
 def test_every_automatic_writer_marks_its_message():
     sites = _message_constructions()
     assert len(sites) >= 8, f"the scan found too few Message( sites to be real: {sites}"
@@ -122,12 +123,13 @@ def test_every_automatic_writer_marks_its_message():
     )
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-17")
 def test_the_system_send_helper_is_scanned_and_its_callers_exist():
     """Every caller of `_send_system_message` is marked through the helper's own
     `msg_metadata or {}`; make sure the scan really saw that write and that it has callers."""
     sites = _message_constructions()
     assert any(
-        rel == "services/notification_service.py" and fn == "_send_system_message" and _marks_itself(node)
+        rel == "services/system_messages.py" and fn == "_send_system_message" and _marks_itself(node)
         for rel, fn, node, _h in sites
     )
     callers = 0
@@ -193,6 +195,7 @@ def _messages(client, app, user_id, conversation_id):
     return resp.get_json()["messages"]
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-16")
 def test_a_typed_message_is_never_automatic(client, app, pair):
     from padel_app.models import Message
 
@@ -221,8 +224,9 @@ def test_a_typed_message_is_never_automatic(client, app, pair):
     assert msg["isAutomatic"] is False
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-18")
 def test_a_template_reply_with_no_type_or_metadata_is_automatic(client, app, pair):
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context():
         msg = _send_system_message(
@@ -239,7 +243,7 @@ def test_a_notice_sent_as_the_student_is_automatic(app, pair):
     request). They carry metadata, so they are automatic, not the student typing."""
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     with app.app_context():
         conv = _get_or_create_direct_conversation(pair["coach_user_id"], pair["student_user_id"])
@@ -253,7 +257,7 @@ def test_a_notice_sent_as_the_student_is_automatic(app, pair):
 
 def test_a_deleted_message_withholds_the_flag(app, pair):
     from padel_app.serializers.message import serialize_message
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context():
         msg = _send_system_message(

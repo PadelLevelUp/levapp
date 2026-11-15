@@ -1,0 +1,42 @@
+id: 66
+title: o tempo de espera pausa durante o silêncio
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1469, 1485]}
+what_it_tests: o tempo de espera só conta fora do horário de silêncio
+tags: [quiet-hours, timers, rounds, absences]
+depends_on: [U29]
+corrections: []
+notes: >
+  R-1's No at 23:50 comes after the 22:30 cutoff, so it is unjustified (U29). The 20-minute round timer runs
+  10 minutes (23:50–00:00), pauses during quiet hours and resumes at 07:00 with 10 minutes left, so the next
+  round is 07:10, not 07:00. The 3 Nov 00:10 step is a derived probe at the instant an unpaused timer would
+  expire; the 07:00 "invitations none" is the PDF's "Faltam 10 minutos".
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 6, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 23:50
+    events: [{regular_no: R-1}]
+    expect:
+      absences: [{who: R-1, kind: unjustified}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-03 00:10
+    derived: true
+    expect:
+      invitations: none
+  - at: 2026-11-03 07:00
+    expect:
+      invitations: none
+  - at: 2026-11-03 07:10
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-03 07:20
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

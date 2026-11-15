@@ -24,7 +24,7 @@ describe("reminderAnswerOutcome", () => {
     expect(reminderAnswerOutcome("expired")).toEqual({ local: null, toastKey: "messages.reminderExpired" });
   });
 
-  it("settles a not_enrolled answer without painting declined (PAD-259 rule 7)", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-14] settles a not_enrolled answer without painting declined (PAD-259 rule 7)", () => {
     expect(reminderAnswerOutcome("not_enrolled")).toEqual({ local: "not_enrolled", toastKey: null });
   });
 
@@ -34,7 +34,7 @@ describe("reminderAnswerOutcome", () => {
 });
 
 describe("reminderRecordedState", () => {
-  it("reads a recorded not_enrolled answer as settled, not declined", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-14] reads a recorded not_enrolled answer as settled, not declined", () => {
     const state = reminderRecordedState({ responded: true, response: "not_enrolled" }, null);
     expect(state).toEqual({ confirmed: false, declined: false, notEnrolled: true });
   });
@@ -43,7 +43,7 @@ describe("reminderRecordedState", () => {
     expect(reminderRecordedState({ responded: true, response: "no" }, null).declined).toBe(true);
   });
 
-  it("trusts this session's not_enrolled answer over stale metadata", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-14] trusts this session's not_enrolled answer over stale metadata", () => {
     const state = reminderRecordedState({ responded: false }, "not_enrolled");
     expect(state.notEnrolled).toBe(true);
     expect(state.declined).toBe(false);

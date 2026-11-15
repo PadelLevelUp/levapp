@@ -80,6 +80,7 @@ def _save_excluded(client, headers, ids, enabled=True):
     assert res.status_code == 200
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-35")
 def test_get_names_the_coachs_own_excluded_players(app, client, world):
     headers = _auth(app, world["coach_a_user_id"])
     pid = world["pid"]
@@ -118,6 +119,7 @@ def test_an_empty_list_gives_an_empty_map(app, client, world):
     assert cfg["excludedPlayerNames"] == {}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-35")
 def test_post_ignores_excluded_player_names(app, client, world):
     headers = _auth(app, world["coach_a_user_id"])
     pid = world["pid"]

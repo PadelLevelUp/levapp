@@ -77,7 +77,7 @@ beforeEach(() => {
 });
 
 describe("TacticalBoard — Situações de jogo (training.tactical-board)", () => {
-  it("opens in game mode with the 2v2 starting position, Selecionar active and its hint", () => {
+  it("[TRAINING-TACTICAL-BOARD-1] opens in game mode with the 2v2 starting position, Selecionar active and its hint", () => {
     render(<Harness onChange={vi.fn()} />);
     expect(screen.getByRole("tab", { name: /training\.board\.modes\.game\.title/ })).toHaveAttribute("aria-selected", "true");
     for (const id of ["a1", "a2", "b1", "b2"]) expect(screen.getByTestId(`piece-${id}`)).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(screen.getByText("training.board.hints.select")).toBeInTheDocument();
   });
 
-  it("Bola draws a flat path between two taps and the midpoint handle toggles it to a lob", () => {
+  it("[TRAINING-TACTICAL-BOARD-2] Bola draws a flat path between two taps and the midpoint handle toggles it to a lob", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     pickTool("ball");
@@ -110,7 +110,7 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(screen.getByTestId("ball-path").getAttribute("d")).toMatch(/Q/);
   });
 
-  it("Movimentação ties a dashed path to the tapped player", () => {
+  it("[TRAINING-TACTICAL-BOARD-3] Movimentação ties a dashed path to the tapped player", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     pickTool("movement");
@@ -124,7 +124,7 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(screen.getByTestId("movement-a1")).toHaveAttribute("stroke-dasharray");
   });
 
-  it("PAD-309: further taps add legs, each drawn from where the last one ended", () => {
+  it("[TRAINING-TACTICAL-BOARD-4] PAD-309: further taps add legs, each drawn from where the last one ended", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     pickTool("movement");
@@ -144,7 +144,7 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(Number(start![2])).toBeCloseTo(Number(end![2]), 1);
   });
 
-  it("Selecionar moves a piece by tap-to-move and by drag", () => {
+  it("[TRAINING-TACTICAL-BOARD-9] Selecionar moves a piece by tap-to-move and by drag", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     tapPiece("b2", 62, 70);
@@ -163,7 +163,7 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(moved.y).toBeCloseTo(30, 0);
   });
 
-  it("undo reverts the last change", () => {
+  it("[TRAINING-TACTICAL-BOARD-10] undo reverts the last change", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     pickTool("cone");
@@ -174,7 +174,7 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(screen.queryByTestId(/^piece-cone/)).toBeNull();
   });
 
-  it("upgrades a legacy diagram on mount and reports it in v2", () => {
+  it("[TRAINING-TACTICAL-BOARD-12] upgrades a legacy diagram on mount and reports it in v2", () => {
     const onChange = vi.fn();
     render(
       <Harness
@@ -209,7 +209,7 @@ function pickMode(key: string) {
 }
 
 describe("TacticalBoard — Exercícios de cesto (training.tactical-board rules 14–15)", () => {
-  it("switches to basket mode without a prompt on a fresh board and feeds from the feeder", () => {
+  it("[TRAINING-TACTICAL-BOARD-14] switches to basket mode without a prompt on a fresh board and feeds from the feeder", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     pickMode("basket");
@@ -230,7 +230,7 @@ describe("TacticalBoard — Exercícios de cesto (training.tactical-board rules 
     expect(d.steps[0].ball?.to.y).toBeCloseTo(18, 0);
   });
 
-  it("Adicionar jogadores adds A3 then A4 and then disables", () => {
+  it("[TRAINING-TACTICAL-BOARD-15] Adicionar jogadores adds A3 then A4 and then disables", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     pickMode("basket");
@@ -278,7 +278,7 @@ describe("TacticalBoard — Exercícios de cesto (training.tactical-board rules 
 // ── Wave 3 — Magnético (PAD-244) ─────────────────────────────────────────────
 
 describe("TacticalBoard — Magnético (training.tactical-board rules 16–17)", () => {
-  it("opens with the pen, draws a red stroke, and undo removes it", () => {
+  it("[TRAINING-TACTICAL-BOARD-16] opens with the pen, draws a red stroke, and undo removes it", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     pickMode("magnetic");
@@ -353,7 +353,7 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
     expect(d.steps).toHaveLength(1);
   });
 
-  it("Passo steps through the end states and wraps to the start", () => {
+  it("[TRAINING-TACTICAL-BOARD-17] Passo steps through the end states and wraps to the start", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     drawMovement("a1", 32, 26, 20, 40);
@@ -368,7 +368,7 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
     expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(108.8 156)");
   });
 
-  it("AUTO animates through the steps, reads ■ while playing, and an edit stops it", () => {
+  it("[TRAINING-TACTICAL-BOARD-18] AUTO animates through the steps, reads ■ while playing, and an edit stops it", () => {
     vi.useFakeTimers();
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
@@ -425,7 +425,7 @@ describe("sequenced steps (PAD-311)", () => {
     return onChange;
   }
 
-  it("numbers every action by its place in the play order", () => {
+  it("[TRAINING-TACTICAL-BOARD-5] numbers every action by its place in the play order", () => {
     const onChange = ballMoveBall();
     const d = lastDiagram(onChange);
     expect(d.steps[0].movements[0].seq).toBe(1);
@@ -434,7 +434,7 @@ describe("sequenced steps (PAD-311)", () => {
     expect(screen.getByTestId("ball-number-1")).toHaveTextContent("3");
   });
 
-  it("AUTO plays the ball first and moves A1 only after it", () => {
+  it("[TRAINING-TACTICAL-BOARD-5] AUTO plays the ball first and moves A1 only after it", () => {
     vi.useFakeTimers();
     ballMoveBall();
     const start = screen.getByTestId("piece-a1").getAttribute("transform");
@@ -466,7 +466,7 @@ describe("playback speed (PAD-310)", () => {
   }
   const autoButton = () => screen.queryByRole("button", { name: "training.board.playback.auto" });
 
-  it("Normal is selected by default, and Rápido finishes an 800 ms step in about 400 ms", () => {
+  it("[TRAINING-TACTICAL-BOARD-8] Normal is selected by default, and Rápido finishes an 800 ms step in about 400 ms", () => {
     vi.useFakeTimers();
     oneStepOnePath();
     expect(screen.getByTestId("board-speed-normal")).toHaveAttribute("aria-checked", "true");
@@ -483,7 +483,7 @@ describe("playback speed (PAD-310)", () => {
     expect(autoButton()).toBeInTheDocument(); // done by ~450 ms, not 800
   });
 
-  it("Lento is still playing after 1000 ms", () => {
+  it("[TRAINING-TACTICAL-BOARD-8] Lento is still playing after 1000 ms", () => {
     vi.useFakeTimers();
     oneStepOnePath();
     fireEvent.click(screen.getByTestId("board-speed-slow"));

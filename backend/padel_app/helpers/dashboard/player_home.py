@@ -336,6 +336,33 @@ def _vacancy_invite_items(*, player_id: int, now: datetime) -> List[Dict[str, An
             }
         )
         out.append(item)
+    out += _engine_invite_items(player_id=player_id, now=now, skip={item["lessonInstanceId"] for item in out})
+    out.sort(key=lambda item: (item.get("date") or "", item.get("timeLabel") or ""))
+    return out
+
+
+def _engine_invite_items(*, player_id: int, now: datetime, skip: set) -> List[Dict[str, Any]]:
+    """PAD-918 (swap plan §3.2): a student's open new-engine invitations, one card per class, as
+    ``vacancy_invite`` (NA4: no rename), keyed by ``invitationId``, the answer route's key (NB5). Counting
+    or not, it stays answerable (D4)."""
+    from padel_app.models import EngineInvitation
+    from padel_app.services.engine_readers import open_invitations_query
+
+    rows = (
+        open_invitations_query(player_id)
+        .join(LessonInstance, LessonInstance.id == EngineInvitation.lesson_instance_id)
+        .filter(LessonInstance.start_datetime >= now, LessonInstance.status != "canceled")
+        .with_entities(EngineInvitation, LessonInstance)
+        .order_by(LessonInstance.start_datetime.asc())
+        .all()
+    )
+    out: List[Dict[str, Any]] = []
+    for row, instance in rows:
+        if instance.id in skip:
+            continue
+        item = _class_item(instance, now=now)
+        item.update({"kind": "vacancy_invite", "id": f"invitation-{row.id}", "invitationId": int(row.id)})
+        out.append(item)
     return out
 
 

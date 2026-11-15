@@ -70,6 +70,7 @@ def _names(rows, key="name"):
     return [r[key] for r in rows]
 
 
+@pytest.mark.criterion("PLAYERS-SEARCH-2")
 def test_players_tab_keeps_the_coachs_sort_and_only_filters(app, client, world):
     """Decision 2026-10-14 (a), players.search rule 6: the Players tab is always sorted (name or
     level), so the rule only filters there — "Ana Rita" leads by name although "Rita Zé" starts
@@ -84,6 +85,7 @@ def test_players_tab_keeps_the_coachs_sort_and_only_filters(app, client, world):
     assert body["pagination"]["pages"] == 2  # Ana Rita, Rita Zé
 
 
+@pytest.mark.criterion("PLAYERS-SEARCH-3")
 def test_players_tab_never_matches_an_email_domain(app, client, world):
     """Decision (b), rule 4: an email matches by its local part — every fixture email is
     @test.com, and searching the domain finds nobody."""
@@ -100,6 +102,7 @@ def test_players_tab_finds_by_phone_digits_it_already_carries(app, client, world
     assert [r["name"] for r in res.get_json()["items"]] == ["Joana Anacleto"]
 
 
+@pytest.mark.criterion("PLAYERS-SEARCH-2")
 def test_type_ahead_ranks_before_its_limit(app, client, world):
     from padel_app.services.player_service import search_coach_players
     from padel_app.models.coaches import Coach
@@ -113,6 +116,7 @@ def test_type_ahead_ranks_before_its_limit(app, client, world):
     ("/api/app/coach_players_paginated?search=rui%20basto", lambda body: body["items"]),
     ("/api/app/notify/player_search?q=rui%20basto", lambda body: body["players"]),
 ])
+@pytest.mark.criterion("PLAYERS-SEARCH-5")
 def test_searching_never_widens_who_appears(app, client, world, path, rows_of):
     res = client.get(path, headers=_auth(app, world["a_user"]))
     assert res.status_code == 200
@@ -125,6 +129,7 @@ def test_searching_never_widens_who_appears(app, client, world, path, rows_of):
     assert _names(rows_of(res_b.get_json())) == ["Rui Basto"]
 
 
+@pytest.mark.criterion("PLAYERS-SEARCH-5")
 def test_claim_candidates_use_the_shared_rule_and_stay_on_the_roster(app, client, world):
     pid = world["ids"]["placeholder"]
     res = client.get(f"/api/app/player/{pid}/claim-candidates?search=basto%20rui",

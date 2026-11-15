@@ -50,13 +50,13 @@ const navyRoutes = routes.filter((f) => MARKERS.token.test(read(f)) || MARKERS.r
 const navyRoots = components.filter((f) => MARKERS.screenRoot.test(read(f)));
 
 describe("navy self-headed screens set their own light status bar (PAD-419, PAD-434)", () => {
-  it("every marker still finds a navy screen (a marker that matches nothing has gone stale)", () => {
+  it("[MOBILE-STATUS-BAR-4] every marker still finds a navy screen (a marker that matches nothing has gone stale)", () => {
     expect(routes.filter((f) => MARKERS.token.test(read(f))).length).toBeGreaterThan(0);
     expect(routes.filter((f) => MARKERS.routeClass.test(read(f))).length).toBeGreaterThan(0);
     expect(navyRoots.length).toBeGreaterThan(0);
   });
 
-  it("a navy chip or card is not a screen root", () => {
+  it("[MOBILE-STATUS-BAR-4] a navy chip or card is not a screen root", () => {
     expect(MARKERS.screenRoot.test('className="h-12 w-12 items-center rounded-full bg-sidebar"')).toBe(false);
     expect(MARKERS.screenRoot.test('className="rounded-2xl bg-sidebar p-5"')).toBe(false);
     expect(MARKERS.screenRoot.test('className="flex-1 bg-sidebar-accent"')).toBe(false);

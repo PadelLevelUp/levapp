@@ -1,4 +1,4 @@
-import { lisbonNowMs, wallClockMs } from "@levelup/config";
+import { attendanceStateOf, lisbonNowMs, wallClockMs, type AttendancePresenceLike } from "@levelup/config";
 /**
  * The student-side decline gates on the class-detail screen (PAD-170 C5,
  * `attendance.confirm` rules 10–16).
@@ -14,11 +14,11 @@ import { lisbonNowMs, wallClockMs } from "@levelup/config";
  * `cancel_attendance` would treat differently.
  */
 
-/** The little the student's own presence row has to expose. */
-export interface OwnPresenceLike {
-  status?: string | null;
-  justification?: string | null;
-}
+/**
+ * The student's own presence row. The gates read its `attendanceState` through the shared helper
+ * (attendance.confirm rule 25), never `status` or `justification`.
+ */
+export type OwnPresenceLike = AttendancePresenceLike;
 
 export interface DeclineGateInput {
   /** A coach never sees these affordances — they are the student's own row. */
@@ -44,19 +44,15 @@ export interface DeclineGateInput {
 }
 
 /**
- * Whether the student has already declined, read from the SERIALIZED presence
- * rather than from component state — which is what makes the "not attending"
- * state survive a reload with no extra column and no extra request.
- *
- * Both halves matter: `absent` alone is also how a coach marks a no-show, and
- * only a decline carries `justified`.
+ * Whether the student has already declined, read from the SERIALIZED presence's `attendanceState`
+ * (`not_coming`, attendance.presence rule 9) rather than from component state or the raw columns —
+ * which is what makes the "not attending" state survive a reload and keeps both shells on the
+ * server's word (attendance.confirm rule 25).
  */
 export function hasDeclined(
   ownPresence: OwnPresenceLike | null | undefined
 ): boolean {
-  return (
-    ownPresence?.status === "absent" && ownPresence?.justification === "justified"
-  );
+  return attendanceStateOf(ownPresence) === "not_coming";
 }
 
 /**
@@ -102,7 +98,7 @@ export function canCancelAttendance(
     !input.isCoach &&
     !input.isCanceled &&
     input.isParticipant &&
-    input.ownPresence?.status !== "absent" &&
+    !hasDeclined(input.ownPresence) &&
     !hasClassStarted(input.date, input.startTime, now)
   );
 }

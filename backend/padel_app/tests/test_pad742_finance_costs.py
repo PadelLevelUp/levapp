@@ -1,5 +1,6 @@
 """PAD-742 admin.finance rules 1, 2, 5, 5a, 5b, 6: who reaches finance, the audited manual writes,
 the console audit log without money, and the owner-only history."""
+import pytest
 import json
 from datetime import date, datetime
 
@@ -27,6 +28,7 @@ def _create(client, headers, **overrides):
     return client.post("/admin/api/finance/costs", json={**CLAUDE_MAX, **overrides}, headers=headers)
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-1")
 def test_every_console_account_reaches_finance_and_nobody_else_does(app, client):
     # Owner's answer Q4 (2026-10-23): every admin account reads and writes; the audit names who.
     for n, role in enumerate(("support", "operator", "owner")):
@@ -41,6 +43,7 @@ def test_every_console_account_reaches_finance_and_nobody_else_does(app, client)
     assert client.get("/admin/api/finance/summary").status_code == 401
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-8")
 def test_a_manual_cost_is_created_audited_without_money_and_revised(app, client):
     headers = _owner(app)
     response = _create(client, headers)
@@ -61,6 +64,7 @@ def test_a_manual_cost_is_created_audited_without_money_and_revised(app, client)
     assert revision["snapshot"]["amountEur"] == "184.37"
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-9")
 def test_a_euro_cost_with_a_different_euro_amount_is_refused(app, client):
     headers = _owner(app)
     response = _create(client, headers, currency="EUR", amount="10.00", amountEur="9.00", recurrence="once")
@@ -98,6 +102,7 @@ def test_invalid_fields_are_named(app, client):
         assert response.get_json() == {"error": "INVALID_COST", "field": field}, overrides
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-10")
 def test_an_edit_keeps_the_old_value_in_finance_not_in_the_audit_log(app, client):
     headers = _owner(app)
     cost_id = _create(
@@ -121,6 +126,7 @@ def test_an_edit_keeps_the_old_value_in_finance_not_in_the_audit_log(app, client
     assert "99.00" not in text and "119" not in text and "renewal" not in text
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-11")
 def test_a_deleted_cost_stops_counting_but_stays_listed(app, client, monkeypatch):
     pin_clock(monkeypatch, datetime(2026, 10, 22, 12, 0))
     headers = _owner(app)
@@ -144,6 +150,7 @@ def test_a_deleted_cost_stops_counting_but_stays_listed(app, client, monkeypatch
     assert client.put(f"/admin/api/finance/costs/{gone}", json={"notes": "x"}, headers=headers).status_code == 404
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-20")
 def test_a_gcp_invoice_is_refused_in_an_imported_month(app, client):
     from padel_app.models.finance import FinanceGcpCost
 

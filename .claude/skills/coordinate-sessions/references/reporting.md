@@ -97,5 +97,5 @@ Write the reasoning, not just the outcome — the next coordinator inherits an a
 verdict.
 
 `docs/` is gitignored, so anything that must outlive the machine belongs in
-`.cortex/compass/` (tracked) or in this skill. **The plan file is the working record; a
+`cortex/` (tracked) or in this skill. **The plan file is the working record; a
 compass rule is what travels.**

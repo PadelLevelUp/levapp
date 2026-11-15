@@ -18,7 +18,7 @@ describe("notificationBanner", () => {
     expect(notificationBanner({ status: undefined })).toBe("none");
   });
 
-  it("prompts when the OS has not been asked yet and still will ask", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-5] prompts when the OS has not been asked yet and still will ask", () => {
     expect(
       notificationBanner({ status: "undetermined", canAskAgain: true })
     ).toBe("prompt");
@@ -44,7 +44,7 @@ describe("notificationBanner", () => {
   });
 
   // messaging.push-notifications rule 15 (PAD-744)
-  it("calls a granted phone whose registration failed inactive, and only then", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-10] calls a granted phone whose registration failed inactive, and only then", () => {
     expect(notificationBanner({ status: "granted" }, "failed")).toBe("inactive");
     expect(notificationBanner({ status: "granted" }, "registered")).toBe("none");
     expect(notificationBanner({ status: "granted" }, "unsupported")).toBe("none");

@@ -10,12 +10,12 @@ describe("legal documents", () => {
     expect(LEGAL_DOCUMENTS.privacy.bodies.en).toMatch(/^# Privacy Policy/);
   });
 
-  it("falls back to English for Portuguese while no translation exists, and says so", () => {
+  it("[AUTH-LEGAL-PAGES-2] falls back to English for Portuguese while no translation exists, and says so", () => {
     expect(legalBody(LEGAL_DOCUMENTS.terms, "pt")).toEqual({ body: LEGAL_DOCUMENTS.terms.bodies.en, fallback: true });
     expect(legalBody(LEGAL_DOCUMENTS.terms, "en").fallback).toBe(false);
   });
 
-  it("keeps the header in step with the text's own effective date", () => {
+  it("[AUTH-LEGAL-PAGES-4] keeps the header in step with the text's own effective date", () => {
     expect(LEGAL_DOCUMENTS.terms.bodies.en).toContain(`Effective date: ${LEGAL_DOCUMENTS.terms.effectiveDate}`);
     expect(LEGAL_DOCUMENTS.privacy.bodies.en).toContain(`Effective date: ${LEGAL_DOCUMENTS.privacy.effectiveDate}`);
   });

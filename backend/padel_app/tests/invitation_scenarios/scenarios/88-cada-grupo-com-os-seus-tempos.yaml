@@ -1,0 +1,49 @@
+id: 88
+title: cada grupo com os seus tempos
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1901, 1923]}
+what_it_tests: os tempos dentro do grupo e até ao grupo seguinte são respeitados grupo a grupo
+tags: [method-c, timers, groups, rounds]
+depends_on: [U12]
+corrections: []
+notes: >
+  Method C with times for groups 3 and 4 only, as the PDF gives them; groups 1, 2, 5 and 6 have no candidates.
+  The time to the next group counts from the group's last round (21:20 = 19:20 + 2 h), as Method A states at
+  line 160. 22:00 is group 4's 30 minutes from its last round at 21:30; there are no more candidates.
+
+settings:
+  timing:
+    method: C
+    per_group:
+      3: {between_rounds: 20m, to_next_group: 2h}
+      4: {between_rounds: 10m, to_next_group: 30m}
+tick_every: 1m
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 6, level: 2, side: R}
+  - {cohort: L3R, count: 6, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 21:20
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-01 21:30
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-01 22:00
+    expect: {invitations: none}
+  - at: 2026-11-01 22:05
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

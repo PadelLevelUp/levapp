@@ -37,12 +37,12 @@ const original: Message = {
 };
 
 describe("a reply quoting a deleted message (PAD-639)", () => {
-  it("shows the quoted text while the original is live", () => {
+  it("[MESSAGING-MESSAGES-11] shows the quoted text while the original is live", () => {
     renderReply(original);
     expect(screen.getByText("call me on 912 345 678")).toBeInTheDocument();
   });
 
-  it("shows 'Message deleted' and not the old text once the original is deleted", () => {
+  it("[MESSAGING-MESSAGES-11] shows 'Message deleted' and not the old text once the original is deleted", () => {
     renderReply({ ...original, isDeleted: true });
     expect(screen.queryByText("call me on 912 345 678")).toBeNull();
     expect(screen.getByText("messages.messageDeleted")).toBeInTheDocument();

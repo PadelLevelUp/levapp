@@ -54,6 +54,7 @@ def test_the_retries_are_bounded(capsys):
 
 
 @pytest.mark.parametrize("code", [1, 2, 0])
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-13")
 def test_any_other_exit_is_final(code):
     upgrade, calls = _codes(code, 0)
     slept = []
@@ -78,6 +79,7 @@ def test_run_upgrade_turns_the_session_timeouts_on(monkeypatch):
     assert seen["env"]["MIGRATE_DDL_LOCK_TIMEOUT"] == "1.5" and seen["cmd"][-2:] == ["-d", "/tmp/m"]
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-13")
 def test_main_logs_the_timeouts_once_and_passes_the_attempts(monkeypatch, capsys):
     got = {}
     monkeypatch.setattr(mg.ss, "database_uri", lambda: "sqlite://")
@@ -182,6 +184,7 @@ def _patch_heads(monkeypatch, scratch):
     monkeypatch.setattr(mg.ss, "schema_state", lambda connection: real(connection, mdir))
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-11")
 def test_a_blocked_lock_fails_the_step_within_the_bound_and_leaves_the_previous_head(scratch, monkeypatch, capfd):
     _patch_heads(monkeypatch, scratch)
     t0 = time.monotonic()
@@ -197,6 +200,7 @@ def test_a_blocked_lock_fails_the_step_within_the_bound_and_leaves_the_previous_
     assert elapsed < 60, f"two attempts at a 1 s lock_timeout took {elapsed:.0f}s"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-12")
 def test_a_lock_released_between_attempts_lets_the_retry_reach_head(scratch, monkeypatch, capfd):
     _patch_heads(monkeypatch, scratch)
     code = mg.migrate(scratch["engine"], lock_timeout=5, upgrade=lambda: mg.run_upgrade(scratch["environ"]),
@@ -207,6 +211,7 @@ def test_a_lock_released_between_attempts_lets_the_retry_reach_head(scratch, mon
     assert text_out.count("lock_timeout: ") == 1 and "lock_timeout on attempt 1/3" in text_out
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-13")
 def test_a_plain_upgrade_sets_no_timeout(scratch):
     """Without the migrate flag env.py sets nothing: the ALTER waits (here, past a 4 s cap)."""
     env = {k: v for k, v in scratch["environ"].items() if k != "LEVAPP_MIGRATE_STEP"}

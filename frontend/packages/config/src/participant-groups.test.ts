@@ -57,7 +57,7 @@ function build(rows: Array<[number, string, string, Side | undefined]>) {
 const names = (g: { rows: Array<{ name: string }> }) => g.rows.map((r) => r.name);
 
 describe("groupParticipants (rule 22)", () => {
-  it("orders the groups going, pending, not going and leaves an empty one out", () => {
+  it("[CALENDAR-EVENT-DETAIL-5] orders the groups going, pending, not going and leaves an empty one out", () => {
     const groups = groupParticipants(
       build([
         [1, "Ana", "not_coming", "left"],
@@ -70,7 +70,7 @@ describe("groupParticipants (rule 22)", () => {
     expect(names(groups[1])).toEqual(["Ana", "Carla"]);
   });
 
-  it("puts a coach's validated mark in the intent groups: attended is going, missed is not going", () => {
+  it("[CALENDAR-EVENT-DETAIL-6] puts a coach's validated mark in the intent groups: attended is going, missed is not going", () => {
     const groups = groupParticipants(
       build([
         [1, "Ana", "attended", "left"],
@@ -85,7 +85,7 @@ describe("groupParticipants (rule 22)", () => {
     ]);
   });
 
-  it("orders a group by side (both, right, left, none) and then by name in Portuguese", () => {
+  it("[CALENDAR-EVENT-DETAIL-1] orders a group by side (both, right, left, none) and then by name in Portuguese", () => {
     const groups = groupParticipants(
       build([
         [1, "Zé Esquerdo", "planned", "left"],
@@ -139,12 +139,12 @@ describe("groupParticipants (rule 22)", () => {
 });
 
 describe("displayStateOf (rule 25, PAD-663)", () => {
-  it("before the class ends, a coach's mark reads as the intent", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] before the class ends, a coach's mark reads as the intent", () => {
     expect(displayStateOf("attended", false)).toBe("coming");
     expect(displayStateOf("missed", false)).toBe("not_coming");
   });
 
-  it("after the class ends, the record keeps its own word", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] after the class ends, the record keeps its own word", () => {
     expect(displayStateOf("attended", true)).toBe("attended");
     expect(displayStateOf("missed", true)).toBe("missed");
   });
@@ -186,14 +186,14 @@ describe("classHasEnded + displayStateOf on each side of the end (rule 25, pinne
   const date = "2026-10-20";
   const endTime = "21:30";
 
-  it("one minute before the end, a coach's present mark reads as Vai", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] one minute before the end, a coach's present mark reads as Vai", () => {
     const now = new Date("2026-10-20T20:29:00Z");
     expect(classHasEnded(date, endTime, now)).toBe(false);
     expect(displayStateOf("attended", classHasEnded(date, endTime, now))).toBe("coming");
     expect(displayStateOf("missed", classHasEnded(date, endTime, now))).toBe("not_coming");
   });
 
-  it("one minute after the end, the record keeps Presente / Faltou", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] one minute after the end, the record keeps Presente / Faltou", () => {
     const now = new Date("2026-10-20T20:31:00Z");
     expect(classHasEnded(date, endTime, now)).toBe(true);
     expect(displayStateOf("attended", classHasEnded(date, endTime, now))).toBe("attended");
@@ -259,7 +259,7 @@ describe("the coach's nickname in the grouped list (PAD-660, players.nickname ru
 });
 
 describe("groupParticipants — the side in this occurrence (PAD-551)", () => {
-  it("chips and orders a player by the coach's override for this class, not the roster side", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-18] chips and orders a player by the coach's override for this class, not the roster side", () => {
     const groups = groupParticipants({
       participants: [player(1, "Ana"), player(2, "Bia")],
       presences: [
@@ -275,7 +275,7 @@ describe("groupParticipants — the side in this occurrence (PAD-551)", () => {
     ]);
   });
 
-  it("keeps the roster side when the presence has no override", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-18] keeps the roster side when the presence has no override", () => {
     const groups = groupParticipants({
       participants: [player(1, "Ana")],
       presences: [{ ...presence(1, "coming"), side: "right", sideOverride: false }],
@@ -294,10 +294,10 @@ describe("a both player's assigned side (PAD-672 slice 3, instance-enrollment ru
     return groupParticipants(input)[0].rows[0];
   };
 
-  it("carries assignedSide only for a both player", () => {
+  it("carries assignedSide for a both player, and for a one-sided player only on the other side", () => {
     expect(withAssigned("both", "left").assignedSide).toBe("left");
     expect(withAssigned("both", "right").assignedSide).toBe("right");
-    expect(withAssigned("left", "right").assignedSide).toBeNull();
+    expect(withAssigned("left", "left").assignedSide).toBeNull();
     expect(withAssigned("both", null).assignedSide).toBeNull();
     expect(withAssigned("both", undefined).assignedSide).toBeNull();
   });
@@ -312,13 +312,44 @@ describe("a both player's assigned side (PAD-672 slice 3, instance-enrollment ru
     expect(sideShortKeyOf("both", "left")).toBe("calendar.participants.sideShort.both_left");
     expect(sideLongKeyOf("both", null)).toBe(SIDE_LONG_KEYS.both);
     expect(sideShortKeyOf("both")).toBe(SIDE_SHORT_KEYS.both);
-    expect(sideLongKeyOf("left", "right")).toBe(SIDE_LONG_KEYS.left);
-    expect(sideShortKeyOf("right", "left")).toBe(SIDE_SHORT_KEYS.right);
+    expect(sideLongKeyOf("left", "left")).toBe(SIDE_LONG_KEYS.left);
+    expect(sideShortKeyOf("right", "right")).toBe(SIDE_SHORT_KEYS.right);
   });
 
   it("assignedSideOf rejects anything but left/right on a both player", () => {
     expect(assignedSideOf("both", "both")).toBeNull();
     expect(assignedSideOf(null, "left")).toBeNull();
     expect(assignedSideOf("both", "left")).toBe("left");
+  });
+});
+
+describe("a one-sided player placed on the other side (PAD-819, instance-enrollment rule 13a)", () => {
+  const row = (side: Side, assignedSide: "left" | "right" | null, override?: Side) => {
+    const input = build([[1, "Ana", "coming", side]]);
+    input.presences = [
+      { ...input.presences[0], side: override, sideOverride: override !== undefined, assignedSide },
+    ] as typeof input.presences;
+    return groupParticipants(input)[0].rows[0];
+  };
+
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] a one-sided player on the other side reads side → other side", () => {
+    expect(row("left", "right").assignedSide).toBe("right");
+    expect(row("right", "left").assignedSide).toBe("left");
+    expect(sideShortKeyOf("left", "right")).toBe("calendar.participants.sideShort.left_right");
+    expect(sideLongKeyOf("left", "right")).toBe("calendar.participants.sideLong.left_right");
+    expect(sideShortKeyOf("right", "left")).toBe("calendar.participants.sideShort.right_left");
+    expect(sideLongKeyOf("right", "left")).toBe("calendar.participants.sideLong.right_left");
+  });
+
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] an assignedSide equal to the player's side keeps today's label", () => {
+    expect(row("left", "left").assignedSide).toBeNull();
+    expect(sideShortKeyOf("left", "left")).toBe(SIDE_SHORT_KEYS.left);
+    expect(assignedSideOf("right", "right")).toBeNull();
+  });
+
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] the side compared is this class's side (rule 13's override)", () => {
+    expect(row("left", "right", "right").side).toBe("right");
+    expect(row("left", "right", "right").assignedSide).toBeNull();
+    expect(row("right", "right", "left").assignedSide).toBe("right");
   });
 });

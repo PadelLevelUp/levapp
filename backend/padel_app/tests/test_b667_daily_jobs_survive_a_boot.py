@@ -6,6 +6,7 @@ never fired (prod job store, 2026-10-22: both at boot + 24 h to the second). A d
 fixed UTC minute, a re-registration keeps its next run, and a boot whose store shows a missed run
 adds one catch-up.
 """
+import pytest
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.triggers.cron import CronTrigger
@@ -21,6 +22,7 @@ def _next_runs(sched):
     return {job_id: sched.get_job(job_id).next_run_time for job_id in DAILY}
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-9")
 def test_every_daily_job_runs_at_a_fixed_minute(boot):
     app, sched, _ = boot(ROLE="api", WORKER_SPLIT="off")
     for job_id in DAILY:
@@ -31,6 +33,7 @@ def test_every_daily_job_runs_at_a_fixed_minute(boot):
             assert job.trigger.interval < timedelta(hours=1), job.id
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-9")
 def test_a_second_boot_keeps_the_next_run(boot):
     app, sched, _ = boot(ROLE="api", WORKER_SPLIT="off")
     first = _next_runs(sched)
@@ -39,6 +42,7 @@ def test_a_second_boot_keeps_the_next_run(boot):
     assert _next_runs(sched) == first
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-10")
 def test_a_boot_after_a_missed_run_adds_one_catch_up(boot):
     app, sched, _ = boot(ROLE="api", WORKER_SPLIT="off")
     sched_mod._shutdown_quietly(sched)
@@ -62,11 +66,13 @@ def test_a_boot_after_a_missed_run_adds_one_catch_up(boot):
     assert sched.get_job("extend_schedule_window").next_run_time > datetime.now(timezone.utc)
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-10")
 def test_a_first_boot_adds_no_catch_up(boot):
     app, sched, _ = boot(ROLE="api", WORKER_SPLIT="off")
     assert not [j.id for j in sched.get_jobs() if j.id.endswith("_catchup")]
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-1")
 def test_the_api_under_the_split_still_registers_no_daily_job(boot):
     app, sched, _ = boot(ROLE="api", WORKER_SPLIT="on")
     assert sched.get_jobs() == []

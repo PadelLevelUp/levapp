@@ -9,11 +9,11 @@ import { SHEET_SHADOW, SHEET_TOP_RADIUS } from "./sheet-chrome";
  * Web's sheet: `rounded-t-[20px]` and `shadow-[0_-10px_24px_rgba(11,21,36,0.14)]`.
  */
 describe("day sheet chrome (iOS parity with web)", () => {
-  it("rounds the top corners by 20pt", () => {
+  it("[CALENDAR-MOBILE-VIEWS-21] rounds the top corners by 20pt", () => {
     expect(SHEET_TOP_RADIUS).toBe(20);
   });
 
-  it("casts the shadow upward, navy at 14%, like web's 0 -10px 24px", () => {
+  it("[CALENDAR-MOBILE-VIEWS-21] casts the shadow upward, navy at 14%, like web's 0 -10px 24px", () => {
     expect(SHEET_SHADOW.shadowOffset.width).toBe(0);
     expect(SHEET_SHADOW.shadowOffset.height).toBe(-10);
     expect(SHEET_SHADOW.shadowColor).toBe("#0B1524");
@@ -22,7 +22,7 @@ describe("day sheet chrome (iOS parity with web)", () => {
     expect(SHEET_SHADOW.shadowRadius).toBe(12);
   });
 
-  it("gives the handle a 28pt row and derives the collapsed height from it", () => {
+  it("[CALENDAR-MOBILE-VIEWS-19] gives the handle a 28pt row and derives the collapsed height from it", () => {
     expect(SHEET_HANDLE_HEIGHT).toBeGreaterThanOrEqual(28);
     expect(SHEET_COLLAPSED_HEIGHT).toBe(SHEET_HANDLE_HEIGHT + 76);
   });
@@ -31,7 +31,7 @@ describe("day sheet chrome (iOS parity with web)", () => {
 // PAD-298 — mobile.android-runtime rule 1, criterion "The day sheet has depth on
 // Android": Android ignores the iOS shadow props, so `elevation` sits beside them.
 describe("day sheet chrome on Android (PAD-298)", () => {
-  it("carries an elevation of at least 8 beside the iOS shadow props", () => {
+  it("[MOBILE-ANDROID-RUNTIME-1] carries an elevation of at least 8 beside the iOS shadow props", () => {
     expect((SHEET_SHADOW as { elevation?: number }).elevation).toBeGreaterThanOrEqual(8);
   });
 });

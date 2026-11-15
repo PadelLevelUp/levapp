@@ -1,0 +1,66 @@
+id: 60
+title: lembretes e um regular que nunca responde
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1354, 1371]}
+what_it_tests: os lembretes vão só a quem não respondeu, no máximo 3, e a falta de resposta não liberta a vaga
+tags: [reminders, regulars, absences]
+depends_on: [U29]
+corrections: []
+notes: >
+  Which regulars answer is the encoder's choice; the PDF gives only counts: L-1..L-8 and R-1..R-4 confirm
+  at 17:00, R-5..R-7 at 19:00, and R-8 never answers. Confirmations are separate steps at the same instant,
+  after the reminder is checked. At 23:00 nothing goes out: no fourth reminder, and the silent regular's spot
+  is not opened, so no L2R is ever invited (invitations_total_sent 0). R-8's no-show at the class start is an
+  unjustified absence (U29); "8 de cada lado na aplicação" is the final roster.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars]
+  - at: 2026-11-02 17:00
+    events:
+      - {confirms: L-1}
+      - {confirms: L-2}
+      - {confirms: L-3}
+      - {confirms: L-4}
+      - {confirms: L-5}
+      - {confirms: L-6}
+      - {confirms: L-7}
+      - {confirms: L-8}
+      - {confirms: R-1}
+      - {confirms: R-2}
+      - {confirms: R-3}
+      - {confirms: R-4}
+    expect:
+      roster: {L: 8, R: 8}
+  - at: 2026-11-02 19:00
+    expect:
+      reminders:
+        to: [R-5, R-6, R-7, R-8]
+        not_to: [L-1, L-2, L-3, L-4, L-5, L-6, L-7, L-8, R-1, R-2, R-3, R-4]
+  - at: 2026-11-02 19:00
+    events:
+      - {confirms: R-5}
+      - {confirms: R-6}
+      - {confirms: R-7}
+  - at: 2026-11-02 21:00
+    expect:
+      reminders:
+        to: [R-8]
+        not_to: [L-1, L-2, L-3, L-4, L-5, L-6, L-7, L-8, R-1, R-2, R-3, R-4, R-5, R-6, R-7]
+  - at: 2026-11-02 23:00
+    expect:
+      nothing_sent: true
+      invitations_total_sent: 0
+      roster: {L: 8, R: 8}
+  - at: 2026-11-03 10:30
+    events: [{no_show: R-8}]
+    expect:
+      absences: [{who: R-8, kind: unjustified}]
+final:
+  roster: {L: 8, R: 8}

@@ -5,6 +5,7 @@ The invite picker (`GET notify/groups`) and the coach's own search rows carried 
 Coach-private payloads carry the requesting coach's `nickname` / `nicknameAsName` / `displayName`;
 `name` stays the real name; another coach never sees it.
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_pad274_deletes import _headers, _jwt, _second_coach, world  # noqa: F401
 from padel_app.tests.test_pad660_coach_nickname import NICK, _rel, _set_nickname, _share_with_coach_b
@@ -15,6 +16,7 @@ def _nickname_on(app, client, world):
     assert res.status_code == 200, res.get_data(as_text=True)
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-5")
 def test_the_invite_pickers_group_row_carries_the_coachs_display_name(app, client, world):
     from padel_app.services.notification_service import _serialize_cp_for_group
 
@@ -26,6 +28,7 @@ def test_the_invite_pickers_group_row_carries_the_coachs_display_name(app, clien
     )
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-5")
 def test_the_group_row_of_another_coach_carries_no_nickname(app, client, world):
     from padel_app.models import Association_CoachPlayer
     from padel_app.services.notification_service import _serialize_cp_for_group
@@ -40,6 +43,7 @@ def test_the_group_row_of_another_coach_carries_no_nickname(app, client, world):
     assert (row["nickname"], row["displayName"]) == (None, "Rui Student")
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-5")
 def test_the_coachs_player_search_carries_the_display_name(app, client, world):
     _nickname_on(app, client, world)
     res = client.get(

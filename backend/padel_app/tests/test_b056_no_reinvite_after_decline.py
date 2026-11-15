@@ -14,6 +14,7 @@ out and rule 8's "all declined or expired: next round" never fired.
 One open spot, two students on the roster, one invitation at a time, a round
 that admits both. The class is 12 hours out, so the invitation window is open.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -23,6 +24,8 @@ from padel_app.sql_db import db
 PATCHES = (
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 )
 
 # Two waves that admit everyone (PAD-279: invitation groups, not legacy rounds).
@@ -120,6 +123,7 @@ def _first_batch(ids):
     return _events(ids["vacancy_id"], ids["first_player_id"])[0].id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-37")
 def test_a_student_who_declines_is_not_invited_again_in_that_round(app):
     from padel_app.services.notification_service import respond_to_notification
 
@@ -135,6 +139,7 @@ def test_a_student_who_declines_is_not_invited_again_in_that_round(app):
         assert [(e.round_number, e.status) for e in second] == [(1, "sent")]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-37")
 def test_a_coach_recorded_decline_is_not_re_invited_by_the_next_batch(app):
     from padel_app.services.notification_service import (
         coach_respond_to_notification,
@@ -155,6 +160,7 @@ def test_a_coach_recorded_decline_is_not_re_invited_by_the_next_batch(app):
         assert [(e.round_number, e.status) for e in second] == [(1, "sent")]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-37")
 def test_when_everyone_in_the_round_has_declined_the_round_moves_on(app):
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.notification_service import respond_to_notification

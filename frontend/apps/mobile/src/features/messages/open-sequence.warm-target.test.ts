@@ -51,7 +51,7 @@ async function openOnTarget(c: QueryClient, target: string) {
 }
 
 describe("a warm push tap on a thread read seconds ago (PAD-475, B-236)", () => {
-  it("makes its own GET for a target newer than the cached thread, and renders the message", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-15] makes its own GET for a target newer than the cached thread, and renders the message", async () => {
     const c = client();
     c.setQueryData(KEY, cachedThread);
 
@@ -62,7 +62,7 @@ describe("a warm push tap on a thread read seconds ago (PAD-475, B-236)", () => 
     expect(open.phase).toBe("settled");
   });
 
-  it("does not mark the thread read before that GET has settled", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-15] does not mark the thread read before that GET has settled", async () => {
     const c = client();
     c.setQueryData(KEY, cachedThread);
 
@@ -74,7 +74,7 @@ describe("a warm push tap on a thread read seconds ago (PAD-475, B-236)", () => 
     expect(open.data.firstUnreadMessageId).toBe(3);
   });
 
-  it("a thread still mounted with a dead stream: the tap's new instance makes exactly one GET", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-18] a thread still mounted with a dead stream: the tap's new instance makes exactly one GET", async () => {
     const c = client();
     c.setQueryData(KEY, cachedThread);
     // The screen the coach left open: an observer on the same entry, mounted, not fetching.
@@ -92,20 +92,20 @@ describe("a warm push tap on a thread read seconds ago (PAD-475, B-236)", () => 
 });
 
 describe("when a push-target open may keep the cached thread (rule 12a)", () => {
-  it("keeps it when the target is in the cached thread", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-17] keeps it when the target is in the cached thread", () => {
     expect(threadQueryOverrides("2", [1, 2])).toBeUndefined();
     expect(threadQueryOverrides("2", ["1", "2"])).toBeUndefined();
   });
 
-  it("keeps it when the target is older than the newest cached message (flow 103's walk)", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-17] keeps it when the target is older than the newest cached message (flow 103's walk)", () => {
     expect(threadQueryOverrides("3", [16, 17, 45])).toBeUndefined();
   });
 
-  it("fetches when the target is newer than everything cached", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-15] fetches when the target is newer than everything cached", () => {
     expect(threadQueryOverrides("46", [16, 17, 45])).toEqual({ refetchOnMount: "always" });
   });
 
-  it("fetches when the ids cannot be compared: the default is to fetch, not to keep", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-16] fetches when the ids cannot be compared: the default is to fetch, not to keep", () => {
     expect(threadQueryOverrides("46", [])).toEqual({ refetchOnMount: "always" });
     expect(threadQueryOverrides("46", ["temp-1"])).toEqual({ refetchOnMount: "always" });
     expect(threadQueryOverrides("abc", [16, 17])).toEqual({ refetchOnMount: "always" });
@@ -115,7 +115,7 @@ describe("when a push-target open may keep the cached thread (rule 12a)", () => 
     expect(threadQueryOverrides("46", null)).toBeUndefined();
   });
 
-  it("a plain open always fetches, as before (B-190)", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-2] a plain open always fetches, as before (B-190)", () => {
     expect(threadQueryOverrides(null, [1, 2])).toEqual({ refetchOnMount: "always" });
     expect(threadQueryOverrides(null, null)).toEqual({ refetchOnMount: "always" });
   });
@@ -166,7 +166,7 @@ describe("the open's GET fails (rule 12a): nothing unseen is marked read", () =>
     };
   }
 
-  it("is neither settled nor marked read, and the screen has an error to show", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-19] is neither settled nor marked read, and the screen has an error to show", async () => {
     const open = await openWithFailingGet();
 
     expect(open.observer.getCurrentResult().isError).toBe(true);
@@ -175,7 +175,7 @@ describe("the open's GET fails (rule 12a): nothing unseen is marked read", () =>
     open.unsubscribe();
   });
 
-  it("holds for a plain open too: a failed GET over a cached thread does not mark it read", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-19] holds for a plain open too: a failed GET over a cached thread does not mark it read", async () => {
     const open = await openWithFailingGet(null);
 
     expect(open.phase()).toBe("failed");
@@ -183,7 +183,7 @@ describe("the open's GET fails (rule 12a): nothing unseen is marked read", () =>
     open.unsubscribe();
   });
 
-  it("marks read once a later GET settles (Retry, or a focus refetch)", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-19] marks read once a later GET settles (Retry, or a focus refetch)", async () => {
     const open = await openWithFailingGet();
     open.succeedNext();
 

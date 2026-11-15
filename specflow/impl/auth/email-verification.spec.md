@@ -1,0 +1,392 @@
+---
+id: auth.email-verification
+status: implemented
+depends_on: [auth.register, auth.login, settings.profile]
+serves: [P-AUTH-5]
+governed_by: [R-022, R-024]
+---
+
+# auth.email-verification
+
+### Intent
+Prove that the email a person typed at self-signup is theirs, with a 6-digit code sent to that
+address and typed back on the phone — not a link, because the person is already signed in on the
+device they registered from and a link would bounce them to a browser. Until PAD-234 a
+self-service account was created with an unverified email, so a typo silently broke every future
+mail (approval, recovery, notifications). The same step re-runs whenever a person changes their
+own email in Settings.
+
+### Entities
+- **WRITES:** User — new columns `email_verification_required` (bool, server default false),
+  `email_verified_at` (datetime, nullable), `email_verification_code_hash` (string, nullable),
+  `email_verification_expires_at` (datetime, nullable), `email_verification_sent_at` (datetime,
+  nullable), `email_verification_attempts` (int, server default 0). The migration marks every
+  existing user that has an email as verified (`email_verified_at = now`): they were onboarded by
+  hand before verification existed, exactly as `auth.coach-approval` backfilled coaches.
+- **READS:** User
+
+### Rules
+1. **Who must verify.** `email_verification_required` is set to true only by self-signup
+   (`auth.register`), by accepting a club's coach invitation as a new user (`clubs.coach-invitation`
+   rule 9, PAD-477), and by a self-service email change (`settings.profile` rule 9). An email a
+   coach types for a player (`players.create`, `auth.activate`) never triggers the step, so a
+   coach-created player is not stopped on first sign-in. When the config flag
+   `EMAIL_VERIFICATION_REQUIRED` is off (default on), neither path sets the flag and the user
+   is treated as verified at once. Every deployed environment keeps it on; the switch exists
+   for a box with no sender at all.
+2. **State on `/api/auth/me`.** `emailVerification` is `"unverified"` whenever the user has no
+   email (B-262: whatever an older row still holds), else `"verified"` when `email_verified_at`
+   is set, `"pending"` when the user is required to verify and has not, and `"unverified"`
+   otherwise (an email nobody asked them to verify).
+   `POST /api/auth/register` returns the same field inside `user`.
+3. **The code.** 6 digits, generated with a CSPRNG, stored only as an HMAC-SHA256 hash keyed by
+   `SECRET_KEY`. Valid for 15 minutes. At most 5 wrong attempts per code; the 5th wrong attempt
+   invalidates the code and the person must request a new one. Requesting a new code replaces the
+   old one (old code stops working) and resets the attempt counter. **(PAD-498)** The code is bound
+   to the address it was mailed to: that address (trimmed, lower-cased) is part of the HMAC input,
+   and confirm checks it against the account's address at that moment, so a code verifies only the
+   address it went to, whatever order an email change and the code's own commit land in. At deploy, a
+   code issued before this change (including that of someone who has just registered) no longer
+   matches: its confirm answers 400 `INVALID_CODE` and uses up an attempt; **Send a new code** gives
+   one that does.
+4. `POST /api/auth/email-verification/send` (JWT, any role) issues a code for the user's current
+   email and sends it. 200 `{"email": "<the address>", "expiresInSeconds": 900,
+   "resendAvailableInSeconds": 60}`. 400 `{"error": "NO_EMAIL"}` when the user has no email.
+   409 `{"error": "ALREADY_VERIFIED"}` when `emailVerification` is already `"verified"`. 429
+   `{"error": "RESEND_TOO_SOON", "retryAfterSeconds": n}` when a code was sent less than 60
+   seconds ago. A mail-transport failure is 503 `{"error": "MAIL_FAILED"}` and leaves no code
+   stored, so the client can offer retry; it is never a 500.
+5. `POST /api/auth/email-verification/confirm` `{"code": "123456"}` (JWT). On a match: sets
+   `email_verified_at`, clears the code, hash, expiry and attempts, and returns 200 with the
+   `/api/auth/me` payload (so the client re-routes without a second request). A wrong code is
+   400 `{"error": "INVALID_CODE", "attemptsLeft": n}`. An expired, exhausted or never-issued code
+   is 410 `{"error": "CODE_EXPIRED"}` — the client offers "Send a new code". Whitespace around the
+   code is ignored; anything that is not exactly 6 digits is `INVALID_CODE` without consuming an
+   attempt.
+6. **Signup sends the first code.** `auth.register` (rule 14) issues the code, commits it, and
+   sends it best-effort after the commit, off the request thread (PAD-734): a transport failure
+   is logged and recorded on engine health, the code is cleared again (only if it is still the
+   account's code), the account is still created, and the verify screen's "Send a new code" is
+   the recovery. Every SMTP connection carries a timeout, `MAIL_TIMEOUT` (default 10 s), so a
+   silent mail server fails the send instead of holding it. "Send a new code" (rule 4) stays
+   synchronous, because its 503 `MAIL_FAILED` must reach the caller; the timeout bounds it. Nothing about the code is returned
+   by the register response.
+7. **The email.** Subject `O teu código LevApp: 123456` / `Your LevApp code: 123456`, in the
+   user's `language`. Branded HTML (LevApp mark, the code in large tabular digits, "valid for 15
+   minutes", "if this wasn't you, ignore this email") plus a plain-text alternative. pt-PT, *tu*,
+   no emoji. The sender is `MAIL_DEFAULT_SENDER`, or `MAIL_USERNAME` when no separate sender is
+   configured; the mail is rendered by
+   `padel_app/tools/email_templates.py`, the same module that renders the coach-approval mail
+   (`auth.coach-approval` rule 5). Every image and link in the mail is an absolute URL rooted at
+   `PUBLIC_WEB_ORIGIN`, and every deployed environment sets that variable to its **own** origin
+   in `backend/.env.<env>` (`https://staging.levapp.app` on staging, `https://levapp.app` on
+   prod) so staging mail can be checked against staging's assets; the `https://levapp.app`
+   default in the module is only for a box that sets nothing. A missing brand asset is a 404
+   from the web app, never the SPA shell (`auth.mobile-universal-links` notes).
+8. **Client routing (web and iOS, R-024).** Right after signup, and on every app load, a user
+   whose `emailVerification` is `"pending"` is held on the **Verify your email** screen before
+   the pending-approval / club-onboarding / connect-with-a-coach / dashboard routing of
+   `auth.register` rule 11. The screen shows the address the code went to, six large code cells
+   with a numeric keyboard and one-time-code autofill (`autocomplete="one-time-code"` on web,
+   `textContentType="oneTimeCode"` on iOS), submits automatically when the sixth digit lands,
+   accepts a pasted 6-digit code, shows the wrong-code message with the attempts left under the
+   cells, and offers **Send a new code** (disabled with a 60-second countdown after each send),
+   **Change email** (edits the address inline, PATCHes `/api/auth/me`, which issues a fresh code
+   to the new address) and **Sign out**. A user whose state is `"unverified"` is never held here.
+   - 8a. **Just registered means a code is in flight.** The screen never requests a code on
+     mount for a `"pending"` user — signup (rule 6) and a Settings email change
+     (`settings.profile` rule 9) already sent one — and its countdown starts from
+     `emailVerificationResendInSeconds`. Only an `"unverified"` user (Settings → Verify) gets a
+     code requested on mount. A 429 `RESEND_TOO_SOON` from **Send a new code** is never
+     presented as a failure: the button takes `retryAfterSeconds` as its countdown and the
+     hint under the cells stays neutral; no error text is shown.
+   - 8b. **Paste on iOS.** The real input is an invisible overlay (so the keypad and autofill
+     land in it), which leaves iOS with nothing to anchor its Paste callout to. A **Paste
+     code** button under the cells reads the clipboard, keeps the first run of 6 digits and
+     submits it; a clipboard with no such run shows a neutral "no code in the clipboard" hint
+     and clears any stale wrong-code error. iOS shows its own "LevApp would like to paste
+     from …" prompt on a programmatic read (pasteboard privacy, first read per source app);
+     that prompt is the OS's and is expected.
+     Web has no button: its real input already accepts ⌘V/Ctrl+V, and browser clipboard-read
+     either prompts (Chrome) or is unsupported (Firefox), so the exception to R-024 is
+     deliberate. Nothing in the mail itself can copy — mail clients run no script — so the
+     mail keeps the code as one selectable token (letter-spacing, never inserted spaces).
+   - 8c. **The screen says how long the code lives (PAD-458, B-220).** The neutral hint under
+     the cells states rule 3's validity ("O código é válido durante 15 minutos" / "The code is
+     valid for 15 minutes"), the same number the email gives (rule 7). The resend countdown is
+     phrased as when a new code can be asked for ("Novo código disponível em 54s" / "New code
+     available in 54s"), never as the code's lifetime: the 60-second cooldown (rule 4) is the
+     only other number on the screen, and it was being read as the deadline. The recovery
+     screen shares the countdown copy (`auth.password-recovery`). The copy is pinned to
+     `CODE_TTL` by `test_pad458_code_validity_copy.py`.
+9. **Settings.** The profile section (web and iOS) shows the email's state next to the field:
+   *Verified* (success tone) or *Not verified* with a **Verify** action that opens the same code
+   screen (as a route on web, a modal on iOS). Saving a new email address shows the code screen
+   immediately after the save succeeds (`settings.profile` rule 9).
+10. **Staff.** The rows of `GET /admin/api/coach-approvals` (`admin.approvals-and-users` rule 1)
+    carry `emailVerified: bool` (true only when rule 2's state is `"verified"`, so an account with
+    no email is never shown verified), and the console's approvals page marks an unverified email
+    so staff do not approve a coach nobody can reach. The "coach waiting" admin email
+    (`auth.coach-approval` rule 4) says whether the email is verified.
+11. **Test transport.** When `E2E_DEBUG_ENDPOINTS` is on (the flag the Playwright config and the
+    Maestro runner already set, never the deploy workflows), `email_tools.send_email` records every
+    message in an in-process outbox instead of using SMTP, and
+    `GET /api/auth/email-verification/debug/last-code` (404 without the flag) returns the 6-digit
+    code from the latest outbox message addressed to the caller's own email (JWT), or to
+    `?email=` — the Maestro runner holds no token, and the outbox exists only on the flag-gated
+    test backend. This is how the E2E suites read the code. `/api/auth/me` also carries
+    `emailVerificationResendInSeconds` so the countdown survives a reload.
+12. **Recipient guard.** `MAIL_ALLOWED_RECIPIENTS` (comma-separated exact addresses and `@domain`
+    suffixes, case-insensitive) is enforced inside `email_tools.send_email` for every message the
+    app sends: recipients outside the list are dropped and logged, and a message with nobody left
+    raises like a transport failure (so `send` answers 503 `MAIL_FAILED`, never a silent success).
+    Empty means everyone (prod). Staging runs with a real sender and `@levapp.app` only, because
+    its database is a copy of prod's and it must never mail a real coach.
+13. **Per-IP throttle (PAD-269).** `send` and `confirm` share one bucket, throttled per client IP
+    by `padel_app/utils/rate_limit.py` (`auth.login` rule 7) with the knob
+    `AUTH_RATE_LIMIT_VERIFICATION`, default `20/600`. Over the limit the request is not processed
+    and answers 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with `Retry-After`. This
+    sits on top of the per-user 60-second resend cooldown (rule 4) and the per-code attempt limit
+    (rule 3). The code screen shows the wait on web and iOS instead of a network error.
+14. **A coach with no email is asked for one (PAD-482).** On web and on iOS, a signed-in **coach**
+    whose `/api/auth/me` has `email: null` sees a banner at the top of the coach home (dashboard):
+    "Adiciona o teu email para poderes recuperar a palavra-passe e receber avisos." / "Add your
+    email so you can recover your password and receive notices.", with **Adicionar email** / **Add
+    email** (opens Settings → Perfil with the email field focused) and **Agora não** / **Not now**.
+    It never blocks anything: there is no hold, and nothing is gated on it. **Agora não** hides it
+    for the rest of the session only — nothing is stored, so it is back at the next sign-in or app
+    launch (and a session lost to a 401 ends it too). Once the profile has loaded and while the Settings
+    email field is empty, a line under it says "Necessário para recuperar a palavra-passe." / "Needed
+    to recover your password.". Saving an address runs
+    `settings.profile` rule 9 (a code, the code screen, then verified); the banner is gone once
+    `/auth/me` has an email. (With `EMAIL_VERIFICATION_REQUIRED` off, rule 1, the save verifies at once
+    and the banner goes at the next read of `/auth/me`; every deployed environment keeps the gate on.) A player is never shown it: coach-created players have no email by
+    design (rule 1). Such a coach comes from the iOS 27/28 invitation accept
+    (`clubs.coach-invitation` rule 9, legacy path) or from clearing the email in Settings. Builds
+    27/28 do not show it; they can already add and verify an email in Settings.
+
+### Acceptance Criteria
+
+#### AUTH-EMAIL-VERIFICATION-1: Signup issues a code and reports pending
+- **Given** no user `ana` and a captured mail transport
+- **When** POST `/api/auth/register` with role `student`, email `ana@example.com`
+- **Then** the response is 201 and `user.emailVerification` is `"pending"`
+- **And** exactly one mail was sent to `ana@example.com` whose text body contains a 6-digit code
+- **And** the stored `email_verification_code_hash` is not the code itself
+
+#### AUTH-EMAIL-VERIFICATION-2: Correct code verifies and routes
+- **Given** `ana` pending with a code issued at 10:00
+- **When** at 10:05 she POSTs `/api/auth/email-verification/confirm` with that code
+- **Then** the response is 200 with `emailVerification: "verified"`, `email_verified_at` is set and the hash, expiry and attempts are cleared
+- **And** a second POST with the same code is 410 `CODE_EXPIRED`
+
+#### AUTH-EMAIL-VERIFICATION-3: Wrong code counts attempts and locks on the fifth
+- **Given** `ana` pending with a valid code
+- **When** she POSTs `confirm` with a wrong code four times
+- **Then** each response is 400 `INVALID_CODE` with `attemptsLeft` 4, 3, 2, 1
+- **When** she POSTs a wrong code a fifth time
+- **Then** the response is 400 with `attemptsLeft: 0`, and the *correct* code is now 410 `CODE_EXPIRED`
+
+#### AUTH-EMAIL-VERIFICATION-4: Expired code
+- **Given** `ana` pending with a code issued at 10:00
+- **When** at 10:16 she POSTs `confirm` with the correct code
+- **Then** the response is 410 `CODE_EXPIRED` and she is still `"pending"`
+
+#### AUTH-EMAIL-VERIFICATION-5: Resend is rate-limited and replaces the code
+- **Given** `ana` pending, code A sent at 10:00:00
+- **When** she POSTs `send` at 10:00:30
+- **Then** the response is 429 `RESEND_TOO_SOON` with `retryAfterSeconds: 30`
+- **When** she POSTs `send` at 10:01:00
+- **Then** the response is 200, a second mail is sent, code A is 410 and the new code B verifies
+
+#### AUTH-EMAIL-VERIFICATION-6: Malformed code does not consume an attempt
+- **Given** `ana` pending with a valid code and 5 attempts left
+- **When** she POSTs `confirm` with `"12 34"` and then with `"abcdef"`
+- **Then** both are 400 `INVALID_CODE` with `attemptsLeft: 5`
+- **And** POSTing ` 123456 ` (the right code with spaces) verifies
+
+#### AUTH-EMAIL-VERIFICATION-7: Already verified and no email
+- **Given** `ana` verified
+- **When** she POSTs `send`
+- **Then** the response is 409 `ALREADY_VERIFIED`
+- **Given** a user with no email
+- **When** they POST `send`
+- **Then** the response is 400 `NO_EMAIL`
+
+#### AUTH-EMAIL-VERIFICATION-8: Mail failure at signup does not fail the signup
+- **Given** `send_email` raises
+- **When** POST `/api/auth/register`
+- **Then** the response is still 201 and the user is `"pending"` with no code stored
+- **When** the user POSTs `send` while the transport still raises
+- **Then** the response is 503 `MAIL_FAILED`
+
+#### AUTH-EMAIL-VERIFICATION-9: A silent mail server fails the send within the timeout (rule 6, PAD-734)
+- **Given** a mail server that accepts the connection and never sends its greeting, and
+  `MAIL_TIMEOUT` 0.5 s
+- **When** `send_email` is called
+- **Then** it raises within 3 seconds and one `email_failed` incident is recorded
+
+#### AUTH-EMAIL-VERIFICATION-10: Coach-created players are not stopped
+- **Given** a coach creates a player with email `bruno@example.com` and Bruno activates the account
+- **When** Bruno GETs `/api/auth/me`
+- **Then** `emailVerification` is `"unverified"` and no verify screen is shown on web or iOS
+
+#### AUTH-EMAIL-VERIFICATION-11: Existing users are grandfathered by the migration
+- **Given** two users with an email and one without, all created before the migration
+- **When** the migration runs
+- **Then** the two with an email have `email_verified_at` set and the third has it null
+
+#### AUTH-EMAIL-VERIFICATION-12: Staging cannot mail anyone outside the allowlist
+- **Given** `MAIL_ALLOWED_RECIPIENTS` is `@levapp.app, tester@gmail.com` and a real sender
+- **When** the app sends to `Ana@LevApp.app`, `tester@gmail.com` and `coach@clubreal.pt`
+- **Then** the message goes to the first two only and the third is logged as dropped
+- **When** the only recipient is `coach@clubreal.pt`, or `ana@levapp.app.evil.com`
+- **Then** nothing is sent and the caller sees a failure; a signup to such an address is still created and its `send` answers 503
+- **And** with the setting empty the same message goes to everyone
+
+#### AUTH-EMAIL-VERIFICATION-13: Gate switched off
+- **Given** `EMAIL_VERIFICATION_REQUIRED` is off
+- **When** POST `/api/auth/register`
+- **Then** the response is 201 with `user.emailVerification: "verified"` and no mail is sent
+
+#### AUTH-EMAIL-VERIFICATION-14: Changing the email re-verifies
+- **Given** `ana` verified with `ana@example.com`
+- **When** she PATCHes `/api/auth/me` with `{"email": "ana.silva@example.com"}`
+- **Then** the response shows `emailVerification: "pending"`, a code was mailed to the new address, and her next `GET /api/auth/me` still says `"pending"`
+- **And** PATCHing the same address she already has changes nothing
+
+#### AUTH-EMAIL-VERIFICATION-15: The verify screen holds the newcomer on web
+- **Given** a visitor on the web `/signup` page with `E2E_DEBUG_ENDPOINTS` on
+- **When** they create a student account
+- **Then** the **Verify your email** screen is shown with `ana@example.com` and six code cells, and the dashboard routes are not reachable
+- **When** they type a wrong code
+- **Then** the wrong-code message shows "4 attempts left" under the cells
+- **When** they type the code read from the debug route
+- **Then** they land on the "Connect with a coach" screen
+- **And** reloading the app does not show the verify screen again
+
+#### AUTH-EMAIL-VERIFICATION-16: Send a new code countdown on web
+- **Given** the verify screen just after signup
+- **Then** **Send a new code** is disabled and counts down from 60
+- **When** the countdown ends and the user clicks it
+- **Then** the debug route returns a different code, the button is disabled again and the old code no longer verifies
+
+#### AUTH-EMAIL-VERIFICATION-17: Just registered means a code is in flight
+- **Given** a visitor who just created an account on web or iOS
+- **When** the verify screen appears
+- **Then** no `POST /api/auth/email-verification/send` leaves the client, and **Send a new code** is disabled and counting down
+
+#### AUTH-EMAIL-VERIFICATION-18: The screen states the code's validity, and the countdown is not it
+- **Given** the verify screen just after signup, in Portuguese
+- **Then** the hint under the cells reads "O código é válido durante 15 minutos", matching the email
+- **And** the disabled **Send a new code** button reads "Novo código disponível em 60s" counting down, never "(60s)" next to the send label
+- **And** in English the same lines read "The code is valid for 15 minutes" and "New code available in 60s"
+
+#### AUTH-EMAIL-VERIFICATION-19: A too-soon resend is not an error
+- **Given** the verify screen with **Send a new code** enabled
+- **When** the user clicks it and the server answers 429 `RESEND_TOO_SOON` with `retryAfterSeconds: 42`
+- **Then** the button is disabled and reads a countdown from 42, and no error text is shown under the cells
+
+#### AUTH-EMAIL-VERIFICATION-20: Same flow on iOS
+- **Given** the iOS app after a self-signup
+- **Then** the same verify screen is shown, with the numeric keypad and the one-time-code autofill hint, and it accepts a pasted code
+
+#### AUTH-EMAIL-VERIFICATION-21: Paste on iOS
+- **Given** the iOS verify screen and `166315` (the current code) on the clipboard
+- **When** the user taps **Paste code**
+- **Then** the six cells fill with `166315` and the code is submitted
+- **Given** the clipboard holds `see you at 10` instead
+- **When** the user taps **Paste code**
+- **Then** the cells stay empty and the hint says there is no code in the clipboard
+
+#### AUTH-EMAIL-VERIFICATION-22: The mail points at the environment that sent it
+- **Given** `PUBLIC_WEB_ORIGIN` is `https://staging.levapp.app`
+- **When** the verification mail is rendered
+- **Then** its lockup `<img src>` and every link start with `https://staging.levapp.app`
+- **And** `backend/.env.staging` sets `PUBLIC_WEB_ORIGIN=https://staging.levapp.app` and `backend/.env.prod` sets `PUBLIC_WEB_ORIGIN=https://levapp.app`
+
+#### AUTH-EMAIL-VERIFICATION-23: Settings shows the state
+- **Given** a verified user on Settings → Profile (web and iOS)
+- **Then** *Verified* is shown next to the email
+- **When** they save a different email
+- **Then** the code screen opens for the new address, and after verifying, Settings shows *Verified* again
+
+#### AUTH-EMAIL-VERIFICATION-24: Staff see the verification state (rule 10)
+- **Given** pending coach `rui` who has not verified
+- **When** staff GET `/admin/api/coach-approvals`
+- **Then** `rui`'s row has `emailVerified: false`, and the console's approvals page marks it
+
+#### AUTH-EMAIL-VERIFICATION-32: The mail is sent from the default sender, or from the login (rule 7)
+- **Given** a mail login (`MAIL_USERNAME`) and a default sender (`MAIL_DEFAULT_SENDER`)
+- **When** a mail is sent
+- **Then** it is sent from the default sender
+- **And** with only the login set it is sent from the login, and with neither the send fails as not configured
+
+#### AUTH-EMAIL-VERIFICATION-25: Verification is throttled per IP (PAD-269)
+- **Given** `AUTH_RATE_LIMIT_VERIFICATION` is `2/600`
+- **When** one IP makes three verification calls (send or confirm) within ten minutes
+- **Then** the third is 429 `RATE_LIMITED` with `retryAfterSeconds` and a `Retry-After` header
+- **And** no code is sent and no attempt is consumed by it
+
+#### AUTH-EMAIL-VERIFICATION-26: An account with no email is not verified (rule 2, B-262)
+- **Given** coach Rui verified rui@example.com
+- **When** he saves his profile with the email cleared (`""`, whitespace or `null`)
+- **Then** `/auth/me` has `email: null` and `emailVerification: "unverified"`, no code is pending,
+  and the admin approvals list shows `emailVerified: false`
+- **And** a row cleared before the fix (no email, `email_verified_at` still set) reads the same
+
+#### AUTH-EMAIL-VERIFICATION-27: A coach with no email is asked for one, once per session (rule 14, PAD-482)
+- **Given** coach Rui with `email: null`
+- **When** he opens the coach home on web or iOS
+- **Then** the banner shows; **Agora não** hides it until the next sign-in or launch; **Adicionar
+  email** opens Settings → Perfil with the email field focused and the "Necessário…" line under it
+- **And** after he saves an address and confirms the code, the banner is gone
+- **And** a coach with an email, and any player, never sees it
+
+#### AUTH-EMAIL-VERIFICATION-28: A code verifies only the address it was mailed to (rule 3, PAD-498)
+- **Given** a user with a code just mailed to `ana@example.com`
+- **When** the address changes to another one before the code is confirmed
+- **Then** the confirm is refused and the new address stays unverified
+- **And** rewriting the same address in another letter case does not spoil the code
+test: `backend/padel_app/tests/test_pad498_recovery_code_and_email_change.py` › `test_a_verification_code_issued_while_the_address_changes_does_not_verify_the_new_one` (+1 more)
+
+#### AUTH-EMAIL-VERIFICATION-29: The coach-waiting mail tells the admin whether the coach's email is verified (rule 10)
+- **Given** `ADMIN_NOTIFY_EMAIL` set, and a coach who registers and has not verified
+- **When** the admin is told a coach is waiting
+- **Then** the mail says the email is not verified
+- **And** a coach with no email reads as not verified too, whatever an older verification time says
+test: `backend/padel_app/tests/test_pad482_clearing_the_email.py` › `test_the_admin_mail_says_unverified_for_a_coach_with_no_email` (+1 more)
+
+#### AUTH-EMAIL-VERIFICATION-30: The verification mail is in the user's language, with the code as one token under the brand header (rule 7)
+- **Given** a Portuguese user who signs up
+- **When** the code is mailed
+- **Then** the subject starts `O teu código LevApp:` and the text says the code lasts 15 minutes
+- **And** the HTML shows the six digits as one selectable token, spaced by letter-spacing and never by inserted spaces
+- **And** the header is the LevApp lockup image, with the alternative text "LevApp", at an absolute https address
+test: `backend/padel_app/tests/test_email_templates_brand.py` › `test_the_code_is_one_selectable_token` (+4 more)
+
+#### AUTH-EMAIL-VERIFICATION-31: The test transport's last-code route exists only behind the E2E flag (rule 11)
+- **Given** `E2E_DEBUG_ENDPOINTS` on
+- **When** a signed-in user GETs `/api/auth/email-verification/debug/last-code`
+- **Then** they get their own latest code, not another user's
+- **And** with `?email=` and no session the route serves that mailbox, in any letter case, and 404 for an address with no mail; with neither it answers 401
+- **And** with the flag off every form answers 404
+test: `backend/padel_app/tests/test_email_verification.py` › `test_debug_route_returns_only_the_callers_code` (+2 more)
+
+### Notes
+- Linear: PAD-234 (this), PAD-231 (mail sender: prod already has `MAIL_USERNAME` +
+  `MAIL_PASSWORD`; only `ADMIN_NOTIFY_EMAIL` was missing), PAD-187 (move the sender to
+  `admin@levapp.app` once its app password exists).
+- Decision: a code, not a link — the person is on the phone they signed up from; a link opens a
+  browser and loses the session. Decision: the server does not block any other endpoint on
+  verification in v1 — the clients hold the person on the screen, and the two things that will
+  truly depend on a verified email (password recovery PAD-139, notification email) will check
+  `email_verified_at` when built.
+- OPEN: no rate limit on `send` beyond the per-user 60-second cooldown (shares PAD-228's gap).
+- PAD-250 / B-042: the ticket's "client double-sends after register" did not reproduce from
+  source — both shells already skip the mount-time send for a `pending` user. Rule 8a pins
+  that and the 429 presentation. PAD-251 / B-043, B-044: origin per environment, honest 404 for
+  `/brand/*`, and the iOS Paste button. Decision: no deep link carrying the code in the mail —
+  codes in URLs get logged, forwarded and cached.
+- OPEN: coach-created players keep an unverified email forever unless they change it; a
+  "Verify" action in Settings covers the ones who care.

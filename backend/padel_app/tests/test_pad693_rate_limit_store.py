@@ -40,6 +40,7 @@ def _hits(app):
 # --- rule 7: the store ----------------------------------------------------------------------------
 
 @needs_postgres
+@pytest.mark.criterion("AUTH-LOGIN-17")
 def test_database_store_slides_like_the_memory_store(db_app):
     client = db_app.test_client()
     limiter_for(db_app).clock = lambda: 1000.0
@@ -146,6 +147,7 @@ def test_the_app_has_no_server_side_session_store(app):
     assert "SESSION_TYPE" not in app.config
 
 
+@pytest.mark.criterion("AUTH-LOGIN-18")
 def test_no_login_sets_a_session_cookie(app, client):
     from werkzeug.security import generate_password_hash
 

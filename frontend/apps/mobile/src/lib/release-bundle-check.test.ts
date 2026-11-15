@@ -15,12 +15,12 @@ const TARGETS = {
 const DECLARES = " X-LevApp-Capabilities open-spots evaluations ";
 
 describe("checkReleaseBundle (PAD-351)", () => {
-  it("passes a production bundle that declares open spots", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-4] passes a production bundle that declares open spots", () => {
     const result = checkReleaseBundle(`${DECLARES}https://levapp.app/api`, "production", TARGETS);
     expect(result).toEqual({ ok: true, problems: [] });
   });
 
-  it("refuses a staging bundle named production", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-2] refuses a staging bundle named production", () => {
     const result = checkReleaseBundle(
       `${DECLARES}https://staging.levapp.app/api`,
       "production",
@@ -53,7 +53,7 @@ describe("checkReleaseBundle (PAD-351)", () => {
     }
   });
 
-  it("refuses a bundle without the capability declaration", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-3] refuses a bundle without the capability declaration", () => {
     const result = checkReleaseBundle("https://levapp.app/api", "production", TARGETS);
     expect(result.ok).toBe(false);
     expect(result.problems.join("\n")).toContain("X-LevApp-Capabilities");

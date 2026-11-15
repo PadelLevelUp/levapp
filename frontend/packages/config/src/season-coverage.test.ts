@@ -15,7 +15,7 @@ const SEP_JUL = { startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 };
 const FEB_JUN = { startDay: 1, startMonth: 2, endDay: 30, endMonth: 6 };
 
 describe("seasonOccurrenceContaining", () => {
-  it("wraps the year: 1 Sep → 31 Jul", () => {
+  it("[CALENDAR-SEASONS-1] wraps the year: 1 Sep → 31 Jul", () => {
     expect(seasonWrapsYear(SEP_JUL)).toBe(true);
     expect(seasonOccurrenceContaining("2026-10-15", SEP_JUL)).toEqual({ startDate: "2026-09-01", endDate: "2027-07-31" });
     expect(seasonOccurrenceContaining("2027-03-01", SEP_JUL)).toEqual({ startDate: "2026-09-01", endDate: "2027-07-31" });
@@ -27,13 +27,13 @@ describe("seasonOccurrenceContaining", () => {
     expect(seasonOccurrenceContaining("2027-07-31", SEP_JUL)?.endDate).toBe("2027-07-31");
   });
 
-  it("does not wrap: 1 Feb → 30 Jun", () => {
+  it("[CALENDAR-SEASONS-1] does not wrap: 1 Feb → 30 Jun", () => {
     expect(seasonWrapsYear(FEB_JUN)).toBe(false);
     expect(seasonOccurrenceContaining("2026-04-01", FEB_JUN)).toEqual({ startDate: "2026-02-01", endDate: "2026-06-30" });
     expect(seasonOccurrenceContaining("2026-07-01", FEB_JUN)).toBeNull();
   });
 
-  it("clamps 29 February in a non-leap year", () => {
+  it("[CALENDAR-SEASONS-1] clamps 29 February in a non-leap year", () => {
     expect(clampDay(2027, 2, 29)).toBe("2027-02-28");
     expect(clampDay(2028, 2, 29)).toBe("2028-02-29");
     expect(seasonOccurrenceContaining("2027-01-10", { startDay: 1, startMonth: 9, endDay: 29, endMonth: 2 })).toEqual({
@@ -51,7 +51,7 @@ describe("seasonOccurrenceContaining", () => {
 });
 
 describe("nextSeasonOccurrence", () => {
-  it("is the first occurrence starting after the date", () => {
+  it("[CALENDAR-SEASONS-1] is the first occurrence starting after the date", () => {
     expect(nextSeasonOccurrence("2026-08-10", SEP_JUL)).toEqual({ startDate: "2026-09-01", endDate: "2027-07-31" });
     expect(nextSeasonOccurrence("2026-10-15", SEP_JUL)).toEqual({ startDate: "2027-09-01", endDate: "2028-07-31" });
     expect(nextSeasonOccurrence("2026-07-01", FEB_JUN)).toEqual({ startDate: "2027-02-01", endDate: "2027-06-30" });

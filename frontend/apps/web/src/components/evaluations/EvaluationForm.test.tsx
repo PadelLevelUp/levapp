@@ -64,7 +64,7 @@ describe("categories and sub-categories on the form (PAD-431)", () => {
   const VIBORA = competency({ id: 3, key: "vibora", name: "Víbora", group: "technique", parentId: 1 });
   const SMASH = competency({ id: 4, key: "smash", name: "Smash", group: "technique", parentId: 1 });
 
-  it("lists the sub-categories under their category's heading, and no input for the category itself", () => {
+  it("[EVALUATIONS-COMPETENCIES-12] lists the sub-categories under their category's heading, and no input for the category itself", () => {
     setup({ competencies: [TECNICA, VIBORA, SMASH, FOREHAND] });
 
     const group = screen.getByTestId("evaluation-group-1");
@@ -93,7 +93,7 @@ describe("stars save on tap", () => {
     expect(onSave).toHaveBeenLastCalledWith({ ratings: { "1": 2 }, recordId: 40 });
   });
 
-  it("tapping the lit star clears the rating with null", async () => {
+  it("[EVALUATIONS-RECORDS-7] tapping the lit star clears the rating with null", async () => {
     const { onSave } = setup({ record: record({ ratings: [
       { categoryId: 1, name: "Técnica", key: "technique", score: 3, scaleMin: 1, scaleMax: 5 },
     ] }) });
@@ -120,7 +120,7 @@ describe("a converted legacy category is stars (PAD-403, evaluations.legacy-conv
   // After the conversion the server answers every legacy category as 1-5 (group stays null).
   const CONVERTED = competency({ id: 3, name: "Volley", group: null, scaleMin: 1, scaleMax: 5 });
 
-  it("draws five stars, no stepper, pre-filled from the converted score", () => {
+  it("[EVALUATIONS-SCALE-7] draws five stars, no stepper, pre-filled from the converted score", () => {
     setup({ competencies: [TECNICA, CONVERTED], record: record({ ratings: [
       { categoryId: 3, name: "Volley", key: null, score: 3, scaleMin: 1, scaleMax: 5 },
     ] }) });
@@ -184,7 +184,7 @@ describe("a scale that is not 1-5 keeps the stepper (dormant since PAD-403: the 
     expect(onSave).toHaveBeenCalledWith({ ratings: { "2": 8 }, recordId: 40 });
   });
 
-  it("'Concluir avaliação' flushes a pending step before it closes", async () => {
+  it("[EVALUATIONS-RECORDS-12] 'Concluir avaliação' flushes a pending step before it closes", async () => {
     const { onSave, onClose } = setup();
     fireEvent.click(screen.getByTestId("evaluation-stepper-2-plus")); // unrated: starts at the middle, 6
     await act(async () => fireEvent.click(screen.getByTestId("evaluation-finish")));
@@ -253,7 +253,7 @@ describe("the private note", () => {
 });
 
 describe("touching nothing creates nothing", () => {
-  it("closing an untouched form sends no request (PAD-337's guarantee)", async () => {
+  it("[EVALUATIONS-HISTORY-4] closing an untouched form sends no request (PAD-337's guarantee)", async () => {
     const { onSave, onClose } = setup();
     await act(async () => fireEvent.click(screen.getByTestId("evaluation-finish")));
     await act(async () => vi.advanceTimersByTime(2000));
@@ -263,7 +263,7 @@ describe("touching nothing creates nothing", () => {
 });
 
 describe("what the form lists", () => {
-  it("leaves out a switched-off competency unless today's record already rates it", () => {
+  it("[EVALUATIONS-HISTORY-3] leaves out a switched-off competency unless today's record already rates it", () => {
     const off = competency({ id: 3, name: "Bandeja", isActive: false });
     setup({ competencies: [TECNICA, off] });
     expect(screen.queryByTestId("evaluation-row-3")).toBeNull();
@@ -285,7 +285,7 @@ describe("a rating the record already holds keeps its own scale (D149)", () => {
   const BANDEJA = competency({ id: 5, name: "Bandeja", scaleMin: 1, scaleMax: 10 });
   const TODAY = record({ ratings: [{ categoryId: 4, name: "Garra", key: null, score: 4, scaleMin: 1, scaleMax: 5 }] });
 
-  it("draws the earlier 4/5 as four stars, never as 4 on the new 1-10 slider", () => {
+  it("[EVALUATIONS-SCALE-3] draws the earlier 4/5 as four stars, never as 4 on the new 1-10 slider", () => {
     setup({ competencies: [GARRA, BANDEJA], record: TODAY });
     expect(lit(4)).toBe(4);
     expect(screen.queryByTestId("evaluation-slider-4-input")).toBeNull();
@@ -293,7 +293,7 @@ describe("a rating the record already holds keeps its own scale (D149)", () => {
     expect(screen.getByTestId("evaluation-slider-5-input")).toBeTruthy();
   });
 
-  it("re-saving it stays on its own 1-5: a tap on the fifth star sends 5", async () => {
+  it("[EVALUATIONS-SCALE-3] re-saving it stays on its own 1-5: a tap on the fifth star sends 5", async () => {
     const { onSave } = setup({ competencies: [GARRA, BANDEJA], record: TODAY });
     await act(async () => fireEvent.click(star(4, 5)));
     expect(onSave).toHaveBeenCalledWith({ ratings: { "4": 5 }, recordId: 40 });

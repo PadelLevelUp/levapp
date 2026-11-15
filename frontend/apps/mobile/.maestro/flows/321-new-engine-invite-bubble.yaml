@@ -1,0 +1,46 @@
+# PAD-920 / notifications.invitations NB1-NB5 (INVITATIONS-117, 123) on iOS: the student sees the
+# new engine's invitation in the coach's thread with Yes and No, answers Yes, and the bubble turns
+# answered; the server places them in the class.
+#
+# HAND-RUN SETUP (tag hand-run-setup; the Android lane and whole-suite runs skip it): the same
+# `scripts/new-engine-setup.py invite` as 320, which this flow follows. Teardown removes the class.
+# Asserted by testID and server values only (PAD-320). Backend: -e API_BASE=http://localhost:<port>,
+# else :5001. Flow number 321 from the coordinator.
+appId: com.padellevelup.app
+tags:
+  - hand-run-setup
+onFlowStart:
+  - runScript: ../scripts/new-engine-class.js
+onFlowComplete:
+  - evalScript: "${output.instanceId && http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: 'LessonInstance', originalId: output.instanceId, date: output.day }, scope: 'single' }) })}"
+---
+- assertTrue: "${output.instanceId != null}"
+# This class's own invitation: a thread can hold older invitation bubbles too.
+- evalScript: "${output.invId = output.detail().invitations.filter(function (r) { return String(r.playerId) === output.studentId; })[0].id}"
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-.*"
+    timeout: 15000
+- tapOn:
+    id: "conversation-item-.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "invite-state-${output.invId}-open"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: .maestro/evidence/321-new-engine-invite-open
+- tapOn:
+    id: "invite-respond-yes-${output.invId}"
+- extendedWaitUntil:
+    visible:
+      id: "invite-state-${output.invId}-answered"
+    timeout: 15000
+- assertNotVisible:
+    id: "invite-respond-yes-${output.invId}"
+- takeScreenshot: .maestro/evidence/321-new-engine-invite-answered
+- evalScript: "${output.row = output.detail().invitations.filter(function (r) { return String(r.playerId) === output.studentId; })[0]}"
+- assertTrue: "${output.row != null && output.row.outcome === 'accepted'}"

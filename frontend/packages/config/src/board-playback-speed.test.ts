@@ -22,7 +22,7 @@ describe("playback speed (rule 25)", () => {
     expect(PLAYBACK_SPEEDS).toEqual({ slow: 0.5, normal: 1, fast: 2 });
   });
 
-  it("a one-path step lasts 400 ms at 2x and 1600 ms at 0.5x", () => {
+  it("[TRAINING-TACTICAL-BOARD-8] a one-path step lasts 400 ms at 2x and 1600 ms at 0.5x", () => {
     const fast = startClock(1000, PLAYBACK_SPEEDS.fast);
     expect(playbackFrameAt(ONE_PATH, clockElapsed(fast, 1399))).not.toBeNull();
     expect(playbackFrameAt(ONE_PATH, clockElapsed(fast, 1400))).toBeNull();
@@ -31,7 +31,7 @@ describe("playback speed (rule 25)", () => {
     expect(playbackFrameAt(ONE_PATH, clockElapsed(slow, 2600))).toBeNull();
   });
 
-  it("changing speed mid-play keeps the position and continues at the new rate", () => {
+  it("[TRAINING-TACTICAL-BOARD-8] changing speed mid-play keeps the position and continues at the new rate", () => {
     const normal = startClock(0, PLAYBACK_SPEEDS.normal);
     // halfway at 1x
     expect(playbackFrameAt(ONE_PATH, clockElapsed(normal, 400))).toEqual({ step: 0, t: 0.5 });

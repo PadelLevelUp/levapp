@@ -70,7 +70,53 @@ def counted_as_coming(player_ids):
         _COUNTED_AS_COMING.reset(token)
 
 
-def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False):
+# PAD-928 (classes.instance-enrollment rule 11a, classes.enrollment rule 4): while a coach's class
+# edit runs, the removals that owe the student a notice, as (model, id, player id, series). Sent by
+# `edit_class_service` once the edit is written; outside it (None) nothing is owed.
+_REMOVAL_NOTICES = contextvars.ContextVar("levapp_removal_notices", default=None)
+
+
+def _owe_removal_notice(source, player_id, *, series=False):
+    owed = _REMOVAL_NOTICES.get()
+    if owed is not None:
+        owed.append((type(source).__name__, source.id, int(player_id), series))
+
+
+def _started_or_cancelled(source) -> bool:
+    """Started on the club's wall clock (PAD-256), or cancelled: no removal notice for it."""
+    from padel_app.utils.dates import club_now_naive
+
+    start = getattr(source, "start_datetime", None)
+    return getattr(source, "status", None) == "canceled" or start is None or start <= club_now_naive()
+
+
+def _has_class_ahead(lesson) -> bool:
+    """A recurring lesson still produces an occurrence that has not started and is not cancelled."""
+    from padel_app.utils.dates import club_now_naive
+
+    now = club_now_naive()
+    cancelled = {
+        i.start_datetime.date()
+        for i in LessonInstance.query.filter_by(lesson_id=lesson.id, status="canceled").all()
+    }
+    for occ in lesson.occurrences_between(now, now + timedelta(days=400)):
+        occ = occ.replace(tzinfo=None)
+        if occ > now and occ.date() not in cancelled:
+            return True
+    return False
+
+
+def _send_removal_notices(owed):
+    from padel_app.services.system_messages import notify_student_removed
+
+    models = {"Lesson": Lesson, "LessonInstance": LessonInstance}
+    for model_name, obj_id, player_id, series in dict.fromkeys(owed or ()):
+        source = db.session.get(models[model_name], obj_id)
+        if source is not None:
+            notify_student_removed(source, player_id, series=series)
+
+
+def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False, new_engine=False):
     """Put a player on one occurrence. THE single writer (rule 4).
 
     The `Presence` row is the enrolment (rule 1). Idempotent: an existing row is
@@ -81,6 +127,10 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
     one, so a caller that enrols a whole roster under ``with unit_of_work():``
     gets one commit, and the PAD-261 accept path keeps its row lock until its
     own commit.
+
+    ``new_engine`` (PAD-916): the new invitation engine's store places the student. Only the row
+    is written: the old engine's work on an enrolment (its vacancies, which ruling D1 drops, and
+    its reminder pass, which the new engine's attendance requests replace) is skipped.
     """
     from padel_app.models.presences import ENROLMENT_SOURCES
 
@@ -99,6 +149,12 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         **key,
     )
     db.session.expire(instance, ["presences"])
+    from padel_app.utils.dates import utcnow_naive
+
+    if created:
+        # PAD-820 (notifications.reminders rule 24): when this seat was taken; the reminder pass reads
+        # it to tell a student placed before the first reminder from one placed after it.
+        presence.placed_at = utcnow_naive()
 
     # PAD-316: a re-enrolment of someone who gave their spot up is a RETURN, not
     # a no-op. The row already existed, so `created` is False, and before this
@@ -119,7 +175,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         from padel_app.serializers.message import serialize_message
         from padel_app.services import reminder_attempt_service as attempts
         from padel_app.services.conversation_access import message_recipient_ids
-        from padel_app.services.notification_service import publish
+        from padel_app.realtime import publish
 
         for message in attempts.void_for_return(instance.id, player_id):
             publish(
@@ -140,6 +196,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # an engine fill arrives already confirmed. Claiming they said yes would
         # be the same over-reach as `confirmed` meaning "coming".
         presence.confirmed = confirmed
+        presence.placed_at = utcnow_naive()            # a new seat (rule 24 reads it)
 
     if created and player_id in _COUNTED_AS_COMING.get():
         # PAD-489 (rule 22): the class was created after its reminder time, so there was no
@@ -151,7 +208,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
 
         presence.confirmed = True
         record_response(presence, "confirmed", recorded_by="system")
-    elif created or returning:
+    elif (created or returning) and not new_engine:
         # PAD-331: a late arrival must actually be ASKED. The reminder chain is
         # spent once a pass reports nothing more due, so nobody who joins after
         # it is asked by anything — clearing the cap (PAD-318) removes the
@@ -201,20 +258,21 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # engine, which sends its own (invitation, waiting list, join request);
         # `walk_in` and `import` record a class that already happened.
         if source == "coach":
-            from padel_app.services.notification_service import (
-                notify_student_added_to_class,
-            )
+            from padel_app.services.system_messages import notify_student_added_to_class
 
             notify_student_added_to_class(
                 primary_coach(instance), player_id, instance=instance,
             )
     commit_or_flush()
     db.session.expire(instance, ["presences"])
-    if source == "coach" and (created or returning):
+    from padel_app.services.engine_switch import engine_for
+
+    if source == "coach" and (created or returning) and engine_for(instance) != "new":
         # PAD-805 (join-requests rule 20): a pending request whose side just lost its last spot
         # waits on that side's list, as on the fill path, which also runs it after the enrolment's
         # commit (it commits its own move). An occurrence created under `unit_of_work` has no
-        # request yet, so it returns before any commit there.
+        # request yet, so it returns before any commit there. A new-engine session runs it once the
+        # engine placed the student (join-requests NJ4, engine_entry.coach_added).
         from padel_app.services.class_join_request_service import move_side_requests_to_waiting_list
 
         move_side_requests_to_waiting_list(instance, filled_by_player_id=player_id)
@@ -267,6 +325,24 @@ def parse_event_target(model, original_id, date):
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
+
+def _as_date(value):
+    """A recurrence end as a date (the payload carries a ``YYYY-MM-DD`` string or a date)."""
+    if value is None or not isinstance(value, str):
+        return value
+    return datetime.strptime(value[:10], "%Y-%m-%d").date()
+
+
+class BusySameHourError(ValueError):
+    """PAD-918 (instance-enrollment rule 15): a class created with a student who is going to another
+    class at the same time, one of them new-engine. The route answers 409 with the clashes."""
+
+    code = "busy_same_hour"
+
+    def __init__(self, clashes):
+        super().__init__("busy same hour")
+        self.clashes = clashes
+
 
 class NoSeasonCoversDateError(ValueError):
     """Raised when "recurs until season end" cannot be resolved to a season.
@@ -631,6 +707,10 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     # PAD-259: the presence row is the enrolment. Players copied from the
     # series roster are `roster`; anyone else on the form is `coach`.
     roster_ids = {r.player_id for r in parent_lesson.players_relations}
+    # PAD-928 (rule 11a): a student this edit leaves off a date they were on is told.
+    if not _started_or_cancelled(lesson_instance):
+        for pid in sorted(remove_ids & (set(existing_ids) | roster_ids)):
+            _owe_removal_notice(lesson_instance, pid)
     with unit_of_work():
         for pid in player_ids:
             enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach")
@@ -640,6 +720,11 @@ def create_lesson_instance_helper(data, parent_lesson=None):
             coach_id=coach_id,
             lesson_instance_id=lesson_instance.id,
         ).create()
+
+    # PAD-917 (notifications.config rule 18, CONFIG-63): the creating path assigns the engine; a switched
+    # coach's new occurrence is on the new engine from now.
+    from padel_app.services.engine_switch import on_occurrence_created
+    on_occurrence_created(lesson_instance)
 
     return lesson_instance
 
@@ -715,6 +800,10 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
     # removal also retires the player's pending reminder bubble.
     for player_id in data.get("add_player_ids", []):
         enrol(player_id, lesson_instance, "roster" if series else "coach")
+    if data.get("add_player_ids"):
+        from padel_app.services.engine_entry import coach_added
+
+        coach_added(lesson_instance, data["add_player_ids"])       # PAD-918: a placement (rule 15)
 
     for player_id in data.get("remove_player_ids", []):
         if series:
@@ -723,7 +812,23 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
             ).first()
             if kept is not None:
                 continue  # the coach's validated record is theirs to change, on the attendance sheet
-        unenrol(player_id, lesson_instance)
+        before = Presence.query.filter_by(
+            player_id=int(player_id), lesson_instance_id=lesson_instance.id
+        ).first()
+        gave_it_up = before is not None and before.status == "absent"
+        if unenrol(player_id, lesson_instance) and not series and not gave_it_up \
+                and not _started_or_cancelled(lesson_instance):
+            # PAD-928 (rule 11a): the coach took them off this date; a series pass tells them once
+            # through the lesson (classes.enrollment rule 4), and a date already given up says nothing.
+            _owe_removal_notice(lesson_instance, player_id)
+        if not series:
+            # PAD-918 (CLASSES-INSTANCE-ENROLLMENT-35): the coach took them out of this occurrence, so
+            # the engine never invites them back to it (CoachExcludes; an old-engine session ignores it).
+            from padel_app.services.engine_entry import coach_excludes
+            from padel_app.services.engine_switch import engine_for
+
+            if engine_for(lesson_instance) == "new":
+                coach_excludes(lesson_instance, int(player_id))
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
     from padel_app.scheduler import _maybe_drop_followups, _maybe_schedule_instance
@@ -802,6 +907,16 @@ def add_presences(lesson_instance, payload):
 
         was_absent = presence_obj.status == "absent"
         publish_presence_changed(lesson_instance, presence_obj.player_id)  # PAD-659 (event-detail rule 24)
+        if values.get("status") == "absent" and not was_absent:
+            from padel_app.services.engine_switch import engine_for
+
+            if engine_for(lesson_instance) == "new":
+                # PAD-918 (swap plan §3.1): the new engine hears it first, while the student still holds
+                # the spot: a no-show after the start, the spot opening before it.
+                from padel_app.services.engine_entry import coach_marks_absent
+
+                coach_marks_absent(lesson_instance, presence_obj)
+                presence_obj = Presence.query.get(presence_obj.id)
         presence_obj.update_with_dict(values)
         # PAD-381 (B-152): a justification describes an absence, so a PRESENT row has
         # none, whatever the body carries. It has to be said here and not in the form
@@ -900,9 +1015,7 @@ def create_lesson_helper(data, *, notify_students=True):
         # directly and deliberately does not come through here — the students of
         # a split series already know they are in it.
         from padel_app.models import Coach
-        from padel_app.services.notification_service import (
-            notify_student_added_to_class,
-        )
+        from padel_app.services.system_messages import notify_student_added_to_class
 
         coach = Coach.query.get(data["coach"]) if data.get("coach") else None
         for player_id in data.get("player_ids"):
@@ -962,9 +1075,7 @@ def edit_lesson_helper(data, lesson=None):
     if data.get("add_player_ids"):
         # PAD-330: added to the series, so told once — not once per occurrence.
         from padel_app.models import Coach
-        from padel_app.services.notification_service import (
-            notify_student_added_to_class,
-        )
+        from padel_app.services.system_messages import notify_student_added_to_class
 
         coach_rels = list(getattr(lesson, "coaches_relations", []) or [])
         coach = None
@@ -980,10 +1091,22 @@ def edit_lesson_helper(data, lesson=None):
             notify_student_added_to_class(coach, player_id, lesson=lesson)
 
     for player_id in data.get("remove_player_ids", []):
-        Association_PlayerLesson.query.filter_by(
+        removed = Association_PlayerLesson.query.filter_by(
             player_id=player_id,
             lesson_id=lesson.id,
         ).delete()
+        if not removed:
+            continue
+        # PAD-928 (classes.enrollment rule 4): one notice for the series, never one per occurrence;
+        # a one-off class has one date, so it reads as one (classes.instance-enrollment rule 11a).
+        if lesson.recurrence_rule:
+            if _has_class_ahead(lesson):
+                _owe_removal_notice(lesson, player_id, series=True)
+        else:
+            only = LessonInstance.query.filter_by(lesson_id=lesson.id).order_by(LessonInstance.id).first()
+            target = only or lesson
+            if not _started_or_cancelled(target):
+                _owe_removal_notice(target, player_id)
 
     return lesson
 
@@ -1147,11 +1270,11 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
          "start_time": data.get("startTime"), "end_time": data.get("endTime")}, recurring=False,
     )
     if isinstance(data.get("eligibilityRules"), list):
-        # eligibility.rules rule 6 (PAD-481), as on /edit_class: an unknown level operation
+        # eligibility.rules rules 6, 12, as on /edit_class: a rule the evaluator does not know
         # is refused before anything is written.
-        from padel_app.services.notification_service import unknown_eligibility_level_operations
+        from padel_app.services.notification_service import unknown_eligibility_rules
 
-        if unknown_eligibility_level_operations(data["eligibilityRules"]):
+        if unknown_eligibility_rules(data["eligibilityRules"]):
             refused = list(refused or []) + ["eligibilityRules"]
     if refused:
         raise NotNullableFieldError(refused)
@@ -1194,6 +1317,28 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
             if season_end is None:
                 raise NoSeasonCoversDateError(start_date)
             lesson_payload["recurrence_end"] = season_end
+
+    if lesson_payload["player_ids"]:
+        # PAD-918 (instance-enrollment rule 15): a class created with a student going elsewhere at that
+        # time, one of the two new-engine, is refused before anything is written.
+        from padel_app.models.notification_config import NotificationConfig
+        from padel_app.services.engine_entry import same_hour_clashes
+
+        config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+        def _when(value):                            # build_datetime's "%d/%m/%Y, %H:%M" form
+            return datetime.strptime(value, "%d/%m/%Y, %H:%M") if isinstance(value, str) else value
+
+        draft = Lesson(start_datetime=_when(lesson_payload["start_datetime"]),
+                       end_datetime=_when(lesson_payload["end_datetime"]),
+                       is_recurring=bool(lesson_payload["is_recurring"]),
+                       recurrence_rule=lesson_payload.get("recurrence_rule"),
+                       recurrence_end=_as_date(lesson_payload.get("recurrence_end")))
+        clashes = same_hour_clashes(lesson_payload["player_ids"], lesson=draft, coach_ids=[coach.id],
+                                    series_new=config is not None and config.engine_version == "new")
+        if draft in db.session:                      # a transient draft, never saved
+            db.session.expunge(draft)
+        if clashes:
+            raise BusySameHourError(clashes)
 
     # PAD-489 (notifications.reminders rule 22): a class created after its reminder time
     # counts its students as coming. Decided here, before anything is written, from the
@@ -1251,7 +1396,7 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
                 first_late = first_late or instance
         db.session.commit()
     if told_as_coming and first_late is not None:
-        from padel_app.services.notification_service import notify_student_added_to_class
+        from padel_app.services.system_messages import notify_student_added_to_class
 
         for player_id in counted:
             notify_student_added_to_class(coach, player_id, instance=first_late, counted_as_coming=True)
@@ -1413,6 +1558,11 @@ def update_lesson_status_service(lesson_id, data):
     lesson = Lesson.query.get_or_404(lesson_id)
     date = datetime.fromisoformat(data["date"]).date()
     instance = get_or_materialize_instance(lesson, date)
+    if data.get("status") == "canceled":
+        # PAD-918: a cancelled new-engine class's open invitations are withdrawn first.
+        from padel_app.services.engine_entry import withdraw_before_removal
+
+        withdraw_before_removal([instance])
     instance.status = data["status"]  # canceled | completed
     instance.save()
 
@@ -1619,6 +1769,18 @@ def _future_occurrences(lesson_ids) -> list:
     )
 
 
+def _player_ids(values) -> list:
+    """The edit's player ids by value (PAD-842): ``"834"`` and ``834`` are one player. An id that is
+    not a number is kept as sent, for the writer to refuse as before."""
+    out = []
+    for v in values or []:
+        try:
+            out.append(int(v))
+        except (TypeError, ValueError):
+            out.append(v)
+    return out
+
+
 def edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code).
 
@@ -1644,9 +1806,16 @@ def edit_class_service(data):
     lesson_cap_before = (_lesson.max_players or 0) if _lesson else 0
     free_before = {inst.id: _free_places(inst) for inst in _future_occurrences([lesson_id])}
 
-    result, status = _edit_class_service(data)
+    token = _REMOVAL_NOTICES.set([])
+    try:
+        result, status = _edit_class_service(data)
+        owed = _REMOVAL_NOTICES.get()
+    finally:
+        _REMOVAL_NOTICES.reset(token)
     if status not in (200, 201):
         return result, status
+    # PAD-928: the edit is written, so the students it took off are told (best-effort, per student).
+    _send_removal_notices(owed)
 
     from padel_app.services.notification_service import vacancies_after_class_edit
 
@@ -1685,11 +1854,11 @@ def _edit_class_service(data):
     eligibility_touched = "eligibilityRules" in updates
     eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
     if eligibility_touched:
-        # eligibility.rules rule 6 (PAD-481): an unknown level operation is
+        # eligibility.rules rules 6, 12: a rule the evaluator does not know is
         # refused before any write, as on the coach tier.
-        from padel_app.services.notification_service import unknown_eligibility_level_operations
+        from padel_app.services.notification_service import unknown_eligibility_rules
 
-        if unknown_eligibility_level_operations(eligibility_rules):
+        if unknown_eligibility_rules(eligibility_rules):
             return {"error": "invalid_fields", "fields": ["eligibilityRules"]}, 400
     # PAD-130: same tri-state contract for the open-spot toggle (None = inherit).
     visibility_touched = "openSpotsVisible" in updates
@@ -1715,8 +1884,13 @@ def _edit_class_service(data):
         for key, field in _EDIT_CLASS_FIELDS.items()
         if key in updates
     }
-    payload["add_player_ids"] = updates.get("addPlayers", [])
-    payload["remove_player_ids"] = updates.get("removePlayers", [])
+    # PAD-842 (classes.edit rule 9): ids compare by value, and a player named in both lists (an older
+    # web build sent a re-ticked student as "834" in one and 834 in the other) is left as they were:
+    # applying both restored her cancelled row, told her "adicionei-te", then deleted the row.
+    added, removed = _player_ids(updates.get("addPlayers", [])), _player_ids(updates.get("removePlayers", []))
+    both = set(added) & set(removed)
+    payload["add_player_ids"] = [pid for pid in added if pid not in both]
+    payload["remove_player_ids"] = [pid for pid in removed if pid not in both]
     model = event.get("model")
     original_id = event.get("originalId")
 
@@ -1729,6 +1903,19 @@ def _edit_class_service(data):
     if refused:
         # Before any write — a "future" edit splits the series before it edits.
         return {"error": "invalid_fields", "fields": refused}, 400
+    if payload["add_player_ids"]:
+        # PAD-918 (instance-enrollment rule 15): an add that puts a student in two classes at the same
+        # time, one of them new-engine, is refused whole, before any write.
+        from padel_app.services.engine_entry import busy_same_hour, same_hour_clashes
+
+        if model == "LessonInstance" and scope == "single":
+            clashes = same_hour_clashes(payload["add_player_ids"],
+                                        instance=LessonInstance.query.get_or_404(original_id))
+        else:
+            clashes = same_hour_clashes(payload["add_player_ids"], lesson=_series,
+                                        on_date=event_date if scope == "single" else None)
+        if clashes:
+            return busy_same_hour(clashes)
     if "recurrence_end" in payload:
         # An explicit end date is the coach's: the season must not re-cap it
         # (calendar.seasons rule 10; season_service.recap_flagged_lessons re-caps
@@ -2044,12 +2231,20 @@ def remove_class_service(data):
     # are cascade-deleted as part of the removal below.
     cancellation_recipients = []
     try:
-        from padel_app.services.notification_service import (
-            collect_cancellation_recipients,
-        )
+        from padel_app.services.system_messages import collect_cancellation_recipients
         cancellation_recipients = collect_cancellation_recipients(obj)
     except Exception:
         cancellation_recipients = []
+
+    # PAD-918: a new-engine class's open invitations are withdrawn before it goes, so their bubbles
+    # settle as withdrawn instead of offering a Yes nothing can answer.
+    try:
+        from padel_app.services.engine_entry import withdraw_before_removal
+
+        withdraw_before_removal(_removed_instances(obj, model_name, scope, event_date))
+    except Exception:  # noqa: BLE001 — never fail a removal because a bubble could not settle
+        db.session.rollback()
+        _log_exception("PAD-918: withdrawing the invitations of class %s before its removal failed", class_id)
 
     # PAD-335 review: the removal is one transaction. Model.delete() commits
     # on its own outside a unit of work, so a failure between the instance's
@@ -2062,14 +2257,28 @@ def remove_class_service(data):
 
     if 200 <= status < 300 and cancellation_recipients:
         try:
-            from padel_app.services.notification_service import (
-                notify_students_of_cancellation,
-            )
+            from padel_app.services.system_messages import notify_students_of_cancellation
             notify_students_of_cancellation(cancellation_recipients)
         except Exception:
             pass  # never fail a successful removal because notification failed
 
     return result, status
+
+
+def _removed_instances(obj, model_name, scope, event_date):
+    """The materialised occurrences a removal takes away: the occurrence itself, or the series' on
+    that date (``single``), from that date (``future``), or all of them."""
+    if model_name == "LessonInstance" and (scope == "single" or not scope):
+        return [obj]
+    lesson = obj if model_name == "Lesson" else obj.lesson
+    if lesson is None:
+        return [obj] if model_name == "LessonInstance" else []
+    if scope == "single" or not scope:
+        return _instances_on_date(lesson, event_date)
+    query = LessonInstance.query.filter(LessonInstance.lesson_id == lesson.id)
+    if scope == "future":
+        query = query.filter(LessonInstance.start_datetime >= datetime.combine(event_date, time.min))
+    return query.all()
 
 
 def _instances_on_date(lesson, date):

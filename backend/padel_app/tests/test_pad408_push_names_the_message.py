@@ -5,7 +5,7 @@ Every push that announces a `Message` row must carry that row's id alongside
 its conversation: the native Expo `data` gains `messageId`, and the web
 push's `url` gains `?message=<id>`. Rule 12 names two writers explicitly
 (`messaging_service.create_message_service` and
-`notification_service._send_system_message`), and the PAD-324 parity guard
+`system_messages._send_system_message`), and the PAD-324 parity guard
 extends to the new field: both pushes for one event must name the same
 message, not just the same conversation.
 
@@ -16,12 +16,13 @@ named functions:
 
   - `class_join_request_service._notify_coach_of_request` (a student's join
     request)
-  - `notification_service._notify_coach_of_cancellation` (a late cancellation
+  - `system_messages._notify_coach_of_cancellation` (a late cancellation
     notice)
   - `academy_class_service._tell_coach_of_waiting_list_join` (a waiting-list
     join)
   - `class_request_service._tell_coach` (a class request)
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -38,6 +39,7 @@ def _register_ios_token(user_id, token):
 # Direct messages — messaging_service.create_message_service
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_direct_message_native_push_carries_the_message_id(app):
     """create_message_service's Expo `data` names the message it announces."""
     from padel_app.services.messaging_service import create_message_service
@@ -87,14 +89,15 @@ def test_direct_message_web_push_url_names_the_message(app):
 
 
 # ---------------------------------------------------------------------------
-# System messages — notification_service._send_system_message
+# System messages — system_messages._send_system_message
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_system_message_native_push_carries_the_message_id(app):
     """_send_system_message's own Expo push names the Message row it just
     wrote — this covers every system message (invitations, reminders, spot
     filled, waiting-list offers) alike, not only direct messages."""
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context():
         coach = _create_user("Coach", "pad408-sys-coach")
@@ -102,8 +105,8 @@ def test_system_message_native_push_carries_the_message_id(app):
         db.session.commit()
         _register_ios_token(student.id, "ExponentPushToken[pad408sys]")
 
-        with patch("padel_app.services.notification_service.publish"), \
-             patch("padel_app.services.notification_service.send_push_notification"), \
+        with patch("padel_app.services.system_messages.publish"), \
+             patch("padel_app.services.system_messages.send_push_notification"), \
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_expo:
             msg = _send_system_message(
                 coach.id, student.id, "You're invited to tomorrow's class",
@@ -120,7 +123,7 @@ def test_system_message_native_push_carries_the_message_id(app):
 
 def test_system_message_web_push_url_names_the_message(app):
     """The web sibling of a system-message push gets the same `?message=`."""
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context():
         coach = _create_user("Coach", "pad408-sys2-coach")
@@ -128,8 +131,8 @@ def test_system_message_web_push_url_names_the_message(app):
         db.session.commit()
         _register_ios_token(student.id, "ExponentPushToken[pad408sys2]")
 
-        with patch("padel_app.services.notification_service.publish"), \
-             patch("padel_app.services.notification_service.send_push_notification") as mock_web, \
+        with patch("padel_app.services.system_messages.publish"), \
+             patch("padel_app.services.system_messages.send_push_notification") as mock_web, \
              patch("padel_app.utils.expo_push.send_expo_push_to_user"):
             msg = _send_system_message(
                 coach.id, student.id, "Reminder: class tomorrow",
@@ -144,10 +147,11 @@ def test_system_message_web_push_url_names_the_message(app):
         )
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_system_message_pushes_name_the_same_conversation_and_message(app):
     """PAD-324 parity, extended by PAD-408: both channels must agree on the
     conversation AND the message, for one event."""
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context():
         coach = _create_user("Coach", "pad408-parity-coach")
@@ -155,8 +159,8 @@ def test_system_message_pushes_name_the_same_conversation_and_message(app):
         db.session.commit()
         _register_ios_token(student.id, "ExponentPushToken[pad408parity]")
 
-        with patch("padel_app.services.notification_service.publish"), \
-             patch("padel_app.services.notification_service.send_push_notification") as mock_web, \
+        with patch("padel_app.services.system_messages.publish"), \
+             patch("padel_app.services.system_messages.send_push_notification") as mock_web, \
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_expo:
             msg = _send_system_message(
                 coach.id, student.id, "Your spot opened up",
@@ -213,8 +217,9 @@ def test_join_request_coach_push_carries_the_message_id(app):
     )
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_cancellation_notice_native_push_carries_the_message_id(app):
-    """notification_service._notify_coach_of_cancellation: a student's late
+    """system_messages._notify_coach_of_cancellation: a student's late
     cancellation pushes the coach with the Message row's id."""
     from datetime import datetime, timedelta
 
@@ -223,7 +228,7 @@ def test_cancellation_notice_native_push_carries_the_message_id(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.lessons import Lesson
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _notify_coach_of_cancellation
+    from padel_app.services.system_messages import _notify_coach_of_cancellation
 
     with app.app_context():
         coach_user = _create_user("Coach", "pad408-cancel-coach")
@@ -249,8 +254,8 @@ def test_cancellation_notice_native_push_carries_the_message_id(app):
         db.session.commit()
         _register_ios_token(coach_user.id, "ExponentPushToken[pad408cancel]")
 
-        with patch("padel_app.services.notification_service.publish"), \
-             patch("padel_app.services.notification_service.send_push_notification") as mock_web, \
+        with patch("padel_app.services.system_messages.publish"), \
+             patch("padel_app.services.system_messages.send_push_notification") as mock_web, \
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_expo:
             msg = _notify_coach_of_cancellation(
                 coach_user.id, player_user.id, instance, player, is_late=True
@@ -280,7 +285,7 @@ def test_waiting_list_join_native_push_carries_the_message_id(app):
     ids = _seed_academy(app)
     full = _add_class(app, ids, days=3, title="Pad408 Full", max_players=2, filled=2)
 
-    with patch("padel_app.services.notification_service.publish"), \
+    with patch("padel_app.realtime.publish"), \
          patch("padel_app.utils.push_notifications.send_push_notification") as mock_web, \
          patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_expo:
         _join_waiting_list(app, ids, model="LessonInstance", original_id=full["instance_id"])

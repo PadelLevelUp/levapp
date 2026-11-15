@@ -104,6 +104,7 @@ def world(app):
 
 # --- Clubs are searchable by name without revealing members ---------------
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-1")
 def test_search_returns_matching_clubs_without_member_info(client, app, world):
     res = client.get("/api/app/clubs/search?q=padel", headers=_auth(app, world["rui"][0]))
     assert res.status_code == 200
@@ -121,6 +122,7 @@ def test_search_is_case_insensitive_and_needs_two_chars(client, app, world):
     assert client.get("/api/app/clubs/search", headers=headers).get_json() == []
 
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-1")
 def test_search_is_closed_to_anonymous_students_and_pending_coaches(client, app, world):
     assert client.get("/api/app/clubs/search?q=padel").status_code == 401
     res = client.get("/api/app/clubs/search?q=padel", headers=_auth(app, world["student"]))
@@ -132,6 +134,7 @@ def test_search_is_closed_to_anonymous_students_and_pending_coaches(client, app,
 
 # --- Coach requests to join and a member approves -------------------------
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-2")
 def test_coach_requests_and_member_approves(client, app, world):
     rui_user, rui_coach = world["rui"]
     maria_user, maria_coach = world["maria"]
@@ -187,6 +190,7 @@ def test_approving_twice_is_410_and_membership_stays_single(client, app, world):
 
 # --- Rejecting leaves no membership --------------------------------------
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-3")
 def test_rejecting_leaves_no_membership(client, app, world):
     rui_user, rui_coach = world["rui"]
     maria_user, maria_coach = world["maria"]
@@ -206,6 +210,7 @@ def test_rejecting_leaves_no_membership(client, app, world):
 
 # --- Non-member cannot decide ----------------------------------------------
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-4")
 def test_non_member_cannot_decide(client, app, world):
     rui_user, _ = world["rui"]
     joao_user, _ = world["joao"]
@@ -221,6 +226,7 @@ def test_non_member_cannot_decide(client, app, world):
 
 # --- Duplicate pending request is rejected --------------------------------
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-5")
 def test_duplicate_pending_request_is_409(client, app, world):
     from padel_app.models import ClubJoinRequest
 
@@ -240,6 +246,7 @@ def test_member_cannot_request_their_own_club_and_unknown_club_is_404(client, ap
 
 # --- A student never reaches the list ------------------------------------
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-6")
 def test_student_gets_403_not_500_on_join_request_routes(client, app, world):
     headers = _auth(app, world["student"])
     academy = world["academy"]
@@ -260,6 +267,7 @@ def test_non_member_cannot_list_requests(client, app, world):
 
 # --- Coach with no club gets 409, not 500 --------------------------------
 
+@pytest.mark.criterion("CLUBS-JOIN-REQUEST-7")
 def test_coach_with_pending_request_and_no_club_gets_409_no_club(client, app, world):
     """Extends test_coach_approval.test_approved_coach_without_club_gets_409_no_club
     with the pending-request state the spec criterion names."""

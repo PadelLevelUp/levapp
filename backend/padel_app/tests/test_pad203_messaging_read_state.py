@@ -103,6 +103,7 @@ def _conversation_between(user_ids):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-2")
 def test_message_sent_one_millisecond_after_a_read_is_unread(app):
     """
     AC — "A message sent just after a read is unread".
@@ -142,6 +143,7 @@ def test_message_sent_one_millisecond_after_a_read_is_unread(app):
         )
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-2")
 def test_sent_at_keeps_the_microseconds_it_was_given(app):
     """
     The mechanism behind the criterion, asserted directly.
@@ -175,6 +177,7 @@ def test_sent_at_keeps_the_microseconds_it_was_given(app):
         )
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-2")
 def test_read_then_send_on_the_real_clock_leaves_the_message_unread(app):
     """
     The same criterion without an injected clock — the shape the bug actually
@@ -221,6 +224,7 @@ def test_read_then_send_on_the_real_clock_leaves_the_message_unread(app):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-9")
 def test_conversation_creation_is_all_or_nothing(app, monkeypatch):
     """
     AC — "Creation is all-or-nothing".
@@ -277,6 +281,7 @@ def test_conversation_creation_is_all_or_nothing(app, monkeypatch):
         )
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-2")
 def test_successful_creation_still_writes_conversation_and_both_participants(app, monkeypatch):
     """
     The happy path through the same rewritten transaction — the guard against
@@ -319,6 +324,7 @@ def test_successful_creation_still_writes_conversation_and_both_participants(app
         )
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-3")
 def test_creating_an_existing_conversation_still_returns_it(app, monkeypatch):
     """
     Rule 2 / "Idempotent creation" — unchanged by rule 9, and worth pinning
@@ -381,6 +387,7 @@ def _malformed_conversation(only_user_id, vanished_user_id):
     return conversation
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-10")
 def test_list_endpoint_survives_a_participantless_conversation(app, client):
     """
     AC — "One malformed conversation does not break the list".
@@ -443,6 +450,7 @@ def test_list_endpoint_survives_a_participantless_conversation(app, client):
         assert by_id[healthy_id]["participantDeleted"] is False
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-11")
 def test_conversation_the_caller_has_no_row_in_still_serializes(app):
     """
     AC — "A conversation the caller has no row in still serializes".
@@ -525,6 +533,7 @@ def test_conversation_detail_degrades_the_same_way(app, client):
     assert [m["content"] for m in payload["messages"]] == ["alone in here"]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-10")
 def test_a_healthy_conversation_is_not_flagged_as_deleted(app):
     """
     VACUITY GUARD for rule 10: the flag must discriminate. A serializer that

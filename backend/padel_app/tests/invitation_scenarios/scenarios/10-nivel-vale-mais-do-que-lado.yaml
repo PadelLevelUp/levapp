@@ -1,0 +1,46 @@
+id: 10
+title: o nível vale mais do que o lado
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [413, 431]}
+what_it_tests: um aluno do outro lado pode ser convidado antes de um aluno do mesmo lado, se o professor assim definir
+tags: [groups, other-side, timers]
+depends_on: [U12, U13, U28]
+corrections: []
+notes: >
+  The coach reorders groups 3 to 6; group numbers are the reordered ones (3 = same level, same side; 4 =
+  same level, other side; 5 = one above, same side). Group 3 is empty, so group 4 goes out at 19:00,
+  invited to play right (side_named R). Group 4 has one round and no more candidates, so group 5 comes
+  60 min later at 20:00 (Method A), with 3 invitations still open for 1 spot (R3).
+
+settings:
+  groups:
+    - {list: coach, side: same}
+    - {list: students, side: same}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+    - {level: +1, side: same}
+    - {level: +1, side: other}
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L3L, count: 3, level: 3, side: L}
+  - {cohort: L2R, count: 3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L3L, count: 3, side_named: R, group: 4}]
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: none
+  - at: 2026-11-01 20:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 5}]
+      open_unanswered: 6
+  - at: 2026-11-01 20:10
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

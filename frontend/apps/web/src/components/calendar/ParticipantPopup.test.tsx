@@ -57,7 +57,7 @@ function open(onClose = vi.fn()) {
 }
 
 describe("ParticipantPopup (rule 23)", () => {
-  it("shows the player's side in full, level, state in this class, contact and the reminder hint", async () => {
+  it("[CALENDAR-EVENT-DETAIL-7] shows the player's side in full, level, state in this class, contact and the reminder hint", async () => {
     open();
     const popup = screen.getByTestId("participant-popup");
     expect(popup.getAttribute("role")).toBe("dialog");
@@ -73,7 +73,7 @@ describe("ParticipantPopup (rule 23)", () => {
     await waitFor(() => expect(popup.textContent).toContain("2026"));
   });
 
-  it("a coach's validated mark reads as Vai in this class", () => {
+  it("[CALENDAR-EVENT-DETAIL-6] a coach's validated mark reads as Vai in this class", () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter>
@@ -86,7 +86,7 @@ describe("ParticipantPopup (rule 23)", () => {
     expect(state.textContent).toBe("calendar.participants.state.going");
   });
 
-  it("the X closes it", () => {
+  it("[CALENDAR-EVENT-DETAIL-7] the X closes it", () => {
     const onClose = open();
     fireEvent.click(screen.getByTestId("participant-popup-close"));
     expect(onClose).toHaveBeenCalled();

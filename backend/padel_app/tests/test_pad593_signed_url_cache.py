@@ -56,6 +56,7 @@ def signer(monkeypatch):
     return calls
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-5")
 def test_the_same_image_is_signed_once_and_keeps_its_url(clock, signer):
     a1 = Image(object_key="images/user/a.jpg", is_public=False)
     a2 = Image(object_key="images/user/a.jpg", is_public=False)  # another row object, same key
@@ -65,6 +66,7 @@ def test_the_same_image_is_signed_once_and_keeps_its_url(clock, signer):
     assert signer == ["images/user/a.jpg"]
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-5")
 def test_different_images_are_signed_separately(clock, signer):
     Image(object_key="images/user/a.jpg").url()
     Image(object_key="images/user/b.jpg").url()
@@ -76,6 +78,7 @@ def test_a_reused_url_always_has_life_left():
     assert model.SIGNED_URL_MINUTES - model.SIGNED_URL_REUSE_MINUTES >= 10
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-5")
 def test_the_url_is_re_signed_after_the_reuse_window(clock, signer):
     img = Image(object_key="images/user/a.jpg")
     first = img.url()
@@ -115,6 +118,7 @@ def test_public_images_never_touch_the_cache(clock, signer):
     assert signer == []
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-5")
 def test_a_page_of_eight_participants_costs_eight_signings_once(clock, signer):
     """The ticket's measure: a class with 8 participants with photos. Serializing it twice
     (two class opens) used to sign 16 times; it now signs 8, then 0."""
@@ -189,12 +193,14 @@ def _list(client, headers):
     return resp.get_json()["conversations"]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-1")
 def test_the_conversation_list_carries_the_participant_photo(app, client, jwt_secret, clock, signer):
     headers = _caller_headers(app, "pad593_caller", ["pad593_other"])
     [conv] = _list(client, headers)
     assert conv["participantAvatar"] == "https://signed/images/user/pad593_other.jpg?n=1"
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-1")
 def test_a_photo_that_cannot_be_signed_leaves_the_list_working(app, client, jwt_secret, clock, monkeypatch):
     def failing(self, minutes=model.SIGNED_URL_MINUTES, method="GET"):
         raise RuntimeError("no signer")
@@ -206,6 +212,7 @@ def test_a_photo_that_cannot_be_signed_leaves_the_list_working(app, client, jwt_
     assert conv["participantAvatar"] is None
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-1")
 def test_the_photo_costs_no_statement_per_conversation(app, client, jwt_secret, clock, signer):
     """PAD-204's constant-cost list holds with the avatar read: the image rides the
     participant join instead of a lazy load per row."""

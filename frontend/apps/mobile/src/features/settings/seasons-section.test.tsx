@@ -96,7 +96,7 @@ describe("seasonUnsaved (settings.unsaved-edits rule 2)", () => {
     expect(seasonUnsaved({ label: "", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 }, null)).toBe(false);
   });
 
-  it("a hand-revert back to the loaded label reads clean", () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] a hand-revert back to the loaded label reads clean", () => {
     const edited = { label: "Epoca nova", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 };
     expect(seasonUnsaved(edited, SEASON)).toBe(true);
     expect(seasonUnsaved({ ...edited, label: SEASON.label }, SEASON)).toBe(false);
@@ -104,7 +104,7 @@ describe("seasonUnsaved (settings.unsaved-edits rule 2)", () => {
 });
 
 describe("SeasonsSection registers its unsaved state (PAD-394)", () => {
-  it("editing the label -> unsaved; hand-revert -> clean; a successful save -> clean", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] editing the label -> unsaved; hand-revert -> clean; a successful save -> clean", async () => {
     let registry!: ReturnType<typeof useUnsavedRegistry>;
     function Capture() {
       registry = useUnsavedRegistry();

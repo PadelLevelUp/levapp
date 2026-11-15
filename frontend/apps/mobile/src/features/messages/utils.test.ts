@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   formatConversationTime,
   formatMessageTime,
-  initialsOf,
   mergeEditedMessage,
   messageCopyText,
   normalizeId,
@@ -27,24 +26,6 @@ describe("normalizeId", () => {
 
   it("keeps 0 as a real id", () => {
     expect(normalizeId(0)).toBe("0");
-  });
-});
-
-describe("initialsOf", () => {
-  it("takes the first letter of the first two words, uppercased", () => {
-    expect(initialsOf("ana silva")).toBe("AS");
-    expect(initialsOf("Ana Beatriz Silva")).toBe("AB");
-  });
-
-  it("handles a single name and stray whitespace", () => {
-    expect(initialsOf("Ana")).toBe("A");
-    expect(initialsOf("  Ana   Silva  ")).toBe("AS");
-  });
-
-  it("falls back to ? when there is no name", () => {
-    expect(initialsOf(undefined)).toBe("?");
-    expect(initialsOf(null)).toBe("?");
-    expect(initialsOf("")).toBe("?");
   });
 });
 
@@ -108,13 +89,13 @@ describe("roleLabelKey", () => {
   // `capitalize` class, so a Portuguese device showed "Player". Web maps the
   // enum to messages.role* keys; this is the same mapping, kept pure so the
   // component only has to call t().
-  it("maps the backend role enum to a translation key", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-6] maps the backend role enum to a translation key", () => {
     expect(roleLabelKey("coach")).toBe("messages.roleCoach");
     expect(roleLabelKey("player")).toBe("messages.rolePlayer");
     expect(roleLabelKey("assistant")).toBe("messages.roleAssistant");
   });
 
-  it("is case-insensitive, like web's getRoleLabel", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-6] is case-insensitive, like web's getRoleLabel", () => {
     expect(roleLabelKey("Coach")).toBe("messages.roleCoach");
     expect(roleLabelKey("PLAYER")).toBe("messages.rolePlayer");
   });

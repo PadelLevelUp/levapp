@@ -147,6 +147,7 @@ def _save_attendance_for(app, roster, name):
         db.session.commit()
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-1")
 def test_occurrence_roster_is_in_name_order_before_and_after_a_save(client, app, roster):
     assert _detail_order(client, app, roster, "lessoninstance", roster["instance_id"]) == EXPECTED
     assert _presences_order(client, app, roster) == EXPECTED
@@ -157,6 +158,7 @@ def test_occurrence_roster_is_in_name_order_before_and_after_a_save(client, app,
     assert _presences_order(client, app, roster) == EXPECTED
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-1")
 def test_every_other_presences_payload_is_in_name_order(client, app, roster):
     """Rule 12 says EVERY read: the detail's `presences`, GET /lesson_instance/<id>, and the
     class evaluations panel (which builds its own participants from the presences)."""

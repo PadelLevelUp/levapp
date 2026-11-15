@@ -5,6 +5,7 @@ class was stored ending before it began, and every "has it ended" reader treated
 00:00. Only an end of exactly 00:00 after a later start moves; any other end at or before the start
 is a typo the editors refuse (B-294) and is left as it is.
 """
+import pytest
 from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
@@ -13,6 +14,7 @@ from padel_app.tests.test_notification_reminder_flow import PATCHES, _seed_coach
 from padel_app.tests.test_pad259_enrolment import _materialise
 
 
+@pytest.mark.criterion("CLASSES-CREATE-14")
 def test_the_helper_moves_only_a_midnight_end():
     from padel_app.tools.calendar_tools import build_end_datetime
 
@@ -50,6 +52,7 @@ def _create(app, start, end, *, recurring=False):
         return lesson.id, day
 
 
+@pytest.mark.criterion("CLASSES-CREATE-14")
 def test_a_class_created_22_to_midnight_ends_the_next_day(app):
     from padel_app.models import Lesson
 
@@ -60,6 +63,7 @@ def test_a_class_created_22_to_midnight_ends_the_next_day(app):
         assert lesson.end_datetime == datetime.combine(day + timedelta(days=1), datetime.min.time())
 
 
+@pytest.mark.criterion("CLASSES-CREATE-14")
 def test_a_backwards_end_is_left_for_b294(app):
     from padel_app.models import Lesson
 
@@ -69,6 +73,7 @@ def test_a_backwards_end_is_left_for_b294(app):
         assert lesson.end_datetime == datetime.combine(day, datetime.min.time()) + timedelta(hours=17)
 
 
+@pytest.mark.criterion("CLASSES-CREATE-14")
 def test_an_occurrence_of_a_midnight_series_ends_after_it_starts(app):
     from padel_app.models import LessonInstance
 

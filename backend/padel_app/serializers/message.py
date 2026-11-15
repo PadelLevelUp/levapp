@@ -56,8 +56,19 @@ def is_automatic(message) -> bool:
     return message_type != "text" or getattr(message, "msg_metadata", None) is not None
 
 
-def serialize_message(message, last_read_at, *, class_deleted=False):
-    """One message.
+def _metadata_for(message, viewer_id):
+    """The message's metadata as ``viewer_id`` may see it: a new-engine invitation's ``countsUntil`` is
+    the coach's only (invitations NB1, INVITATIONS-124), so it is dropped for anyone but the sender,
+    and when no viewer is named."""
+    meta = getattr(message, "msg_metadata", None)
+    if (isinstance(meta, dict) and meta.get("engine") == "new" and "countsUntil" in meta
+            and (viewer_id is None or viewer_id != message.sender_id)):
+        meta = {k: v for k, v in meta.items() if k != "countsUntil"}
+    return meta
+
+
+def serialize_message(message, last_read_at, *, class_deleted=False, viewer_id=None):
+    """One message, as ``viewer_id`` reads it (None: whatever every participant may see).
 
     `class_deleted` comes from `deleted_class_message_ids` when a list is
     serialised. A single message on the realtime path (just created or edited,
@@ -99,7 +110,7 @@ def serialize_message(message, last_read_at, *, class_deleted=False):
             for r in (message.reactions or [])
         ],
         "messageType": getattr(message, "message_type", "text") or "text",
-        "metadata": getattr(message, "msg_metadata", None),
+        "metadata": _metadata_for(message, viewer_id),
         # messaging.conversation-detail rule 15 (PAD-325): the class this
         # message points at was deleted, so clients must not offer it.
         "classDeleted": bool(class_deleted),

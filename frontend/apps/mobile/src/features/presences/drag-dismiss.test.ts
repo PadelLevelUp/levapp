@@ -15,23 +15,23 @@ import { DRAG_SLOP, dragDismissHandlers, movedPastSlop } from "./drag-dismiss";
 const at = (pageY: number) => ({ nativeEvent: { pageY } });
 
 describe("movedPastSlop", () => {
-  it("is a drag only past the slop, either way", () => {
+  it("[CLIENT-PULL-TO-REFRESH-7] is a drag only past the slop, either way", () => {
     expect(movedPastSlop(100, 100 + DRAG_SLOP)).toBe(false);
     expect(movedPastSlop(100, 100 + DRAG_SLOP + 1)).toBe(true);
     expect(movedPastSlop(100, 100 - DRAG_SLOP - 1)).toBe(true);
   });
 
-  it("is never a drag without a touch start", () => {
+  it("[CLIENT-PULL-TO-REFRESH-7] is never a drag without a touch start", () => {
     expect(movedPastSlop(null, 500)).toBe(false);
   });
 });
 
 describe("dragDismissHandlers (rule 5a)", () => {
-  it("adds nothing on iOS, which keeps on-drag", () => {
+  it("[CLIENT-PULL-TO-REFRESH-7] adds nothing on iOS, which keeps on-drag", () => {
     expect(dragDismissHandlers("ios", () => undefined)).toEqual({});
   });
 
-  it("on Android, dismisses once a touch moves past the slop, and once per touch", () => {
+  it("[CLIENT-PULL-TO-REFRESH-7] on Android, dismisses once a touch moves past the slop, and once per touch", () => {
     const dismiss = vi.fn();
     const h = dragDismissHandlers("android", dismiss);
     h.onTouchStart!(at(300));

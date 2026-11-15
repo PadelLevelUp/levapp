@@ -10,12 +10,12 @@ describe("inviteState", () => {
     expect(inviteState({ responded: false })).toMatchObject({ waiting: true });
   });
 
-  it("shows the student's own answer without the coach line", () => {
+  it("[NOTIFICATIONS-INVITATIONS-91] shows the student's own answer without the coach line", () => {
     expect(inviteState({ responded: true, response: "yes", answeredBy: "student" })).toMatchObject({ accepted: true, byCoach: false, waiting: false });
     expect(inviteState({ responded: true, response: "no" })).toMatchObject({ declined: true, byCoach: false });
   });
 
-  it("marks an answer the coach recorded (PAD-563)", () => {
+  it("[NOTIFICATIONS-INVITATIONS-91] marks an answer the coach recorded (PAD-563)", () => {
     expect(inviteState({ responded: true, response: "yes", answeredBy: "coach" })).toMatchObject({ accepted: true, byCoach: true, waiting: false });
     expect(inviteState({ responded: true, response: "no", answeredBy: "coach" })).toMatchObject({ declined: true, byCoach: true });
   });

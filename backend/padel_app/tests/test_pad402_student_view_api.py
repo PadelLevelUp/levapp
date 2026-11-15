@@ -12,6 +12,7 @@ tests are 404 (no route) until Batch A2; the dashboard-block tests are real
 assertion failures (no `evaluations` block is emitted yet) — a more precise RED
 than a blanket 404, since that route already exists.
 """
+import pytest
 import datetime as dt
 
 from padel_app.sql_db import db
@@ -123,6 +124,7 @@ def _blocks_minus_evaluations(payload):
 # ── a player sees only shared cards, and only what was chosen (rules 1, 2) ──
 
 
+@pytest.mark.criterion("EVALUATIONS-STUDENT-VIEW-1")
 def test_a_player_sees_only_shared_cards_and_only_what_was_chosen(app, client):
     from padel_app.models import EvaluationCategory
 
@@ -164,6 +166,7 @@ def test_a_player_sees_only_shared_cards_and_only_what_was_chosen(app, client):
     assert card["note"] is None
 
 
+@pytest.mark.criterion("EVALUATIONS-STUDENT-VIEW-2")
 def test_a_coach_cannot_read_the_student_endpoint(app, client):
     ids = _seed(app)
 
@@ -176,6 +179,7 @@ def test_a_coach_cannot_read_the_student_endpoint(app, client):
 # ── both coaches' cards appear, each named (rule 3) ──────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-STUDENT-VIEW-3")
 def test_both_coaches_cards_appear_newest_first_each_named(app, client):
     ids = _seed(app)
     bruno = _second_coach_linked_to(app, ids, name="Coach Bruno", username="pad402-bruno")
@@ -200,6 +204,7 @@ def test_both_coaches_cards_appear_newest_first_each_named(app, client):
 # ── the dashboard block is gated by the token and omitted when empty (4, 5) ─
 
 
+@pytest.mark.criterion("EVALUATIONS-STUDENT-VIEW-4")
 def test_the_dashboard_block_is_gated_by_the_capability_header_and_omitted_when_empty(app, client):
     ids = _seed(app)
     record_id = _rated(app, ids, ids["forehand_id"], 4, dt.datetime(2026, 9, 21, 9, 0))
@@ -251,6 +256,7 @@ def test_the_dashboard_block_caps_at_three_newest_first(app, client):
 # ── the player's card survives the coach's later changes (rules 1, 6) ──────
 
 
+@pytest.mark.criterion("EVALUATIONS-STUDENT-VIEW-5")
 def test_the_players_card_survives_the_coachs_later_changes(app, client):
     """student-view spec: "Ana's preview showed Técnica 4 with a delta of +1.0.
     Ana later switches Técnica off and rates Rui again. Rui's card still shows

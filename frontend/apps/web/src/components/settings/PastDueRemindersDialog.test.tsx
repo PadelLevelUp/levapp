@@ -19,7 +19,7 @@ const cls = (n: number) => ({ key: `i:${n}`, title: `Class ${n}`, startsAt: `202
 const base = { quietUntil: null, sending: false, failed: false, onSend: vi.fn(), onDecline: vi.fn() };
 
 describe("PastDueRemindersDialog", () => {
-  it("one class: names the class, its day and its time, and asks send now or not send", () => {
+  it("[NOTIFICATIONS-CONFIG-15] one class: names the class, its day and its time, and asks send now or not send", () => {
     render(<PastDueRemindersDialog {...base} classes={[cls(1)]} />);
     const dialog = screen.getByTestId("past-due-dialog");
 
@@ -34,7 +34,7 @@ describe("PastDueRemindersDialog", () => {
     expect(within(dialog).getByTestId("past-due-decline")).toHaveTextContent("settings.engine.pastDue.decline");
   });
 
-  it("several classes: the list sits above the question, which ends the body", () => {
+  it("[NOTIFICATIONS-CONFIG-15] several classes: the list sits above the question, which ends the body", () => {
     render(<PastDueRemindersDialog {...base} classes={[cls(1), cls(2), cls(3)]} />);
     const body = screen.getByTestId("past-due-body");
     const list = within(body).getByTestId("past-due-list");
@@ -76,7 +76,7 @@ describe("PastDueRemindersDialog", () => {
     expect(onDecline).toHaveBeenCalledTimes(1);
   });
 
-  it("dismissing with Escape is 'do not send'", () => {
+  it("[NOTIFICATIONS-CONFIG-15] dismissing with Escape is 'do not send'", () => {
     const onSend = vi.fn();
     const onDecline = vi.fn();
     render(<PastDueRemindersDialog {...base} classes={[cls(1)]} onSend={onSend} onDecline={onDecline} />);

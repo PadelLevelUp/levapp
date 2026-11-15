@@ -110,7 +110,7 @@ const ROWS = [
 ];
 
 describe("iOS shows the same ten restriction controls as web (PAD-433)", () => {
-  it("renders every row of rule 14, in web's order", async () => {
+  it("[NOTIFICATIONS-CONFIG-33] renders every row of rule 14, in web's order", async () => {
     const { n } = await mount();
     const order = n.root.root
       .findAll((x) => typeof x.type === "string" && typeof x.props.testID === "string" && /^restriction-row-/.test(x.props.testID))
@@ -118,7 +118,7 @@ describe("iOS shows the same ten restriction controls as web (PAD-433)", () => {
     expect(order).toEqual(ROWS);
   });
 
-  it("shows the stored values and switch states", async () => {
+  it("[NOTIFICATIONS-CONFIG-33] shows the stored values and switch states", async () => {
     const { n } = await mount();
     expect(text(n.byTestId("restriction-maxSimultaneous-value"))).toBe("3");
     expect(text(n.byTestId("restriction-maxTotal-value"))).toBe("10");
@@ -127,7 +127,7 @@ describe("iOS shows the same ten restriction controls as web (PAD-433)", () => {
     expect(n.byTestId("restriction-excludeUnpaidSubscription-toggle").props["aria-checked"]).toBe(false);
   });
 
-  it("hides the value of a stepper whose restriction is off, as web does", async () => {
+  it("[NOTIFICATIONS-CONFIG-44] hides the value of a stepper whose restriction is off, as web does", async () => {
     const { n } = await mount();
     expect(n.queryByTestId("restriction-minTimeBeforeClass-value")).toBeNull();
     expect(n.queryByTestId("restriction-maxSimultaneous-value")).not.toBeNull();
@@ -141,7 +141,7 @@ describe("iOS shows the same ten restriction controls as web (PAD-433)", () => {
 });
 
 describe("edits report the whole restrictions object (PAD-433)", () => {
-  it("a + steps by the key's step", async () => {
+  it("[NOTIFICATIONS-CONFIG-34] a + steps by the key's step", async () => {
     const { n, onChange } = await mount();
     await n.press("restriction-maxInactiveTime-dec");
     expect(onChange).toHaveBeenCalledWith({ ...BASE, maxInactiveTime: { enabled: true, value: 45 } });
@@ -185,7 +185,7 @@ describe("edits report the whole restrictions object (PAD-433)", () => {
 });
 
 describe("a step clamps at the shared bounds (PAD-433)", () => {
-  it("disables the button at a bound", async () => {
+  it("[NOTIFICATIONS-CONFIG-34] disables the button at a bound", async () => {
     const { n } = await mount({
       maxSimultaneous: { enabled: true, value: 20 },
       maxInactiveTime: { enabled: true, value: 15 },
@@ -197,7 +197,7 @@ describe("a step clamps at the shared bounds (PAD-433)", () => {
     expect(n.byTestId("restriction-cancellationDeadlineHours-dec").props.disabled).toBe(true);
   });
 
-  it("never reports a value past the bound", async () => {
+  it("[NOTIFICATIONS-CONFIG-34] never reports a value past the bound", async () => {
     const { n, onChange } = await mount({ maxSimultaneous: { enabled: true, value: 20 } });
     await n.press("restriction-maxSimultaneous-inc");
     for (const [arg] of onChange.mock.calls) {
@@ -207,7 +207,7 @@ describe("a step clamps at the shared bounds (PAD-433)", () => {
 });
 
 describe("excluded players are named (PAD-433, B-168)", () => {
-  it("names a saved player from excludedPlayerNames, not the id", async () => {
+  it("[NOTIFICATIONS-CONFIG-35] names a saved player from excludedPlayerNames, not the id", async () => {
     const { n } = await mount({}, { "42": "Alice Andrade" });
     expect(text(n.byTestId("restriction-excluded-chip-42"))).toBe("Alice Andrade");
   });
@@ -249,7 +249,7 @@ describe("the engine switched off disables the section, as on web (PAD-433)", ()
 });
 
 describe("the coach's quiet window on iOS (PAD-451, notifications.config rule 6a)", () => {
-  it("shows the saved window and names it in the description", async () => {
+  it("[NOTIFICATIONS-CONFIG-44] shows the saved window and names it in the description", async () => {
     const { n } = await mount({ quietHours: { enabled: true, start: "23:00", end: "08:00" } });
     expect(n.byTestId("restriction-quietHours-start").props.value).toBe("23:00");
     expect(n.byTestId("restriction-quietHours-end").props.value).toBe("08:00");
@@ -262,7 +262,7 @@ describe("the coach's quiet window on iOS (PAD-451, notifications.config rule 6a
     expect(n.byTestId("restriction-quietHours-end").props.value).toBe("07:00");
   });
 
-  it("reports a valid edit with both bounds", async () => {
+  it("[NOTIFICATIONS-CONFIG-44] reports a valid edit with both bounds", async () => {
     const { n, onChange } = await mount({ quietHours: { enabled: true, start: "23:00", end: "08:00" } });
     await n.changeText("restriction-quietHours-end", "08:30");
     expect(onChange).toHaveBeenCalledWith({ ...BASE, quietHours: { enabled: true, start: "23:00", end: "08:30" } });
@@ -275,7 +275,7 @@ describe("the coach's quiet window on iOS (PAD-451, notifications.config rule 6a
     expect(n.queryByTestId("restriction-quietHours-error")).not.toBeNull();
   });
 
-  it("hides the pickers while quiet hours are off", async () => {
+  it("[NOTIFICATIONS-CONFIG-44] hides the pickers while quiet hours are off", async () => {
     const { n } = await mount({ quietHours: { enabled: false, start: "23:00", end: "08:00" } });
     expect(n.queryByTestId("restriction-quietHours-start")).toBeNull();
   });

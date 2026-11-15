@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("DeleteAccountPage", () => {
-  it("shows the in-app steps, the email path, what is deleted and kept, and the policy link", async () => {
+  it("[AUTH-DELETE-ACCOUNT-PAGE-1] shows the in-app steps, the email path, what is deleted and kept, and the policy link", async () => {
     renderAt("/delete-account?lang=en");
     expect(await screen.findByText("en:legal.deleteAccount.inAppSteps")).toBeInTheDocument();
     expect(loadLanguages).toHaveBeenCalledWith("en");
@@ -57,7 +57,7 @@ describe("DeleteAccountPage", () => {
     expect(screen.getByTestId("delete-account-privacy-link")).toHaveAttribute("href", "/privacy?lang=en");
   });
 
-  it("follows the UI language, and ?lang= overrides it, for every string", async () => {
+  it("[AUTH-DELETE-ACCOUNT-PAGE-2] follows the UI language, and ?lang= overrides it, for every string", async () => {
     renderAt("/delete-account");
     expect(screen.getByTestId("delete-account-page")).toHaveAttribute("lang", "pt");
     expect(screen.getByTestId("delete-account-lang-pt")).toHaveAttribute("aria-current", "page");

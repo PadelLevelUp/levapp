@@ -34,11 +34,13 @@ def _postgres_services():
     return found
 
 
+@pytest.mark.criterion("DELIVERY-CI-IMAGES-3")
 def test_the_guard_sees_the_service_containers():
     assert len(_postgres_services()) >= 6, "fewer postgres services than the six workflows that run one"
 
 
 @pytest.mark.parametrize("workflow,job_id,doc,job,service", _postgres_services(), ids=lambda v: v if isinstance(v, str) else "")
+@pytest.mark.criterion("DELIVERY-CI-IMAGES-3")
 def test_every_postgres_service_pulls_the_mirror_with_credentials(workflow, job_id, doc, job, service):
     assert service.get("image") == MIRROR, f"{workflow}:{job_id} pulls {service.get('image')!r}"
     creds = service.get("credentials") or {}
@@ -51,6 +53,7 @@ def test_every_postgres_service_pulls_the_mirror_with_credentials(workflow, job_
             break
 
 
+@pytest.mark.criterion("DELIVERY-CI-IMAGES-3")
 def test_no_workflow_names_a_public_postgres_image_as_a_service():
     for workflow, job_id, _doc, _job, service in _postgres_services():
         image = service.get("image", "")

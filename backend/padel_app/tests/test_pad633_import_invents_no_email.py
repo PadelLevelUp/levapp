@@ -6,6 +6,7 @@ the username from it (PAD-105: a coach never sets a username).
 The data migration that removes the invented addresses from existing rows is proven in
 test_pad633_migration.py.
 """
+import pytest
 from sqlalchemy import func
 
 from padel_app.sql_db import db
@@ -56,6 +57,7 @@ def _invented_addresses(app):
         return User.query.filter(func.lower(User.email).like("%@email.com")).count()
 
 
+@pytest.mark.criterion("IMPORT-CONFIRM-3")
 def test_a_row_without_an_email_stores_no_email_and_a_placeholder_username(app):
     coach = _coach(app, "coach-a")
     result = _import(app, coach, [{"name": "João Silva"}, {"name": "Rita"}])
@@ -66,6 +68,7 @@ def test_a_row_without_an_email_stores_no_email_and_a_placeholder_username(app):
     assert _invented_addresses(app) == 0
 
 
+@pytest.mark.criterion("IMPORT-CONFIRM-4")
 def test_a_row_without_an_email_never_joins_another_coachs_player(app):
     coach_a = _coach(app, "coach-a")
     coach_b = _coach(app, "coach-b")
@@ -83,6 +86,7 @@ def test_two_rows_with_the_same_name_and_no_email_are_two_players(app):
     assert len(_roster(app, coach)) == 2
 
 
+@pytest.mark.criterion("IMPORT-CONFIRM-5")
 def test_a_row_with_an_email_reuses_that_account_case_insensitively(app):
     from padel_app.models import User
 

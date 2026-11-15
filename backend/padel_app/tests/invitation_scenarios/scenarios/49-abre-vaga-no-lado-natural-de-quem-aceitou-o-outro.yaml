@@ -1,0 +1,47 @@
+id: 49
+title: abre vaga no lado natural de quem aceitou o outro
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1155, 1173]}
+what_it_tests: a aplicação não muda quem já aceitou e não volta a convidar quem já recebeu convite
+tags: [groups, other-side, sides, regulars]
+depends_on: [U10, U11]
+corrections: []
+notes: >
+  Encoded as written (R15): at 10:00 on 2 Nov the left spot goes to the two L3L (group 4). E2 and E3
+  are in group 3 for the left but were already invited, so they are not invited again. The PDF never
+  says whether their open "play right" invitations could take the reopened left spot (U10). E1 stays on
+  the right (U11). The class filled at 19:10, so group 6 never comes for the right. The absence kind of
+  L-1's No is not stated and is not checked.
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: E1, level: 2, side: L}
+  - {id: E2, level: 2, side: L}
+  - {id: E3, level: 2, side: L}
+  - {cohort: L3L, count: 2, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: E1, side_named: R, group: 5}
+        - {who: E2, side_named: R, group: 5}
+        - {who: E3, side_named: R, group: 5}
+  - at: 2026-11-01 19:10
+    events: [{accepts: E1}]
+    expect:
+      placed: [{who: E1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 10:00
+    events: [{regular_no: L-1}]
+    expect:
+      invitations: [{cohort: L3L, count: 2, side_named: null, group: 4}]
+      missing: {L: 1, R: 0}
+      roster: {L: 7, R: 8}
+  - at: 2026-11-02 10:10
+    events: [{accepts: {cohort: L3L, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

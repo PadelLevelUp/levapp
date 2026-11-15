@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, COACH_USERNAME } from "../helpers/auth";
+import { unsnoozeNeedsYouItem } from "../helpers/engine";
 import { openDashboard } from "../helpers/navigation";
 
 test.beforeEach(async ({ page }) => {
@@ -58,7 +59,8 @@ test("US-65: notification activity or recent activity section is visible", async
 // B-030 / dashboard.blocks rule 3c: "Later" on an empty-seats card is a real
 // action. The queue covers this week only (PAD-740, rule 3): the seed's
 // under-capacity "E2E Pending Confirm Class" (tomorrow) keeps a card on it every
-// weekday but Saturday, when nothing is left in the week.
+// weekday but Saturday, when nothing is left in the week. PAD-935: that card is the only one, and
+// PAD-285, PAD-424 and PAD-740 need it, so the snooze is undone at the end.
 test("B-030: Later removes an empty-seats card from the needs-you queue", async ({ page }) => {
   const queue = page.getByTestId("dashboard-needs-you");
   await expect(queue).toBeVisible({ timeout: 5000 });
@@ -72,12 +74,16 @@ test("B-030: Later removes an empty-seats card from the needs-you queue", async 
 
   const first = cards.first();
   const itemId = (await first.getAttribute("data-testid"))!.replace("needs-you-empty-seats-", "");
-  const snoozed = page.waitForResponse(
-    (r) => r.url().includes(`/needs-you/${encodeURIComponent(itemId)}/snooze`) && r.status() === 200,
-  );
-  await first.getByTestId("needs-you-later").click();
-  await snoozed;
+  try {
+    const snoozed = page.waitForResponse(
+      (r) => r.url().includes(`/needs-you/${encodeURIComponent(itemId)}/snooze`) && r.status() === 200,
+    );
+    await first.getByTestId("needs-you-later").click();
+    await snoozed;
 
-  await expect(queue.getByTestId(`needs-you-empty-seats-${itemId}`)).toHaveCount(0, { timeout: 5000 });
-  await expect(cards).toHaveCount(before - 1);
+    await expect(queue.getByTestId(`needs-you-empty-seats-${itemId}`)).toHaveCount(0, { timeout: 5000 });
+    await expect(cards).toHaveCount(before - 1);
+  } finally {
+    unsnoozeNeedsYouItem(COACH_USERNAME, itemId);
+  }
 });

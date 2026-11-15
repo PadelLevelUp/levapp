@@ -203,7 +203,7 @@ def _localized(coach_user, pt: str, en: str) -> str:
 
 
 def _class_label(instance: LessonInstance, locale: str) -> str:
-    from padel_app.services.notification_service import _format_class_when
+    from padel_app.services.message_text import _format_class_when
 
     title = instance.title or ("a aula" if locale == "pt" else "the class")
     return f"{title}{_format_class_when(instance, locale)}"
@@ -213,7 +213,7 @@ def _accepted_text(instance: LessonInstance, locale: str) -> str:
     """PAD-678 (rule 19): the student's "you are in the class" message for an accepted request. It
     leads with the outcome and never says "pedido"/"aceite", which students read as a waiting-list
     place. The pt text is the coach-approved one (2026-10-15); "inscrito/a" is literal."""
-    from padel_app.services.notification_service import _format_when
+    from padel_app.services.message_text import _format_when
 
     when = _format_when(getattr(instance, "start_datetime", None), locale, dated=True, weekday_first=True)
     if locale == "pt":
@@ -227,7 +227,7 @@ def _declined_text(instance: LessonInstance, locale: str) -> str:
     """PAD-678 (rule 19a): the student's message for a refused request, in the same shape as the
     accepted one: the outcome first ("Não ficaste inscrito/a"), then the class and its day. Text
     approved by the coordinator on the owner's behalf (2026-10-22); owner to confirm."""
-    from padel_app.services.notification_service import _format_when
+    from padel_app.services.message_text import _format_when
 
     when = _format_when(getattr(instance, "start_datetime", None), locale, dated=True, weekday_first=True)
     if locale == "pt":
@@ -284,6 +284,11 @@ def create_join_request_service(player, model, original_id, date_str, *, note=No
         _refuse("not_visible", "This class is not open to requests")
     if _is_full(instance):
         _refuse("spot_filled", "This class is already full")
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        # PAD-918 (new-engine section NJ1): the engine answers the rest.
+        return _join_new_engine(player, instance, coach_id, requested_side(side, cp)[0], note, now)
     if not passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)):
         _refuse("ineligible", "You do not meet this class's eligibility bar")
     side, check_side = requested_side(side, cp)
@@ -315,6 +320,50 @@ def create_join_request_service(player, model, original_id, date_str, *, note=No
     _notify_coach_of_request(row, instance)
     if config is not None and config.auto_accept_join_requests:
         row = _accept_automatically(row, instance, config, now=now)
+    return row, True
+
+
+#: NJ1: the engine's refusals the route answers with a 409; anything else (``ineligible``) waits.
+HARD_REFUSALS = ("already_enrolled", "class_closed", "already_on_list", "busy_same_hour", "side_full")
+_ENGINE_SIDE = {"left": "L", "right": "R"}
+_APP_SIDE = {"L": "left", "R": "right"}
+
+
+def _join_new_engine(player, instance, coach_id, side, note, now):
+    """New-engine section NJ1 (CLASSES-JOIN-REQUESTS-36, 38): with direct join on (never for a
+    semi-automatic coach, the mapping's rule 19), the request is the engine's ``DirectJoin``: placed at
+    once (the request accepted), refused with a 409 for a hard reason (nothing written), or, for a soft
+    one (``ineligible``), left waiting for the coach with no reason given. Direct join off: it waits."""
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine import requests as rq
+    from padel_app.services.engine_entry import handle
+    from padel_app.services.engine_store import settings_for
+
+    session, student = str(instance.id), str(player.id)
+    existing = ClassJoinRequest.query.filter_by(lesson_instance_id=instance.id, player_id=player.id,
+                                                status="pending").first()
+    if existing is not None:
+        return existing, False
+    if settings_for(session).direct_join:
+        effects = handle(instance, rq.DirectJoin(student, _ENGINE_SIDE.get(side)), now)
+        refused = next((e for e in effects if isinstance(e, fx.Refused) and e.student == student), None)
+        if refused is not None and refused.reason in HARD_REFUSALS:
+            extra = {}
+            if refused.reason == "side_full":
+                extra = {"sides": sorted(_APP_SIDE[s] for s in refused.sides), "requestedSide": side}
+            _refuse(refused.reason, refused.reason.replace("_", " "), **extra)
+        if any(isinstance(e, fx.Placed) and e.student == student for e in effects):
+            row = ClassJoinRequest(lesson_instance_id=instance.id, player_id=player.id, coach_id=coach_id,
+                                   status="accepted", created_at=now, decided_at=now, note=note, side=side)
+            db.session.add(row)
+            db.session.commit()
+            _publish_join_request_decided(row)
+            return row, True
+    row = ClassJoinRequest(lesson_instance_id=instance.id, player_id=player.id, coach_id=coach_id,
+                           status="pending", created_at=now, note=note, side=side)
+    db.session.add(row)
+    db.session.commit()
+    _notify_coach_of_request(row, instance)
     return row, True
 
 
@@ -385,10 +434,14 @@ def _side_for_enrolment(row: ClassJoinRequest, instance) -> None:
 
 def _side_warning(row: ClassJoinRequest, instance) -> dict | None:
     """PAD-808 (rule 7a): ``{requestedSide, openSides}`` when the request's side has no open spot
-    left, else None. A `both` request, or a class with no open spot yet, is never warned."""
+    left, else None. A `both` request, or a class with no open spot yet, is never warned. A new-engine
+    session has no vacancy row: its sides are the engine's open spot types (NJ3)."""
+    from padel_app.services.engine_entry import open_sides
+    from padel_app.services.engine_switch import engine_for
+
     if row.side not in ("left", "right"):
         return None
-    sides = open_spot_sides(instance)
+    sides = open_sides(instance) if engine_for(instance) == "new" else open_spot_sides(instance)
     if side_has_spot(row.side, sides):
         return None
     return {"requestedSide": row.side, "openSides": sorted({s for s in sides if s})}
@@ -411,11 +464,13 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         _lock_vacancy_and_instance,
         _publish_retired,
         _deactivate_standing_entry,
+        eligibility_failures_for_players,
+        vacancy_for_joiner,
+    )
+    from padel_app.services.system_messages import (
         _send_system_message,
         _user_id_for_coach,
         _user_id_for_player,
-        eligibility_failures_for_players,
-        vacancy_for_joiner,
     )
 
     now = now or utcnow_naive()
@@ -465,6 +520,14 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         row.decided_at = now
         db.session.commit()
         _refuse("spot_filled", "This class is already full", request=serialize_join_request(row))
+
+    # PAD-918 (instance-enrollment rule 15): accepting is a coach's add; at a busy hour it is refused,
+    # with no override (no confirm skips it), and the request stays pending.
+    from padel_app.services.engine_entry import same_hour_clashes
+
+    clashes = same_hour_clashes([row.player_id], instance=instance, now=now)
+    if clashes:
+        _refuse("busy_same_hour", "busy same hour", clashes=clashes, request=serialize_join_request(row))
 
     # Rule 7: accepting is a manual add — warn with named reasons, never block.
     config = NotificationConfig.query.filter_by(coach_id=row.coach_id).first()
@@ -548,6 +611,9 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     row.decided_at = now
     row.decided_by_coach_id = coach.id
     db.session.commit()
+    from padel_app.services.engine_entry import coach_added
+
+    coach_added(instance, [row.player_id], now, fill=True)        # PAD-918: a placement (rule 15); NJ4
 
     if coach_user_id and player_user_id:
         _send_system_message(
@@ -570,10 +636,15 @@ def move_side_requests_to_waiting_list(instance: LessonInstance, *, filled_by_pl
     """PAD-672 (rule 20, owner Q2): a pending request that named a side (`left`/`right`) whose last
     spot of that side was just filled moves to that side's waiting list — `superseded`, plus an
     active waiting-list entry with its side — and the student is told. Runs on rule 10's fill path,
-    before rule 11's superseding, which then handles the rest unchanged. Returns the rows moved."""
+    before rule 11's superseding, which then handles the rest unchanged. Returns the rows moved.
+    On a new-engine session (NJ4) the sides are the engine's open spot types and each move is the
+    student's own join of the engine's students' list; a join the engine refuses leaves the request
+    pending, unannounced."""
     from padel_app.models.waiting_list_entry import WaitingListEntry
     from padel_app.services.academy_class_service import _existing_entry, _publish_waiting_list_changed
-    from padel_app.services.notification_service import _send_system_message, _user_id_for_player
+    from padel_app.services.engine_entry import open_sides, request_moves_to_waiting_list
+    from padel_app.services.engine_switch import engine_for
+    from padel_app.services.system_messages import _send_system_message, _user_id_for_player
     from padel_app.models import Coach
 
     now = now or utcnow_naive()
@@ -583,9 +654,12 @@ def move_side_requests_to_waiting_list(instance: LessonInstance, *, filled_by_pl
     ]
     if not pending:
         return []
+    new_engine = engine_for(instance) == "new"
     full = _is_full(instance)
-    sides = open_spot_sides(instance)
+    sides = open_sides(instance) if new_engine else open_spot_sides(instance)
     moving = [r for r in pending if full or not side_has_spot(r.side, sides)]
+    if new_engine:
+        moving = [r for r in moving if request_moves_to_waiting_list(instance, r.player_id, r.side, now)]
     if not moving:
         return []
     coach = Coach.query.get(moving[0].coach_id)
@@ -595,6 +669,9 @@ def move_side_requests_to_waiting_list(instance: LessonInstance, *, filled_by_pl
         row.status = "superseded"
         row.decided_at = now
         entry = _existing_entry(instance.id, row.player_id)
+        if new_engine:                   # the engine's join wrote the row (NJ4)
+            entries.append(entry)
+            continue
         if entry is None:
             entry = WaitingListEntry(lesson_instance_id=instance.id, player_id=row.player_id,
                                      coach_id=row.coach_id, added_by="student")
@@ -628,15 +705,17 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
     """When ``instance`` is full, close every other pending request as
     ``superseded``; reply to each requester if the coach auto-notifies; alert
     the coach either way. Returns the rows closed."""
-    from padel_app.services.notification_service import (
+    from padel_app.models.notification_config import resolve_message_template
+    from padel_app.realtime import publish
+    from padel_app.services.message_text import (
+        _format_template,
+        template_variables,
+    )
+    from padel_app.services.system_messages import (
         _get_or_create_direct_conversation,
         _send_system_message,
         _user_id_for_coach,
-        _format_template,
         _user_id_for_player,
-        publish,
-        resolve_message_template,
-        template_variables,
     )
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
@@ -740,10 +819,10 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
     from padel_app.services.conversation_access import message_recipient_ids
-    from padel_app.services.notification_service import (
+    from padel_app.realtime import publish
+    from padel_app.services.system_messages import (
         _get_or_create_direct_conversation,
         _user_id_for_player,
-        publish,
     )
     from padel_app.utils.expo_push import send_expo_push_to_user
     from padel_app.utils.push_notifications import send_push_notification

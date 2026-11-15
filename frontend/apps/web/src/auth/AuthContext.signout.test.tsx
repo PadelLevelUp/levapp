@@ -18,7 +18,7 @@ import { AuthProvider, useAuth } from "./AuthContext";
 
 // PAD-482 (auth.email-verification rule 14, #509 review): "Agora não" lasts for the session; signing out ends it.
 describe("logout and the email prompt's dismissal", () => {
-  it("the next sign-in asks for a missing email again", () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] the next sign-in asks for a missing email again", () => {
     emailPromptSession.dismiss(7);
     let logout!: () => void;
     function Probe() {

@@ -66,7 +66,7 @@ const shownIds = (n: Awaited<ReturnType<typeof renderNative>>) =>
   );
 
 describe("Messages tab — the unread filter (PAD-648)", () => {
-  it("starts on Todas, and Não lidas asks the server for the unread list", async () => {
+  it("[MESSAGING-CONVERSATIONS-30] starts on Todas, and Não lidas asks the server for the unread list", async () => {
     const n = await mount(createElement(MessagesScreen));
     expect(n.byTestId("conversations-filter-all").props.accessibilityState).toEqual({ selected: true });
     expect(getConversations).toHaveBeenLastCalledWith(1, 20, false);

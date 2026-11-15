@@ -37,6 +37,9 @@ class WaitingListEntry(db.Model, model.Model):
     added_by = Column(String(8), nullable=True)
     # PAD-672 (waiting-list rule 4e): the side this entry waits for; NULL = any spot.
     side = Column(String(5), nullable=True)
+    # PAD-916 (engine-settings rule 4): a students'-list entry's choice relative to their own side,
+    # "own" | "other" | "both"; NULL on the coach's list and on the old engine's rows.
+    sides = Column(String(5), nullable=True)
     joined_at = Column(DateTime, default=lambda: utcnow_naive())
 
     lesson_instance = relationship("LessonInstance")

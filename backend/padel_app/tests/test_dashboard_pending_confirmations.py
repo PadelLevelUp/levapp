@@ -126,7 +126,7 @@ def test_notify_pending_only_targets_pending_students(app, monkeypatch):
     message); the confirmed and declined students and the other day's class are not touched."""
     from padel_app.helpers.dashboard import pending as pending_mod
     from padel_app.models import Message, NotificationEvent
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
     from padel_app.sql_db import db
@@ -146,7 +146,7 @@ def test_notify_pending_only_targets_pending_students(app, monkeypatch):
         messages_before = Message.query.count()
 
     web, native = [], []
-    monkeypatch.setattr("padel_app.services.notification_service.send_push_notification",
+    monkeypatch.setattr("padel_app.services.system_messages.send_push_notification",
                         lambda **kw: web.append(kw))
     monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user",
                         lambda user_id, **kw: native.append((user_id, kw)))
@@ -176,7 +176,7 @@ def test_the_nudge_skips_a_student_who_blocked_notifications_or_whose_message_is
     from padel_app.models import Message, NotificationEvent
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.sql_db import db
 
     coach_id, tomo_inst_id, _ = _seed(app)
@@ -197,7 +197,7 @@ def test_the_nudge_skips_a_student_who_blocked_notifications_or_whose_message_is
     monkeypatch.setattr("padel_app.services.student_notification_preferences.user_blocks_all_notifications",
                         lambda user_id: user_id == blocked_user)
     web = []
-    monkeypatch.setattr("padel_app.services.notification_service.send_push_notification",
+    monkeypatch.setattr("padel_app.services.system_messages.send_push_notification",
                         lambda **kw: web.append(kw))
     monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda *a, **kw: None)
     with app.app_context():

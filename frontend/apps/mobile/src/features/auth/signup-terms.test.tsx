@@ -56,14 +56,14 @@ beforeEach(() => {
 });
 
 describe("SignUpScreen — the Terms must be accepted (PAD-485, auth.register rule 19)", () => {
-  it("unticked, nothing is sent and the box says why", async () => {
+  it("[AUTH-REGISTER-3] unticked, nothing is sent and the box says why", async () => {
     const n = await filled({ terms: false });
     await n.press("signup-submit");
     expect(n.queryByTestId("signup-error-terms")).not.toBeNull();
     expect(register).not.toHaveBeenCalled();
   });
 
-  it("ticked, the sign-up sends termsAccepted: true", async () => {
+  it("[AUTH-REGISTER-3] ticked, the sign-up sends termsAccepted: true", async () => {
     register.mockResolvedValue({ user: { id: 1, roles: ["student"], emailVerification: "pending" } });
     const n = await filled();
     expect(n.byTestId("signup-terms").props.accessibilityState.checked).toBe(true);
@@ -73,7 +73,7 @@ describe("SignUpScreen — the Terms must be accepted (PAD-485, auth.register ru
     expect(register.mock.calls[0][0]).toMatchObject({ termsAccepted: true });
   });
 
-  it("both documents open from the box", async () => {
+  it("[AUTH-LEGAL-PAGES-3] both documents open from the box", async () => {
     const n = await renderNative(createElement(SignUpScreen));
     await n.press("signup-terms-privacy");
     await n.press("signup-terms-terms");

@@ -96,7 +96,8 @@ export function Schedule7Days({
       ) : (
         <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-border bg-border [container-type:inline-size]">
           {items.map((row) => {
-            // PAD-792 (rule 12b): no Convidar once the class has started.
+            // PAD-792 (rule 12b): no Convidar once the class has started. Either engine
+            // (PAD-932, DASHBOARD-BLOCKS-61).
             const short = row.capacity > 0 && row.filled < row.capacity && !row.inProgress;
             // PAD-570 (dashboard.blocks rule 3a): Yes / No only while the server says
             // asked; one "Avisar que não vou" before that or after a yes; a hint after a no.

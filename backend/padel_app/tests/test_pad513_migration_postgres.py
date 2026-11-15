@@ -51,6 +51,7 @@ def _fk_count():
     )).scalar()
 
 
+@pytest.mark.criterion("CLUBS-COURTS-11")
 def test_the_occurrence_court_migration_walks_both_ways_and_is_idempotent(app):
     from flask_migrate import downgrade, upgrade
 

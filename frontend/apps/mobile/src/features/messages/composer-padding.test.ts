@@ -8,7 +8,7 @@ import { composerBottomPadding } from "./composer-padding";
  * only the extra inset under it.
  */
 describe("composerBottomPadding", () => {
-  it("adds nothing while the keyboard is open, whatever the safe-area inset", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-9] adds nothing while the keyboard is open, whatever the safe-area inset", () => {
     expect(composerBottomPadding(true, 34)).toBe(0);
     expect(composerBottomPadding(true, 0)).toBe(0);
   });

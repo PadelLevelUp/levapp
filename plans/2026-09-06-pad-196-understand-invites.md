@@ -3,7 +3,7 @@
 Specs: `.specflow/specs/notifications/invite-simulation.spec.md` (`notifications.invite-simulation`)
 and `.specflow/specs/settings/tutorials.spec.md` (`settings.tutorials`), both implementing
 `.specflow/specs-business/notifications/coach-understands-who-gets-invited.business.md`.
-Decision: `.cortex/atlas/decisions/2026-09-06-invite-simulation-shares-the-engine-pipeline.md`.
+Decision: `cortex/world/decisions/invite-simulation-shares-the-engine-pipeline.md`.
 
 Compass rules that bind the tasks below: R-001 (materialize only via `get_or_materialize_instance`),
 R-002 (coach-scoped data), R-005 (services layer, thin routes), R-008 (tests inject `now=`),

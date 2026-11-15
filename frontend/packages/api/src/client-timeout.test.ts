@@ -39,13 +39,13 @@ async function silentServer(): Promise<string> {
 }
 
 describe("client.request-timeout", () => {
-  it("builds every client with the 20 s timeout (rule 1)", () => {
+  it("[CLIENT-REQUEST-TIMEOUT-1] builds every client with the 20 s timeout (rule 1)", () => {
     expect(REQUEST_TIMEOUT_MS).toBe(20_000);
     expect(LONG_REQUEST_TIMEOUT_MS).toBe(120_000);
     expect(createApiClient({ baseURL: "/api", storage }).defaults.timeout).toBe(REQUEST_TIMEOUT_MS);
   });
 
-  it("fails a request that gets no answer, with no response (rules 1, 3)", async () => {
+  it("[CLIENT-REQUEST-TIMEOUT-2] fails a request that gets no answer, with no response (rules 1, 3)", async () => {
     const api = createApiClient({ baseURL: await silentServer(), storage });
     // The default, shortened for the test; the path through axios is the same.
     api.defaults.timeout = 50;
@@ -57,7 +57,7 @@ describe("client.request-timeout", () => {
     expect(error?.response).toBeUndefined();
   });
 
-  it("is overridden only by the import's confirm and revert (rule 2)", () => {
+  it("[CLIENT-REQUEST-TIMEOUT-3] is overridden only by the import's confirm and revert (rule 2)", () => {
     const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
     const roots = ["packages/api/src", "apps/web/src", "apps/mobile/src", "apps/mobile/app"];
     const overrides: string[] = [];

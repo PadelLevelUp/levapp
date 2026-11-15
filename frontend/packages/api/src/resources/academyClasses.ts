@@ -1,3 +1,4 @@
+import type { WaitingListSides } from "@levelup/types";
 import type { PlayerSide, AcademyClassesResponse, ClassWaitingListRow } from "@levelup/types";
 import { getApi } from "../client";
 
@@ -23,13 +24,15 @@ export async function joinClassWaitingList(event: {
   model: string;
   originalId: number | string;
   date?: string | null;
-}, side?: PlayerSide): Promise<WaitingListPlace> {
+}, side?: PlayerSide, sides?: WaitingListSides): Promise<WaitingListPlace> {
   const res = await getApi().post("/app/class-waiting-list", {
     model: event.model,
     originalId: event.originalId,
     date: event.date ?? null,
     // PAD-672 (rule 6): omitted by callers that predate the side choice.
     ...(side ? { side } : {}),
+    // PAD-920 (notifications.config rule 20): the relative choice, when the coach turned it on.
+    ...(sides ? { sides } : {}),
   });
   return res.data;
 }

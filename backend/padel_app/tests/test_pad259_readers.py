@@ -2,6 +2,7 @@
 presence row is the enrolment, so capacity, fills and reminder answers all read
 and write that one table.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -31,6 +32,7 @@ def _second_student(app, coach_id, username="second"):
 
 # ── criterion: capacity counts presences, and a decline frees the spot ──
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-9")
 def test_capacity_counts_presences_and_a_decline_frees_the_spot(app):
     from padel_app.models import LessonInstance
     from padel_app.services.class_join_request_service import _is_enrolled, _is_full
@@ -63,6 +65,7 @@ def test_capacity_counts_presences_and_a_decline_frees_the_spot(app):
 
 # ── criterion: the vacancy fill path enrols once ──
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-10")
 def test_the_fill_path_enrols_once_with_source_fill(app):
     from padel_app.models import LessonInstance, NotificationEvent, Presence
     from padel_app.services.notification_service import respond_to_notification, trigger_invitations
@@ -86,6 +89,7 @@ def test_the_fill_path_enrols_once_with_source_fill(app):
 
 # ── criterion: an answer from a removed player creates nothing (rule 7) ──
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-13")
 def test_an_answer_from_a_removed_player_is_recorded_but_enrols_nobody(app):
     from padel_app.models import (
         Association_PlayerLesson, LessonInstance, NotificationEvent, Presence, ReminderAttempt, Vacancy,

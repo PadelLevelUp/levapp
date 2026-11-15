@@ -9,6 +9,7 @@
 
 Every test here is OLD-RED: it fails on staging bbe80c331.
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_effective_level_resolution import _create_class, _create_coach, _create_coach_player, _create_level
 from padel_app.tests.test_pad421_balance_structural_sides import _enrol
@@ -55,6 +56,7 @@ def _vacancy(vid):
     return db.session.get(Vacancy, vid)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-68")
 def test_an_absence_re_counts_the_other_open_spots_and_withdraws_a_flipped_spots_round_1(app, monkeypatch):
     """Ana and Bia (left) going; both never-filled spots right (rule 2b: 2 left / 0 right). Ana is
     absent: her freed spot is right (rule 2c: 1 left / 0 right going). Re-counted, the first
@@ -87,6 +89,7 @@ def test_an_absence_re_counts_the_other_open_spots_and_withdraws_a_flipped_spots
         assert (e.status, e.retired_reason, e.vacancy_id) == ("sent", None, spots[1].id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-69")
 def test_a_coach_enrolment_closes_the_open_spot_of_the_joiners_side(app, monkeypatch):
     """Ana (left) and Rui (right) going; a left spot (older) and a right spot open, no invitations.
     The coach adds Bruno (right): the right spot closes, the left one stays open. Before: capacity
@@ -106,6 +109,7 @@ def test_a_coach_enrolment_closes_the_open_spot_of_the_joiners_side(app, monkeyp
         assert (_vacancy(left_id).status, _vacancy(right_id).status) == ("open", "filled")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-70")
 def test_a_coach_enrolment_re_counts_the_spot_left_open_and_withdraws_its_round_1(app, monkeypatch):
     """Ana (left) and Rui (right) going; two right spots open, Tiago (right) invited on the newer one.
     The coach adds Bruno (right): the older right spot closes, and the one left open, re-counted with

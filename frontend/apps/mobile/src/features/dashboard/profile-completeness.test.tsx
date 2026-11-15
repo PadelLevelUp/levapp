@@ -39,7 +39,7 @@ beforeEach(() => {
 });
 
 describe("ProfileIncompleteBlock (iOS)", () => {
-  it("sends once, then shows 'sent today' disabled", async () => {
+  it("[DASHBOARD-PROFILE-COMPLETENESS-7] sends once, then shows 'sent today' disabled", async () => {
     api.sendProfileReminder.mockResolvedValue({ ok: true });
     const n = await renderNative(createElement(ProfileIncompleteBlock, { block: block() }));
     expect(n.byTestId("profile-incomplete-remind-7").props.disabled).toBeFalsy();
@@ -60,12 +60,12 @@ describe("ProfileIncompleteBlock (iOS)", () => {
     expect(n.byTestId("profile-incomplete-reminded-7").props.disabled).toBe(true);
   });
 
-  it("starts disabled when the server says it was sent today", async () => {
+  it("[DASHBOARD-PROFILE-COMPLETENESS-7] starts disabled when the server says it was sent today", async () => {
     const n = await renderNative(createElement(ProfileIncompleteBlock, { block: block({ remindedToday: true }) }));
     expect(n.byTestId("profile-incomplete-reminded-7").props.disabled).toBe(true);
   });
 
-  it("a blocked pair gets the explanation and no button", async () => {
+  it("[DASHBOARD-PROFILE-COMPLETENESS-8] a blocked pair gets the explanation and no button", async () => {
     const n = await renderNative(createElement(ProfileIncompleteBlock, { block: block({ canRemind: false }) }));
     expect(n.queryByTestId("profile-incomplete-body-7")).not.toBeNull();
     expect(n.queryByTestId("profile-incomplete-remind-7")).toBeNull();

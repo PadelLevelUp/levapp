@@ -1,4 +1,11 @@
 import type {
+  EngineApprovalRespondBody,
+  EngineApprovalRespondResult,
+  EngineApprovalState,
+  EngineRespondBody,
+  EngineRespondResult,
+} from "@levelup/types";
+import type {
   PlayerSide,
   ApprovalAction,
   ApprovalSuggestionState,
@@ -451,5 +458,45 @@ export async function changeClassWaitingListScope(
 /** PAD-547 (rule 21): take one row off one class's waiting list. */
 export async function removeFromClassWaitingList(entryId: number): Promise<{ action: "removed"; entryId: number }> {
   const res = await getApi().delete(`/app/notify/class_waiting_list/${entryId}`);
+  return res.data;
+}
+
+// ---------------------------------------------------------------------------
+// PAD-920 — the new engine (notifications.invitations NB5, semi-auto-approval N1/N2)
+// ---------------------------------------------------------------------------
+
+/** A student's Yes/No on a new-engine invitation, by its id (a body with notificationEventId is the old engine's). */
+export async function respondToEngineInvitation(body: EngineRespondBody): Promise<EngineRespondResult> {
+  const res = await getApi().post("/app/notify/respond", body);
+  return res.data;
+}
+
+/** The coach records a student's answer on a new-engine invitation. */
+export async function coachRespondToEngineInvitation(body: EngineRespondBody): Promise<EngineRespondResult> {
+  const res = await getApi().post("/app/notify/coach_respond", body);
+  return res.data;
+}
+
+/** The coach withdraws a live new-engine invitation (rule 19's route, by the invitation's id). */
+export async function withdrawEngineInvitation(invitationId: number): Promise<{ action: string }> {
+  const res = await getApi().delete(`/app/notify/invitations/${invitationId}`, { params: { engine: "new" } });
+  return res.data;
+}
+
+/** A class's approval state; a new-engine session answers `{engine: "new", ...}` (semi-auto-approval N1). */
+export async function getApprovalState(instanceId: number): Promise<ApprovalSuggestionState | EngineApprovalState> {
+  const res = await getApi().get(`/app/notify/approval/instance/${instanceId}`);
+  return res.data;
+}
+
+/** Recompute from the class; a dismissed new-engine session is reopened and re-planned (N3). */
+export async function recomputeApprovalState(instanceId: number): Promise<ApprovalSuggestionState | EngineApprovalState> {
+  const res = await getApi().post(`/app/notify/approval/instance/${instanceId}/recompute`);
+  return res.data;
+}
+
+/** "Sim" (with the students the coach removed) or "Ignorar" on a new-engine request (N2). */
+export async function respondToEngineApproval(body: EngineApprovalRespondBody): Promise<EngineApprovalRespondResult> {
+  const res = await getApi().post("/app/notify/approval/respond", body);
   return res.data;
 }

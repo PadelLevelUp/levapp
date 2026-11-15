@@ -1,5 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { canStepBackPickerWeek, lightTheme, upcomingPickerClasses, WEEK_STARTS_ON } from "@levelup/config";
+import {
+  busySameHourClashes,
+  busySameHourLines,
+  canStepBackPickerWeek,
+  lightTheme,
+  upcomingPickerClasses,
+  WEEK_STARTS_ON,
+  type I18nText,
+} from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -63,7 +71,7 @@ export function AddToClassesDialog({
   playerId,
   playerName,
 }: AddToClassesDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const locale = useDateLocale();
   const queryClient = useQueryClient();
   const editClass = useEditClass();
@@ -85,6 +93,9 @@ export function AddToClassesDialog({
     new Set()
   );
   const [saving, setSaving] = React.useState(false);
+  // PAD-920 (classes.instance-enrollment rule 15): the classes the last save could not add the
+  // student to because they are already going elsewhere at that hour, each with its clash lines.
+  const [refused, setRefused] = React.useState<{ id: string; title: string; lines: I18nText[] }[]>([]);
 
   const weekEnd = React.useMemo(
     () => endOfWeek(weekStart, { weekStartsOn: WEEK_STARTS_ON }),
@@ -106,6 +117,7 @@ export function AddToClassesDialog({
     // "proceed anyway" never silently carries over to a different selection.
     setBlockedStudents([]);
     setUnavailableAcknowledged(false);
+    setRefused([]);
   }, [open]);
 
   const weekDays = React.useMemo(
@@ -206,10 +218,12 @@ export function AddToClassesDialog({
 
   const proceedSave = async (targets: typeof classes) => {
     setBlockedStudents([]);
+    setRefused([]);
     setSaving(true);
 
     let successCount = 0;
     let failureCount = 0;
+    const refusedNow: { id: string; title: string; lines: I18nText[] }[] = [];
     for (const cls of targets) {
       try {
         await editClass.mutateAsync({
@@ -218,9 +232,25 @@ export function AddToClassesDialog({
           scope: "single",
         });
         successCount++;
-      } catch {
-        failureCount++;
+      } catch (err) {
+        // PAD-920 (classes.instance-enrollment rule 15): one class refusing at the same hour never
+        // stops the others; it is listed with its clash lines, not counted as a generic failure.
+        const clashes = busySameHourClashes(err);
+        if (clashes) {
+          refusedNow.push({
+            id: cls.id,
+            title: cls.title || t("players.unnamedClass"),
+            lines: busySameHourLines(clashes, i18n.language),
+          });
+        } else {
+          failureCount++;
+        }
       }
+    }
+    // The saved classes leave the selection; the refused ones stay, with their lines shown.
+    if (refusedNow.length > 0) {
+      setRefused(refusedNow);
+      setSelectedIds(new Set(refusedNow.map((r) => r.id)));
     }
 
     // useEditClass's own invalidation doesn't cover this dialog's week query.
@@ -239,7 +269,8 @@ export function AddToClassesDialog({
     if (failureCount > 0) {
       toast.error(t("common.somethingWentWrong"));
     }
-    if (successCount > 0) {
+    // A refused class keeps the dialog open: its lines are listed above the footer.
+    if (successCount > 0 && refusedNow.length === 0) {
       onClose();
     }
   };
@@ -400,6 +431,21 @@ export function AddToClassesDialog({
             </View>
           )}
         </ScrollView>
+
+        {refused.length > 0 ? (
+          <View testID="add-to-classes-busy-same-hour" className="gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+            {refused.map((r) => (
+              <View key={r.id} testID={`add-to-classes-busy-same-hour-${r.id}`} className="gap-1">
+                <Text className="text-sm font-medium">{r.title}</Text>
+                {r.lines.map((line, i) => (
+                  <Text key={i} testID={`add-to-classes-busy-same-hour-line-${r.id}-${i}`} className="text-xs text-destructive">
+                    {t(line.key, line.params)}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <DialogFooter className="flex-row gap-2">
           <Button

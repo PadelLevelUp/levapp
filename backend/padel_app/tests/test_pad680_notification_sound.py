@@ -29,6 +29,7 @@ def _headers(app, username):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user.id))}"}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-NOTIFICATION-SOUND-1")
 def test_the_switch_defaults_on_and_is_saved(client, app):
     headers = _headers(app, "sound-680")
 
@@ -39,6 +40,7 @@ def test_the_switch_defaults_on_and_is_saved(client, app):
     assert client.get("/api/auth/me", headers=headers).get_json()["notificationSound"] is False
 
 
+@pytest.mark.criterion("NOTIFICATIONS-NOTIFICATION-SOUND-1")
 def test_a_non_boolean_switch_is_refused(client, app):
     headers = _headers(app, "sound-680-bad")
 
@@ -83,6 +85,7 @@ def _send_dm(app, slug, *, switch=True, capable=True, kill=False, platform="ios"
     {"capable": False},                   # PAD-743: an older build (1.3.1 and before) sounds too
     {"capable": False, "platform": None},  # PAD-743: a token from before PAD-307 recorded platforms
 ], ids=["ios-capable", "ios-old-build", "no-platform"])
+@pytest.mark.criterion("NOTIFICATIONS-NOTIFICATION-SOUND-4")
 def test_an_ios_token_with_the_switch_on_carries_the_sound(app, kwargs):
     assert _send_dm(app, f"pad743on-{'-'.join(map(str, kwargs.values()))}", **kwargs)["sound"] == "default"
 
@@ -93,6 +96,7 @@ def test_an_ios_token_with_the_switch_on_carries_the_sound(app, kwargs):
     {"kill": True},                       # the capability is switched off server-side (PAD-533)
     {"kill": True, "capable": False},
 ], ids=["switch-off", "switch-off-old-build", "kill-switch", "kill-switch-old-build"])
+@pytest.mark.criterion("NOTIFICATIONS-NOTIFICATION-SOUND-4")
 def test_otherwise_an_ios_push_is_silent(app, kwargs):
     assert "sound" not in _send_dm(app, f"pad680-{'-'.join(map(str, kwargs.values()))}", **kwargs)
 

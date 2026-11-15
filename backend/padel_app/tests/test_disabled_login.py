@@ -36,6 +36,7 @@ def _login(client, username, password=PASSWORD):
     lambda app: _user(app, "ana", status="disabled", player=True),        # deleted student
     lambda app: _user(app, "ana", status="disabled", coach="approved"),   # deleted coach
 ])
+@pytest.mark.criterion("AUTH-LOGIN-8")
 def test_disabled_account_gets_a_clear_401(client, app, make):
     make(app)
     res = _login(client, "ana")
@@ -45,6 +46,7 @@ def test_disabled_account_gets_a_clear_401(client, app, make):
     assert "accessToken" not in body
 
 
+@pytest.mark.criterion("AUTH-LOGIN-8")
 def test_disabled_account_with_wrong_password_leaks_nothing(client, app):
     _user(app, "ana", status="disabled", player=True)
     res = _login(client, "ana", "not-the-password")
@@ -52,6 +54,7 @@ def test_disabled_account_with_wrong_password_leaks_nothing(client, app):
     assert res.get_json() == {"error": "Invalid credentials"}
 
 
+@pytest.mark.criterion("AUTH-LOGIN-9")
 def test_rejected_coach_still_gets_the_reason(client, app):
     _user(app, "rita", status="disabled", coach="rejected", reason="not a coach")
     res = _login(client, "rita")
@@ -59,6 +62,7 @@ def test_rejected_coach_still_gets_the_reason(client, app):
     assert res.get_json() == {"error": "COACH_REJECTED", "reason": "not a coach"}
 
 
+@pytest.mark.criterion("AUTH-LOGIN-3")
 def test_active_account_still_signs_in(client, app):
     _user(app, "bruno", player=True)
     res = _login(client, "bruno")

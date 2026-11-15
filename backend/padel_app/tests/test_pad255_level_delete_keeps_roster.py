@@ -95,6 +95,7 @@ def _seed_world(app):
     return ids
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-6")
 def test_deleting_a_level_keeps_the_roster_notes_and_evaluations(app, client):
     from padel_app.models import (
         Association_CoachPlayer, CoachLevel, CoachPlayerNote, EvaluationEntry, PlayerLevelHistory,
@@ -120,6 +121,7 @@ def test_deleting_a_level_keeps_the_roster_notes_and_evaluations(app, client):
         assert PlayerLevelHistory.query.filter_by(level_id=ids["level_id"]).count() == 0
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-6")
 def test_deleting_a_level_unassigns_classes_instances_and_vacancies(app, client):
     from padel_app.models import Lesson, LessonInstance, Vacancy
 
@@ -135,6 +137,7 @@ def test_deleting_a_level_unassigns_classes_instances_and_vacancies(app, client)
         assert Vacancy.query.get(ids["vacancy_id"]).level_id is None
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-6")
 def test_the_service_unassigns_before_it_deletes(app):
     """Route-independent: the same guarantee holds for any caller of the service."""
     from padel_app.models import Association_CoachPlayer, Coach, Lesson
@@ -147,6 +150,7 @@ def test_the_service_unassigns_before_it_deletes(app):
         assert Lesson.query.get(ids["lesson_id"]).default_level_id is None
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-7")
 def test_the_model_no_longer_cascades_into_the_roster():
     """The ORM cascade was the mechanism; it must not come back."""
     from sqlalchemy import inspect
@@ -171,6 +175,7 @@ def test_the_model_no_longer_cascades_into_the_roster():
         assert fk.ondelete == "SET NULL", f"{model.__tablename__}.{column} must SET NULL on delete"
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-7")
 def test_migration_is_guarded_and_rewrites_the_six_foreign_keys():
     import importlib.util
     import pathlib

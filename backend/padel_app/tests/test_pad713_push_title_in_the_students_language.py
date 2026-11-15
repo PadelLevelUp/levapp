@@ -14,7 +14,7 @@ from padel_app.tests.test_native_push import _create_user
 
 @pytest.mark.parametrize("language,title", [("pt", "Nova mensagem"), ("en", "New message")])
 def test_the_web_and_ios_push_titles_speak_the_students_language(app, language, title):
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context():
         coach = _create_user("Coach", f"pad713-coach-{language}")
@@ -22,8 +22,8 @@ def test_the_web_and_ios_push_titles_speak_the_students_language(app, language, 
         student.language = language
         db.session.commit()
 
-        with patch("padel_app.services.notification_service.publish"), \
-             patch("padel_app.services.notification_service.send_push_notification") as mock_web, \
+        with patch("padel_app.services.system_messages.publish"), \
+             patch("padel_app.services.system_messages.send_push_notification") as mock_web, \
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_expo:
             _send_system_message(coach.id, student.id, "Está marcado!", message_type="text")
 

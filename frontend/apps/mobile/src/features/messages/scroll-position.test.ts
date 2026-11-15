@@ -33,11 +33,11 @@ describe("isAtBottomOf", () => {
     expect(isAtBottomOf(metrics(1350, 600, 2000))).toBe(true);
   });
 
-  it("is FALSE once the reader has scrolled up — the whole point of B-027", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-13] is FALSE once the reader has scrolled up — the whole point of B-027", () => {
     expect(isAtBottomOf(metrics(400, 600, 2000))).toBe(false);
   });
 
-  it("is false one page up, not merely at the extreme top", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-13] is false one page up, not merely at the extreme top", () => {
     expect(isAtBottomOf(metrics(700, 600, 2000))).toBe(false);
   });
 

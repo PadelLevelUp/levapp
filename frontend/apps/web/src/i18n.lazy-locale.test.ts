@@ -3,7 +3,7 @@ import i18n from "@/i18n";
 
 /** client.route-loading rule 6 (PAD-585): "English arrives before the switch". */
 describe("lazy locale", () => {
-  it("bundles Portuguese and loads English when changeLanguage asks for it", async () => {
+  it("[CLIENT-ROUTE-LOADING-5] bundles Portuguese and loads English when changeLanguage asks for it", async () => {
     expect(i18n.hasResourceBundle("pt", "translation")).toBe(true);
     expect(i18n.hasResourceBundle("en", "translation")).toBe(false);
     const ptLabel = i18n.t("nav.calendar");

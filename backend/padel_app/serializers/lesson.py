@@ -224,7 +224,11 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         if not is_student or rel.player_id == viewer_player_id
     ]
 
+    from padel_app.services.engine_readers import class_engine_fields
+
     data = {
+        # PAD-918 (notifications.config rule 20, CONFIG-74): the class's engine and the side-choice flag.
+        **class_engine_fields(obj),
         "coachId": str(coach_id) if coach_id else None,
         # PAD-570 (attendance.confirm rule 28): the chat shortcut after "Não vou" opens the
         # conversation with this user (`POST /app/conversation` takes user ids).
@@ -328,6 +332,10 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             obj, proactive_config
         )
 
+        from padel_app.services.engine_readers import engine_invitees
+        from padel_app.services.engine_switch import engine_for
+
+        on_new_engine = engine_for(obj) == "new"
         data.update(
             {
                 "parentClassId": str(lesson.id),
@@ -335,7 +343,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                 # PAD-275 (classes.edit rule 4): derived from the override columns.
                 "overriddenFields": overridden_fields_for(obj),
                 "presences": presences,
-                "invitations": [
+                # PAD-918 (calendar.event-detail ND1-ND3): a new-engine session reads the engine's rows.
+                "invitations": engine_invitees(obj) if on_new_engine else [
                     {
                         "id": ev.id,
                         "playerId": str(ev.player_id),

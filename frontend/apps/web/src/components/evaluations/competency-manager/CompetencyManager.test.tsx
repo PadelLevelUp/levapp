@@ -109,7 +109,7 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
     expect(within(available).getByTestId("competency-toggle-key-volley")).not.toBeChecked();
   });
 
-  it("an existing coach opens onto their own categories, first, with a line saying they keep their scale (Q31)", async () => {
+  it("[EVALUATIONS-COMPETENCIES-18] an existing coach opens onto their own categories, first, with a line saying they keep their scale (Q31)", async () => {
     open();
 
     await row("id-7");
@@ -120,7 +120,7 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
     expect(screen.getByTestId("competency-group-legacy-caption")).toHaveTextContent("evaluations.manager.legacyCaption");
   });
 
-  it("lists only the sections that have something, and no legacy caption without legacy rows", async () => {
+  it("[EVALUATIONS-COMPETENCIES-18] lists only the sections that have something, and no legacy caption without legacy rows", async () => {
     // The server offers a default the coach lacks with its sub-categories (B-255: without it, a legacy row holds its name).
     open({ competencies: [TECHNIQUE, BANDEJA], catalogue: [{ key: "tactics", group: "general" }, { key: "transition", group: "tactics" }] });
 
@@ -517,7 +517,7 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     api.updateEvaluationCompetency.mockReset();
   });
 
-  it("a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
+  it("[EVALUATIONS-COMPETENCIES-33] a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
     open(COACH2);
     expect(await screen.findByTestId("competency-convert-id-5")).toBeInTheDocument();
     expect(screen.getByTestId("competency-convert-id-6")).toBeInTheDocument();
@@ -545,7 +545,7 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     expect(api.updateEvaluationCompetency.mock.calls).toEqual([[8, { parentId: 5 }], [9, { parentId: 5 }]]);
   });
 
-  it("a move that fails after the conversion is said, and the dialog stays until closed", async () => {
+  it("[EVALUATIONS-COMPETENCIES-34] a move that fails after the conversion is said, and the dialog stays until closed", async () => {
     open(COACH2);
     api.convertEvaluationCompetency.mockResolvedValue(CONVERTED);
     api.updateEvaluationCompetency.mockImplementation(async (id: number) => {

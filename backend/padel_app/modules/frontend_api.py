@@ -1065,6 +1065,53 @@ def debug_stall_disarm():
     return jsonify({"stalled": None}), 200
 
 
+@bp.post("/debug/ended-classes")
+@jwt_required()
+def debug_ended_classes_create():
+    """attendance.validation rule 30 (PAD-829): E2E only, 404 unless E2E_DEBUG_ENDPOINTS is on.
+    `{"count": n, "weeksAgo": w}` gives the calling coach `n` ended classes (at most 30) on the
+    day `w` weeks ago (1 to 8), every roster player on them confirmed, so each is ready to
+    validate and the validate list is long enough to drag (flow 323). Answers their instance ids
+    in start order. `durationMinutes` (PAD-837, optional, 30 by default, 5 to 180) is each class's
+    length, for the hours columns' evidence. Like every debug route it takes a JWT as well as the
+    flag."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    coach = require_coach()
+    from padel_app.utils import e2e_fixtures
+
+    data = request.get_json(silent=True) or {}
+    try:
+        count = int(data.get("count", 10))
+        weeks_ago = int(data.get("weeksAgo", 1))
+        minutes = int(data.get("durationMinutes", e2e_fixtures.CLASS_MINUTES))
+    except (TypeError, ValueError):
+        return jsonify({"error": "COUNT_INVALID"}), 400
+    if not 1 <= count <= e2e_fixtures.MAX_ENDED_CLASSES:
+        return jsonify({"error": "COUNT_INVALID"}), 400
+    if not 1 <= weeks_ago <= e2e_fixtures.MAX_WEEKS_AGO:
+        return jsonify({"error": "WEEKS_AGO_INVALID"}), 400
+    if not 5 <= minutes <= e2e_fixtures.MAX_CLASS_MINUTES:
+        return jsonify({"error": "DURATION_INVALID"}), 400
+    return (
+        jsonify(e2e_fixtures.create_ended_classes(coach, count=count, weeks_ago=weeks_ago, minutes=minutes)),
+        200,
+    )
+
+
+@bp.delete("/debug/ended-classes")
+@jwt_required()
+def debug_ended_classes_delete():
+    """Rule 30: removes the classes the POST created for this coach. 404 unless
+    E2E_DEBUG_ENDPOINTS is on; takes a JWT."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    coach = require_coach()
+    from padel_app.utils import e2e_fixtures
+
+    return jsonify(e2e_fixtures.delete_ended_classes(coach)), 200
+
+
 @bp.get("/coach_players_paginated")
 @jwt_required()
 def coach_players_paginated():
@@ -1781,13 +1828,16 @@ def create_conversation():
 @bp.post("/add_class")
 @jwt_required()
 def add_class():
-    from padel_app.services.lesson_service import NoSeasonCoversDateError
+    from padel_app.services.lesson_service import BusySameHourError, NoSeasonCoversDateError
 
     from padel_app.services.court_service import CourtNotInClubError
 
     data = request.get_json() or {}
     try:
         lesson = add_class_service(data, require_coach(), require_club())
+    except BusySameHourError as e:
+        # PAD-918 (instance-enrollment rule 15): nothing written; the clashes for the coach.
+        return jsonify({"code": e.code, "message": str(e), "clashes": e.clashes}), 409
     except NoSeasonCoversDateError as e:
         # PAD-90: "recurs until season end" with no covering season is rejected
         # rather than creating an unbounded recurring class.
@@ -2245,6 +2295,30 @@ def put_coach_working_hours():
         "workingHours": stored,
         "defaultWindow": {"startTime": DEFAULT_WINDOW[0], "endTime": DEFAULT_WINDOW[1]},
     })
+
+
+@bp.get("/coach/presences-view")
+@jwt_required()
+def get_coach_presences_view():
+    """settings.coach-presences-view rule 1."""
+    coach = require_coach()
+    return jsonify({"presencesView": coach.presences_view})
+
+
+@bp.put("/coach/presences-view")
+@jwt_required()
+def put_coach_presences_view():
+    """settings.coach-presences-view rules 1-2: replaces the whole value; null clears it."""
+    from padel_app.services.presences_view_service import set_presences_view
+
+    coach = require_coach()
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or "presencesView" not in body:
+        # A body with no `presencesView` must not read as "clear it".
+        from padel_app.services.availability_service import refuse
+
+        refuse(400, "INVALID_PRESENCES_VIEW", "the body is {presencesView: <object or null>}")
+    return jsonify({"presencesView": set_presences_view(coach, body["presencesView"])})
 
 
 @bp.post("/class-requests")

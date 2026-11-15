@@ -27,23 +27,23 @@ async function show(props: Parameters<typeof PlayerSearchFeedback>[0], lng: "en"
 }
 
 describe("PlayerSearchFeedback (web)", () => {
-  it("renders nothing for a blank query, whatever the state", async () => {
+  it("[PLAYERS-SEARCH-7] renders nothing for a blank query, whatever the state", async () => {
     const { container } = await show({ query: "   ", searching: true, count: 0 });
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing when something was found", async () => {
+  it("[PLAYERS-SEARCH-7] renders nothing when something was found", async () => {
     const { container } = await show({ query: "rui", count: 3 });
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("says it is searching, in place of the empty line", async () => {
+  it("[PLAYERS-SEARCH-8] says it is searching, in place of the empty line", async () => {
     await show({ query: "rui", searching: true, count: 0 });
     expect(screen.getByTestId("player-search-searching")).toHaveTextContent("A pesquisar…");
     expect(screen.queryByTestId("player-search-empty")).toBeNull();
   });
 
-  it("names the trimmed query as typed when nobody matches, in both languages", async () => {
+  it("[PLAYERS-SEARCH-7] names the trimmed query as typed when nobody matches, in both languages", async () => {
     const pt = await show({ query: "  Xavier ", count: 0 });
     expect(screen.getByTestId("player-search-empty")).toHaveTextContent("Nenhum jogador encontrado para «Xavier»");
     pt.unmount();

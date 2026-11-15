@@ -27,7 +27,7 @@ describe("session restore and the user's language", () => {
     i18nMock.changeLanguage.mockReset();
   });
 
-  it("stays loading until the language has arrived", async () => {
+  it("[CLIENT-ROUTE-LOADING-7] stays loading until the language has arrived", async () => {
     let arrive!: () => void;
     i18nMock.changeLanguage.mockImplementation(() => new Promise<void>((resolve) => (arrive = resolve)));
     render(<AuthProvider><Probe /></AuthProvider>);
@@ -39,7 +39,7 @@ describe("session restore and the user's language", () => {
     await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("ready:e2e-coach"));
   });
 
-  it("restores the session when the language fails to load", async () => {
+  it("[CLIENT-ROUTE-LOADING-7] restores the session when the language fails to load", async () => {
     i18nMock.changeLanguage.mockRejectedValue(new Error("Failed to fetch dynamically imported module"));
     render(<AuthProvider><Probe /></AuthProvider>);
     await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("ready:e2e-coach"));

@@ -40,7 +40,7 @@ describe("the committed shard file (rule 3)", () => {
     expect(checkShards(suite, shardFile, flows)).toEqual([]);
   });
 
-  it("puts every runnable flow in exactly one shard", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-1] puts every runnable flow in exactly one shard", () => {
     const shards = planShards(suite, shardFile.starts);
     expect(shards.flat()).toEqual(suite);
     expect(new Set(shards.flat()).size).toBe(suite.length);
@@ -70,7 +70,7 @@ describe("checkShards", () => {
     expect(suite).not.toContain("47-push");
   });
 
-  it("refuses a split chain by name", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-2] refuses a split chain by name", () => {
     const problems = checkShards(suite, { starts: ["01-login", "04-attendance"], chains }, flows);
     expect(problems).toEqual(["chain 03-class-management → 05-class-deletion is split across shards 1, 2"]);
   });
@@ -88,13 +88,13 @@ describe("a shard's workspace config", () => {
   const suite = ["01-login", "02-a", "03-b", "04-c", "05-d"];
   const shardFile = { warmup: "01-login", starts: ["01-login", "03-b", "05-d"] };
 
-  it("leads shards after the first with the warm-up, then its own flows in order", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-3] leads shards after the first with the warm-up, then its own flows in order", () => {
     expect(shardFlows(suite, shardFile, 1)).toEqual(["01-login", "02-a"]);
     expect(shardFlows(suite, shardFile, 2)).toEqual(["01-login", "03-b", "04-c"]);
     expect(shardFlows(suite, shardFile, 3)).toEqual(["01-login", "05-d"]);
   });
 
-  it("lists exactly those files and the same flowsOrder, continuing on failure", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-3] lists exactly those files and the same flowsOrder, continuing on failure", () => {
     const text = shardConfig(["01-login", "03-b"]);
     expect(text).toContain('flows:\n  - "flows/01-login.yaml"\n  - "flows/03-b.yaml"\nexcludeTags:');
     expect(text).toContain("continueOnFailure: true");
@@ -122,7 +122,7 @@ describe("the watchdog (rule 4)", () => {
     expect(s.stop).toBeNull();
   });
 
-  it("stops and names a flow over its limit", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-7] stops and names a flow over its limit", () => {
     let s = watchdogStep(null, "61-availability-two-cards", 0, limits);
     s = watchdogStep(s.state, "61-availability-two-cards", 12 * MIN + 1, limits);
     expect(s.stop).toMatch(/^::error title=Maestro flow over its limit::61-availability-two-cards /);
@@ -147,7 +147,7 @@ describe("a pull request's changed flows (rule 1b)", () => {
   const { shardFile, suite } = readWorkspace(MAESTRO_DIR);
   const F = "frontend/apps/mobile/.maestro/flows/";
 
-  it("keeps the runnable ones, in suite order, and drops tagged, deleted and subflow paths", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-4] keeps the runnable ones, in suite order, and drops tagged, deleted and subflow paths", () => {
     const names = changedFlows(suite, [
       `${F}47-push-tap-routing.yaml`,
       `${F}99-gone.yaml`,
@@ -158,12 +158,12 @@ describe("a pull request's changed flows (rule 1b)", () => {
     expect(names).toEqual(["03-class-management", "27-unknown-sender-block"]);
   });
 
-  it("runs them led by the warm-up, like a shard", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-4] runs them led by the warm-up, like a shard", () => {
     expect(shardFlows(suite, shardFile, "changed", ["27-unknown-sender-block"])).toEqual(["01-login", "27-unknown-sender-block"]);
     expect(shardFlows(suite, shardFile, "changed", ["01-login", "27-unknown-sender-block"])).toEqual(["01-login", "27-unknown-sender-block"]);
   });
 
-  it("adds the changed job to whichever matrix the run has", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-4] adds the changed job to whichever matrix the run has", () => {
     expect(shardMatrix(shardFile, { full: false, changed: true })).toEqual(["all", "changed"]);
     expect(shardMatrix(shardFile, { full: true, changed: true })).toEqual(["1", "2", "3", "4", "changed"]);
     expect(shardMatrix(shardFile, { full: false, changed: false })).toEqual(["all"]);
@@ -183,7 +183,7 @@ describe("the Android lane check (rule 7, PAD-720)", () => {
   };
   const gone = { shard: "3", missing: true, rc: null, expected: null, finished: null, stop: "", failed: [] };
 
-  it("is neutral while experimental, naming the red flows and the silent shard", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-5] is neutral while experimental, naming the red flows and the silent shard", () => {
     const v = laneVerdict([green, red, gone], { experimental: true, recentGreens: 0 });
     expect(v.conclusion).toBe("neutral");
     expect(v.summary).toContain("27-unknown-sender-block");
@@ -192,7 +192,7 @@ describe("the Android lane check (rule 7, PAD-720)", () => {
     expect(v.title).toBe("setup failed in 1 job(s), no flow ran; 1 flow(s) red — experimental lane, reported as neutral");
   });
 
-  it("fails once strict: flag removed, or two scheduled greens on main", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-5] fails once strict: flag removed, or two scheduled greens on main", () => {
     expect(laneVerdict([green, red], { experimental: false, recentGreens: 0 }).conclusion).toBe("failure");
     expect(laneVerdict([green, red], { experimental: true, recentGreens: 2 }).conclusion).toBe("failure");
   });
@@ -211,7 +211,7 @@ describe("the Android lane check (rule 7, PAD-720)", () => {
 
   // PAD-757: run 40021910967 (#847) — the emulator's SDK install failed, no flow ran, the artifact held
   // only flask.log, and the check read "0 flow(s) red".
-  it("reports a shard where no flow ran as a named setup failure: neutral even when strict, never success", () => {
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-6] reports a shard where no flow ran as a named setup failure: neutral even when strict, never success", () => {
     const sdk = { ...gone, shard: "all", setup: "Warning: An error occurred while preparing SDK package Android Emulator" };
     const empty = { ...green, shard: "all", rc: 1, expected: null, finished: 0 };
     for (const opts of [

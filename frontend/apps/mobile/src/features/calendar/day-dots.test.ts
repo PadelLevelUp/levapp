@@ -29,7 +29,7 @@ function event(overrides: Partial<CalendarEvent>): CalendarEvent {
 }
 
 describe("dayDotColors", () => {
-  it("paints a scheduled class in its own colour, in the order given", () => {
+  it("[CALENDAR-MOBILE-VIEWS-13] paints a scheduled class in its own colour, in the order given", () => {
     const colors = dayDotColors(
       [event({ id: "a", color: "#0EA5E9" }), event({ id: "b", color: "#8B5CF6" })],
       SURFACES,
@@ -38,7 +38,7 @@ describe("dayDotColors", () => {
     expect(colors).toEqual(["#0EA5E9", "#8B5CF6"]);
   });
 
-  it("caps at three dots", () => {
+  it("[CALENDAR-MOBILE-VIEWS-13] caps at three dots", () => {
     const events = ["#1355DC", "#0EA5E9", "#0891B2", "#0D9488"].map((color, i) =>
       event({ id: String(i), color })
     );
@@ -62,7 +62,7 @@ describe("dayDotColors", () => {
     ]);
   });
 
-  it("an outlined treatment paints the outline colour, not its white surface (B-541)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-5] an outlined treatment paints the outline colour, not its white surface (B-541)", () => {
     const colors = dayDotColors(
       [
         event({ id: "o", color: "#1355DC", openSpot: true, participantCount: 12, maxPlayers: 16 }),

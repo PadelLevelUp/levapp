@@ -37,7 +37,7 @@ beforeEach(() => {
 const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
 
 describe("StudentNotificationBlocksSection — reports unsaved by rule 2 (PAD-394)", () => {
-  it("reports unsaved after an edit, and clean again once undone by hand", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] reports unsaved after an edit, and clean again once undone by hand", async () => {
     render(
       <SettingsUnsavedTestHarness>
         <StudentNotificationBlocksSection />
@@ -53,7 +53,7 @@ describe("StudentNotificationBlocksSection — reports unsaved by rule 2 (PAD-39
     expect(unsavedIds()).toBe("");
   });
 
-  it("reports unsaved for a reason edit, clean again once undone by hand", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] reports unsaved for a reason edit, clean again once undone by hand", async () => {
     render(
       <SettingsUnsavedTestHarness>
         <StudentNotificationBlocksSection />
@@ -67,7 +67,7 @@ describe("StudentNotificationBlocksSection — reports unsaved by rule 2 (PAD-39
     expect(unsavedIds()).toBe("");
   });
 
-  it("is clean again after a successful save, sent by the tab's one Save with the held values", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-10] is clean again after a successful save, sent by the tab's one Save with the held values", async () => {
     render(
       <SettingsUnsavedTestHarness>
         <StudentNotificationBlocksSection />
@@ -91,7 +91,7 @@ describe("StudentNotificationBlocksSection — reports unsaved by rule 2 (PAD-39
     expect(screen.getByTestId("save-failed")).toHaveTextContent("");
   });
 
-  it("stays unsaved after a failed save, and is listed as failed", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] stays unsaved after a failed save, and is listed as failed", async () => {
     updateMe.mockRejectedValue(new Error("nope"));
     render(
       <SettingsUnsavedTestHarness>
@@ -108,7 +108,7 @@ describe("StudentNotificationBlocksSection — reports unsaved by rule 2 (PAD-39
     expect(unsavedIds()).toBe("studentNotificationBlocks");
   });
 
-  it("there is no section Save button any more", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-10] there is no section Save button any more", async () => {
     render(
       <SettingsUnsavedTestHarness>
         <StudentNotificationBlocksSection />

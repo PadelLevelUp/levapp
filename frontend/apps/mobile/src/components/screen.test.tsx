@@ -23,17 +23,17 @@ vi.mock("react-native-safe-area-context", async () => {
 import { Screen } from "./screen";
 
 describe("Screen and the status bar (PAD-419)", () => {
-  it("a Screen that owns the top edge asks for dark status-bar content (rule 2)", async () => {
+  it("[MOBILE-STATUS-BAR-1] a Screen that owns the top edge asks for dark status-bar content (rule 2)", async () => {
     const n = await renderNative(createElement(Screen, { edges: ["top"], testID: "s" }));
     expect(n.queryByTestId("status-bar-dark")).not.toBeNull();
   });
 
-  it("a Screen with a title owns the top edge too, so it asks for dark content", async () => {
+  it("[MOBILE-STATUS-BAR-3] a Screen with a title owns the top edge too, so it asks for dark content", async () => {
     const n = await renderNative(createElement(Screen, { title: "Aula", testID: "s" }));
     expect(n.queryByTestId("status-bar-dark")).not.toBeNull();
   });
 
-  it("a tab Screen (no top edge) renders no status bar of its own; the root's light applies", async () => {
+  it("[MOBILE-STATUS-BAR-2] a tab Screen (no top edge) renders no status bar of its own; the root's light applies", async () => {
     const n = await renderNative(createElement(Screen, { testID: "s" }));
     expect(n.queryByTestId("status-bar-dark")).toBeNull();
     expect(n.queryByTestId("status-bar-light")).toBeNull();

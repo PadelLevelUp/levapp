@@ -66,6 +66,7 @@ def _bucket():
     return storage, storage.bucket.return_value.blob
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-2")
 def test_personal_details_and_the_photo_are_erased(app, client):
     from padel_app.model import Image
     from padel_app.models import User
@@ -87,6 +88,7 @@ def test_personal_details_and_the_photo_are_erased(app, client):
     blob.return_value.delete.assert_called_once_with()
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-2")
 def test_a_bucket_failure_never_undoes_the_deletion(app, client):
     from padel_app.model import Image
     from padel_app.models import User
@@ -121,6 +123,7 @@ def test_without_a_bucket_the_row_goes_and_no_client_is_built(app, client):
     client_factory.assert_not_called()
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-2")
 def test_a_photo_that_is_also_a_club_logo_stays(app, client):
     from padel_app.model import Image
     from padel_app.models import Club, User

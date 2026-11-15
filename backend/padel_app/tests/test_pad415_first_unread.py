@@ -6,6 +6,7 @@ clients open there instead of at the newest message.
 Unread uses the same predicate as the counts (conversations rule 12): from someone else, not
 soft-deleted, `sent_at > coalesce(last_read_at, epoch)`.
 """
+import pytest
 from datetime import datetime, timedelta
 
 from padel_app.sql_db import db
@@ -48,27 +49,32 @@ def _get(client, app, conversation_id, user_id, **params):
     return client.get(f"/api/app/conversation/{conversation_id}?{q}", headers=_auth_header(app, user_id)).get_json()
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-21")
 def test_names_the_first_unread_from_someone_else(app, client):
     cid, ana, _bruno, ids = _seed(app, "fu1", read_up_to=14)
     assert _get(client, app, cid, ana, limit=30)["firstUnreadMessageId"] == ids[15]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-21")
 def test_skips_a_soft_deleted_message(app, client):
     cid, ana, _bruno, ids = _seed(app, "fu2", read_up_to=14, deleted=(15,))
     assert _get(client, app, cid, ana, limit=30)["firstUnreadMessageId"] == ids[16]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-21")
 def test_never_read_means_the_first_message_from_the_other_side(app, client):
     cid, ana, _bruno, ids = _seed(app, "fu3", read_up_to=None)
     # Ana's own msg-1..10 are never unread to her; Bruno's msg-11 is the first.
     assert _get(client, app, cid, ana, limit=30)["firstUnreadMessageId"] == ids[11]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-21")
 def test_nothing_unread_is_null(app, client):
     cid, ana, _bruno, _ids = _seed(app, "fu4", read_up_to=20)
     assert _get(client, app, cid, ana, limit=30)["firstUnreadMessageId"] is None
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-21")
 def test_the_sender_has_none(app, client):
     cid, _ana, bruno, _ids = _seed(app, "fu5", read_up_to=14)
     # Bruno wrote 11..20 and never read Ana's 1..10: his first unread is Ana's msg-1.
@@ -83,6 +89,7 @@ def test_the_sender_has_none(app, client):
     assert _get(client, app, cid2, bruno2, limit=30)["firstUnreadMessageId"] is None
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-21")
 def test_the_unpaged_legacy_branch_carries_it_too(app, client):
     cid, ana, _bruno, ids = _seed(app, "fu7", read_up_to=17)
     assert _get(client, app, cid, ana)["firstUnreadMessageId"] == ids[18]

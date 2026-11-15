@@ -11,6 +11,7 @@ invited to this class; 5 invitations switched off in the student's preferences.
 Seed: `test_pad523_no_same_day_class._seed` — coach, students `busy` and `free`, a target class
 with one open vacancy (round 1), an optional other class of another coach.
 """
+import pytest
 from datetime import timedelta
 
 from padel_app.sql_db import db
@@ -72,6 +73,7 @@ def _assert_excluded(ids, player_id, stage):
 
 # ── Rule 1: already answered this class ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_rule1_a_student_who_said_no_to_this_class_is_not_asked_again(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r1no")
@@ -79,6 +81,7 @@ def test_rule1_a_student_who_said_no_to_this_class_is_not_asked_again(app):
         _assert_excluded(ids, ids["busy"], "declined_this_class")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_rule1_a_no_the_coach_recorded_counts_the_same(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r1coach")
@@ -97,6 +100,7 @@ def test_rule1_a_student_who_is_going_is_not_invited_to_their_own_class(app):
         _assert_excluded(ids, ids["busy"], "already_enrolled")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_rule1_a_no_to_this_class_also_keeps_them_out_of_the_waiting_list_wave(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r1wl")
@@ -106,6 +110,7 @@ def test_rule1_a_no_to_this_class_also_keeps_them_out_of_the_waiting_list_wave(a
 
 # ── Rule 2: another class the same club day ───────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-5")
 def test_rule2_another_class_that_day_excludes_when_the_restriction_is_on(app):
     with app.app_context():
         ids = _seed(restriction_on=True, other_start=TARGET + 3 * H, tag="r2on")
@@ -113,6 +118,7 @@ def test_rule2_another_class_that_day_excludes_when_the_restriction_is_on(app):
         assert _waiting_list_stage(ids, ids["busy"]) == "has_class_same_day"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-6")
 def test_rule2_the_restriction_is_on_by_default_the_student_is_not_invited(app):
     """Rule 2 holds by default (PAD-685, config rule 6e): a coach who never touched Settings ›
     Restrictions › "no same-day class" does not invite a student who has another class that day."""
@@ -122,6 +128,7 @@ def test_rule2_the_restriction_is_on_by_default_the_student_is_not_invited(app):
         assert ids["busy"] not in _semi_auto_queue_ids(ids)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-6")
 def test_rule2_switched_off_explicitly_the_student_is_invited(app):
     with app.app_context():
         ids = _seed(restriction_on=False, other_start=TARGET + 3 * H, tag="r2off")
@@ -142,6 +149,7 @@ def _block(ids, player_id, start, end, *, blocks=True, weekly=False):
     return b
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-1")
 def test_rule3_a_blocker_over_the_whole_class_excludes(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r3full")
@@ -150,6 +158,7 @@ def test_rule3_a_blocker_over_the_whole_class_excludes(app):
         assert _waiting_list_stage(ids, ids["busy"]) == "unavailable"
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-1")
 def test_rule3_a_partial_overlap_excludes_too(app):
     """A blocker that ends 30 minutes into the class still overlaps it."""
     with app.app_context():
@@ -158,6 +167,7 @@ def test_rule3_a_partial_overlap_excludes_too(app):
         _assert_excluded(ids, ids["busy"], "unavailable")
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-1")
 def test_rule3_a_weekly_blocker_on_the_class_weekday_excludes(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r3week")
@@ -176,6 +186,7 @@ def test_rule3_a_blocker_that_does_not_block_invitations_does_not_exclude(app):
 
 # ── Rule 4: already invited to this class ────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-64")
 def test_rule4_a_live_invitation_for_this_spot_is_not_sent_twice(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r4live")
@@ -183,6 +194,7 @@ def test_rule4_a_live_invitation_for_this_spot_is_not_sent_twice(app):
         _assert_excluded(ids, ids["busy"], "already_invited")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-64")
 def test_rule4_a_live_invitation_for_a_sibling_spot_of_the_same_class_holds_them(app):
     """Two spots open at once (PAD-574's case): one live offer per student per class."""
     from padel_app.models.vacancy import Vacancy
@@ -197,6 +209,7 @@ def test_rule4_a_live_invitation_for_a_sibling_spot_of_the_same_class_holds_them
         _assert_excluded(ids, ids["busy"], "offered_another_spot")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-90")
 def test_rule4_an_invitation_the_coach_withdrew_counts_as_a_no(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r4wd")
@@ -216,6 +229,7 @@ def test_rule4_an_accepted_invitation_means_enrolled(app):
         _assert_excluded(ids, ids["busy"], "already_enrolled")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-72")
 def test_rule4_a_live_round_1_invitation_holds_them_out_of_round_2(app):
     """PAD-609 (owner, 2026-10-10) replaces the 'expirado' question this cell used to carry as a
     strict xfail: an invitation never expires because nobody answered it — while the spot is open it
@@ -249,6 +263,7 @@ def _set_prefs(player_id, **flags):
     db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-7")
 def test_rule5_automatic_invitations_off_excludes(app):
     with app.app_context():
         ids = _seed(restriction_on=False, tag="r5auto")

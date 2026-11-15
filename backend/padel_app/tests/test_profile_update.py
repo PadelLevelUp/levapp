@@ -59,6 +59,7 @@ def other_user(app):
         return user.id
 
 
+@pytest.mark.criterion("SETTINGS-PROFILE-9")
 def test_get_me_exposes_profile_fields(client, app, profile_user):
     resp = client.get("/api/auth/me", headers=_auth_header(app, profile_user))
 
@@ -71,6 +72,7 @@ def test_get_me_exposes_profile_fields(client, app, profile_user):
     assert body["abbreviation"] == "AB"
 
 
+@pytest.mark.criterion("SETTINGS-PROFILE-2")
 def test_patch_me_persists_all_profile_fields(client, app, profile_user):
     from padel_app.models import User
 
@@ -117,6 +119,7 @@ def test_patch_me_is_partial(client, app, profile_user):
         assert user.email == "ana@example.com"  # untouched
 
 
+@pytest.mark.criterion("SETTINGS-LANGUAGE-3")
 def test_patch_me_still_updates_language(client, app, profile_user):
     from padel_app.models import User
 
@@ -142,6 +145,7 @@ def test_patch_me_rejects_unsupported_language(client, app, profile_user):
     assert resp.status_code == 400
 
 
+@pytest.mark.criterion("SETTINGS-PROFILE-4")
 def test_patch_me_rejects_blank_name(client, app, profile_user):
     from padel_app.models import User
 
@@ -170,6 +174,7 @@ def test_patch_me_rejects_invalid_email(client, app, profile_user):
         assert User.query.get(profile_user).email == "ana@example.com"
 
 
+@pytest.mark.criterion("SETTINGS-PROFILE-5")
 def test_patch_me_rejects_duplicate_email(client, app, profile_user, other_user):
     from padel_app.models import User
 
@@ -184,6 +189,7 @@ def test_patch_me_rejects_duplicate_email(client, app, profile_user, other_user)
         assert User.query.get(profile_user).email == "ana@example.com"
 
 
+@pytest.mark.criterion("SETTINGS-PROFILE-5")
 def test_patch_me_allows_resaving_own_email(client, app, profile_user):
     resp = client.patch(
         "/api/auth/me",

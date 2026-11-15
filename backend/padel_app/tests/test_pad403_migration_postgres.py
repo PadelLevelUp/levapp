@@ -68,6 +68,7 @@ def _columns(table):
     return {r[0] for r in rows}
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-7")
 def test_the_conversion_walks_up_and_down_exactly_and_never_touches_a_share(app):
     from flask_migrate import downgrade, upgrade
 

@@ -1,0 +1,40 @@
+id: 75
+title: aula do melhor nível, sem ninguém acima
+source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1637, 1653]}
+what_it_tests: os grupos e os critérios funcionam nos limites da escala de níveis
+tags: [eligibility, groups]
+depends_on: []
+corrections: []
+notes: >
+  The class is level 1. Group 3 (level +1) is empty because there is no level 0. Level 2 is below a level-1
+  class and not eligible. Groups 5 and 6 (other side) have no right-side candidates, so nothing goes out at
+  20:00.
+
+class:
+  level: 1
+  capacity: 16
+  start: 2026-11-03 10:30
+
+roster:
+  regulars: {L: 7, R: 8}
+students:
+  - {cohort: L1L, count: 2, level: 1, side: L}
+  - {cohort: L2L, count: 5, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L1L, count: 2, side_named: null, group: 4}]
+      invitations_total_sent: 2
+      missing: {L: 1, R: 0}
+  - at: 2026-11-01 20:00
+    expect:
+      invitations: none
+      invitations_total_sent: 2
+  - at: 2026-11-01 20:10
+    events: [{accepts: {cohort: L1L, state: invited, as: l1}}]
+    expect:
+      placed: [{who: l1, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

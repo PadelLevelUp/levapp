@@ -75,7 +75,7 @@ OUT_LOG="$HOME/.maestro/tests/maestro-stdout.txt"
 rm -f "$STOP_FILE"
 set +e
 maestro test --format junit --output "$ROOT/maestro-report.xml" \
-  --exclude-tags ios-only,open-defect-probe \
+  --exclude-tags ios-only,open-defect-probe,hand-run-setup \
   -e "MAESTRO_COACH_NOCLUB_USERNAME=$NOCLUB_USER" -e "MAESTRO_COACH_NOCLUB_PASSWORD=$NOCLUB_PASS" \
   "${CONFIG[@]}" "${TARGET[@]}" > "$OUT_LOG" 2>&1 &
 MAESTRO_PID=$!

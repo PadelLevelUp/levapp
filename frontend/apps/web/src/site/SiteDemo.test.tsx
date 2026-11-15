@@ -54,7 +54,7 @@ describe("SiteDemoProvider", () => {
     expect(screen.getByTestId("demo-dialog")).toBeTruthy();
   });
 
-  it("shows the marketing box only when the build has a subscription id (PAD-650)", () => {
+  it("[AUTH-LANDING-PAGE-24] shows the marketing box only when the build has a subscription id (PAD-650)", () => {
     formId = "form-1";
     marketing = false;
     const { unmount } = renderSite();
@@ -68,7 +68,7 @@ describe("SiteDemoProvider", () => {
     marketing = false;
   });
 
-  it("falls back to the mailto link when the build has no form id", () => {
+  it("[AUTH-LANDING-PAGE-26] falls back to the mailto link when the build has no form id", () => {
     formId = null;
     renderSite();
     expect(screen.getByTestId("mailto").getAttribute("href")).toMatch(/^mailto:admin@levapp\.app\?subject=/);

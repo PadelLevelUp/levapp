@@ -15,7 +15,7 @@ vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("expo-secure-store", () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn() }));
 
 describe("StudentCalendarHeader", () => {
-  it("lists every state under 'eligible' and drops the offers under 'mine'", async () => {
+  it("[CALENDAR-VIEW-20] lists every state under 'eligible' and drops the offers under 'mine'", async () => {
     const eligible = await renderNative(<StudentCalendarHeader filter="eligible" onChange={() => undefined} />);
     for (const { variant } of studentLegendItems("eligible")) {
       expect(eligible.byTestId(`calendar-legend-item-${variant}`)).toBeTruthy();
@@ -28,7 +28,7 @@ describe("StudentCalendarHeader", () => {
     expect(mine.byTestId("calendar-legend-item-scheduled")).toBeTruthy();
   });
 
-  it("marks the chosen option selected and reports a change", async () => {
+  it("[CALENDAR-VIEW-20] marks the chosen option selected and reports a change", async () => {
     const onChange = vi.fn();
     const n = await renderNative(<StudentCalendarHeader filter="eligible" onChange={onChange} />);
     expect(n.byTestId("calendar-student-filter-eligible").props.accessibilityState).toEqual({ selected: true });
@@ -39,7 +39,7 @@ describe("StudentCalendarHeader", () => {
 });
 
 describe("a full class card for a student", () => {
-  it("carries the full chip", async () => {
+  it("[CALENDAR-VIEW-19] carries the full chip", async () => {
     const event = {
       model: "LessonInstance",
       originalId: 1,

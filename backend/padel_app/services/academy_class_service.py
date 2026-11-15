@@ -144,6 +144,18 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, sid
         or gave_up_place
     ):
         _refuse("not_visible", "This class is not open to requests")
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        # PAD-918: the students' list of a new-engine session is the engine's; it answers has-spots,
+        # sides and refusals itself (notifications.waiting-list, engine-settings rule 4).
+        from padel_app.services.engine_entry import student_joins_waiting_list
+
+        entry, created = student_joins_waiting_list(player, instance, side, now)
+        if created and entry is not None:
+            _tell_coach_of_waiting_list_join(player, instance, coach_id)
+            _publish_waiting_list_changed(entry)
+        return entry, created
     # PAD-581 (invitations rule 2d, owner Q3): a student whose invitation was withdrawn for side
     # balance may join the list while the class has places — the places left are for the other side.
     # PAD-672 (booking rule 6): a capable client's side — "not full, but no spot of my side" is the
@@ -192,6 +204,17 @@ def _was_invited(instance_id, player_id) -> bool:
     ended in neither their "no" nor the coach's withdrawal — both read as a "no" (rules 18, 19)."""
     from padel_app.models.notification_event import NotificationEvent
 
+    # PAD-918 (swap plan §3.2): a new-engine invitation shows the class too, unless the student said No
+    # or the coach withdrew it.
+    from padel_app.models import EngineInvitation
+
+    if EngineInvitation.query.filter(
+        EngineInvitation.lesson_instance_id == instance_id,
+        EngineInvitation.player_id == player_id,
+        db.or_(EngineInvitation.answer.is_(None), EngineInvitation.answer != "no"),
+        db.or_(EngineInvitation.closed_reason.is_(None), EngineInvitation.closed_reason != "withdrawn"),
+    ).first() is not None:
+        return True
     return (
         NotificationEvent.query.filter(
             NotificationEvent.lesson_instance_id == instance_id,
@@ -229,6 +252,16 @@ def leave_class_waiting_list_service(player, lesson_instance_id):
     ).first()
     if entry is None:
         abort(404, "You are not on this class's waiting list")
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.engine_switch import engine_for
+
+    instance = db.session.get(LessonInstance, entry.lesson_instance_id)
+    if instance is not None and engine_for(instance) == "new":
+        from padel_app.services.engine_entry import leaves_waiting_list
+
+        leaves_waiting_list(instance, entry)               # PAD-918: the engine's list
+        _publish_waiting_list_changed(entry)
+        return entry
     entry.is_active = False
     db.session.commit()
     _publish_waiting_list_changed(entry)
@@ -314,7 +347,8 @@ def _tell_coach_of_waiting_list_join(player, instance, coach_id) -> None:
     from padel_app.serializers.message import serialize_message
     from padel_app.services.class_join_request_service import _class_label, _localized
     from padel_app.services.conversation_access import message_recipient_ids
-    from padel_app.services.notification_service import _get_or_create_direct_conversation, publish
+    from padel_app.realtime import publish
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     coach = db.session.get(Coach, coach_id)
     coach_user = coach.user if coach else None

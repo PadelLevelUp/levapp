@@ -4,6 +4,7 @@ Rules 1–6 and 8 of `.specflow/specs/eligibility/cascade.spec.md`. Reuses the
 Phase-1 seed (`test_pad128_eligibility._seed`): a `4 → 5 → 5-` ladder, a class
 at level `5`, and a coach standard bar passed in.
 """
+import pytest
 from datetime import datetime, timedelta
 
 from padel_app.sql_db import db
@@ -41,6 +42,7 @@ def _resolve(app, ids):
         return rules, source
 
 
+@pytest.mark.criterion("ELIGIBILITY-CASCADE-1")
 def test_most_specific_tier_wins_outright(app):
     ids = _seed(app, eligibility_rules=LEVEL_SAME)
     _set_tiers(app, ids, lesson=LEVEL_WITHIN_1, instance=LEVEL_AT_OR_ABOVE,
@@ -49,6 +51,7 @@ def test_most_specific_tier_wins_outright(app):
     assert (rules, source) == (LEVEL_AT_OR_ABOVE, "instance")
 
 
+@pytest.mark.criterion("ELIGIBILITY-CASCADE-2")
 def test_tiers_do_not_merge(app):
     """Lesson override replaces the coach bar: 5 absences at the right level is eligible."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -77,6 +80,7 @@ def test_tiers_do_not_merge(app):
         assert passes_eligibility(_cp(ids["coach_id"], pid), inst, ids["coach_id"], rules) is True
 
 
+@pytest.mark.criterion("ELIGIBILITY-CASCADE-3")
 def test_empty_override_opens_one_class_inside_a_restricted_series(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.notification_service import effective_eligibility, passes_eligibility
@@ -103,6 +107,7 @@ def test_empty_override_opens_one_class_inside_a_restricted_series(app):
         assert still == LEVEL_SAME and passes_eligibility(cp, sibling, ids["coach_id"], still) is False
 
 
+@pytest.mark.criterion("ELIGIBILITY-CASCADE-4")
 def test_virtual_occurrence_resolves_at_the_lesson_tier_without_materialising(app):
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
@@ -143,6 +148,7 @@ def test_edit_scope_single_writes_the_instance_tier_and_null_clears_it(app):
         assert db.session.get(LessonInstance, inst.id).eligibility_rules is None
 
 
+@pytest.mark.criterion("ELIGIBILITY-CASCADE-5")
 def test_edit_scope_future_forks_the_series_from_that_date(app):
     """Rule 6: a mid-series future edit forks; earlier occurrences keep the old bar."""
     from padel_app.models.lessons import Lesson

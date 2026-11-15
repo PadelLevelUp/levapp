@@ -56,6 +56,7 @@ def _rows(client, app, user_id, instance_id):
     return {r["playerId"]: r for r in res.get_json()}
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-18")
 def test_the_coach_sets_and_clears_a_players_side_for_one_occurrence(app, client, monkeypatch):
     _patch_io(monkeypatch)
     with app.app_context():
@@ -82,6 +83,7 @@ def test_the_coach_sets_and_clears_a_players_side_for_one_occurrence(app, client
     assert (res.get_json()["side"], res.get_json()["sideOverride"]) == ("left", False)
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-18")
 def test_one_occurrence_only(app, client, monkeypatch):
     _patch_io(monkeypatch)
     with app.app_context():
@@ -110,6 +112,7 @@ def test_one_occurrence_only(app, client, monkeypatch):
 
 
 @pytest.mark.parametrize("case, expected", [("both", 400), ("other_coach", 403), ("no_presence", 404), ("ended", 409)])
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-18")
 def test_refusals(app, client, monkeypatch, case, expected):
     _patch_io(monkeypatch)
     with app.app_context():
@@ -141,6 +144,7 @@ def test_refusals(app, client, monkeypatch, case, expected):
         assert row is None or row.side is None, "a refusal writes nothing"
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-20")
 def test_the_override_is_the_side_a_freed_spot_starts_from(app, monkeypatch):
     """3 left (Ana among them) + 2 right going. Ana cancels: 2 / 2, a tie keeps the leaver's side."""
     from padel_app.models.presences import Presence
@@ -160,6 +164,7 @@ def test_the_override_is_the_side_a_freed_spot_starts_from(app, monkeypatch):
             assert side == ("right" if overridden else "left"), (overridden, side)
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-20")
 def test_the_override_counts_in_the_class_balance(app, monkeypatch):
     """2 left + Ana (left, set right) going; a left leaver's freed spot counts 1 left / 2 right."""
     from padel_app.models.presences import Presence
@@ -177,6 +182,7 @@ def test_the_override_counts_in_the_class_balance(app, monkeypatch):
         assert (counts["left"], counts["right"], counts["chosen"]) == (1, 2, "left")
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-21")
 def test_a_change_re_counts_the_open_spots_and_withdraws_for_balance(app, monkeypatch):
     """PAD-581's class: 1 left + 1 right going, never-filled spots left and right. The coach sets
     the right player left for this occurrence: going 2 / 0, so the left spot now asks right and its
@@ -209,6 +215,7 @@ def _coach_user_of(lesson_id):
     return db.session.get(Coach, rel.coach_id).user_id
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-19")
 def test_a_virtual_occurrence_is_materialised_only_when_a_side_is_set(app, client, monkeypatch, recurring_lesson):
     """The common case: a regular's next occurrence of a recurring class has no row yet."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -235,6 +242,7 @@ def test_a_virtual_occurrence_is_materialised_only_when_a_side_is_set(app, clien
         assert Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).one().side == "right"
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-19")
 def test_an_ended_virtual_occurrence_is_refused_and_not_materialised(app, client, monkeypatch, recurring_lesson):
     from padel_app.models.lesson_instances import LessonInstance
 

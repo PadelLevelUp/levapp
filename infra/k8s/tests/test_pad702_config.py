@@ -105,6 +105,7 @@ def env_render(request):
 
 # --- rule 10: the guard ------------------------------------------------------------------------
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-15")
 def test_every_key_the_backend_reads_is_set_or_unset_on_purpose(env_render):
     env, docs = env_render
     known = template_keys(env) | set(sources(env)) | deployment_env(docs) | set(unset_keys(env))
@@ -112,6 +113,7 @@ def test_every_key_the_backend_reads_is_set_or_unset_on_purpose(env_render):
     assert missing == [], f"{env}: keys read by the backend with no source and no unset-keys.txt line: {missing}"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-15")
 def test_the_guard_sees_a_new_key():
     assert "PAD702_CANARY" in keys_read('import os\nx = os.getenv("PAD702_CANARY", "1")\n')
     assert "PAD702_CANARY" in keys_read('import os\nx = os.environ["PAD702_CANARY"]\n')
@@ -149,12 +151,14 @@ def test_the_gke_deployments_share_one_rate_budget(env_render):
 # --- rule 9: sources ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("env", list(ENVS))
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-13")
 def test_sources_equal_the_vm_deploy(env):
     expected = workflow_e_lines(env)
     expected["POSTGRES_PW"] = ("secret", f"GKE_{env.upper()}_POSTGRES_PW")  # the cluster's own database
     assert sources(env) == expected
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-13")
 def test_prod_keeps_the_signing_keys_of_the_vm():
     rows = sources("prod")
     assert rows["JWT_SECRET_KEY"] == ("secret", "JWT_SECRET_KEY")
@@ -175,6 +179,7 @@ def all_values(env, **override):
     return vals
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-14")
 def test_write_config_builds_one_private_file_per_secret(tmp_path):
     pem = "-----BEGIN KEY-----\nabc\n-----END KEY-----"
     r, out, vars_file = run_write_config(tmp_path, "prod", all_values("prod", VAPID_PRIVATE_KEY=pem))
@@ -191,6 +196,7 @@ def test_write_config_builds_one_private_file_per_secret(tmp_path):
     assert "value-of" not in r.stdout + r.stderr, "no value is printed"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-14")
 def test_the_checksum_follows_the_secrets(tmp_path):
     a = run_write_config(tmp_path / "a", "staging", all_values("staging"))[0].stdout
     b = run_write_config(tmp_path / "b", "staging", all_values("staging"))[0].stdout
@@ -200,6 +206,7 @@ def test_the_checksum_follows_the_secrets(tmp_path):
     assert a == d, "a variable is not a secret: it rolls the pods through the ConfigMap's hash instead"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-14")
 def test_an_empty_secret_fails_by_name(tmp_path):
     r, _, _ = run_write_config(tmp_path, "staging", all_values("staging", JWT_SECRET_KEY="", MAIL_PASSWORD=""))
     assert r.returncode == 1
@@ -215,6 +222,7 @@ def test_a_variable_may_not_span_lines(tmp_path):
 # --- rule 8: the ConfigMap ---------------------------------------------------------------------
 
 @pytest.mark.parametrize("env", list(ENVS))
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-12")
 def test_the_job_and_the_deployments_use_the_same_configmap(env):
     main, _ = render(f"overlays/{env}")
     job, _ = render(f"overlays/{env}/migrate")
@@ -228,6 +236,7 @@ def test_the_job_and_the_deployments_use_the_same_configmap(env):
 
 
 @pytest.mark.parametrize("env", list(ENVS))
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-12")
 def test_the_configmap_is_the_vm_template_plus_vars(env):
     docs, _ = render(f"overlays/{env}")
     data = next(d for d in docs if d["kind"] == "ConfigMap")["data"]

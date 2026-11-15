@@ -24,6 +24,7 @@ def _product_token(app, user_id):
         return issue_access_token(user_id)
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-8")
 def test_tokens_do_not_cross(app, client):
     # A superadmin product user whose id equals the admin role id: the collision B-381 exploits.
     user_id = make_user(app, "boss", "boss@levapp.app", superadmin=True)
@@ -65,6 +66,7 @@ def test_no_token_is_401(client):
     assert client.get("/admin/api/audit", headers={"Authorization": "Bearer nope"}).status_code == 401
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-9")
 def test_a_revoked_role_ends_access_on_the_next_request(app, client):
     owner = make_role(app, "boss@levapp.app", "owner")
     ana = make_role(app, "ana@levapp.app", "operator")
@@ -104,6 +106,7 @@ def _write_rules(app):
             yield rule, sorted(methods)
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-10")
 def test_support_cannot_write(app, client):
     support = make_role(app, "sup@levapp.app", "support")
     target = make_role(app, "ana@levapp.app", "operator")
@@ -129,6 +132,7 @@ def test_support_cannot_write(app, client):
     assert rows and all(r["outcome"] == "denied" for r in rows)
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-19")
 def test_request_ids_are_echoed_and_stored(app, client):
     owner = make_role(app, "boss@levapp.app", "owner")
     token = admin_token(app, owner)
@@ -146,6 +150,7 @@ def test_request_ids_are_echoed_and_stored(app, client):
     assert [row["requestId"] for row in rows] == ["abc-12345", fresh]
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-20")
 def test_the_blueprint_is_invisible_on_the_product_host(app_with_config):
     app = app_with_config({"ADMIN_HOSTS": ("admin.levapp.app",)})
     role_id = make_role(app, "ana@levapp.app", "support")

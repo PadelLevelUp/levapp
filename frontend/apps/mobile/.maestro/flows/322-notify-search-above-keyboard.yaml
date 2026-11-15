@@ -1,0 +1,67 @@
+# PAD-838 (mobile.android-runtime rule 15, MOBILE-ANDROID-RUNTIME-21; notifications.manual rule 11,
+# NOTIFICATIONS-MANUAL-16): in "Notificar alunos", with the keyboard up, the search's first match is
+# above the keyboard and one tap selects it. Before the fix the field was the list's last item, the
+# dialog never moved above the keyboard, and on a small iPhone the matches and the buttons were under
+# it (flow 301 presses Enter to put the keyboard away first; this flow never does).
+#
+# Maestro counts an element under the keyboard as visible, so visibility proves nothing here. The
+# proof is the tap: under the keyboard it lands on a key and types into the search, Send stays off.
+# So Send must go from disabled to enabled while the search still holds exactly the typed text, and
+# Cancel, in the footer, must take the tap that closes the dialog. A simulator with "Connect
+# Hardware Keyboard" on shows no keyboard and passes both ways: the red run before the fix is the
+# proof the keyboard was up.
+#
+# Guards the small screen: run it on an iPhone SE-class simulator (667 pt). A tall phone may pass
+# before and after the fix. Writes nothing: the picker is cancelled without sending.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.players = (function (r) { return r.items ? r.items : r; })(json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body))}"
+- evalScript: "${output.pid = String(output.players.filter(function (p) { return p.name === 'Filler Player 03'; })[0].playerId)}"
+- assertTrue: "${output.pid.length > 0}"
+
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- tapOn: "E2E Academy Class"
+- scrollUntilVisible:
+    element:
+      id: "class-notify"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-notify"
+- extendedWaitUntil:
+    visible:
+      id: "class-notify-search"
+    timeout: 15000
+
+# The keyboard comes up here and stays up to the end: no Enter, no hideKeyboard.
+- tapOn:
+    id: "class-notify-search"
+- inputText: "Filler Player 03"
+- extendedWaitUntil:
+    visible:
+      id: "notify-player-${output.pid}"
+    timeout: 15000
+- assertVisible:
+    id: "class-notify-send"
+    enabled: false
+- tapOn:
+    id: "notify-player-${output.pid}"
+- assertVisible:
+    id: "class-notify-send"
+    enabled: true
+# The tap did not land on a key: the search still holds exactly what was typed.
+- assertVisible:
+    id: "class-notify-search"
+    text: "Filler Player 03"
+
+# The footer is above the keyboard too: Cancel takes the tap and the dialog closes.
+- tapOn:
+    id: "class-notify-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-notify-dialog"
+    timeout: 10000

@@ -1,0 +1,44 @@
+id: 77
+title: o professor muda os convites por vaga e o tempo entre rondas
+source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1671, 1686]}
+what_it_tests: o ritmo de envio segue as definições de cada professor
+tags: [rounds, timers]
+depends_on: []
+corrections: []
+notes: >
+  X=2 and 15 minutes between rounds, set from the start (not mid-scenario), so they are base overrides, not
+  coach_sets. The 19:45 step is a derived probe for "Param os convites": the round that would fall at 19:45
+  must not go out.
+
+settings:
+  invites_per_spot: 2
+  timing: {method: A, between_rounds: 15m, between_groups: 60m}
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 100, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-01 19:15
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-01 19:30
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+      invitations_total_sent: 6
+  - at: 2026-11-01 19:40
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:45
+    derived: true
+    expect:
+      invitations: none
+      invitations_total_sent: 6
+final:
+  roster: {L: 8, R: 8}

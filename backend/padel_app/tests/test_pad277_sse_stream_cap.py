@@ -88,6 +88,7 @@ def _close_all(*responses):
         response.close()
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-4")
 def test_a_stream_over_the_total_cap_gets_a_fast_503(app, client, users):
     app.config["SSE_MAX_STREAMS"] = 2
     app.config["SSE_MAX_STREAMS_PER_USER"] = 10
@@ -105,6 +106,7 @@ def test_a_stream_over_the_total_cap_gets_a_fast_503(app, client, users):
     assert _open_streams() == 0
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-5")
 def test_over_the_per_user_cap_the_oldest_stream_is_evicted_and_the_newest_survives(app, client, users):
     from padel_app.realtime import publish
 
@@ -134,6 +136,7 @@ def test_over_the_per_user_cap_the_oldest_stream_is_evicted_and_the_newest_survi
         _close_all(oldest, middle, newest, bystander)
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-6")
 def test_a_user_at_their_cap_can_reconnect_even_when_the_server_is_full(app, client, users):
     app.config["SSE_MAX_STREAMS"] = 2
     app.config["SSE_MAX_STREAMS_PER_USER"] = 1
@@ -150,6 +153,7 @@ def test_a_user_at_their_cap_can_reconnect_even_when_the_server_is_full(app, cli
         _close_all(mine, theirs, reconnect, stranger)
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-7")
 def test_the_route_defaults_are_40_total_and_4_per_user(app, client, users):
     for key in ("SSE_MAX_STREAMS", "SSE_MAX_STREAMS_PER_USER"):
         app.config.pop(key, None)
@@ -166,6 +170,7 @@ def test_the_route_defaults_are_40_total_and_4_per_user(app, client, users):
         _close_all(*own, *others, last_in, over)
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-9")
 def test_the_stream_opens_with_a_retry_hint_immediately(app, client, users):
     """Headers must flush at once. Before PAD-277 nothing was written until the
     first keep-alive, 15 seconds in, so a client could not tell an accepted
@@ -183,6 +188,7 @@ def test_the_stream_opens_with_a_retry_hint_immediately(app, client, users):
         response.close()
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-8")
 def test_the_keep_alive_interval_comes_from_config(app, client, users):
     """The keep-alive is how a vanished client is noticed, so its interval
     bounds how long a dead stream holds its slot."""
@@ -201,6 +207,7 @@ def test_the_keep_alive_interval_comes_from_config(app, client, users):
         response.close()
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-10")
 def test_closing_a_stream_frees_its_slot_even_if_it_never_started(app, client, users):
     """Guard for the design: the slot is taken in the request, so it must be
     released by the response's close hook even when the generator never ran
@@ -218,6 +225,7 @@ def test_closing_a_stream_frees_its_slot_even_if_it_never_started(app, client, u
         again.close()
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-7")
 def test_the_caps_come_from_the_environment_with_defaults():
     from padel_app.config import sse_stream_limits
 
@@ -228,6 +236,7 @@ def test_the_caps_come_from_the_environment_with_defaults():
     assert sse_stream_limits({"SSE_MAX_STREAMS": "0", "SSE_MAX_STREAMS_PER_USER": "nope"}) == (40, 4)
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-7")
 def test_the_keep_alive_comes_from_the_environment_with_a_default_of_5():
     from padel_app.config import sse_keepalive_seconds
 

@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 describe("LegalCatchUpPage", () => {
-  it("shows only the Terms box when only the Terms are pending", () => {
+  it("[AUTH-LEGAL-CATCH-UP-5] shows only the Terms box when only the Terms are pending", () => {
     user = { ...user, legalPending: { terms: true, birthDate: false } };
     mount();
     expect(screen.getByTestId("legalCatchUp-terms")).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("LegalCatchUpPage", () => {
     expect(await screen.findByTestId("legalCatchUp-birthDate-error")).toHaveTextContent("auth.legalCatchUp.underage");
   });
 
-  it("'Not now' skips for the session and moves on without saving", () => {
+  it("[AUTH-LEGAL-CATCH-UP-5] 'Not now' skips for the session and moves on without saving", () => {
     mount();
     fireEvent.click(screen.getByTestId("legalCatchUp-notNow"));
     expect(acceptLegal).not.toHaveBeenCalled();

@@ -91,7 +91,7 @@ describe("draftToPayload", () => {
     endDate: "",
   };
 
-  it("sends null, not an empty string, for cleared text", () => {
+  it("[CALENDAR-BLOCKS-5] sends null, not an empty string, for cleared text", () => {
     // Otherwise clearing a title stores "" instead of actually clearing it.
     const payload = draftToPayload({ ...base, title: "", description: "" });
 

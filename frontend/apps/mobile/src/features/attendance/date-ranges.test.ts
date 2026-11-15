@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+// ATTENDANCE-HISTORY-12: a device zone west of UTC, set before any test runs, so the tests that
+// claim "not the device timezone" and "keeps its own day" can fail if the code reads device time.
+process.env.TZ = "America/Sao_Paulo";
+
 import {
-  isValidCustomRange,
   parseIsoDate,
   presetRange,
   toIsoDate,
@@ -20,14 +23,14 @@ describe("presetRange", () => {
   // Wednesday 2026-09-16, 23:30 UTC.
   const now = new Date(Date.UTC(2026, 8, 16, 23, 30));
 
-  it("1w is Sunday through Saturday of the current week (PAD-682)", () => {
+  it("[ATTENDANCE-HISTORY-2] 1w is Sunday through Saturday of the current week (PAD-682)", () => {
     expect(presetRange("1w", now)).toEqual({
       from: "2026-09-13",
       to: "2026-09-19",
     });
   });
 
-  it("1w on a Sunday starts the week that Sunday opens", () => {
+  it("[ATTENDANCE-HISTORY-2] 1w on a Sunday starts the week that Sunday opens", () => {
     // 2026-09-20 is a Sunday; getUTCDay() === 0 is the first day of the week.
     const sunday = new Date(Date.UTC(2026, 8, 20, 12));
     expect(presetRange("1w", sunday)).toEqual({
@@ -36,7 +39,7 @@ describe("presetRange", () => {
     });
   });
 
-  it("1w spanning a month boundary rolls the month over", () => {
+  it("[ATTENDANCE-HISTORY-2] 1w spanning a month boundary rolls the month over", () => {
     // Tuesday 2026-12-01 — its Sunday is in November.
     const dec1 = new Date(Date.UTC(2026, 11, 1, 8));
     expect(presetRange("1w", dec1)).toEqual({
@@ -45,63 +48,50 @@ describe("presetRange", () => {
     });
   });
 
-  it("1m is the whole current calendar month", () => {
+  it("[ATTENDANCE-HISTORY-2] 1m is the whole current calendar month", () => {
     expect(presetRange("1m", now)).toEqual({
       from: "2026-09-01",
       to: "2026-09-30",
     });
   });
 
-  it("1m ends on the 29th in a leap February", () => {
+  it("[ATTENDANCE-HISTORY-2] 1m ends on the 29th in a leap February", () => {
     expect(presetRange("1m", new Date(Date.UTC(2028, 1, 10)))).toEqual({
       from: "2028-02-01",
       to: "2028-02-29",
     });
   });
 
-  it("1y is the whole current calendar year", () => {
+  it("[ATTENDANCE-HISTORY-2] 1y is the whole current calendar year", () => {
     expect(presetRange("1y", now)).toEqual({
       from: "2026-01-01",
       to: "2026-12-31",
     });
   });
 
-  it("uses UTC, not the device timezone", () => {
-    // 2026-09-16T23:30Z is already Thursday the 17th in UTC+2 and still
-    // Wednesday the 16th in UTC-3. The answer must not depend on that.
-    const range = presetRange("1m", now);
-    expect(range.from).toBe("2026-09-01");
+  it("[ATTENDANCE-HISTORY-12] uses the club's day, not the device timezone", () => {
+    // 2026-09-30T23:30Z is 1 October, 00:30, at the club (Lisbon, UTC+1) and still 30 September,
+    // 20:30, on this São Paulo device. A month edge, so reading device time would ask for September.
+    expect(presetRange("1m", new Date(Date.UTC(2026, 8, 30, 23, 30)))).toEqual({
+      from: "2026-10-01",
+      to: "2026-10-31",
+    });
   });
 });
 
 describe("toIsoDate / parseIsoDate", () => {
-  it("round-trips a bare date", () => {
-    expect(toIsoDate(parseIsoDate("2026-03-08"))).toBe("2026-03-08");
+  it("[ATTENDANCE-HISTORY-12] round-trips a bare date", () => {
+    // The last day of a month: on this UTC-3 device, UTC midnight is still the 29th locally,
+    // so a toIsoDate that read local fields would hand back the day before.
+    expect(toIsoDate(parseIsoDate("2026-09-30"))).toBe("2026-09-30");
   });
 
-  it("reads a naive ISO datetime as its UTC calendar day", () => {
-    // A 00:30 class must stay on its own day, not slide back an hour into the
-    // previous one.
-    expect(toIsoDate(parseIsoDate("2026-03-08T00:30:00"))).toBe("2026-03-08");
-  });
-});
-
-describe("isValidCustomRange", () => {
-  it("accepts an ordered pair", () => {
-    expect(isValidCustomRange("2026-01-01", "2026-03-31")).toBe(true);
-  });
-
-  it("accepts a single-day period", () => {
-    expect(isValidCustomRange("2026-01-01", "2026-01-01")).toBe(true);
-  });
-
-  it("rejects a reversed pair", () => {
-    expect(isValidCustomRange("2026-03-31", "2026-01-01")).toBe(false);
-  });
-
-  it("rejects a half-filled pair", () => {
-    expect(isValidCustomRange("", "2026-01-01")).toBe(false);
-    expect(isValidCustomRange("2026-01-01", "")).toBe(false);
+  it("[ATTENDANCE-HISTORY-12] reads a naive ISO datetime as its UTC calendar day", () => {
+    // A 00:30 class on the 1st must stay on its own day and month, not slide back into the
+    // previous month on a device west of UTC.
+    const day = parseIsoDate("2026-10-01T00:30:00");
+    expect(toIsoDate(day)).toBe("2026-10-01");
+    expect(day.getUTCMonth()).toBe(9);
   });
 });
 

@@ -8,7 +8,7 @@ import { AUDIENCE_SLUG, audienceFromParams } from "./audience";
 const read = (qs: string) => audienceFromParams(new URLSearchParams(qs));
 
 describe("the landing audience in the URL", () => {
-  it("writes the Portuguese slugs", () => {
+  it("[AUTH-LANDING-PAGE-3] writes the Portuguese slugs", () => {
     expect(AUDIENCE_SLUG).toEqual({ coaches: "treinadores", players: "jogadores", others: "outros" });
   });
 

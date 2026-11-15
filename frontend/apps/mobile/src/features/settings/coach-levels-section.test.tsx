@@ -87,7 +87,7 @@ describe("levelsUnsaved (settings.unsaved-edits rule 2)", () => {
     expect(levelsUnsaved(withAdd, SAVED)).toBe(true);
   });
 
-  it("removing the just-added row returns to clean — a hand-revert, not 'was touched'", () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] removing the just-added row returns to clean — a hand-revert, not 'was touched'", () => {
     const withAdd = [...SAVED, { id: "new-1", code: "", label: "" }];
     expect(levelsUnsaved(withAdd, SAVED)).toBe(true);
     expect(levelsUnsaved(withAdd.slice(0, 2), SAVED)).toBe(false);

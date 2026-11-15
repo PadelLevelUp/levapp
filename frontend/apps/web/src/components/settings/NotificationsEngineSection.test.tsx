@@ -104,7 +104,7 @@ async function mount() {
 
 
 describe("every engine control is held until the tab's Save (settings.explicit-save rules 2-3)", () => {
-  it("the master toggle is held: nothing is sent until Save, which sends it once; then clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-8] the master toggle is held: nothing is sent until Save, which sends it once; then clean", async () => {
     await mount();
     fireEvent.click(toggle());
     await settle();
@@ -118,7 +118,7 @@ describe("every engine control is held until the tab's Save (settings.explicit-s
     expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
   });
 
-  it("every sub-panel's change is held, and one Save sends them all in one request", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-8] every sub-panel's change is held, and one Save sends them all in one request", async () => {
     await mount();
     for (const [label, key] of [
       ["settings.engine.reminders", "reminders"],
@@ -150,7 +150,7 @@ describe("every engine control is held until the tab's Save (settings.explicit-s
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("changed and changed back is clean, and Save sends nothing", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] changed and changed back is clean, and Save sends nothing", async () => {
     await mount();
     fireEvent.click(toggle());
     fireEvent.click(toggle());
@@ -160,7 +160,7 @@ describe("every engine control is held until the tab's Save (settings.explicit-s
     expect(api.updateNotificationConfig).not.toHaveBeenCalled();
   });
 
-  it("a failed Save keeps the held values on screen and unsaved; a second Save sends them again", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed Save keeps the held values on screen and unsaved; a second Save sends them again", async () => {
     await mount();
     await openSection("settings.engine.eligibility");
     api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
@@ -193,7 +193,7 @@ describe("every engine control is held until the tab's Save (settings.explicit-s
 });
 
 describe("notifications.config rule 10c (PAD-478) on the Save's answer", () => {
-  it("a timing the server stored but could not re-arm is saved AND says so; the next re-armed timing Save removes the note", async () => {
+  it("[NOTIFICATIONS-CONFIG-22] a timing the server stored but could not re-arm is saved AND says so; the next re-armed timing Save removes the note", async () => {
     await mount();
     await openSection("settings.engine.reminders");
     api.updateNotificationConfig.mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch, rescheduleFailed: true }));
@@ -223,7 +223,7 @@ describe("notifications.config rule 10c (PAD-478) on the Save's answer", () => {
 });
 
 describe("the message templates are their own part of the Save", () => {
-  it("a template edit is held and sent alone, as messageTemplates", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-9] a template edit is held and sent alone, as messageTemplates", async () => {
     await mount();
     fireEvent.click(screen.getByText("settings.engine.messageTemplates"));
     fireEvent.click(await screen.findByTestId("stub-templates-change"));
@@ -239,7 +239,7 @@ describe("the message templates are their own part of the Save", () => {
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("a template typed back to what was stored is clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] a template typed back to what was stored is clean", async () => {
     await mount();
     fireEvent.click(screen.getByText("settings.engine.messageTemplates"));
     fireEvent.click(await screen.findByTestId("stub-templates-change"));
@@ -248,7 +248,7 @@ describe("the message templates are their own part of the Save", () => {
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("a mixed result: the templates fail, the engine saves — only the templates stay unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-9] a mixed result: the templates fail, the engine saves — only the templates stay unsaved", async () => {
     await mount();
     fireEvent.click(toggle());
     fireEvent.click(screen.getByText("settings.engine.messageTemplates"));

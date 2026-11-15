@@ -188,6 +188,7 @@ def _publish(proc, event, user_ids):
 
 
 @pytest.mark.parametrize("broker", ["postgres", "memory"])
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-20")
 def test_event_published_in_a_reaches_stream_on_b(app, users, pair, broker):
     a, b = pair(broker)
     u = users[0]
@@ -208,6 +209,7 @@ def test_event_published_in_a_reaches_stream_on_b(app, users, pair, broker):
 
 
 @pytest.mark.parametrize("broker", ["postgres", "memory"])
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-21")
 def test_body_over_8kb_crosses(app, users, pair, broker):
     a, b = pair(broker)
     u = users[0]
@@ -224,6 +226,7 @@ def test_body_over_8kb_crosses(app, users, pair, broker):
         assert got is None
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-22")
 def test_cross_process_delivery_keeps_scoping(app, users, pair):
     a, b = pair("postgres")
     u, v = users
@@ -237,6 +240,7 @@ def test_cross_process_delivery_keeps_scoping(app, users, pair):
     sv.close()
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-23")
 def test_listener_drop_ends_in_resync_then_delivery(app, users, pair):
     from sqlalchemy import create_engine, text
 

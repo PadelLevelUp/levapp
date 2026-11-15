@@ -12,16 +12,21 @@ import { TemplateHelp, TemplatePreview } from "@/components/settings/TemplateHel
 // notifications.message-templates rule 3a (PAD-670): every template takes the same vocabulary, so a
 // field typed into ANY template is replaced when the message is sent. {type}, {date} (dd/mm) and
 // {court} are PAD-430's; {day} (PAD-549) says the day naturally; {class} (the title) and {when} came
-// with the "added to class" messages (PAD-489).
+// with the "added to class" messages (PAD-489); {duration} ("90 min") and {club} are PAD-836's (rules 21-23).
 const CLASS_VARIABLES = [
-  "{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{class}", "{when}",
+  "{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{duration}", "{club}",
+  "{class}", "{when}",
 ];
 
 // PAD-446 (rule 16): {side} names the spot's side, on the waiting-list invitation only.
-const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite"];
+// PAD-920 (new-engine section N2): also on the waiting-list placement; `side_moved` carries the bare
+// side word, {sideName}, instead.
+const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite", "waiting_list_added"];
 
-const variablesFor = (key: keyof MessageTemplates): string[] =>
-  SIDE_VARIABLE_KEYS.includes(key) ? [...CLASS_VARIABLES, "{side}"] : CLASS_VARIABLES;
+const variablesFor = (key: keyof MessageTemplates): string[] => {
+  if (key === "side_moved") return [...CLASS_VARIABLES, "{sideName}"];
+  return SIDE_VARIABLE_KEYS.includes(key) ? [...CLASS_VARIABLES, "{side}"] : CLASS_VARIABLES;
+};
 
 const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   invite: "settings.templates.labels.invite",
@@ -36,6 +41,10 @@ const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   waiting_list_invite: "settings.templates.labels.waitingListInvite",
   added_to_class: "settings.templates.labels.addedToClass",
   added_to_class_coming: "settings.templates.labels.addedToClassComing",
+  waiting_list_added: "settings.templates.labels.waitingListAdded",
+  side_moved: "settings.templates.labels.sideMoved",
+  removed_from_class: "settings.templates.labels.removedFromClass",
+  removed_from_series: "settings.templates.labels.removedFromSeries",
 };
 
 const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
@@ -51,6 +60,10 @@ const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
   waiting_list_invite: "settings.templates.descriptions.waitingListInvite",
   added_to_class: "settings.templates.descriptions.addedToClass",
   added_to_class_coming: "settings.templates.descriptions.addedToClassComing",
+  waiting_list_added: "settings.templates.descriptions.waitingListAdded",
+  side_moved: "settings.templates.descriptions.sideMoved",
+  removed_from_class: "settings.templates.descriptions.removedFromClass",
+  removed_from_series: "settings.templates.descriptions.removedFromSeries",
 };
 
 const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
@@ -64,13 +77,20 @@ const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
   },
   {
     labelKey: "settings.templates.groups.waitingList",
-    keys: ["waiting_list_offer", "waiting_list_invite"],
+    keys: ["waiting_list_offer", "waiting_list_invite", "waiting_list_added"],
   },
   {
     // PAD-489: editable like the others; the "counted as coming" one is sent for a class
     // created after its reminder time (notifications.reminders rule 22).
     labelKey: "settings.templates.groups.addedToClass",
-    keys: ["added_to_class", "added_to_class_coming"],
+    // PAD-920 (N3): `side_moved` tells a both-sides student their final side. The coach alert
+    // (`coach_no_candidate`) is a message to the coach themselves and is not editable.
+    keys: ["added_to_class", "added_to_class_coming", "side_moved"],
+  },
+  {
+    // PAD-928 (rule 24): the coach took the student off one date, or off a recurring class.
+    labelKey: "settings.templates.groups.removedFromClass",
+    keys: ["removed_from_class", "removed_from_series"],
   },
 ];
 
@@ -110,7 +130,7 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
       {/* PAD-549: how a template is built, every field with an example. */}
       <TemplateHelp />
       {GROUPS.map((group) => (
-        <div key={group.labelKey}>
+        <div key={group.labelKey} data-testid={`template-group-${group.labelKey.split(".").pop()}`}>
           <p className="text-sm font-medium mt-4 mb-2">{t(group.labelKey)}</p>
           <div className="space-y-4">
             {group.keys.map((key) => (

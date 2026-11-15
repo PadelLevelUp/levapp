@@ -5,20 +5,20 @@ import { resolveApiBaseUrl } from "./base";
 
 /** delivery.api-host rule 4 (PAD-614): one configurable base for every API call the web makes. */
 describe("resolveApiBaseUrl", () => {
-  it("keeps the same-origin /api when the build sets nothing", () => {
+  it("[DELIVERY-API-HOST-3] keeps the same-origin /api when the build sets nothing", () => {
     expect(resolveApiBaseUrl(undefined)).toBe("/api");
     expect(resolveApiBaseUrl("")).toBe("/api");
     expect(resolveApiBaseUrl("   ")).toBe("/api");
   });
 
-  it("uses the configured API host, without a trailing slash", () => {
+  it("[DELIVERY-API-HOST-3] uses the configured API host, without a trailing slash", () => {
     expect(resolveApiBaseUrl("https://api.levapp.app/api/")).toBe("https://api.levapp.app/api");
     expect(resolveApiBaseUrl("https://api.staging.levapp.app/api")).toBe("https://api.staging.levapp.app/api");
   });
 });
 
 describe("no hard-coded API path", () => {
-  it("no web module calls fetch with a literal /api/ URL", () => {
+  it("[DELIVERY-API-HOST-3] no web module calls fetch with a literal /api/ URL", () => {
     const src = path.resolve(__dirname, "..");
     const offenders: string[] = [];
     const walk = (dir: string) => {

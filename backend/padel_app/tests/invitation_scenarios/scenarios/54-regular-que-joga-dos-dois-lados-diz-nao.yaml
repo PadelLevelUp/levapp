@@ -1,0 +1,40 @@
+id: 54
+title: regular que joga dos dois lados diz Não
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1248, 1263]}
+what_it_tests: a falta de um aluno que joga dos dois lados abre 1 vaga para qualquer lado
+tags: [both-sides, regulars, absences, tiebreak]
+depends_on: [U11, U29]
+corrections: []
+notes: >
+  The class is full, so nothing is sent at 19:00. 09:00 on 2 Nov is before the absence cutoff (22:30),
+  so the absence is justified. The opening is "de qualquer lado" (R7): the first 3 L2 by tiebreak,
+  from either side. The PDF needs a right-sider among them for the 09:10 Yes. The encoder sets
+  participations so that they are L2R-1 (3), L2L-1 (2) and L2L-2 (1). The PDF's final roster is
+  "7 de esquerda, 8 de direita e 1 que joga dos dois lados", encoded as total 16 because the
+  remaining both-sides regular holds no side in the app (U11).
+
+roster:
+  regulars: {L: 7, R: 7, both: 2}
+students:
+  - {cohort: L2L, count: 3, level: 2, side: L, participations: [2, 1, 0]}
+  - {cohort: L2R, count: 3, level: 2, side: R, participations: [3, 0, 0]}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      nothing_sent: true
+  - at: 2026-11-02 09:00
+    events: [{regular_no: B-1}]
+    expect:
+      absences: [{who: B-1, kind: justified}]
+      invitations:
+        - {cohort: L2L, count: 2, side_named: null, group: 3}
+        - {cohort: L2R, count: 1, side_named: null, group: 3}
+      missing: {total: 1}
+  - at: 2026-11-02 09:10
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {total: 0}
+final:
+  roster: {total: 16}

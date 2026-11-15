@@ -71,6 +71,7 @@ def test_render_copy_substitutes_every_placeholder():
             assert "{" not in title + body, (kind, lang, title, body)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REQUEST-ALERTS-1")
 def test_club_join_request_alerts_club_members_not_requester_and_respects_optout(app):
     from padel_app.services.club_service import create_club_join_request_service
     with app.app_context():
@@ -98,6 +99,7 @@ def test_club_join_request_alerts_club_members_not_requester_and_respects_optout
         assert "Open LevApp" in mail.call_args.kwargs["html"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REQUEST-ALERTS-1")
 def test_club_join_decision_alerts_requester_with_the_decision(app):
     from padel_app.services.club_service import (
         create_club_join_request_service, decide_club_join_request_service,
@@ -119,6 +121,7 @@ def test_club_join_decision_alerts_requester_with_the_decision(app):
         assert mail.call_count == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REQUEST-ALERTS-2")
 def test_claim_request_alerts_invited_account_then_coach_on_decision(app):
     from padel_app.models.players import Player
     from padel_app.models import Association_CoachPlayer
@@ -160,6 +163,7 @@ def test_claim_request_alerts_invited_account_then_coach_on_decision(app):
         assert "declined" in web.call_args.args[2]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REQUEST-ALERTS-3")
 def test_pending_coach_alerts_superadmins_and_approval_alerts_the_coach(app):
     # PAD-532: the pending-coach alert points at the staff console; without its URL it is skipped.
     app.config["ADMIN_CONSOLE_URL"] = "https://admin.levapp.app"
@@ -211,6 +215,7 @@ def test_channel_failure_never_fails_the_request(app):
         assert req.status == "pending"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REQUEST-ALERTS-5")
 def test_me_exposes_and_updates_request_alerts(client, app):
     with app.app_context():
         user = _user("Pref", "pref-232")

@@ -58,7 +58,7 @@ describe("EvaluationForm on iOS groups its rows (PAD-431)", () => {
     );
   }
 
-  it("Técnica heads Víbora, and is not itself a row to score", async () => {
+  it("[EVALUATIONS-COMPETENCIES-12] Técnica heads Víbora, and is not itself a row to score", async () => {
     const n = await renderForm();
     const group = n.byTestId("evaluation-group-10");
     expect(n.byTestId("evaluation-group-title-10").props.children).toBe("Técnica");

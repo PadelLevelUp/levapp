@@ -412,13 +412,13 @@ describe("resolveEventState / findNextEventId default to the club's clock (PAD-2
     vi.useRealTimers();
   });
 
-  it("a class starting in 30 Lisbon minutes is upcoming and next, whatever the device zone", () => {
+  it("[CALENDAR-VIEW-12] a class starting in 30 Lisbon minutes is upcoming and next, whatever the device zone", () => {
     const e = event({ id: "soon", date: "2027-07-15", startTime: "10:30", endTime: "11:30" });
     expect(resolveEventState(e)).toBe("future");
     expect(findNextEventId([e])).toBe("soon");
   });
 
-  it("a class that ended 30 Lisbon minutes ago is past, whatever the device zone", () => {
+  it("[CALENDAR-VIEW-12] a class that ended 30 Lisbon minutes ago is past, whatever the device zone", () => {
     const e = event({ id: "done", date: "2027-07-15", startTime: "08:30", endTime: "09:30" });
     expect(resolveEventState(e)).toBe("past");
     expect(findNextEventId([e])).toBeUndefined();
@@ -437,7 +437,7 @@ describe("the club's clock on the device's own DST nights (PAD-295)", () => {
     vi.useRealTimers();
   });
 
-  it("spring: a class ending at 03:15 is still on at 02:30 Lisbon on a Madrid device", () => {
+  it("[CALENDAR-VIEW-12] spring: a class ending at 03:15 is still on at 02:30 Lisbon on a Madrid device", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(Date.UTC(2027, 2, 28, 1, 30)));
     // 00:45–03:15 Lisbon: a device-local Madrid Date for the 03:15 end lands in
@@ -447,7 +447,7 @@ describe("the club's clock on the device's own DST nights (PAD-295)", () => {
     expect(findNextEventId([e])).toBe("dawn");
   });
 
-  it("autumn: a 01:45 class is ahead at both 01:30s Lisbon has that night", () => {
+  it("[CALENDAR-VIEW-12] autumn: a 01:45 class is ahead at both 01:30s Lisbon has that night", () => {
     const e = event({ id: "dusk", date: "2027-10-31", startTime: "01:45", endTime: "02:45" });
     vi.useFakeTimers();
     vi.setSystemTime(new Date(Date.UTC(2027, 9, 31, 0, 30))); // 01:30 WEST

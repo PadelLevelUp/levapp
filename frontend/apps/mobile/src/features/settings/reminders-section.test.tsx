@@ -112,7 +112,7 @@ const openReminders = async (n: N) => {
 };
 
 describe("iOS Reminders panel (PAD-776 part 3)", () => {
-  it("shows web's four controls once opened, with the saved values", async () => {
+  it("[NOTIFICATIONS-CONFIG-23] shows web's four controls once opened, with the saved values", async () => {
     const n = await mount();
     expect(n.queryByTestId("reminder-start-invitations")).toBeNull();
     await openReminders(n);
@@ -127,7 +127,7 @@ describe("iOS Reminders panel (PAD-776 part 3)", () => {
     expect(n.queryByTestId("reminder-hours-between")).not.toBeNull();
   });
 
-  it("an invitation-start change is held, then saved in one PATCH as web sends it", async () => {
+  it("[NOTIFICATIONS-CONFIG-23] an invitation-start change is held, then saved in one PATCH as web sends it", async () => {
     const n = await mount();
     await openReminders(n);
     await n.press("reminder-start-invitations-days-dec");
@@ -156,7 +156,7 @@ describe("iOS Reminders panel (PAD-776 part 3)", () => {
     expect(n.byTestId("reminder-per-student-count-dec").props.disabled).toBe(true);
   });
 
-  it("is disabled while the engine is off, as on web", async () => {
+  it("[NOTIFICATIONS-CONFIG-23] is disabled while the engine is off, as on web", async () => {
     const n = await mount({ ...CONFIG, autoNotifyEnabled: false });
     await openReminders(n);
     expect(n.byTestId("reminder-start-invitations-days-inc").props.disabled).toBe(true);
@@ -176,7 +176,7 @@ describe("iOS Reminders panel (PAD-776 part 3)", () => {
     expect(n.queryByTestId("past-due-dialog")).toBeNull();
   });
 
-  it("a Save that does not carry the timing never asks", async () => {
+  it("[NOTIFICATIONS-CONFIG-24] a Save that does not carry the timing never asks", async () => {
     const n = await mount();
     api.updateNotificationConfig.mockImplementationOnce(async (patch: object) => ({
       ...CONFIG, ...patch, pastDue: { reminders: PAST(1), quietUntil: null },
@@ -199,7 +199,7 @@ describe("iOS past-due question (rule 10f)", () => {
     return n;
   };
 
-  it("closing is 'do not send': nothing is sent and the class is not asked about again", async () => {
+  it("[NOTIFICATIONS-CONFIG-24] closing is 'do not send': nothing is sent and the class is not asked about again", async () => {
     const n = await askAbout(1);
     expect(n.queryByTestId("past-due-dialog")).not.toBeNull();
     await n.press("past-due-decline");
@@ -215,7 +215,7 @@ describe("iOS past-due question (rule 10f)", () => {
     expect(n.queryByTestId("past-due-dialog")).toBeNull();
   });
 
-  it("a yes sends every class, in parts of PAST_DUE_SEND_MAX, and says what happened", async () => {
+  it("[NOTIFICATIONS-CONFIG-24] a yes sends every class, in parts of PAST_DUE_SEND_MAX, and says what happened", async () => {
     const n = await askAbout(3);
     expect(n.queryByTestId("past-due-list")).not.toBeNull();
     await n.press("past-due-send");
@@ -225,7 +225,7 @@ describe("iOS past-due question (rule 10f)", () => {
     expect(toastApi.success).toHaveBeenCalledWith("settings.engine.pastDue.sentMany");
   });
 
-  it("a failed send keeps the dialog open with the error; trying again sends", async () => {
+  it("[NOTIFICATIONS-CONFIG-24] a failed send keeps the dialog open with the error; trying again sends", async () => {
     const n = await askAbout(1);
     api.sendPastDueReminders.mockRejectedValueOnce(new Error("offline"));
     await n.press("past-due-send");

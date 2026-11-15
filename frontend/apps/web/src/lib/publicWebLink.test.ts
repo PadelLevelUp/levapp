@@ -11,17 +11,17 @@ import { publicWebLink } from "./publicWebLink";
  * serves the app, so links built from the browsed address printed the old domain.
  */
 describe("publicWebLink", () => {
-  it("joins the origin and the path with exactly one slash", () => {
+  it("[PLAYERS-JOIN-TOKEN-1] joins the origin and the path with exactly one slash", () => {
     expect(publicWebLink("https://levapp.app", "/join/coach/abc")).toBe("https://levapp.app/join/coach/abc");
     expect(publicWebLink("https://levapp.app/", "join/coach/abc")).toBe("https://levapp.app/join/coach/abc");
     expect(publicWebLink("https://levapp.app//", "//register/7?t=x")).toBe("https://levapp.app/register/7?t=x");
   });
 
-  it("keeps an already absolute link as the server sent it", () => {
+  it("[PLAYERS-JOIN-TOKEN-1] keeps an already absolute link as the server sent it", () => {
     expect(publicWebLink("https://levapp.app", "https://staging.levapp.app/invite/player/t")).toBe("https://staging.levapp.app/invite/player/t");
   });
 
-  it("an empty path is the origin itself", () => {
+  it("[PLAYERS-JOIN-TOKEN-1] an empty path is the origin itself", () => {
     expect(publicWebLink("https://levapp.app/", "")).toBe("https://levapp.app");
   });
 });

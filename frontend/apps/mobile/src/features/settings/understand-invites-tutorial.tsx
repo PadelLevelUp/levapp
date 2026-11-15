@@ -41,6 +41,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { isNewEngineSimulation, NewEngineResults } from "./understand-invites-new-engine";
 
 /**
  * PAD-196 — "Understand invites" on iOS (settings.tutorials rules 3–9).
@@ -234,7 +235,12 @@ export function UnderstandInvitesTutorial() {
                 </Text>
               )}
               {simulationQuery.data && (
-                <SimulationResults simulation={simulationQuery.data} request={request} />
+                // PAD-920 (settings.tutorials NT1–NT4): a new-engine session's answer is per spot type.
+                isNewEngineSimulation(simulationQuery.data) ? (
+                  <NewEngineResults simulation={simulationQuery.data} displayName={displayName} />
+                ) : (
+                  <SimulationResults simulation={simulationQuery.data} request={request} />
+                )
               )}
             </View>
           )}

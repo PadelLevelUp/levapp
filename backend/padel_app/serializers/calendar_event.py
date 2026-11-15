@@ -89,6 +89,10 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
             obj.start_datetime, obj.end_datetime, override_date=override_date, now=now
         ),
     }
+    # PAD-918 (notifications.config rule 20, CONFIG-74): a class says its engine and the side-choice flag.
+    from padel_app.services.engine_readers import class_engine_fields
+
+    event.update(class_engine_fields(obj))
 
     # --- LessonInstance ---
     if obj.model_name == "LessonInstance":

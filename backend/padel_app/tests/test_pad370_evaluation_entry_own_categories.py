@@ -61,6 +61,7 @@ def _entries(app):
         return [(e.coach_player_id, e.category_id, e.score) for e in EvaluationEntry.query.order_by(EvaluationEntry.id)]
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-5")
 def test_a_score_in_the_coachs_own_category_is_written(app, client):
     ids = _seed(app)
 
@@ -70,6 +71,7 @@ def test_a_score_in_the_coachs_own_category_is_written(app, client):
     assert _entries(app) == [(ids["rel_id"], ids["forehand_id"], 4.0)]
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-5")
 def test_a_score_in_another_coachs_category_is_ignored(app, client):
     ids = _seed(app)
 
@@ -80,6 +82,7 @@ def test_a_score_in_another_coachs_category_is_ignored(app, client):
     assert _entries(app) == []
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-5")
 def test_the_profile_never_carries_another_coachs_category(app, client):
     ids = _seed(app)
     _save(app, client, ids, [{"categoryId": ids["serve_id"], "value": 3}, {"categoryId": ids["forehand_id"], "value": 4}])
@@ -89,6 +92,7 @@ def test_the_profile_never_carries_another_coachs_category(app, client):
     assert [e["categoryName"] for e in res.get_json()["evaluations"]] == ["Forehand"]
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-5")
 def test_an_unknown_or_malformed_category_id_is_ignored_and_the_other_scores_are_kept(app, client):
     ids = _seed(app)
 

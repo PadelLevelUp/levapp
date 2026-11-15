@@ -52,6 +52,7 @@ def _count(app, model):
 
 # --- Student signs up and is signed in ------------------------------------
 
+@pytest.mark.criterion("AUTH-REGISTER-6")
 def test_student_signs_up_and_is_signed_in(client, app):
     from padel_app.models import Association_CoachPlayer, Association_PlayerClub, Coach, Player, User
 
@@ -81,6 +82,7 @@ def test_student_signs_up_and_is_signed_in(client, app):
 
 # --- Coach signs up and is pending approval --------------------------------
 
+@pytest.mark.criterion("AUTH-REGISTER-7")
 def test_coach_signs_up_and_is_pending_approval(client, app):
     from padel_app.models import Association_CoachClub, Club, Coach, User
 
@@ -114,6 +116,7 @@ def test_coach_is_approved_at_signup_when_gate_is_off(client, app):
 
 # --- A club key at signup is ignored ---------------------------------------
 
+@pytest.mark.criterion("AUTH-REGISTER-8")
 def test_club_key_at_signup_is_ignored(client, app):
     from padel_app.models import Club
 
@@ -128,6 +131,7 @@ def test_club_key_at_signup_is_ignored(client, app):
 
 # --- Pending coach cannot reach club-scoped endpoints ----------------------
 
+@pytest.mark.criterion("AUTH-REGISTER-9")
 def test_pending_coach_cannot_reach_club_scoped_endpoints(client, app):
     from padel_app.models import Club, Coach, User
 
@@ -156,6 +160,7 @@ def test_pending_coach_cannot_reach_club_scoped_endpoints(client, app):
 
 # --- Taken username and taken email are 409 with the field named ----------
 
+@pytest.mark.criterion("AUTH-REGISTER-12")
 def test_taken_username_and_email_are_409_with_field(client, app):
     assert client.post("/api/auth/register", json=_student()).status_code == 201
 
@@ -170,6 +175,7 @@ def test_taken_username_and_email_are_409_with_field(client, app):
 
 # --- Placeholder-looking username is rejected ------------------------------
 
+@pytest.mark.criterion("AUTH-REGISTER-13")
 def test_placeholder_username_is_rejected(client, app):
     from padel_app.models import User
 

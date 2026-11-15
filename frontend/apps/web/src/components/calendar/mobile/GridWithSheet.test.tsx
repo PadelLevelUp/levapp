@@ -40,7 +40,7 @@ const props = {
 };
 
 describe("GridWithSheet (PAD-436)", () => {
-  it("renders no time grid under a block above (Mês)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-23] renders no time grid under a block above (Mês)", () => {
     render(<GridWithSheet {...props} above={<div data-testid="month-grid-stub" />} />);
     expect(screen.getByTestId("month-grid-stub")).toBeTruthy();
     expect(screen.queryByTestId("calendar-time-grid")).toBeNull();
@@ -59,7 +59,7 @@ describe("GridWithSheet (PAD-436)", () => {
  * clearance, following the sheet's committed position. Criterion "The last hour clears the sheet".
  */
 describe("GridWithSheet bottom inset (PAD-790)", () => {
-  it("is the part the sheet covers at rest, and follows the sheet raised and lowered", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-17] is the part the sheet covers at rest, and follows the sheet raised and lowered", async () => {
     const height = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
     Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => 800 });
     try {

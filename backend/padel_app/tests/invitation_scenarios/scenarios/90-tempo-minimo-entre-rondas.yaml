@@ -1,0 +1,50 @@
+id: 90
+title: tempo mínimo entre rondas
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1945, 1967]}
+what_it_tests: o tempo entre rondas não pode ser 0, para que os convites por vaga sejam sempre respeitados
+tags: [method-c, timers, rounds, groups]
+depends_on: [U12, U14]
+corrections: []
+notes: >
+  Method C with times for group 3 only, as the PDF gives them; group 4 has one round. 1 minute between rounds
+  is the minimum (line 166); today's floor is 15 minutes (U14). 20:02 is 60 minutes after group 3's last round
+  at 19:02. The 20:15 Aviso probe is derived from "Os outros convidados veem o Aviso se disserem Sim" (R9).
+
+settings:
+  timing:
+    method: C
+    per_group:
+      3: {between_rounds: 1m, to_next_group: 60m}
+tick_every: 1m
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 9, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:01
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:02
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 20:02
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-01 20:10
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 20:15
+    derived: true
+    events: [{accepts: {cohort: L3R, state: invited, as: b}}]
+    expect: {messages: [{who: b, kind: aviso}]}
+final:
+  roster: {L: 8, R: 8}

@@ -1,0 +1,48 @@
+id: 26
+title: quem entrou automaticamente diz Não
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [716, 736]}
+what_it_tests: quem entra automaticamente pode sair pelo lembrete, e a vaga volta ao processo de convites
+tags: [coach-list, waiting-list, reminders, cancellation, absences]
+depends_on: [U16, U20]
+corrections: []
+notes: >
+  Setup step at 1 Nov 19:00 (derived), when the class is full. W1's No to the reminder is a `cancels`
+  event (a placed auto-entrant who is no longer going). The No is not an absence, per the glossary and the
+  confirmed decision (cenarios.txt 2095-2096), so `kind: none`. The confirmed decision also takes W1 off
+  the waiting list (U20), so at 18:00 the lists are empty and group 3 is invited. W1 has no level (level
+  null).
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: W1, level: null, side: R}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    derived: true
+    events:
+      - {coach_adds_to_waiting_list: W1, side: R}
+    expect: {invitations: none}
+  - at: 2026-11-02 09:00
+    events: [{regular_no: R-1}]
+    expect:
+      placed: [{who: W1, side: R, how: auto_from_waiting_list}]
+      messages: [{who: W1, kind: added}]
+      invitations: none
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, W1]}
+  - at: 2026-11-02 18:00
+    events: [{cancels: W1}]
+    expect:
+      absences: [{who: W1, kind: none}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 18:10
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

@@ -61,6 +61,7 @@ def _webpush_gone(**kwargs):
     raise exc
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-29")
 def test_a_re_subscribe_between_submit_and_delivery_is_not_deleted(app, async_sender, monkeypatch):
     """Finding 1: the row was refreshed in place; the stale endpoint is gone already."""
     from padel_app.models import PushSubscription
@@ -99,6 +100,7 @@ def test_a_re_subscribe_between_submit_and_delivery_is_not_deleted(app, async_se
         assert db.session.get(PushSubscription, sub_id) is None
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-29")
 def test_a_full_queue_drops_the_oldest_push_not_the_newest(app, async_sender, caplog):
     """Finding 2a: the newest push (a reminder) is kept; the oldest is dropped and logged."""
     release = threading.Event()
@@ -122,6 +124,7 @@ def test_a_full_queue_drops_the_oldest_push_not_the_newest(app, async_sender, ca
     assert ran == ["middle", "newest"]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-29")
 def test_consecutive_slow_deliveries_open_the_circuit_and_it_closes_after_the_cooldown(app, async_sender, caplog, monkeypatch):
     """Finding 2b: after N slow deliveries the sender stops queueing for a while."""
     monkeypatch.setattr(async_sender, "SLOW_SECONDS", 0.05)

@@ -73,6 +73,7 @@ def _hold_row(app, hold):
 # ── the four refused gestures ────────────────────────────────────────────────
 
 @pytest.mark.parametrize("gesture,scope", [("move", "single"), ("move", "future"), ("delete", "single"), ("delete", "future")])
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-28")
 def test_a_scoped_change_to_a_live_hold_is_refused_and_changes_nothing(client, app, gesture, scope):
     ids = _setup(app)
     rid, hold = _weekly_request(app, ids)
@@ -89,6 +90,7 @@ def test_a_scoped_change_to_a_live_hold_is_refused_and_changes_nothing(client, a
 
 # ── what rule 3 keeps ────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-28")
 def test_the_whole_hold_can_still_be_deleted_by_the_coach(client, app):
     """Rule 3: a plain block the coach may see and even delete — deleting it does not decide the request."""
     ids = _setup(app)
@@ -98,6 +100,7 @@ def test_the_whole_hold_can_still_be_deleted_by_the_coach(client, app):
     assert _hold_row(app, hold) is None
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-28")
 def test_a_scoped_change_to_an_ordinary_block_is_still_allowed(client, app):
     """The refusal is about holds. A block that no open request points at keeps PAD-371's split."""
     from padel_app.models.calendar_blocks import CalendarBlock
@@ -116,6 +119,7 @@ def test_a_scoped_change_to_an_ordinary_block_is_still_allowed(client, app):
         assert CalendarBlock.query.filter_by(user_id=ids["coach_user_id"]).count() == 3, "truncated + one-off + resumed (PAD-371)"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-13")
 def test_a_closed_requests_former_hold_is_an_ordinary_block(client, app):
     """Once the request is withdrawn the hold is gone (rule 18); a block that survives is nobody's hold."""
     from padel_app.services.class_request_service import withdraw_class_request_service
@@ -147,6 +151,7 @@ def _feed_items(client, app, ids, block_id):
     return [e for e in res.get_json() if e.get("type") == "block" and e.get("originalId") == block_id]
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-28")
 def test_a_live_hold_says_which_request_it_holds_on_detail_and_on_every_feed_item(client, app):
     ids = _setup(app)
     rid, hold = _weekly_request(app, ids)
@@ -156,6 +161,7 @@ def test_a_live_hold_says_which_request_it_holds_on_detail_and_on_every_feed_ite
     assert {e["requestHoldOf"] for e in items} == {rid}
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-28")
 def test_a_retitled_hold_is_the_coachs_and_says_so(client, app):
     """PAD-378: a retitled block is the coach's even while the request still points at it."""
     from padel_app.models.calendar_blocks import CalendarBlock
@@ -170,6 +176,7 @@ def test_a_retitled_hold_is_the_coachs_and_says_so(client, app):
     assert _move(client, app, ids, hold, "single").status_code == 204, "and it is not refused"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-28")
 def test_an_ordinary_block_and_a_closed_requests_leftover_pointer_say_null(client, app):
     """A block nobody points at, and a pre-PAD-360 row (closed, pointer never cleared —
     written with raw SQL so no hook runs): neither is a live hold."""

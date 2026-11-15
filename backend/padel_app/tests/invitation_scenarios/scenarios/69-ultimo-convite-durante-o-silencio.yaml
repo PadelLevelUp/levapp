@@ -1,0 +1,46 @@
+id: 69
+title: a hora do último convite calha durante o silêncio
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1526, 1545]}
+what_it_tests: numa aula cedo, a hora do último convite corta os envios antes de o silêncio terminar
+tags: [quiet-hours, last-invite, absences]
+depends_on: [U29]
+corrections: []
+notes: >
+  The class is at 07:30, so the last invitation is at 05:30 (2 h before) and the justified-absence cutoff is
+  2 Nov 19:30 (12 h before). R-1's No at 23:50 is after it: unjustified (U29). Nothing goes out at 00:00 (the
+  10-minute-old round has not expired), at 05:30 (silence) or at 07:00 (past the last invitation).
+
+class:
+  level: 3
+  capacity: 16
+  start: 2026-11-03 07:30
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 6, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 23:50
+    events: [{regular_no: R-1}]
+    expect:
+      absences: [{who: R-1, kind: unjustified}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-03 00:00
+    expect:
+      invitations: none
+  - at: 2026-11-03 05:30
+    expect:
+      invitations: none
+  - at: 2026-11-03 07:00
+    expect:
+      invitations: none
+      invitations_total_sent: 3
+  - at: 2026-11-03 07:10
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

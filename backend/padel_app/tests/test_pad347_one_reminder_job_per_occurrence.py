@@ -10,6 +10,7 @@ and every restart / daily window extension / settings save re-created the pair.
 
 Covered spec: notifications.reminders rule 20 and its three criteria.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -104,6 +105,7 @@ def _arm_and_materialise(app, sched, ids):
     return inst, occ_id, f"reminder_{inst.id}"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-9")
 def test_materialising_leaves_one_reminder_job(app, live_scheduler):
     """Criterion 'Materialising an occurrence leaves one reminder job'."""
     ids = _seed(app)
@@ -116,6 +118,7 @@ def test_materialising_leaves_one_reminder_job(app, live_scheduler):
         assert sorted(jobs) == [inst_id]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-10")
 def test_rearm_does_not_bring_the_pair_back(app, live_scheduler):
     """Criterion 'The re-arm does not bring the pair back': the startup re-arm
     and the daily window extension both go through the lesson-occurrence
@@ -145,6 +148,7 @@ def test_canceled_instance_gets_no_reminder_job(app, live_scheduler):
         assert _reminder_jobs(live_scheduler) == {}, sorted(_reminder_jobs(live_scheduler))
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-11")
 def test_two_reminders_are_two_passes_not_one_minute(app, live_scheduler):
     """Criterion 'Two reminders are two passes, not one minute': with
     reminder_count=2, running every armed job once sends ONE reminder; the

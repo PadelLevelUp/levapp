@@ -30,7 +30,7 @@ beforeEach(() => {
 afterEach(() => localStorage.clear());
 
 describe("the install-app banner", () => {
-  it("a student on an iPhone sees it, with the App Store link", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-1] a student on an iPhone sees it, with the App Store link", () => {
     render(<InstallAppBanner />);
     const banner = screen.getByTestId("install-app-banner");
     expect(banner).toBeTruthy();
@@ -38,7 +38,7 @@ describe("the install-app banner", () => {
     expect(banner).toHaveTextContent(/App Store/);
   });
 
-  it("a coach never, a desktop never, nobody signed in never", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-3] a coach never, a desktop never, nobody signed in never", () => {
     auth.user = { id: 1, roles: ["coach"] };
     const { unmount } = render(<InstallAppBanner />);
     expect(screen.queryByTestId("install-app-banner")).toBeNull();
@@ -56,7 +56,7 @@ describe("the install-app banner", () => {
     expect(screen.queryByTestId("install-app-banner")).toBeNull();
   });
 
-  it("'Agora não' removes it and stores the instant; a fresh mount stays hidden", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-2] 'Agora não' removes it and stores the instant; a fresh mount stays hidden", () => {
     const { unmount } = render(<InstallAppBanner />);
     fireEvent.click(screen.getByTestId("install-app-dismiss"));
     expect(screen.queryByTestId("install-app-banner")).toBeNull();
@@ -68,7 +68,7 @@ describe("the install-app banner", () => {
     expect(screen.queryByTestId("install-app-banner")).toBeNull();
   });
 
-  it("a dismissal older than 30 days no longer hides it", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-2] a dismissal older than 30 days no longer hides it", () => {
     localStorage.setItem(INSTALL_SUGGESTION_STORAGE_KEY, String(Date.now() - 31 * 24 * 60 * 60 * 1000));
     render(<InstallAppBanner />);
     expect(screen.getByTestId("install-app-banner")).toBeTruthy();

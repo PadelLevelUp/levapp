@@ -30,13 +30,13 @@ function texts(n: Native): string[] {
 }
 
 describe("ConversationItem — a deleted last message (PAD-639)", () => {
-  it("shows the live last message's text", async () => {
+  it("[MESSAGING-CONVERSATIONS-28] shows the live last message's text", async () => {
     const n = await renderNative(<ConversationItem conversation={conversation({ lastMessageDeleted: false })} onPress={() => {}} />);
     expect(texts(n)).toContain("See you Monday");
     expect(texts(n)).not.toContain("messages.messageDeleted");
   });
 
-  it("shows 'Message deleted' when the last message was deleted", async () => {
+  it("[MESSAGING-CONVERSATIONS-28] shows 'Message deleted' when the last message was deleted", async () => {
     const n = await renderNative(
       <ConversationItem conversation={conversation({ lastMessage: "", lastMessageDeleted: true })} onPress={() => {}} />
     );

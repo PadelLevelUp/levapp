@@ -3,6 +3,7 @@ POST /edit_class are routed by `scope`. "single" (this occurrence) writes or
 deletes the occurrence's Presence row only; "future" (this and following) puts
 the player on the series roster (Association_PlayerLesson of the lesson the edit
 lands on)."""
+import pytest
 import json
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -76,6 +77,7 @@ def _setup(app):
     return ids["student_id"], bruno, lesson_id, instance_id, day
 
 
+@pytest.mark.criterion("CLASSES-EDIT-5")
 def test_single_scope_add_enrols_the_occurrence_only(app):
     ana, bruno, lesson_id, instance_id, day = _setup(app)
     result, status = _edit(app, instance_id, day, "single", {"addPlayers": [bruno]})
@@ -87,6 +89,7 @@ def test_single_scope_add_enrols_the_occurrence_only(app):
         assert ana in _roster(lesson_id)
 
 
+@pytest.mark.criterion("CLASSES-EDIT-5")
 def test_future_scope_add_puts_the_player_on_the_series_roster(app):
     ana, bruno, lesson_id, instance_id, day = _setup(app)
     result, status = _edit(app, instance_id, day, "future", {"addPlayers": [bruno]})

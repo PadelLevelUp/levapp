@@ -1,0 +1,38 @@
+id: 14
+title: máximo mais baixo do que os convites por vaga
+source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [486, 502]}
+what_it_tests: o máximo em simultâneo prevalece sobre os convites por vaga
+tags: [max-open, rounds]
+depends_on: []
+corrections: []
+notes: >
+  Each round would send X x spots = 3 but is capped at M = 2 (R10, R11). Rounds continue every 20 min
+  while 4 and then 6 invitations are open (R3).
+
+settings:
+  max_open: 2
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 6, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+      open_unanswered: 4
+  - at: 2026-11-01 19:40
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+      open_unanswered: 6
+  - at: 2026-11-01 19:50
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

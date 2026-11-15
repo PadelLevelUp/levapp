@@ -4,7 +4,7 @@
  * Lesson + LessonInstance titled "E2E Auto-Reminder Test" at club-now + 48h
  * and hands the caller no way to remove it. Nothing ever did, so on a Tuesday
  * afternoon the leaked classes land on the seed's "next Thursday 16:00" slot
- * (.cortex/compass/bugs/B-131-a-debug-endpoints-test-class-was-never-removed.md).
+ * (cortex/history/incidents/2026-09-22-a-debug-endpoints-test-class-was-never-removed.md).
  *
  * This calls its cleanup counterpart, `POST
  * /api/app/notify/debug/schedule_reminder_test/cleanup`, which deletes every

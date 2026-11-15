@@ -5,6 +5,7 @@ capacity no longer supports, and the two-minute tick reconciles before sending,
 so a coach add, a walk-in or an import never leaves the engine inviting for a
 full class. Four criteria, one test each.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -75,6 +76,7 @@ def _decline(instance_id, player_id):
     db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-23")
 def test_a_coach_add_closes_the_open_vacancy(app):
     """Rule 13: Bob declined (vacancy open, Carol invited); the coach adds Dave →
     Bob's vacancy is filled by Dave, Carol's invitation expires, next tick sends nothing."""
@@ -105,6 +107,7 @@ def test_a_coach_add_closes_the_open_vacancy(app):
         assert NotificationEvent.query.count() == before, "no batch for a closed vacancy"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-24")
 def test_the_tick_closes_a_vacancy_the_engine_would_keep_inviting_for(app):
     """Rule 13: a full class (2/2) with a structural vacancy nobody closed → the
     tick fills it (no player) and sends no invitation."""
@@ -122,6 +125,7 @@ def test_the_tick_closes_a_vacancy_the_engine_would_keep_inviting_for(app):
         assert NotificationEvent.query.filter_by(vacancy_id=vacancy_id).count() == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-25")
 def test_only_as_many_vacancies_close_as_spots_were_taken(app):
     """Rule 13: 1/3 enrolled, two structural vacancies (as many as the open spots);
     the coach adds Bob → exactly one closes, one stays open."""
@@ -139,6 +143,7 @@ def test_only_as_many_vacancies_close_as_spots_were_taken(app):
         assert statuses == ["filled", "open"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-26")
 def test_a_dismissed_vacancy_closes_only_when_the_class_is_full(app):
     """Rule 13 + semi-auto rule 7: a dismissed vacancy stays open on the tick while
     a spot is free; the coach add that fills the class closes it, approval kept."""

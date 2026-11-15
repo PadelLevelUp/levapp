@@ -59,6 +59,7 @@ def _post(client, app, user_id, token):
     ("", "other"),
     (None, "other"),
 ])
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-8")
 def test_the_shape_is_decided_in_one_place(token, shape):
     from padel_app.utils.push_token_shape import is_expo_push_token, token_shape
 
@@ -66,6 +67,7 @@ def test_the_shape_is_decided_in_one_place(token, shape):
     assert is_expo_push_token(token) is (shape == "expo")
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-8")
 def test_a_raw_device_token_is_answered_200_and_not_stored(client, app, coach, caplog):
     with caplog.at_level(logging.INFO, logger="padel_app"):
         res = _post(client, app, coach, RAW)
@@ -77,6 +79,7 @@ def test_a_raw_device_token_is_answered_200_and_not_stored(client, app, coach, c
     assert RAW not in lines[0] and RAW[-8:] not in lines[0]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-8")
 def test_a_raw_token_the_caller_already_held_is_removed(client, app, coach):
     _seed(app, coach, RAW)
     _seed(app, coach, EXPO)
@@ -85,11 +88,13 @@ def test_a_raw_token_the_caller_already_held_is_removed(client, app, coach):
     assert _tokens(app, coach) == [EXPO]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-8")
 def test_an_expo_token_is_still_stored(client, app, coach):
     assert _post(client, app, coach, EXPO).status_code == 200
     assert _tokens(app, coach) == [EXPO]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-9")
 def test_unregister_with_a_raw_token_removes_every_expo_row_of_the_caller(client, app, coach):
     other = _other_user(app)
     _seed(app, coach, EXPO)
@@ -102,6 +107,7 @@ def test_unregister_with_a_raw_token_removes_every_expo_row_of_the_caller(client
     assert _tokens(app, other) == ["ExponentPushToken[other741]"]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-9")
 def test_unregister_with_an_expo_token_removes_only_that_row(client, app, coach):
     _seed(app, coach, EXPO)
     _seed(app, coach, EXPO_2)
@@ -110,6 +116,7 @@ def test_unregister_with_an_expo_token_removes_only_that_row(client, app, coach)
     assert _tokens(app, coach) == [EXPO_2]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-9")
 def test_logout_with_a_raw_push_token_removes_every_expo_row_of_the_caller(client, app, coach):
     other = _other_user(app)
     _seed(app, coach, EXPO)
@@ -120,6 +127,7 @@ def test_logout_with_a_raw_push_token_removes_every_expo_row_of_the_caller(clien
     assert _tokens(app, other) == [EXPO]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-9")
 def test_logout_with_an_expo_push_token_is_unchanged(client, app, coach):
     _seed(app, coach, EXPO)
     _seed(app, coach, EXPO_2)

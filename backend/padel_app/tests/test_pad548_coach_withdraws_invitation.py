@@ -47,6 +47,10 @@ def _collect_publishes(monkeypatch):
     monkeypatch.setattr("padel_app.services.notification_service.publish",
                         lambda event, recipients: seen.append((event["type"], event.get("payload"), list(recipients))))
     monkeypatch.setattr("padel_app.services.notification_service.send_push_notification", lambda **kw: None)
+    # PAD-914: messages publish from system_messages; the same recorder sees them.
+    monkeypatch.setattr("padel_app.services.system_messages.publish",
+                        lambda event, recipients: seen.append((event["type"], event.get("payload"), list(recipients))))
+    monkeypatch.setattr("padel_app.services.system_messages.send_push_notification", lambda **kw: None)
     return seen
 
 
@@ -91,6 +95,7 @@ def test_the_payload_carries_outcome_answer_and_who_answered(app, monkeypatch):
 
 # ── rule 19: the withdrawal ───────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-89")
 def test_the_coach_withdraws_a_pending_invitation(app, monkeypatch):
     from padel_app.models import Message
     from padel_app.models.waiting_list_entry import WaitingListEntry
@@ -129,6 +134,7 @@ def test_the_coach_withdraws_a_pending_invitation(app, monkeypatch):
         assert any(p["notificationEventId"] == event.id and p["response"] == "withdrawn" for p in responded), seen
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-90")
 def test_a_withdrawn_student_is_not_asked_again_but_may_be_invited_by_hand(app, monkeypatch):
     from padel_app.services.invite_simulation_service import explain_player
     from padel_app.services.notification_service import (
@@ -152,6 +158,7 @@ def test_a_withdrawn_student_is_not_asked_again_but_may_be_invited_by_hand(app, 
         assert len(manual) == 1 and manual[0].status == "sent"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-94")
 def test_a_late_yes_on_a_withdrawn_invitation_is_refused(app, monkeypatch):
     from padel_app.services.notification_service import trigger_invitations, withdraw_invitation
     from padel_app.tests.helpers import pin_clock
@@ -245,6 +252,7 @@ def test_answers_say_who_gave_them(app, monkeypatch):
 # ── Postgres: a withdrawal racing the student's yes ───────────────────────────
 
 @_POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-95")
 def test_a_withdrawal_racing_a_yes_waits_for_the_lock_and_the_yes_wins(app, monkeypatch):
     """The yes holds rule 10's locks from its first read to its single commit; the withdrawal
     waits and then finds the invitation confirmed. Never enrolled-and-withdrawn. With the
@@ -306,6 +314,7 @@ def test_a_withdrawal_racing_a_yes_waits_for_the_lock_and_the_yes_wins(app, monk
 
 
 @_POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-95")
 def test_a_yes_racing_a_withdrawal_waits_for_the_lock_and_the_withdrawal_wins(app, monkeypatch):
     """The other order: the withdrawal holds rule 10's locks, its retire flushed; the student's
     yes reaches its own vacancy lock and waits. After the withdrawal's commit the yes re-reads

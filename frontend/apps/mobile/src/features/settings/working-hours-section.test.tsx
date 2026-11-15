@@ -61,7 +61,7 @@ const sundayState = (n: { queryByTestId: (id: string) => unknown }) =>
   n.queryByTestId("working-hours-day-sun-off") ? "off" : n.queryByTestId("working-hours-day-sun-working") ? "working" : "absent";
 
 describe("working-hours-section (iOS) — a late load never undoes an edit (PAD-392)", () => {
-  it("keeps a day switched off when the language settles afterwards", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-4] keeps a day switched off when the language settles afterwards", async () => {
     const n = await renderNative(<WorkingHoursSection />);
     await n.flush();
     expect(sundayState(n)).toBe("working");
@@ -76,7 +76,7 @@ describe("working-hours-section (iOS) — a late load never undoes an edit (PAD-
     expect(sundayState(n)).toBe("off");
   });
 
-  it("loads the week once, however often the language changes", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-4] loads the week once, however often the language changes", async () => {
     const n = await renderNative(<WorkingHoursSection />);
     await n.flush();
     for (let i = 0; i < 3; i++) {
@@ -87,7 +87,7 @@ describe("working-hours-section (iOS) — a late load never undoes an edit (PAD-
     expect(getCoachWorkingHours).toHaveBeenCalledTimes(1);
   });
 
-  it("still shows what the server holds when nothing was touched", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-4] still shows what the server holds when nothing was touched", async () => {
     getCoachWorkingHours.mockResolvedValue({ workingHours: { mon: [["09:00", "13:00"]], tue: [], wed: [["08:00", "22:00"]], thu: [["08:00", "22:00"]], fri: [["08:00", "22:00"]], sat: [["08:00", "22:00"]], sun: [] } });
     const n = await renderNative(<WorkingHoursSection />);
     await n.flush();
@@ -142,7 +142,7 @@ async function mountWithRegistry() {
 }
 
 describe("WorkingHoursSection waits for the screen's Save (settings.explicit-save, PAD-506)", () => {
-  it("toggling a day -> unsaved and nothing sent; toggling back -> clean; Save sends the week and reads clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-10] toggling a day -> unsaved and nothing sent; toggling back -> clean; Save sends the week and reads clean", async () => {
     putCoachWorkingHours.mockImplementation((value: unknown) =>
       Promise.resolve({ workingHours: value })
     );
@@ -168,7 +168,7 @@ describe("WorkingHoursSection waits for the screen's Save (settings.explicit-sav
     expect(sundayState(n)).toBe("off");
   });
 
-  it("a failed save leaves the section unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed save leaves the section unsaved", async () => {
     putCoachWorkingHours.mockRejectedValue(new Error("network"));
     const { n, registry } = await mountWithRegistry();
 
@@ -180,7 +180,7 @@ describe("WorkingHoursSection waits for the screen's Save (settings.explicit-sav
     expect(sundayState(n)).toBe("off");
   });
 
-  it("a refusal naming a day shows that day's error and stays unsaved", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-2] a refusal naming a day shows that day's error and stays unsaved", async () => {
     putCoachWorkingHours.mockRejectedValue({ response: { data: { code: "INVALID_WORKING_HOURS", day: "mon" } } });
     const { n, registry } = await mountWithRegistry();
 
@@ -191,7 +191,7 @@ describe("WorkingHoursSection waits for the screen's Save (settings.explicit-sav
     expect(registry().hasUnsaved()).toBe(true);
   });
 
-  it("clear is held: it is unsaved, sends nothing, and Save stores no working hours (null)", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-3] clear is held: it is unsaved, sends nothing, and Save stores no working hours (null)", async () => {
     getCoachWorkingHours.mockResolvedValue({ workingHours: STORED });
     putCoachWorkingHours.mockResolvedValue({ workingHours: null });
     const { n, registry } = await mountWithRegistry();

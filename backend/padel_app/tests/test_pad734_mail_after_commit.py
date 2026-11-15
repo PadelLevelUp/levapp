@@ -60,34 +60,47 @@ def silent_smtp(app, monkeypatch):
     server.close()
 
 
+class _Stall:
+    """What the stalled mail server saw: ``calls`` holds, per send, how many commits came before
+    it; ``returned`` grows only once a send has been let go. A response that arrives while
+    ``returned`` is still empty did not wait for the mail: that is the proof, with no clock."""
+
+    def __init__(self):
+        self.calls = []
+        self.returned = []
+
+
 @pytest.fixture
 def stalled_mail(app, monkeypatch, commits):
-    """send_email blocks until the test ends; each call records how many commits came before it.
-    Dispatch runs on its real thread (MAIL_DISPATCH_INLINE off)."""
+    """send_email blocks until the test ends (bounded at 10 s); each call records how many commits
+    came before it, and ``returned`` records when the send was let go. Dispatch runs on its real
+    thread (MAIL_DISPATCH_INLINE off)."""
     from padel_app.tools import email_tools
 
     release = threading.Event()
-    calls = []
+    stall_state = _Stall()
 
     def stall(subject, recipients, body=None, html=None):
-        calls.append(commits["n"])
+        stall_state.calls.append(commits["n"])
         release.wait(10)
+        stall_state.returned.append(time.monotonic())
         return "Sent"
 
     monkeypatch.setattr(email_tools, "send_email", stall)
     monkeypatch.setitem(app.config, "MAIL_DISPATCH_INLINE", False)
-    yield calls
+    yield stall_state
     release.set()
     for thread in threading.enumerate():
         if thread.name == "mail-send":
             thread.join(5)
 
 
-def _wait_for(calls):
+def _wait_for(stall):
+    """The send has begun (or 3 s passed). Returns the per-send commit counts."""
     deadline = time.monotonic() + 3
-    while not calls and time.monotonic() < deadline:
+    while not stall.calls and time.monotonic() < deadline:
         time.sleep(0.01)
-    return calls
+    return stall.calls
 
 
 def _register(client):
@@ -128,6 +141,7 @@ def _incidents():
 
 # ── the SMTP timeout ─────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-9")
 def test_a_silent_mail_server_times_out_and_is_recorded(app, silent_smtp):
     from padel_app.tools import email_tools
 
@@ -142,12 +156,14 @@ def test_a_silent_mail_server_times_out_and_is_recorded(app, silent_smtp):
 
 # ── the response never waits for the mail ────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-REGISTER-11")
 def test_signup_answers_while_the_mail_server_hangs(client, app, stalled_mail):
-    started = time.monotonic()
     res = _register(client)
 
     assert res.status_code == 201, res.get_json()
-    assert time.monotonic() - started < 2  # the mail is still blocked for up to 10 s
+    # The send is still held when the response is in hand: the reply did not wait for the mail.
+    # (A reply that waited would arrive only after the stall let the send go, 10 s later.)
+    assert stalled_mail.returned == []
     assert res.get_json()["user"]["emailVerification"] == "pending"
     calls = _wait_for(stalled_mail)
     assert len(calls) == 1 and calls[0] > 0  # the send began only after a commit
@@ -156,13 +172,15 @@ def test_signup_answers_while_the_mail_server_hangs(client, app, stalled_mail):
         assert user is not None and user.email_verification_code_hash is not None
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-14")
 def test_recovery_answers_while_the_mail_server_hangs(client, app, ana, stalled_mail, commits):
     commits["n"] = 0
-    started = time.monotonic()
     res = _recover(client)
 
     assert res.status_code == 200
-    assert time.monotonic() - started < 2
+    # The send is still held when the response is in hand: the reply did not wait for the mail
+    # (PAD-734 fix of a 2 s wall-clock bound that a slow CI runner crossed at 2.12 s).
+    assert stalled_mail.returned == []
     calls = _wait_for(stalled_mail)
     assert len(calls) == 1 and calls[0] > 0  # the code had committed before the send began
     with app.app_context():
@@ -171,6 +189,7 @@ def test_recovery_answers_while_the_mail_server_hangs(client, app, ana, stalled_
 
 # ── a mail that times out leaves the account and clears the code ─────────────
 
+@pytest.mark.criterion("AUTH-REGISTER-11")
 def test_a_timed_out_signup_mail_keeps_the_account_and_clears_the_code(client, app, silent_smtp):
     res = _register(client)
 
@@ -182,6 +201,7 @@ def test_a_timed_out_signup_mail_keeps_the_account_and_clears_the_code(client, a
         assert [i.user_id for i in _incidents()] == [user.id]
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-14")
 def test_a_timed_out_recovery_mail_still_answers_200_and_clears_the_code(client, app, ana, silent_smtp):
     res = _recover(client)
 
@@ -194,6 +214,7 @@ def test_a_timed_out_recovery_mail_still_answers_200_and_clears_the_code(client,
         assert [i.user_id for i in _incidents()] == [ana]
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-15")
 def test_a_failed_mail_does_not_clear_a_newer_code(client, app, ana, monkeypatch):
     """The cleanup clears only the code its own mail carried."""
     from sqlalchemy import update

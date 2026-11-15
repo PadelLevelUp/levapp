@@ -6,6 +6,7 @@ touched the invite message, so both shells kept "Aguardar resposta" with live bu
 student tapped. Cells marked OLD-RED fail on #576's code. The refusals (rules 17/18) and the
 withdrawal's live bubble (rule 19, test_pad548) were already true; they are pinned here, not built.
 """
+import pytest
 from datetime import timedelta
 
 from padel_app.sql_db import db
@@ -32,6 +33,7 @@ def _one_invitation(instance_id, coach_id, player_id):
 
 # ── rule 9: the bubble says the coach answered, in the one commit, published after it ──────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-91")
 def test_a_coach_recorded_no_marks_the_bubble_and_publishes_after_the_commit(app, monkeypatch, trail):
     """OLD-RED: the bubble stayed unanswered and nothing was published."""
     from padel_app.services import notification_service as ns
@@ -57,6 +59,7 @@ def test_a_coach_recorded_no_marks_the_bubble_and_publishes_after_the_commit(app
     assert not any(t.startswith("publish:") for t in trail[:i_commit]), f"nothing before the commit: {trail}"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-91")
 def test_a_coach_recorded_yes_marks_the_winners_bubble_in_the_one_commit(app, monkeypatch, trail):
     """OLD-RED: `_close_vacancy` retired the OTHER invitations' bubbles; the winner's own stayed
     unanswered. Now it reads yes-by-coach, written with the close and the enrolment."""
@@ -91,6 +94,7 @@ def test_a_coach_recorded_yes_marks_the_winners_bubble_in_the_one_commit(app, mo
     assert f"publish:message_edited:{other_message_id}" in after, trail
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-92")
 def test_a_manual_invitations_recorded_answer_reaches_the_chat_too(app, monkeypatch):
     """Criterion "A manual invitation's recorded answer reaches the chat too": no vacancy to lock,
     the invitation row's own lock (rule 17)."""
@@ -135,6 +139,7 @@ def test_a_students_own_answer_says_student(app, monkeypatch):
 
 # ── rules 17/18: a student's later answer is refused (already true; pinned, not built) ─────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-93")
 def test_a_students_yes_after_the_coachs_no_is_refused(app, monkeypatch):
     """Green before and after (rule 18): `declined`, nobody enrolled, the bubble keeps no-by-coach."""
     from padel_app.services import notification_service as ns
@@ -154,6 +159,7 @@ def test_a_students_yes_after_the_coachs_no_is_refused(app, monkeypatch):
         assert _bubble(event) == {**_bubble(event), "response": "no", "answeredBy": "coach"}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-93")
 def test_a_students_no_after_the_coachs_yes_is_refused(app, monkeypatch):
     """Green before and after (rule 17): `confirmed`, the student keeps the spot, yes-by-coach stays."""
     from padel_app.services import notification_service as ns

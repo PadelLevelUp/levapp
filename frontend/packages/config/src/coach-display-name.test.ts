@@ -53,13 +53,13 @@ describe("searchRoster finds a student by either name (PAD-660 + PAD-665)", () =
     { playerId: "7", name: "Jorge Silva", nickname: "Jorge chato", displayName: "Jorge chato" },
     { playerId: "9", name: "Ana Pinto" },
   ];
-  it("matches the real name and the coach's nickname, and nothing else", () => {
+  it("[PLAYERS-NICKNAME-3] matches the real name and the coach's nickname, and nothing else", () => {
     expect(searchRoster(rows, "silva").map((r) => r.playerId)).toEqual(["7"]);
     expect(searchRoster(rows, "chato").map((r) => r.playerId)).toEqual(["7"]);
     expect(searchRoster(rows, "pinto").map((r) => r.playerId)).toEqual(["9"]);
     expect(searchRoster(rows, "zzz")).toEqual([]);
   });
-  it("a nickname kept off the name (switch off) still finds the student", () => {
+  it("[PLAYERS-NICKNAME-3] a nickname kept off the name (switch off) still finds the student", () => {
     expect(searchRoster([{ playerId: 8, name: "Jorge Silva", nickname: "Outro", displayName: "Jorge Silva" }], "outro")).toHaveLength(1);
   });
 });
@@ -76,7 +76,7 @@ describe("waitingListPickerOptions finds a candidate by the coach's nickname too
 });
 
 describe("coachDisplayNameByUserId (PAD-683 rule 9b)", () => {
-  it("finds the coach's row by user id; the fallback otherwise", () => {
+  it("[PLAYERS-NICKNAME-6] finds the coach's row by user id; the fallback otherwise", () => {
     const roster = [{ playerId: 7, userId: 17, displayName: "Jorge chato" }];
     expect(coachDisplayNameByUserId(roster, 17, "Jorge Silva")).toBe("Jorge chato");
     expect(coachDisplayNameByUserId(roster, "17", "Jorge Silva")).toBe("Jorge chato");

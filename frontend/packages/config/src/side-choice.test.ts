@@ -16,7 +16,7 @@ import {
 } from "./side-choice";
 
 describe("preselectedSide (Q1, Q6)", () => {
-  it("pre-selects the profile side, a both student included", () => {
+  it("[CLASSES-JOIN-REQUESTS-20] pre-selects the profile side, a both student included", () => {
     expect(preselectedSide("left")).toBe("left");
     expect(preselectedSide("right")).toBe("right");
     expect(preselectedSide("both")).toBe("both");

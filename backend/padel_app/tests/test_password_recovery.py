@@ -94,6 +94,7 @@ STANDARD = {"ok": True, "expiresInSeconds": 900, "resendAvailableInSeconds": 60}
 
 # --- Request issues a code and mails the username ---------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-4")
 def test_request_issues_code_and_mails_username(client, app, ana, outbox):
     res = _request(client, "Ana@Example.com")
     assert res.status_code == 200
@@ -121,6 +122,7 @@ def test_english_subject_follows_language(client, app, ana, outbox):
 
 # --- Unknown email answers exactly like a known one -------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-5")
 def test_unknown_email_answers_like_known_and_sends_nothing(client, ana, outbox):
     res = _request(client, "nobody@example.com")
     assert res.status_code == 200
@@ -128,6 +130,7 @@ def test_unknown_email_answers_like_known_and_sends_nothing(client, ana, outbox)
     assert outbox == []
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-5")
 def test_invalid_email_is_400(client, outbox):
     res = _request(client, "not-an-email")
     assert res.status_code == 400
@@ -137,6 +140,7 @@ def test_invalid_email_is_400(client, outbox):
 
 # --- Confirm sets the password and signs in ---------------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-6")
 def test_confirm_sets_password_and_signs_in(client, app, ana, outbox):
     code = _issue(app, client, outbox, datetime(2026, 9, 9, 10, 0))
     from padel_app.services import password_recovery_service as svc
@@ -159,6 +163,7 @@ def test_confirm_sets_password_and_signs_in(client, app, ana, outbox):
     assert user.email_verified_at is not None
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-6")
 def test_confirm_route_returns_login_shape(client, app, ana, outbox):
     code = _issue(app, client, outbox)
     res = _confirm(client, code)
@@ -171,6 +176,7 @@ def test_confirm_route_returns_login_shape(client, app, ana, outbox):
 
 # --- A code is single-use ---------------------------------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-7")
 def test_code_is_single_use(client, app, ana, outbox):
     code = _issue(app, client, outbox)
     assert _confirm(client, code).status_code == 200
@@ -182,6 +188,7 @@ def test_code_is_single_use(client, app, ana, outbox):
 
 # --- Expired code -----------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-8")
 def test_expired_code(client, app, ana, outbox):
     code = _issue(app, client, outbox, datetime(2026, 9, 9, 10, 0))
     from padel_app.services import password_recovery_service as svc
@@ -195,6 +202,7 @@ def test_expired_code(client, app, ana, outbox):
 
 # --- Wrong code counts attempts and locks on the fifth ----------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-9")
 def test_wrong_code_counts_attempts_and_locks(client, app, ana, outbox):
     code = _issue(app, client, outbox)
     wrong = "000000" if code != "000000" else "111111"
@@ -212,6 +220,7 @@ def test_wrong_code_counts_attempts_and_locks(client, app, ana, outbox):
 
 # --- Confirm for an unknown email looks like an expired code ----------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-10")
 def test_confirm_unknown_email_is_410(client, ana):
     res = _confirm(client, "123456", email="nobody@example.com")
     assert res.status_code == 410
@@ -220,6 +229,7 @@ def test_confirm_unknown_email_is_410(client, ana):
 
 # --- Weak password and malformed code do not consume an attempt -------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-11")
 def test_weak_password_and_malformed_code_do_not_consume(client, app, ana, outbox):
     code = _issue(app, client, outbox)
     res = _confirm(client, code, "short")
@@ -236,6 +246,7 @@ def test_weak_password_and_malformed_code_do_not_consume(client, app, ana, outbo
 
 # --- Cooldown does not resend and does not leak -----------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-12")
 def test_cooldown_does_not_resend_and_does_not_leak(client, app, ana, outbox):
     from padel_app.services import password_recovery_service as svc
 
@@ -257,6 +268,7 @@ def test_cooldown_does_not_resend_and_does_not_leak(client, app, ana, outbox):
         assert body["accessToken"]
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-12")
 def test_cooldown_keeps_first_code_valid(client, app, ana, outbox):
     from padel_app.services import password_recovery_service as svc
 
@@ -271,6 +283,7 @@ def test_cooldown_keeps_first_code_valid(client, app, ana, outbox):
 
 # --- Mail failure still answers 200 and leaves no code ----------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-13")
 def test_mail_failure_answers_200_and_leaves_no_code(client, app, ana, monkeypatch):
     from padel_app.tools import email_tools
 
@@ -286,6 +299,7 @@ def test_mail_failure_answers_200_and_leaves_no_code(client, app, ana, monkeypat
 
 # --- Users without an email or disabled get nothing -------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-22")
 def test_disabled_user_gets_nothing(client, app, outbox):
     from padel_app.models import User
 
@@ -303,6 +317,7 @@ def test_disabled_user_gets_nothing(client, app, outbox):
 
 # --- The legacy routes are gone ---------------------------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-24")
 def test_legacy_forgot_password_route_is_gone(client):
     assert client.get("/auth/forgot_password").status_code == 404
     assert client.get("/auth/verify_generated_code/1").status_code == 404

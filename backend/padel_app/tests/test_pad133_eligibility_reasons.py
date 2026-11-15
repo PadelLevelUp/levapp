@@ -15,6 +15,7 @@ is what holds that line; it is the single most important test in this file.
 Run:
     pytest padel_app/tests/test_pad133_eligibility_reasons.py -v
 """
+import pytest
 from datetime import timedelta
 
 from padel_app.sql_db import db
@@ -35,6 +36,7 @@ def _enrol(player_id, instance_id):
 # The agreement invariant (rules 6/7 rest on it)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-3")
 def test_failures_and_bool_never_disagree(app):
     """`eligibility_failures` empty <=> `passes_eligibility` True.
 
@@ -81,6 +83,7 @@ def test_failures_and_bool_never_disagree(app):
         assert checked == len(bars) * len(pids) == 20
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-1")
 def test_unset_bar_reports_no_failures(app):
     """An unset/empty bar admits everyone (eligibility.rules rule 1)."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -101,6 +104,7 @@ def test_unset_bar_reports_no_failures(app):
 # Rule 7 — the warning names WHAT failed, one line per failed rule
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-1")
 def test_level_failure_carries_actual_threshold_and_signed_distance(app):
     """"2 levels below this class" must be derivable without any prose."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -144,6 +148,7 @@ def test_stronger_student_gets_a_negative_distance(app):
         assert failure["ladder_distance"] == -1
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-2")
 def test_every_failed_rule_is_reported_not_just_the_first(app):
     """Rule 7: one line PER failed rule.
 
@@ -170,6 +175,7 @@ def test_every_failed_rule_is_reported_not_just_the_first(app):
         assert {f["attribute"] for f in failures} == {"level", "unjustified_absences"}
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-2")
 def test_absence_failure_reports_the_real_count_not_a_bool(app):
     """Rule 7's "(4, limit is 2)" is unrenderable without the actual number."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -281,6 +287,7 @@ def test_manual_add_lists_only_the_failing_students(app):
         assert result[0]["failures"][0]["actual"] == "5-"
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-1")
 def test_manual_add_is_silent_when_no_bar_is_set(app):
     """Rule 1: an unset bar admits everyone, so there is nothing to confirm."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -319,6 +326,7 @@ def test_manual_add_ignores_players_outside_the_roster(app):
 # Rule 9 — the stricter-bar save report (and rule 8: nobody is removed)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-4")
 def test_stricter_bar_names_the_enrolled_students_it_would_exclude(app):
     """Rule 9's acceptance criterion, with the exact 6-enrolled/3-failing shape."""
     from padel_app.models.lesson_instances import LessonInstance

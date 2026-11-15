@@ -158,7 +158,7 @@ def send_profile_reminder(*, player, coach_id: int, now_utc=None):
     from padel_app.realtime import publish
     from padel_app.serializers.message import serialize_message
     from padel_app.services.conversation_access import message_recipient_ids
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     from padel_app.services.messaging_service import _is_blocked_either_way
 

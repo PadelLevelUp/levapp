@@ -28,7 +28,7 @@ def _counter(app, ids, rid, start, end, *, pid=None, day=None):
 
 def _last_meta(app, ids):
     from padel_app.models import Message, Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     with app.app_context():
         player_uid = db.session.get(Player, ids["player_id"]).user_id
@@ -39,6 +39,7 @@ def _last_meta(app, ids):
 
 # ── AC: the student counter-proposes and the loop continues ──────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-7")
 def test_counter_proposal_moves_the_slot_back_to_pending_and_tells_the_coach(app):
     ids = _setup(app)
     rid = _request(app, ids, "11:00", "12:00")
@@ -61,6 +62,7 @@ def test_counter_proposal_moves_the_slot_back_to_pending_and_tells_the_coach(app
     assert row["lesson"] is not None and row["start"].hour == 17 and row["hold"] is None
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-7")
 def test_rounds_are_unlimited(app):
     ids = _setup(app)
     rid = _request(app, ids, "11:00", "12:00")
@@ -144,6 +146,7 @@ def _slot(start, end, day=None):
     return {"slot": {"date": (day or DAY).isoformat(), "startTime": start, "endTime": end}}
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-8")
 def test_a_stale_accept_never_books_an_unseen_slot(app):
     from padel_app.services.class_request_service import answer_proposal_service
 

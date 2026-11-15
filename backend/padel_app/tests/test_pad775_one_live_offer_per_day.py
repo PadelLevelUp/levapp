@@ -14,6 +14,7 @@ the coach's manual invitations are not blocked.
 Pinned clock (`NOW`); class A is tomorrow 09:00 (the shared seed, coach A), class B is coach B's,
 the same day at 12:00 or the day after.
 """
+import pytest
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -105,6 +106,7 @@ def _invited(instance_id):
     return {e.player_id for e in NotificationEvent.query.filter_by(lesson_instance_id=instance_id).all()}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-80")
 def test_an_automatic_round_skips_a_student_with_a_live_invitation_that_day_from_another_coach(app, monkeypatch):
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         instance_id, coach_id, others = _class_a(monkeypatch)
@@ -116,6 +118,7 @@ def test_an_automatic_round_skips_a_student_with_a_live_invitation_that_day_from
         assert _stage(instance_id, coach_id, others[0]) == "pending_invite_same_day"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-81")
 def test_a_live_invitation_for_another_day_does_not_block(app, monkeypatch):
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         instance_id, coach_id, others = _class_a(monkeypatch)
@@ -125,6 +128,7 @@ def test_a_live_invitation_for_another_day_does_not_block(app, monkeypatch):
         assert others[0] in _invited(instance_id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-82")
 def test_the_student_is_eligible_again_once_that_invitation_ends(app, monkeypatch):
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         instance_id, coach_id, others = _class_a(monkeypatch)
@@ -137,6 +141,7 @@ def test_the_student_is_eligible_again_once_that_invitation_ends(app, monkeypatc
         assert _stage(instance_id, coach_id, others[0]) not in ("pending_invite_same_day",)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-83")
 def test_a_yes_withdraws_the_same_day_invitations_and_that_is_not_a_no(app, monkeypatch):
     from padel_app.models import Message
     from padel_app.models.notification_event import NotificationEvent
@@ -156,6 +161,7 @@ def test_a_yes_withdraws_the_same_day_invitations_and_that_is_not_a_no(app, monk
         assert Message.query.get(other.message_id).msg_metadata["response"] == "booked_same_day"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-84")
 def test_with_rule_6e_off_a_live_invitation_that_day_does_not_block(app, monkeypatch):
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         instance_id, coach_id, others = _class_a(monkeypatch, same_day_rule=False)
@@ -165,6 +171,7 @@ def test_with_rule_6e_off_a_live_invitation_that_day_does_not_block(app, monkeyp
         assert others[0] in _invited(instance_id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-84")
 def test_with_rule_6e_off_for_the_other_class_a_yes_leaves_its_invitation_live(app, monkeypatch):
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.models.players import Player
@@ -182,6 +189,7 @@ def test_with_rule_6e_off_for_the_other_class_a_yes_leaves_its_invitation_live(a
         assert (other.status, other.retired_reason) == ("sent", None)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-85")
 def test_a_manual_invitation_is_not_blocked(app, monkeypatch):
     from padel_app.services.notification_service import send_manual_notifications
 

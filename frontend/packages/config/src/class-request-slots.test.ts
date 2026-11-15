@@ -23,11 +23,11 @@ describe("class-request slots (PAD-104)", () => {
 describe("firstFreeDay (classes.class-requests rule 11, PAD-302)", () => {
   const b = (date: string) => ({ date, startTime: "10:00", endTime: "12:00" });
 
-  it("is today when today still has a block", () => {
+  it("[CLASSES-CLASS-REQUESTS-4] is today when today still has a block", () => {
     expect(firstFreeDay([b("2026-09-12"), b("2026-09-11")], "2026-09-11")).toBe("2026-09-11");
   });
 
-  it("is the earliest later day with a block when today has none", () => {
+  it("[CLASSES-CLASS-REQUESTS-4] is the earliest later day with a block when today has none", () => {
     expect(firstFreeDay([b("2026-09-14"), b("2026-09-13")], "2026-09-11")).toBe("2026-09-13");
   });
 
@@ -38,14 +38,14 @@ describe("firstFreeDay (classes.class-requests rule 11, PAD-302)", () => {
 });
 
 describe("proposalAfterStartChange (PAD-491, classes.class-requests rule 20)", () => {
-  it("moves the end with the start, keeping the form's duration", () => {
+  it("[CLASSES-CLASS-REQUESTS-5] moves the end with the start, keeping the form's duration", () => {
     expect(proposalAfterStartChange({ startTime: "10:00", endTime: "11:00" }, "14:30", 60)).toEqual({
       startTime: "14:30",
       endTime: "15:30",
     });
   });
 
-  it("keeps a length the coach set by hand on the end", () => {
+  it("[CLASSES-CLASS-REQUESTS-5] keeps a length the coach set by hand on the end", () => {
     expect(proposalAfterStartChange({ startTime: "10:00", endTime: "11:30" }, "12:00", 60)).toEqual({
       startTime: "12:00",
       endTime: "13:30",

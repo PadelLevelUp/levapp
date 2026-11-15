@@ -87,6 +87,7 @@ def _seed_line(app, month, service="Old", cost="1"):
         db.session.commit()
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-14")
 def test_the_import_replaces_the_two_open_months_and_leaves_older_ones(app, configured):
     _seed_line(app, date(2026, 8, 1), "Kept")
     _seed_line(app, date(2026, 9, 1), "Outdated")
@@ -103,6 +104,7 @@ def test_the_import_replaces_the_two_open_months_and_leaves_older_ones(app, conf
     assert _lines(app) == expected
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-15")
 def test_the_query_is_bounded_and_read_only(app, configured):
     session = FakeSession()
     _run(app, session)
@@ -128,6 +130,7 @@ def test_every_page_is_read(app, configured):
     assert session.requests[1][0] == "GET" and session.requests[1][2]["pageToken"] == "p2"
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-16")
 def test_an_unconfigured_import_says_so(app, client):
     from padel_app.services.admin import finance_gcp_import
 
@@ -138,6 +141,7 @@ def test_an_unconfigured_import_says_so(app, client):
         assert finance_gcp_import.import_status(NOW)["configured"] is False
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-17")
 def test_a_failing_import_is_visible_and_keeps_the_old_figures(app, configured, caplog):
     from padel_app.services.admin import finance_gcp_import
 
@@ -152,6 +156,7 @@ def test_a_failing_import_is_visible_and_keeps_the_old_figures(app, configured, 
     assert _run(app, FakeSession(status=404))["errorCode"] == "TABLE_NOT_FOUND"
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-18")
 def test_a_stale_import_is_visible(app, configured):
     from padel_app.services.admin import finance_gcp_import
 
@@ -177,6 +182,7 @@ def test_a_stuck_run_reports_an_error(app, configured):
         assert (status["lastRun"]["outcome"], status["lastRun"]["errorCode"]) == ("error", "STUCK")
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-19")
 def test_a_non_euro_billing_account_is_refused(app, configured):
     run = _run(app, FakeSession([("202610", "demo-project", "Compute Engine", "USD", "3.000000", "0")]))
     assert (run["outcome"], run["errorCode"]) == ("error", "BILLING_CURRENCY_NOT_EUR")
@@ -191,6 +197,7 @@ def test_a_malformed_table_id_never_reaches_bigquery(app, configured):
     assert session.requests == []
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-21")
 def test_run_now_is_audited_and_refuses_a_parallel_run(app, client, monkeypatch):
     from padel_app.models.finance import FinanceImportRun
 

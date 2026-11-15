@@ -9,6 +9,7 @@ push cannot carry — so the tap shows "could not find this class" before the ap
 ever asks the server. That is why the owner's screenshot said *encontrar*
 rather than *carregar*.
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -17,7 +18,7 @@ from padel_app.tests.test_pad131_join_requests import _config, _request, _seed, 
 
 def _pushes(app, ids, player_id):
     """Both pushes for one join request: (web url, expo data)."""
-    with patch("padel_app.services.notification_service.publish"), \
+    with patch("padel_app.realtime.publish"), \
          patch("padel_app.utils.push_notifications.send_push_notification") as web, \
          patch("padel_app.utils.expo_push.send_expo_push_to_user") as expo:
         expo.return_value = True
@@ -53,6 +54,7 @@ def test_both_pushes_for_a_join_request_point_at_the_same_thread(app):
     )
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_the_class_id_survives_as_context_but_is_not_the_target(app):
     """Rule 7: a classInstanceId on a message push is context and must not win."""
     ids = _seed(app)

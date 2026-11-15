@@ -6,7 +6,7 @@ const proposed: ClassRequestMessageMeta = { id: 7, status: "countered", kind: "p
 const live = { id: 7, status: "countered" as const, ...slot };
 
 describe("classRequestBubbleState (classes.class-requests rule 6, PAD-281)", () => {
-  it("offers the student the three answers while the proposal is live at that slot", () => {
+  it("[CLASSES-CLASS-REQUESTS-9] offers the student the three answers while the proposal is live at that slot", () => {
     expect(classRequestBubbleState(proposed, live, { own: false })).toEqual({ kind: "actions", status: "countered" });
   });
 
@@ -60,15 +60,15 @@ describe("classRequestBubbleState — the coach answers a new request from its b
   const requested: ClassRequestMessageMeta = { id: 9, status: "pending", kind: "requested", slot: askSlot };
   const askLive = { id: 9, status: "pending" as const, ...askSlot };
 
-  it("offers the coach Accept / Decline / Propose while the request is still pending at that slot", () => {
+  it("[CLASSES-CLASS-REQUESTS-10] offers the coach Accept / Decline / Propose while the request is still pending at that slot", () => {
     expect(classRequestBubbleState(requested, askLive, { own: false })).toEqual({ kind: "actions", status: "pending" });
   });
 
-  it("shows the student their own new request as waiting", () => {
+  it("[CLASSES-CLASS-REQUESTS-10] shows the student their own new request as waiting", () => {
     expect(classRequestBubbleState(requested, askLive, { own: true })).toEqual({ kind: "waiting", status: "pending" });
   });
 
-  it("shows the outcome once the coach has decided", () => {
+  it("[CLASSES-CLASS-REQUESTS-10] shows the outcome once the coach has decided", () => {
     expect(classRequestBubbleState(requested, { ...askLive, status: "accepted" }, { own: false })).toEqual({ kind: "outcome", status: "accepted" });
     expect(classRequestBubbleState(requested, { ...askLive, status: "declined" }, { own: true })).toEqual({ kind: "outcome", status: "declined" });
   });

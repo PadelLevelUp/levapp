@@ -90,6 +90,7 @@ def social_post(client, provider="google", token="tok", nonce=None):
 
 # ── rule 2a / 2b: known identity, linking ─────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-2")
 def test_a_verified_email_links_an_existing_account_then_the_identity_signs_in(client, app, google):
     uid = _make_user(app)
     google.claims = gclaims()
@@ -110,6 +111,7 @@ def test_a_verified_email_links_an_existing_account_then_the_identity_signs_in(c
     assert len(_identities(app)) == 1
 
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-2")
 def test_an_unverified_email_never_links(client, app, google):
     _make_user(app)
     google.claims = gclaims(verified=False)
@@ -148,6 +150,7 @@ def _complete(client, ticket, **over):
     return client.post("/api/auth/social/complete", json=body, headers=TERMS)
 
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-3")
 def test_a_new_person_completes_sign_up_and_gets_a_password_less_account(client, app, google):
     google.claims = gclaims(sub="g-new", email="Rita@Example.com", name="Rita Lopes")
     res = social_post(client)
@@ -177,6 +180,7 @@ def test_a_new_person_completes_sign_up_and_gets_a_password_less_account(client,
     [({"birthDate": "2012-01-01"}, "birthDate"), ({"country": ""}, "country"),
      ({"termsAccepted": False}, "terms"), ({"role": "admin"}, "role")],
 )
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-3")
 def test_completion_runs_sign_ups_own_checks(client, app, google, over, field):
     google.claims = gclaims(sub="g-teen", email="teen@example.com")
     ticket = social_post(client).get_json()["signupTicket"]
@@ -202,6 +206,7 @@ def test_a_used_ticket_cannot_create_a_second_account(client, app, google):
     assert res.status_code == 409
 
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-6")
 def test_a_coach_who_signs_up_with_google_waits_for_approval(client, app, google, monkeypatch):
     from padel_app.services import app_settings_service, hubspot_sync
 
@@ -222,6 +227,7 @@ def test_a_coach_who_signs_up_with_google_waits_for_approval(client, app, google
 
 # ── rule 1: verification and configuration ───────────────────────────────────
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-5")
 def test_an_invalid_token_is_401_and_writes_nothing(client, app, google):
     _make_user(app)
     google.fail = "bad signature"
@@ -230,6 +236,7 @@ def test_an_invalid_token_is_401_and_writes_nothing(client, app, google):
     assert _identities(app) == []
 
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-5")
 def test_a_provider_without_client_ids_is_503(client, app, google):
     app.config["GOOGLE_CLIENT_IDS"] = []
     res = social_post(client)
@@ -240,6 +247,7 @@ def test_an_unknown_provider_is_400(client, app):
     assert social_post(client, provider="facebook").status_code == 400
 
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-5")
 def test_apple_checks_the_nonce(client, app, apple):
     uid = _make_user(app)
     raw = "raw-nonce-123"
@@ -267,6 +275,7 @@ def test_account_deletion_removes_the_identities(client, app, google):
 
 # ── verifiers (the real ones, with the network stubbed) ─────────────────────────
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-5")
 def test_the_google_verifier_checks_issuer_and_audience(monkeypatch):
     from padel_app.services.admin import google_verifier
 
@@ -295,6 +304,7 @@ def _unverify(app, uid):
         db.session.commit()
 
 
+@pytest.mark.criterion("AUTH-SOCIAL-SIGN-IN-4")
 def test_an_account_whose_own_email_is_unverified_is_never_linked(client, app, google):
     """Pre-hijack: someone registers the victim's address by password and never verifies it.
     The victim's Google sign-in must not land in that account."""

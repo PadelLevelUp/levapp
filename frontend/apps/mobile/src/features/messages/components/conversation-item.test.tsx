@@ -50,7 +50,7 @@ function textNode(n: Native, text: string): ReactTestInstance {
 }
 
 describe("ConversationItem — unread rows are unmistakable (PAD-414)", () => {
-  it("bolds the name and preview, caps the pill at 9+, and exposes conversation-unread-<id>", async () => {
+  it("[MESSAGING-CONVERSATIONS-27] bolds the name and preview, caps the pill at 9+, and exposes conversation-unread-<id>", async () => {
     const n = await renderNative(
       <ConversationItem
         conversation={conversation({ id: "5", unreadCount: 12 })}
@@ -64,7 +64,7 @@ describe("ConversationItem — unread rows are unmistakable (PAD-414)", () => {
     expect(String(textNode(n, "See you Monday").props.className)).toMatch(/semibold/);
   });
 
-  it("shows the exact count under 10", async () => {
+  it("[MESSAGING-CONVERSATIONS-27] shows the exact count under 10", async () => {
     const n = await renderNative(
       <ConversationItem
         conversation={conversation({ id: "6", unreadCount: 3 })}
@@ -74,7 +74,7 @@ describe("ConversationItem — unread rows are unmistakable (PAD-414)", () => {
     expect(textNode(n, "3")).toBeTruthy();
   });
 
-  it("a read row is regular weight, has no pill, and no conversation-unread testID", async () => {
+  it("[MESSAGING-CONVERSATIONS-27] a read row is regular weight, has no pill, and no conversation-unread testID", async () => {
     const n = await renderNative(
       <ConversationItem
         conversation={conversation({ id: "7", unreadCount: 0 })}

@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
+import { Check, CheckCheck, ChevronRight, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, EligibilityCheckEntry, Message, MessageStatus } from '@/types';
+import type { EngineApprovalMeta } from '@levelup/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
@@ -13,11 +14,21 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@levelup/hooks';
 import { comeBackFromAnswer, lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
-import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
+import { classRequestBubbleState, isEngineApproval, isEngineInvite, joinRefusalKey, joinRequestBubbleState } from '@levelup/config';
+import { EngineInviteResponse } from './EngineInviteResponse';
+import { busySameHourDescription } from '@/components/calendar/busySameHourDescription';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest, sideGoneOf } from '@/api/classJoinRequests';
 import { joinClassWaitingList, leaveClassWaitingList, listClassWaitingList } from '@/api/academyClasses';
 import { EligibilityConfirmDialog } from '@/components/calendar/EligibilityConfirmDialog';
+
+/** PAD-920 (dashboard.blocks NA3): the alert's class link, from `href`, else from `lessonInstanceId`. */
+function engineAlertHref(meta: Message["metadata"]): string | null {
+  if (typeof meta?.href === "string") return meta.href;
+  if (meta?.lessonInstanceId == null) return null;
+  const date = typeof meta.date === "string" ? `&date=${meta.date}` : "";
+  return `/calendar?classId=lessoninstance-${meta.lessonInstanceId}${date}`;
+}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -53,7 +64,7 @@ export function MessageBubble({
   message, isMine, userId, participantName, isHighlighted, showTail, replyToMessage,
   onReply, onEdit, onDelete, onReaction, onScrollToMessage,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [reportOpen, setReportOpen] = useState(false);
@@ -197,7 +208,9 @@ export function MessageBubble({
             ? t("calendar.joinRequest.spotFilledToast")
             : refusal?.code === "class_closed"
               ? t("calendar.joinRequest.classClosedToast")
-              : t("calendar.joinRequest.decideFailed")
+              : t("calendar.joinRequest.decideFailed"),
+          // PAD-920 (classes.instance-enrollment rule 15): a same-hour clash names the other class.
+          { description: busySameHourDescription(err, t, i18n.language) ?? undefined },
         );
       }
     } finally {
@@ -255,8 +268,10 @@ export function MessageBubble({
       await joinClassWaitingList({ model: "LessonInstance", originalId: instanceId });
       setComeBackShown("on_waiting_list");
       toast.success(t("calendar.waitingList.joined"));
-    } catch {
-      toast.error(t("calendar.waitingList.failed"));
+    } catch (err) {
+      // PAD-920 (NJ2): a refused waiting-list join says why.
+      const refusal = joinRequestRefusal(err);
+      toast.error(t("calendar.waitingList.failed"), refusal ? { description: t(joinRefusalKey(refusal.code)) } : undefined);
     } finally {
       setResponding(false);
     }
@@ -458,8 +473,13 @@ export function MessageBubble({
           </div>
         </div>
 
+        {/* PAD-920: a new-engine invitation reads its state from the metadata (NB1–NB4). */}
+        {isInvite && isEngineInvite(message.metadata) && (
+          <EngineInviteResponse meta={message.metadata} isMine={isMine} />
+        )}
+
         {/* Notification invite response area */}
-        {isInvite && (
+        {isInvite && !isEngineInvite(message.metadata) && (
           <div className="flex gap-2 mt-1.5 ml-1">
             {localResponse === 'accepted' ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
@@ -553,6 +573,12 @@ export function MessageBubble({
         {approvalBundle?.bundleId && approvalBundle.vacancies?.length > 0 && (
           <div className="mt-1.5 ml-1">
             <ReplacementApprovalCard bundle={approvalBundle} readOnly={isMine} queueAsOf={message.timestamp} />
+          </div>
+        )}
+        {/* PAD-920 (semi-auto-approval N4–N5): a new-engine request; the chat's card offers "Sim" only. */}
+        {isReplacementApproval && isEngineApproval(message.metadata) && Array.isArray(message.metadata.spotTypes) && (
+          <div className="mt-1.5 ml-1">
+            <ReplacementApprovalCard bundle={message.metadata as EngineApprovalMeta} readOnly={isMine} queueAsOf={message.timestamp} />
           </div>
         )}
 
@@ -706,6 +732,21 @@ export function MessageBubble({
             </div>
           );
         })()}
+
+        {/* PAD-920 (dashboard.blocks NA3): the coach alert is a text bubble with a link to the class. */}
+        {message.messageType === "engine_alert" && engineAlertHref(message.metadata) && (
+          <div className="mt-1.5 ml-1">
+            <button
+              type="button"
+              data-testid={`engine-alert-open-class-${message.id}`}
+              onClick={() => navigate(engineAlertHref(message.metadata)!)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              {t("messages.engineAlert.openClass")}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Waiting-list offer response area (PAD-124). The coach sees their own
             offer as "waiting for response"; the student gets the Yes/No that

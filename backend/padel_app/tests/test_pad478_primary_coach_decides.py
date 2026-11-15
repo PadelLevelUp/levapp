@@ -103,6 +103,7 @@ def _run_every_pass_as(module, coach_id):
 
 # ── co-coach ────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_a_co_coach_with_a_past_time_does_not_remove_the_primary_coachs_jobs(co_coached):
     _store_timing(co_coached["primary"], FUTURE)
     _store_timing(co_coached["second"], PAST)
@@ -114,6 +115,7 @@ def test_a_co_coach_with_a_past_time_does_not_remove_the_primary_coachs_jobs(co_
     assert _fire_times(co_coached["sched"], co_coached["instance"]) == (FUTURE_AT, FUTURE_AT)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_a_co_coach_with_a_future_time_does_not_arm_jobs_the_primary_coach_does_not_imply(co_coached):
     _store_timing(co_coached["primary"], PAST)
     _store_timing(co_coached["second"], FUTURE)
@@ -123,6 +125,7 @@ def test_a_co_coach_with_a_future_time_does_not_arm_jobs_the_primary_coach_does_
     assert _fire_times(co_coached["sched"], co_coached["instance"]) == (None, None)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_the_startup_loop_over_every_coach_leaves_the_primary_coachs_jobs(co_coached, app):
     """`_startup_reschedule` walks Coach.query.all(): the co-coach is reached after the primary."""
     _store_timing(co_coached["primary"], FUTURE)
@@ -135,6 +138,7 @@ def test_the_startup_loop_over_every_coach_leaves_the_primary_coachs_jobs(co_coa
 
 # ── substitute ──────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_the_lessons_coach_with_a_past_time_does_not_remove_the_substitutes_jobs(substituted):
     _store_timing(substituted["primary"], FUTURE)
     _store_timing(substituted["lesson_coach"], PAST)
@@ -146,6 +150,7 @@ def test_the_lessons_coach_with_a_past_time_does_not_remove_the_substitutes_jobs
     assert _fire_times(substituted["sched"], substituted["instance"]) == (FUTURE_AT, FUTURE_AT)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_the_lessons_coach_with_a_future_time_does_not_arm_jobs_the_substitute_does_not_imply(substituted):
     _store_timing(substituted["primary"], PAST)
     _store_timing(substituted["lesson_coach"], FUTURE)
@@ -155,6 +160,7 @@ def test_the_lessons_coach_with_a_future_time_does_not_arm_jobs_the_substitute_d
     assert _fire_times(substituted["sched"], substituted["instance"]) == (None, None)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_the_invitation_job_carries_the_primary_coach(co_coached):
     """`_run_trigger_invitations(instance_id, coach_id)` runs with the coach in the job's args."""
     _store_timing(co_coached["primary"], FUTURE)
@@ -166,6 +172,7 @@ def test_the_invitation_job_carries_the_primary_coach(co_coached):
     assert list(job.args) == [co_coached["instance"], co_coached["primary"]]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_an_occurrence_job_follows_the_lessons_first_coach(app, live_scheduler, monkeypatch):
     """A class not materialised yet, with two coaches on the lesson: its occurrence job is
     derived from the first one assigned, whoever's walk reaches it."""
@@ -203,6 +210,7 @@ def test_an_occurrence_job_follows_the_lessons_first_coach(app, live_scheduler, 
 
 # ── the same rule everywhere (second review of #496) ────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_a_follow_up_is_armed_for_a_class_coached_through_its_lesson(substituted, monkeypatch):
     """`_maybe_rearm_reminder` looked the coach up in the occurrence's OWN coach rows only.
     A class with none (its coach is the lesson's) got its first reminder and never a second."""
@@ -229,6 +237,7 @@ def test_a_follow_up_is_armed_for_a_class_coached_through_its_lesson(substituted
     assert retries == [datetime(2027, 7, 11, 20, 0)]     # 17:00 + the primary coach's 3 h
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_the_follow_up_spacing_is_the_primary_coachs(co_coached, monkeypatch):
     """NOT discriminating, kept as a statement of the rule: with two coach rows the spacing
     comes from the first one assigned. The old lookup (`.first()` with no order) returns the
@@ -251,6 +260,7 @@ def test_the_follow_up_spacing_is_the_primary_coachs(co_coached, monkeypatch):
     assert retries == [datetime(2027, 7, 11, 19, 0)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-13")
 def test_a_co_coachs_derivation_creates_no_configuration_for_the_primary_coach(co_coached):
     """Reading the primary coach's configuration must not write one: the co-coach saved
     THEIR settings, nobody asked for a row for the other coach."""
@@ -267,6 +277,7 @@ def test_a_co_coachs_derivation_creates_no_configuration_for_the_primary_coach(c
     assert _fire_times(co_coached["sched"], co_coached["instance"])[0] == datetime(2027, 7, 10, 17, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_the_derivation_runs_under_the_primary_coachs_lock_whoever_triggers_it(co_coached, monkeypatch):
     """Rule 10e: one derivation at a time per PRIMARY coach, for a save, the startup pass and
     the daily pass alike, with the configuration read inside the lock."""
@@ -289,6 +300,7 @@ def test_the_derivation_runs_under_the_primary_coachs_lock_whoever_triggers_it(c
     assert not module._coach_reschedule_lock(co_coached["primary"]).locked()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_the_configuration_is_read_again_inside_the_lock(co_coached):
     """A pass that loaded the configuration before a save committed must not arm the old
     time afterwards: inside the lock the row is read again, not taken from the session."""
@@ -310,6 +322,7 @@ def test_the_configuration_is_read_again_inside_the_lock(co_coached):
     assert _fire_times(co_coached["sched"], co_coached["instance"])[0] == datetime(2027, 7, 11, 5, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_the_configuration_is_read_with_the_lock_already_held(co_coached):
     """Reading the configuration and then taking the lock would let a save commit and
     re-arm in between, and this derivation would then arm the older value."""
@@ -353,6 +366,7 @@ def test_a_lessons_lock_is_released_before_its_instances_are_derived(substituted
     assert lesson_lock_held == [False]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_the_lesson_walk_reads_the_configuration_with_the_lock_already_held(app, live_scheduler, monkeypatch):
     """The same order for a class that is not materialised yet (`schedule_lesson_reminder_jobs`)."""
     from padel_app.models.Association_CoachLesson import Association_CoachLesson

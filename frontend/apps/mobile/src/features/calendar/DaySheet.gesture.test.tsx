@@ -45,7 +45,7 @@ const bounds = { min: 100, max: 600, initial: 400 };
 const props = { bounds, day: new Date(2026, 9, 29), events: [], levelCodeById: new Map<string, string>() };
 
 describe("DaySheet drag (PAD-592)", () => {
-  it("ten frames move the shared value and commit state once, clamped, on release", async () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-5] ten frames move the shared value and commit state once, clamped, on release", async () => {
     const onTopChange = vi.fn();
     await renderNative(<DaySheet {...props} top={400} onTopChange={onTopChange} />);
     act(() => captured.onBegin!({ translationY: 0 }));
@@ -58,7 +58,7 @@ describe("DaySheet drag (PAD-592)", () => {
     expect(sheetY.value).toBe(100); // the frames moved the shared value
   });
 
-  it("a top set from outside moves the shared value", async () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-5] a top set from outside moves the shared value", async () => {
     const n = await renderNative(<DaySheet {...props} top={400} onTopChange={vi.fn()} />);
     const sheetY = shared[shared.length - 1]!;
     await n.rerender(<DaySheet {...props} top={250} onTopChange={vi.fn()} />);

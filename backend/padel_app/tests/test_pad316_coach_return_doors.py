@@ -14,6 +14,7 @@ left the row saying "absent" while the app said otherwise:
 Every return door goes through the same routine now: re-seat, reclaim their own
 vacancy, reconcile.
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -58,6 +59,7 @@ def _cancelled(app, ids, iid):
     assert _snap(app, iid, ids["student_id"]) == (0, 1, "not_coming")
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-5")
 def test_a_coach_re_adding_a_cancelled_student_actually_seats_them(app):
     """Door (a): `enrol` used to hand the existing row back untouched."""
     from padel_app.models import LessonInstance
@@ -74,6 +76,7 @@ def test_a_coach_re_adding_a_cancelled_student_actually_seats_them(app):
     )
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-5")
 def test_re_enrolling_someone_who_never_left_still_changes_nothing(app):
     """The idempotence that matters is still there: only an ABSENT row returns."""
     from padel_app.models import LessonInstance
@@ -98,6 +101,7 @@ def test_re_enrolling_someone_who_never_left_still_changes_nothing(app):
         assert after.confirmed is True, "their own yes is not overwritten"
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-6")
 def test_a_coach_reversing_their_absent_mark_closes_the_vacancy_it_opened(app):
     """Door (b), the one that is live on production."""
     from padel_app.models import LessonInstance
@@ -120,6 +124,7 @@ def test_a_coach_reversing_their_absent_mark_closes_the_vacancy_it_opened(app):
     )
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-6")
 def test_a_coach_marking_absent_still_frees_the_spot(app):
     """The reversal fix must not stop an absence freeing the seat."""
     from padel_app.models import LessonInstance

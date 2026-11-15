@@ -34,13 +34,13 @@ function renderList(c: Conversation) {
 }
 
 describe("ConversationList — a deleted last message (PAD-639)", () => {
-  it("shows the live last message's text", () => {
+  it("[MESSAGING-CONVERSATIONS-28] shows the live last message's text", () => {
     renderList(conversation({ lastMessageDeleted: false }));
     expect(screen.getByText("See you Monday")).toBeInTheDocument();
     expect(screen.queryByText("messages.messageDeleted")).toBeNull();
   });
 
-  it("shows 'Message deleted' when the last message was deleted", () => {
+  it("[MESSAGING-CONVERSATIONS-28] shows 'Message deleted' when the last message was deleted", () => {
     renderList(conversation({ lastMessage: "", lastMessageDeleted: true }));
     expect(screen.getByText("messages.messageDeleted")).toBeInTheDocument();
     expect(screen.getByTestId("conversation-last-message").getAttribute("data-deleted")).toBe("true");

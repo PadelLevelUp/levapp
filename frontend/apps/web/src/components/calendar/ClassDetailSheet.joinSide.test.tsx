@@ -92,7 +92,7 @@ beforeEach(() => {
 });
 
 describe("Pedir para entrar (PAD-672)", () => {
-  it("opens the sheet with the profile side pre-selected and sends it", async () => {
+  it("[CLASSES-JOIN-REQUESTS-20] opens the sheet with the profile side pre-selected and sends it", async () => {
     const ev = event();
     renderSheet(ev);
     fireEvent.click(await screen.findByTestId("class-join-request-button"));
@@ -212,5 +212,27 @@ describe("the coach's join-request row (PAD-672)", () => {
     renderSheet(event({ openSpot: false }), true);
     expect((await screen.findByTestId("class-join-request-side-chip")).textContent).toBe("Ambos");
     expect(screen.queryByTestId("class-join-request-use-side")).toBeNull();
+  });
+});
+
+describe("an accepted request whose place is gone (calendar.event-detail rule 26, PAD-842)", () => {
+  it("[CALENDAR-EVENT-DETAIL-38] shows no accepted line beside the request button once the place is gone", async () => {
+    // She joined by an accepted request, then cancelled or was removed: no presence, the request still `accepted`.
+    api.getClassInstance.mockResolvedValue(
+      instance({ myJoinRequest: { id: 5, status: "accepted", side: "left", playerId: "1", coachId: "2" } }),
+    );
+    renderSheet(event());
+    await screen.findByTestId("class-join-request-button");
+    await waitFor(() => expect(api.getClassInstance).toHaveBeenCalled());
+    expect(screen.queryByText("Está marcado! Estás inscrito/a nesta aula.")).toBeNull();
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-38] keeps a refused request's line", async () => {
+    api.getClassInstance.mockResolvedValue(
+      instance({ myJoinRequest: { id: 5, status: "rejected", side: "left", playerId: "1", coachId: "2" } }),
+    );
+    renderSheet(event());
+    expect(await screen.findByText("O treinador não aceitou o teu pedido")).toBeTruthy();
+    expect(screen.getByTestId("class-join-request-button")).toBeTruthy();
   });
 });

@@ -61,7 +61,7 @@ describe("courtsApi", () => {
     expect(JSON.parse(String(seen[0].data))).toEqual({ ids: [3, 2] });
   });
 
-  it("B-266: lists the courts of the class's own club, not the coach's current club", async () => {
+  it("[CLUBS-COURTS-5] B-266: lists the courts of the class's own club, not the coach's current club", async () => {
     const seen = installSingleton([COURT]);
     expect(await courtsApi.listCourtsForClass({ clubId: 7 })).toEqual([COURT]);
     expect(seen[0].url).toBe("/app/club/7/courts");

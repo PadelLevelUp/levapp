@@ -420,7 +420,7 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
     api.updateEvaluationCompetency.mockReset();
   });
 
-  it("a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
+  it("[EVALUATIONS-COMPETENCIES-33] a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
     const n = await mount(createElement(ConvertHarness));
     await n.flush();
 
@@ -450,7 +450,7 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
     expect(n.queryByTestId("competency-convert-dialog")).toBeNull();
   });
 
-  it("a move that fails after the conversion is said, and the dialog stays until closed", async () => {
+  it("[EVALUATIONS-COMPETENCIES-34] a move that fails after the conversion is said, and the dialog stays until closed", async () => {
     api.updateEvaluationCompetency.mockImplementation(async (id: number) => {
       if (id === 9) throw { response: { status: 400, data: { error: "parent_invalid" } } };
       return { ...BANDEJA_OFF, parentId: 5 };

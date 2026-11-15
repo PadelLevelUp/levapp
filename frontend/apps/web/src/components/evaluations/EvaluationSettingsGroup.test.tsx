@@ -23,7 +23,7 @@ vi.mock("./EvaluationScaleSetting", () => ({
 import { EvaluationSettingsGroup } from "./EvaluationSettingsGroup";
 
 describe("EvaluationSettingsGroup (PAD-431)", () => {
-  it("holds the categories, the frequency and the scale under one heading, in that order", () => {
+  it("[SETTINGS-ROLE-SCOPE-4] holds the categories, the frequency and the scale under one heading, in that order", () => {
     render(<EvaluationSettingsGroup />);
     const group = screen.getByTestId("settings-evaluations");
     expect(within(group).getByTestId("settings-evaluations-title")).toHaveTextContent("evaluations.settingsGroupTitle");

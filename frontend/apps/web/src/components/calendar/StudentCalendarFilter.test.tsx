@@ -13,7 +13,7 @@ beforeEach(() => window.localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 
 describe("useStudentCalendarFilter", () => {
-  it("defaults to eligible and persists the choice under the user's key", () => {
+  it("[CALENDAR-VIEW-20] defaults to eligible and persists the choice under the user's key", () => {
     const { result } = renderHook(() => useStudentCalendarFilter(7));
     expect(result.current[0]).toBe("eligible");
     act(() => result.current[1]("mine"));
@@ -39,7 +39,7 @@ describe("useStudentCalendarFilter", () => {
 });
 
 describe("StudentCalendarFilter", () => {
-  it("two buttons, the active one pressed; clicking reports the choice", () => {
+  it("[CALENDAR-VIEW-20] two buttons, the active one pressed; clicking reports the choice", () => {
     const onChange = vi.fn();
     render(<StudentCalendarFilter value="eligible" onChange={onChange} />);
     expect(screen.getByTestId("calendar-student-filter-eligible").getAttribute("aria-pressed")).toBe("true");

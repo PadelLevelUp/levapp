@@ -59,6 +59,7 @@ def _subscription(endpoint="https://push.example.com/ep-1"):
 # The surviving contract: POST /api/notifications/save-subscription
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-PUSH-SUBSCRIPTION-1")
 def test_save_subscription_creates_row(client, app):
     from padel_app.models import PushSubscription
 
@@ -83,6 +84,7 @@ def test_save_subscription_creates_row(client, app):
         )
 
 
+@pytest.mark.criterion("AUTH-PUSH-SUBSCRIPTION-1")
 def test_save_subscription_upserts_one_row_per_user(client, app):
     """Rule 1: one subscription per user. Re-registering replaces, never adds."""
     from padel_app.models import PushSubscription
@@ -143,6 +145,7 @@ def test_save_subscription_requires_authentication(client, app):
 # The collapse: POST /api/notifications/subscribe must be gone
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-PUSH-SUBSCRIPTION-2")
 def test_subscribe_alias_no_longer_exists(client, app):
     """
     Acceptance criterion "Only one registration endpoint exists".
@@ -172,6 +175,7 @@ def test_subscribe_alias_no_longer_exists(client, app):
         assert PushSubscription.query.filter_by(user_id=user_id).first() is None
 
 
+@pytest.mark.criterion("AUTH-PUSH-SUBSCRIPTION-2")
 def test_only_one_route_registers_push_subscriptions(client, app):
     """
     Guards the rule rather than one URL: exactly one rule on the notifications

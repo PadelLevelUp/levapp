@@ -1,0 +1,49 @@
+id: 71
+title: o professor define só 1 lembrete
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1566, 1579]}
+what_it_tests: o número de lembretes segue a definição do professor
+tags: [reminders, regulars]
+depends_on: []
+corrections: []
+notes: >
+  The 15 who confirm are the encoder's choice; R-8 is the one who does not answer. "O regular aparece e não
+  tem falta" has no event (attendance is the default); it is checked as an absence of kind none at the class
+  start.
+
+settings:
+  reminders: {days_before: 1, at: "17:00", every: 2h, max: 1}
+
+roster:
+  regulars: {L: 8, R: 8}
+
+timeline:
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars]
+  - at: 2026-11-02 17:00
+    events:
+      - {confirms: L-1}
+      - {confirms: L-2}
+      - {confirms: L-3}
+      - {confirms: L-4}
+      - {confirms: L-5}
+      - {confirms: L-6}
+      - {confirms: L-7}
+      - {confirms: L-8}
+      - {confirms: R-1}
+      - {confirms: R-2}
+      - {confirms: R-3}
+      - {confirms: R-4}
+      - {confirms: R-5}
+      - {confirms: R-6}
+      - {confirms: R-7}
+  - at: 2026-11-02 19:00
+    expect:
+      nothing_sent: true
+      roster: {L: 8, R: 8}
+  - at: 2026-11-03 10:30
+    expect:
+      absences: [{who: R-8, kind: none}]
+final:
+  roster: {L: 8, R: 8}

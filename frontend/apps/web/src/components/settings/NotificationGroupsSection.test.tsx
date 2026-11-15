@@ -19,12 +19,12 @@ const engine = (lang: "en" | "pt") =>
   JSON.parse(readFileSync(join(LOCALES, lang, "settings.json"), "utf8")).settings.engine;
 
 describe("Manual invite groups say what they are (PAD-448)", () => {
-  it("the section opens with the manual-invite hint", () => {
+  it("[NOTIFICATIONS-GROUPS-2] the section opens with the manual-invite hint", () => {
     render(<NotificationGroupsSection groups={[]} onChange={() => undefined} />);
     expect(screen.getByTestId("notify-groups-hint").textContent).toBe("settings.engine.notifyGroupsHint");
   });
 
-  it("the copy names the two settings apart, in both languages", () => {
+  it("[NOTIFICATIONS-GROUPS-2] the copy names the two settings apart, in both languages", () => {
     expect(engine("en").notifyGroups).toBe("Manual invite groups");
     expect(engine("pt").notifyGroups).toBe("Grupos do convite manual");
     expect(engine("en").notifyGroupsHint).toBe(
@@ -35,5 +35,20 @@ describe("Manual invite groups say what they are (PAD-448)", () => {
     );
     expect(engine("en").invitationGroupsHint).toMatch(/ Used by the automatic invitation engine\.$/);
     expect(engine("pt").invitationGroupsHint).toMatch(/ Usados pelos convites automáticos\.$/);
+  });
+
+  it("[NOTIFICATIONS-GROUPS-5] a default group label reads in the coach's language, a renamed one as stored (rule 7, PAD-838)", () => {
+    render(
+      <NotificationGroupsSection
+        groups={[
+          { id: "same_level", label: "Same level", enabled: true },
+          { id: "all_students", label: "Os do sábado", enabled: true },
+        ]}
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.getByText("settings.notificationGroups.labels.sameLevel")).toBeInTheDocument();
+    expect(screen.getByText("Os do sábado")).toBeInTheDocument();
+    expect(screen.queryByText("settings.notificationGroups.labels.allStudents")).toBeNull();
   });
 });

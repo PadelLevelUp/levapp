@@ -66,6 +66,7 @@ def _snapshot():
     )).all()
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-14")
 def test_the_migration_places_sub_level_rows_under_their_category(app):
     from flask_migrate import downgrade, upgrade
 

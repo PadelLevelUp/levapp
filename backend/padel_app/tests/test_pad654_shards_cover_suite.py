@@ -4,6 +4,7 @@
 test in no shard, in two shards, or unknown to the collection fails the `shards` job. Covers
 delivery.backend-ci-lanes rule 3 and "The shards run every test exactly once".
 """
+import pytest
 import importlib.util
 from pathlib import Path
 
@@ -25,22 +26,26 @@ def _run(tmp_path, *shards):
     return checker.main(["check", _write(tmp_path, "all.txt", ALL), *(_write(tmp_path, f"s{n}.txt", s) for n, s in enumerate(shards))])
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-1")
 def test_two_shards_that_partition_the_collection_pass(tmp_path, capsys):
     assert _run(tmp_path, ALL[:2], ALL[2:]) == 0
     assert "collected 4; shards ran [2, 2] (sum 4)" in capsys.readouterr().out
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-1")
 def test_a_test_in_no_shard_fails_and_is_named(tmp_path, capsys):
     assert _run(tmp_path, ALL[:2], ALL[3:]) == 1
     assert "1 test(s) in no shard: b.py::t3" in capsys.readouterr().out
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-1")
 def test_a_test_in_both_shards_fails_even_when_the_sum_matches(tmp_path, capsys):
     assert _run(tmp_path, ALL[:3], ALL[2:3]) == 1  # t4 missing, t3 twice: 4 ids, wrong ones
     out = capsys.readouterr().out
     assert "in more than one shard: b.py::t3" in out and "in no shard: b.py::T::t4" in out
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-1")
 def test_an_id_the_collection_does_not_know_fails(tmp_path, capsys):
     assert _run(tmp_path, ALL[:2], [*ALL[2:], "c.py::ghost"]) == 1
     assert "not in the collection: c.py::ghost" in capsys.readouterr().out

@@ -132,14 +132,14 @@ describe("the panel", () => {
 });
 
 describe("the row summary", () => {
-  it("reads 'no evaluation' only when the row's record rates nothing", () => {
+  it("[EVALUATIONS-CLASS-PANEL-2] reads 'no evaluation' only when the row's record rates nothing", () => {
     show();
     expect(summary(21).getAttribute("data-rated")).toBe("0");
     expect(summary(22).getAttribute("data-rated")).toBe("1");
     expect(summary(22).getAttribute("data-total")).toBe("3");
   });
 
-  it("counts a rating under a switched-off competency: 1 of 4, never 'no evaluation'", () => {
+  it("[EVALUATIONS-CLASS-PANEL-3] counts a rating under a switched-off competency: 1 of 4, never 'no evaluation'", () => {
     show();
     expect(summary(23).getAttribute("data-rated")).toBe("1");
     expect(summary(23).getAttribute("data-total")).toBe("4");
@@ -147,7 +147,7 @@ describe("the row summary", () => {
 });
 
 describe("the expanded row", () => {
-  it("lists the switched-off competency the record rates, as stars, with the note pre-filled", () => {
+  it("[EVALUATIONS-CLASS-PANEL-3] lists the switched-off competency the record rates, as stars, with the note pre-filled", () => {
     show();
     toggle(23);
     const row = within(screen.getByTestId("class-eval-row-23"));
@@ -185,7 +185,7 @@ describe("a record made on an earlier day (Q28)", () => {
     };
   });
 
-  it("still counts in the summary, and is shown read-only with its date — no edit, no delete", () => {
+  it("[EVALUATIONS-CLASS-PANEL-4] still counts in the summary, and is shown read-only with its date — no edit, no delete", () => {
     show();
     expect(summary(20).getAttribute("data-rated")).toBe("1");
     toggle(20);
@@ -224,7 +224,7 @@ describe("a record made on an earlier day (Q28)", () => {
 });
 
 describe("nothing to list (rule 6, AV-071)", () => {
-  it("is an empty state with the way into the manager and no note field; the summary reads 'no evaluation'", () => {
+  it("[EVALUATIONS-CLASS-PANEL-6] is an empty state with the way into the manager and no note field; the summary reads 'no evaluation'", () => {
     state.read = { ...CLASS_88, competencies: [], participants: [participant(21, "Tiago")] };
     show();
     expect(summary(21).getAttribute("data-rated")).toBe("0");
@@ -238,7 +238,7 @@ describe("nothing to list (rule 6, AV-071)", () => {
 });
 
 describe("the panel owns its state (rule 9)", () => {
-  it("another class starts collapsed: no open row and no note text carried over", () => {
+  it("[EVALUATIONS-CLASS-PANEL-8] another class starts collapsed: no open row and no note text carried over", () => {
     const first = show();
     toggle(23);
     expect(screen.getByTestId("evaluation-note")).toBeTruthy();

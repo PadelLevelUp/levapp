@@ -5,6 +5,7 @@ Reuses the Phase-1 eligibility seed: ladder `4 → 5 → 5-`, one class at level
 with `_add_student`; the calendar is read through `load_open_spot_events_for_player`
 and the route.
 """
+import pytest
 from datetime import timedelta
 
 from padel_app.sql_db import db
@@ -50,6 +51,7 @@ def _fill(app, ids, count):
         db.session.commit()
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-2")
 def test_eligible_student_sees_a_visible_class_with_room(app):
     ids = _seed(app, eligibility_rules=LEVEL_SAME)
     _config(app, ids, open_spots_visible=True)
@@ -62,6 +64,7 @@ def test_eligible_student_sees_a_visible_class_with_room(app):
     assert events[0]["coachName"] == "Coach"
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-4")
 def test_ineligible_student_sees_nothing(app):
     ids = _seed(app, eligibility_rules=LEVEL_SAME)
     _config(app, ids, open_spots_visible=True)
@@ -69,6 +72,7 @@ def test_ineligible_student_sees_nothing(app):
     assert _open_spots(app, pid) == []
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-5")
 def test_a_full_class_is_not_advertised(app):
     ids = _seed(app, eligibility_rules=None)
     _config(app, ids, open_spots_visible=True)
@@ -77,6 +81,7 @@ def test_a_full_class_is_not_advertised(app):
     assert _open_spots(app, pid) == []
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-6")
 def test_virtual_recurring_occurrence_is_advertised_without_materialising(app):
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
@@ -109,6 +114,7 @@ def test_virtual_recurring_occurrence_is_advertised_without_materialising(app):
         assert LessonInstance.query.count() == before, "the read must not materialise"
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-7")
 def test_one_occurrence_can_be_hidden_inside_a_visible_series(app):
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
@@ -137,6 +143,7 @@ def test_one_occurrence_can_be_hidden_inside_a_visible_series(app):
     assert [e["originalId"] for e in events] == [sibling_id]
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-11")
 def test_toggle_off_restores_todays_calendar(app):
     ids = _seed(app, eligibility_rules=None)
     pid = _student(app, ids, "student", "5")

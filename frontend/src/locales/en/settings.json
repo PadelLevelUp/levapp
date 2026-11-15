@@ -432,7 +432,29 @@
       "standingWaitingListHint": "Add students to the waiting list for all upcoming classes. They are automatically removed once they fill the configured number of spots or the period expires.",
       "messageTemplates": "Message templates",
       "eligibility": "Eligibility",
-      "eligibilityHint": "The minimum a student must meet to join a class at all. Invitation groups decide who is asked first; eligibility decides who is allowed in. With no rules defined, every one of your students is eligible."
+      "eligibilityHint": "The minimum a student must meet to join a class at all. Invitation groups decide who is asked first; eligibility decides who is allowed in. With no rules defined, every one of your students is eligible.",
+      "newEngine": {
+        "maxAtATime": "Most invitations at once in a class",
+        "timingMethod": "Time between invitations",
+        "method": {
+          "fixed": "The same for every group",
+          "per_tier": "Per group",
+          "progressive": "Progressive"
+        },
+        "betweenRounds": "Between rounds",
+        "betweenGroups": "Between groups",
+        "autoEntry": "Place waiting-list students straight away",
+        "sideChoice": "Students choose a side on the waiting list",
+        "tiers": {
+          "fixed": "fixed",
+          "moveUp": "Move up",
+          "moveDown": "Move down"
+        }
+      },
+      "blankRule": {
+        "eligibility": "Eligibility: a rule has no value.",
+        "groups": "Invitation groups: a rule has no value."
+      }
     },
     "reminders": {
       "hoursBeforeClass": "Hours before class",
@@ -480,7 +502,8 @@
         "atMost": "At most",
         "greaterThan": "Greater than",
         "atLeast": "At least",
-        "is": "Is"
+        "is": "Is",
+        "otherSide": "Other side"
       },
       "sideBalanceHelp": {
         "intro": "When a spot opens, the side with fewer players going is asked first, so the class stays balanced:",
@@ -490,7 +513,8 @@
         "special": "Spots other students have already freed count for their side too. A player with no side, or who plays both, counts for neither and can be invited either way; an already balanced class keeps the leaving player's side."
       },
       "subscriptionActive": "Active",
-      "subscriptionInactive": "Inactive"
+      "subscriptionInactive": "Inactive",
+      "valueMissing": "This rule needs a value."
     },
     "tiebreakers": {
       "fewestUnjustified": "Fewest unjustified absences",
@@ -570,7 +594,8 @@
         "reminders": "Reminders",
         "invitations": "Invitations",
         "waitingList": "Waiting list",
-        "addedToClass": "Added to a class"
+        "addedToClass": "Added to a class",
+        "removedFromClass": "Removed from a class"
       },
       "labels": {
         "invite": "Invite message",
@@ -584,7 +609,11 @@
         "waitingListOffer": "Waiting list offer",
         "waitingListInvite": "Invitation from the waiting list",
         "addedToClass": "Added to a class",
-        "addedToClassComing": "Added to a class, counted as coming"
+        "addedToClassComing": "Added to a class, counted as coming",
+        "waitingListAdded": "Placed from the waiting list",
+        "sideMoved": "Side set",
+        "removedFromClass": "Removed from one class",
+        "removedFromSeries": "Removed from the class group"
       },
       "descriptions": {
         "invite": "Sent when notifying a student about an open spot.",
@@ -595,10 +624,14 @@
         "reminderFollowup": "Sent if the student hasn't responded to the first reminder.",
         "reminderConfirmed": "Sent automatically when a student confirms attendance.",
         "reminderDeclined": "Sent automatically when a student declines attendance.",
-        "waitingListOffer": "Sent when a spot was filled, offering to be placed on the waiting list.",
+        "waitingListOffer": "Sent when a student says yes to a spot that was already taken, offering the waiting list.",
         "waitingListInvite": "Sent first, to the students on the class's waiting list, when a spot opens. {side} names the spot's side when it has one.",
         "addedToClass": "Sent when you put a student in a class.",
-        "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing."
+        "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing.",
+        "waitingListAdded": "Sent when automatic entry places a waiting-list student in a spot.",
+        "sideMoved": "Sent when a student who plays both sides is given their final side.",
+        "removedFromClass": "Sent when you take a student off one date of a class.",
+        "removedFromSeries": "Sent when you take a student off a recurring class from a date on."
       },
       "help": {
         "title": "How to build a message template",
@@ -617,6 +650,8 @@
           "date": "The class's date as day/month",
           "type": "The kind of class: academy or private",
           "court": "The class's court (empty when it has none)",
+          "duration": "Class duration",
+          "club": "Club",
           "class": "The class's title",
           "when": "The class's date, weekday and time",
           "side": "The side of the open spot (waiting-list invitation only)"
@@ -683,7 +718,8 @@
       },
       "openSpots": {
         "label": "Make empty spots for future classes visible to eligible students (they can request to join)"
-      }
+      },
+      "valueMissing": "This rule needs a value."
     },
     "connections": {
       "title": "My connections",

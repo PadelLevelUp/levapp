@@ -22,7 +22,7 @@ describe("standing waiting-list end date (PAD-507)", () => {
     ]);
   });
 
-  it("an end may be today through twelve months ahead, and nothing else", () => {
+  it("[NOTIFICATIONS-WAITING-LIST-10] an end may be today through twelve months ahead, and nothing else", () => {
     expect(standingEndBounds(today)).toEqual({ min: "2026-10-03", max: "2027-10-03" });
     expect(isStandingEndAllowed("2026-10-03", today)).toBe(true);
     expect(isStandingEndAllowed("2027-10-03", today)).toBe(true);

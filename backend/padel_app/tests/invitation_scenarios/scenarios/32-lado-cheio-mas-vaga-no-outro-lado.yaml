@@ -1,0 +1,44 @@
+id: 32
+title: lado cheio, mas vaga no outro lado
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [833, 851]}
+what_it_tests: >
+  sem vaga no seu lado, o aluno só entra pela waiting list; antes dos lembretes, aceitar o outro lado dá
+  entrada nesse lado
+tags: [direct-join, waiting-list, sides, other-side, reminders]
+depends_on: [U16, U18, U23, U24]
+corrections: [E5]
+notes: >
+  10:00: X1 "vê a aula" (`appears`). X1's direct-join attempt is refused because the left is full (U24):
+  `refused` direct_join, roster and missing unchanged. 10:01: the PDF's "entra diretamente à direita" is automatic entry from the waiting list
+  (E5): how auto_from_waiting_list, message added. Both happen before the first invitation hour (the
+  "Pressupostos" item at cenarios.txt 2152-2154, U16).
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: X1, level: 2, side: L}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 10:00
+    events:
+      - {appears: X1}
+      - {joins_directly: X1}
+    expect:
+      refused: [{who: X1, action: direct_join}]
+      roster: {L: 8, R: 7}
+      missing: {L: 0, R: 1}
+      invitations: none
+  - at: 2026-11-01 10:01
+    events: [{joins_waiting_list: X1, sides: both}]
+    expect:
+      placed: [{who: X1, side: R, how: auto_from_waiting_list}]
+      messages: [{who: X1, kind: added}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:00
+    expect: {invitations: none}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, X1]}
+final:
+  roster: {L: 8, R: 8}

@@ -29,7 +29,7 @@ function fakeApi(rows: Array<{ lessonInstanceId: number; status: string }> = [])
 }
 
 describe("useInviteWaitingList", () => {
-  it("offers the join once the student's lists are known, and a join flips to the on-list state", async () => {
+  it("[NOTIFICATIONS-INVITATIONS-77] offers the join once the student's lists are known, and a join flips to the on-list state", async () => {
     const api = fakeApi();
     const notify = vi.fn();
     const { result } = renderHook(() => useInviteWaitingList({ metadata: lost, received: true, api, notify }), { wrapper });
@@ -45,14 +45,14 @@ describe("useInviteWaitingList", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  it("reads an active place on this class's list as already on it", async () => {
+  it("[NOTIFICATIONS-INVITATIONS-77] reads an active place on this class's list as already on it", async () => {
     const api = fakeApi([{ lessonInstanceId: 7, status: "active" }, { lessonInstanceId: 8, status: "active" }]);
     const { result } = renderHook(() => useInviteWaitingList({ metadata: lost, received: true, api, notify: vi.fn() }), { wrapper });
     await waitFor(() => expect(result.current.onWaitingList).toBe(true));
     expect(result.current.offersJoin).toBe(false);
   });
 
-  it("fetches nothing and offers nothing for the sender's own bubble or an invitation not lost to another", async () => {
+  it("[NOTIFICATIONS-INVITATIONS-77] fetches nothing and offers nothing for the sender's own bubble or an invitation not lost to another", async () => {
     for (const [metadata, received] of [[lost, false], [{ ...lost, response: "expired" }, true], [{ ...lost, response: "withdrawn" }, true]] as const) {
       const api = fakeApi();
       const { result } = renderHook(() => useInviteWaitingList({ metadata, received, api, notify: vi.fn() }), { wrapper });

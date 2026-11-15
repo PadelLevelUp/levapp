@@ -78,6 +78,7 @@ def _stray(app, ids):
         return row.id
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-21")
 def test_a_row_moves_under_another_category_and_back(app, client):
     """Criterion "A row moves under another category, and back"."""
     from padel_app.models import EvaluationEntry
@@ -103,6 +104,7 @@ def test_a_row_moves_under_another_category_and_back(app, client):
     assert _row(app, grit) is not None  # the old parent is untouched
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-21")
 def test_a_custom_sub_category_can_become_a_category(app, client):
     ids, _grit, rec, _bandeja, _technique = _tree(app, client)
 
@@ -112,6 +114,7 @@ def test_a_custom_sub_category_can_become_a_category(app, client):
     assert _row(app, rec)["parent_id"] is None
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-21")
 def test_a_stray_moves_under_its_default(app, client):
     ids, _grit, _rec, _bandeja, technique = _tree(app, client)
     stray = _stray(app, ids)
@@ -126,6 +129,7 @@ def test_a_stray_moves_under_its_default(app, client):
     "sub-category as the target", "itself", "parentId not an int", "parentId a bool", "no such target",
     "a stray as the target", "a catalogue sub-category to the top level",
 ])
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-22")
 def test_a_move_that_breaks_two_levels_or_r047_is_refused_and_nothing_changes(app, client, case):
     """Criterion "A move that breaks the two levels or R-047 is refused, and nothing changes"."""
     ids, grit, rec, bandeja, technique = _tree(app, client)
@@ -155,6 +159,7 @@ def test_a_move_that_breaks_two_levels_or_r047_is_refused_and_nothing_changes(ap
     assert {cid: _row(app, cid) for cid in before} == before
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-22")
 def test_a_move_under_another_coachs_category_is_forbidden(app, client):
     ids, _grit, _rec, bandeja, technique = _tree(app, client)
     other = _other_coach(app)
@@ -165,6 +170,7 @@ def test_a_move_under_another_coachs_category_is_forbidden(app, client):
     assert _row(app, bandeja)["parent_id"] == technique
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-23")
 def test_a_move_to_the_parent_the_row_already_has_changes_nothing(app, client):
     """Criterion "A move to the parent the row already has changes nothing"."""
     ids, grit, rec, _bandeja, _technique = _tree(app, client)
@@ -177,6 +183,7 @@ def test_a_move_to_the_parent_the_row_already_has_changes_nothing(app, client):
 
 
 @pytest.mark.parametrize("body", [{"name": "Recuperação ativa"}, {"isActive": False}, {"sortOrder": 3}])
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-24")
 def test_an_edit_that_does_not_send_parent_id_keeps_the_parent(app, client, body):
     """Criterion "An edit that does not send parentId keeps the parent" (every build before PAD-480)."""
     ids, grit, rec, _bandeja, _technique = _tree(app, client)
@@ -195,6 +202,7 @@ def test_a_rename_and_a_move_in_one_request(app, client):
     assert (_row(app, bandeja)["name"], _row(app, bandeja)["parent_id"]) == ("Bandeja alta", grit)
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-25")
 def test_deleting_the_new_parent_takes_the_moved_row_with_it(app, client):
     """Criterion "Deleting the new parent takes the moved row with it"."""
     from padel_app.models import EvaluationEntry

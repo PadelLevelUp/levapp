@@ -4,6 +4,7 @@ The coach dashboard's "this week" and the validation badge's ``weekOffset`` use 
 first day as the calendar grid beside them, and a test reads the frontend constant so the two
 cannot drift apart.
 """
+import pytest
 import pathlib
 import re
 from datetime import date, datetime, timedelta
@@ -12,12 +13,14 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 WEDNESDAY = datetime(2026, 10, 21, 10, 0)
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-1")
 def test_week_start_maps_wednesday_to_the_sunday_before():
     from padel_app.utils.dates import week_start
 
     assert week_start(date(2026, 10, 21)) == date(2026, 10, 18)
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-1")
 def test_week_start_of_a_sunday_is_itself_and_saturday_belongs_to_that_week():
     from padel_app.utils.dates import week_start
 
@@ -35,6 +38,7 @@ def test_the_constant_agrees_with_the_frontend():
     assert int(match.group(1)) == WEEK_STARTS_ON_SUNDAY == 0
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-1")
 def test_week_bounds_and_offset_use_the_same_sunday_week():
     from padel_app.helpers.dashboard.coach_home import week_bounds, week_offset_of
 
@@ -80,6 +84,7 @@ def _add_class(app, coach_id, *, start, capacity):
         db.session.commit()
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-1")
 def test_dashboard_this_week_counts_sunday_18_and_not_saturday_17(app):
     from padel_app.helpers.dashboard.coach_home import build_week_pulse_block
     from padel_app.tests.helpers import make_coach

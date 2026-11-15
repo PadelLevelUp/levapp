@@ -10,6 +10,7 @@ M12: flag and order columns were nullable with Python-only defaults, so a row
 written by raw SQL, an older client or a migration got NULL, and readers that
 compare `== True` silently dropped it (the KPI dashboard).
 """
+import pytest
 import time
 from datetime import datetime
 
@@ -83,6 +84,7 @@ def test_flag_and_order_columns_are_not_null_with_database_defaults(app):
     assert loose == [], f"columns still nullable or without a database default: {loose}"
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-9")
 def test_a_raw_insert_gets_the_database_default(app):
     """A row written without the ORM (raw SQL, an import script) must not end
     up NULL: the default lives in the database, not only in Python."""

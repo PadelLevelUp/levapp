@@ -197,7 +197,7 @@ describe("sortPlayers", () => {
     expect(sortPlayers([ana, zoe], { 1: "present", 4: "present" }, nick).map((p) => p.playerId)).toEqual([4, 1]);
   });
 
-  it("puts undecided players first, then sorts by name", () => {
+  it("[ATTENDANCE-VALIDATION-6] puts undecided players first, then sorts by name", () => {
     const zoe = player({ playerId: 4, name: "Zoe", response: "none" });
     expect(
       sortPlayers([ana, silent, bruno, zoe], {}, realName).map((p) => p.name)
@@ -221,7 +221,7 @@ describe("selection", () => {
   const ready = klass(1, [ana, bruno]);
   const blocked = klass(2, [ana, silent]);
 
-  it("lists only the classes with nothing outstanding as ready", () => {
+  it("[ATTENDANCE-VALIDATION-5] lists only the classes with nothing outstanding as ready", () => {
     expect(readyClassIds([ready, blocked], {})).toEqual([1]);
     expect(readyClassIds([ready, blocked], { 2: { 3: "justified" } })).toEqual([
       1, 2,
@@ -233,13 +233,13 @@ describe("selection", () => {
     expect(toggleSelection([1, 2], 1)).toEqual([2]);
   });
 
-  it("splits a selection into validatable and skipped", () => {
+  it("[ATTENDANCE-VALIDATION-11] splits a selection into validatable and skipped", () => {
     const { ready: ok, needs } = partitionSelection([ready, blocked], [1, 2], {});
     expect(ok.map((c) => c.lessonInstanceId)).toEqual([1]);
     expect(needs.map((c) => c.lessonInstanceId)).toEqual([2]);
   });
 
-  it("never force-approves a class with an unanswered player", () => {
+  it("[ATTENDANCE-VALIDATION-11] never force-approves a class with an unanswered player", () => {
     const { ready: ok } = partitionSelection([blocked], [2], {});
     expect(ok).toHaveLength(0);
   });
@@ -250,7 +250,7 @@ describe("selection", () => {
     expect(needs.map((c) => c.lessonInstanceId)).toEqual([2]);
   });
 
-  it("keeps the skipped classes selected after a partial validate", () => {
+  it("[ATTENDANCE-VALIDATION-11] keeps the skipped classes selected after a partial validate", () => {
     expect(clearValidated([1, 2], [1])).toEqual([2]);
   });
 });

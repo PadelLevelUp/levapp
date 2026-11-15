@@ -209,6 +209,7 @@ def _coach_id(app, username="ana"):
 
 # --- Sign-up: a new contact ------------------------------------------------
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-1")
 def test_new_coach_becomes_a_contact_with_the_app_as_source(client, hubspot):
     _register(client)
 
@@ -231,6 +232,7 @@ def test_new_coach_becomes_a_contact_with_the_app_as_source(client, hubspot):
 
 # --- Sign-up: an existing contact ------------------------------------------
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-2")
 def test_existing_contact_is_filled_not_overwritten(client, hubspot):
     hubspot.contacts["7"] = {
         "email": "ana@example.com",
@@ -254,6 +256,7 @@ def test_existing_contact_is_filled_not_overwritten(client, hubspot):
 
 # --- Sign-up: deals ----------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-3")
 def test_only_open_earlier_deals_in_the_stage_pipeline_move_to_em_teste(client, hubspot):
     hubspot.contacts["7"] = {"email": "ana@example.com", "firstname": "Ana", "lastname": "Lima"}
     hubspot.contact_deals["7"] = ["11", "12", "13", "14", "15"]
@@ -313,6 +316,7 @@ def _fill_every_column(obj):
         setattr(obj, col.key, value)
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-4")
 def test_payload_is_the_allow_list_and_nothing_else(app):
     """The binding RGPD section, as a test: every User and Coach column holds a
     value, and the payload keys are still exactly the allow-list."""
@@ -370,6 +374,7 @@ def _sync(payload, **config):
 ANA = {"firstname": "Ana", "email": "ana@example.com", "phone": "+351912345678", "status": "pendente"}
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-7")
 def test_the_email_match_wins_over_a_phone_match(app, hubspot):
     """Rule 4: two contacts, one with the phone and another email, one with the
     coach's email — the email one is written, the other is not touched."""
@@ -382,6 +387,7 @@ def test_the_email_match_wins_over_a_phone_match(app, hubspot):
     assert hubspot.contacts["5"] == {"email": "outro@example.com", "phone": "+351912345678", "firstname": "Rui"}
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-8")
 def test_a_phone_match_without_email_is_the_coach_and_gets_the_email(app, hubspot):
     """Rule 4: a lead entered by phone (no email yet) is the coach's contact."""
     hubspot.contacts["5"] = {"phone": "+351912345678", "firstname": "Ana", "levapp_tipo_origem": "Outbound"}
@@ -393,6 +399,7 @@ def test_a_phone_match_without_email_is_the_coach_and_gets_the_email(app, hubspo
     assert hubspot.contacts["5"]["levapp_tipo_origem"] == "Outbound"
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-9")
 def test_a_phone_match_with_another_email_is_someone_else(app, hubspot):
     """Rule 4: sharing a phone with a contact that has a different email does not
     make it the coach's — a new contact is created and the other is untouched."""
@@ -423,6 +430,7 @@ def test_a_400_that_names_no_status_property_is_not_retried(client, hubspot, cap
     "decision, status",
     [("approve", "aprovado"), ("reject", "rejeitado")],
 )
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-5")
 def test_admin_decision_updates_status_and_never_touches_deals(client, app, hubspot, decision, status):
     _register(client)
     coach_id = _coach_id(app)
@@ -443,6 +451,7 @@ def test_admin_decision_updates_status_and_never_touches_deals(client, app, hubs
     assert hubspot.deal_calls() == []
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-5")
 def test_reapply_sets_status_back_to_pendente(client, app, hubspot):
     _register(client)
     coach_id = _coach_id(app)
@@ -458,6 +467,7 @@ def test_reapply_sets_status_back_to_pendente(client, app, hubspot):
     assert hubspot.deal_calls() == []
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-6")
 def test_a_transition_heals_a_missing_contact(client, app, hubspot, monkeypatch):
     monkeypatch.delenv("HUBSPOT_PRIVATE_APP_TOKEN")
     _register(client)  # token not installed yet: no contact made
@@ -483,6 +493,7 @@ def test_a_transition_heals_a_missing_contact(client, app, hubspot, monkeypatch)
 
 # --- Misconfiguration: the status property does not exist --------------------
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-10")
 def test_missing_status_property_degrades_to_contact_without_status(client, hubspot, caplog):
     hubspot.missing_properties = {STATUS_PROP}
     with caplog.at_level(logging.WARNING):
@@ -501,6 +512,7 @@ def test_missing_status_property_degrades_to_contact_without_status(client, hubs
 # --- Never in the way --------------------------------------------------------
 
 @pytest.mark.parametrize("failure", ["500", "network"])
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-12")
 def test_hubspot_failing_never_blocks_signup_or_decisions(client, app, hubspot, caplog, failure):
     from padel_app.models import Coach, User
 
@@ -569,6 +581,7 @@ def test_a_5xx_is_retried_once(app, hubspot):
 
 # --- Off without a token, and only coaches ------------------------------------
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-14")
 def test_no_token_no_traffic(client, app, hubspot, monkeypatch, caplog):
     monkeypatch.delenv("HUBSPOT_PRIVATE_APP_TOKEN")
     with caplog.at_level(logging.DEBUG):
@@ -583,6 +596,7 @@ def test_no_token_no_traffic(client, app, hubspot, monkeypatch, caplog):
     assert not [r for r in caplog.records if "hubspot" in r.getMessage().lower()]
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-15")
 def test_students_and_refused_signups_never_sync(client, hubspot):
     res = client.post("/api/auth/register", json=_coach_body(role="student", username="aluno", email="aluno@example.com"))
     assert res.status_code == 201

@@ -1,0 +1,57 @@
+id: 59
+title: um regular diz Não de madrugada, perto da aula
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1336, 1352]}
+what_it_tests: o silêncio e a hora do último convite combinados, e as respostas a convites abertos depois dessa hora
+tags: [quiet-hours, last-invite, rounds, absences, timers]
+depends_on: [U29]
+corrections: []
+notes: >
+  L-1's No at 00:20 comes after the 2 Nov 22:30 cutoff, so the absence is unjustified (U29). Five rounds of
+  3 (07:00 plus 4 envios at 07:20–08:20) send 15 of the 20 L2L; every round sends X x spots without
+  subtracting earlier open invitations (R11). The 08:40 step is a derived probe: the round that would fall
+  there must not go out after the 08:30 last-invitation hour.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2L, count: 20, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-03 00:20
+    events: [{regular_no: L-1}]
+    expect:
+      absences: [{who: L-1, kind: unjustified}]
+      invitations: none
+      missing: {L: 1, R: 0}
+  - at: 2026-11-03 07:00
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-03 07:20
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-03 07:40
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-03 08:00
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-03 08:20
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+      invitations_total_sent: 15
+      open_unanswered: 15
+  - at: 2026-11-03 08:30
+    expect:
+      invitations: none
+  - at: 2026-11-03 08:40
+    derived: true
+    expect:
+      invitations: none
+      invitations_total_sent: 15
+  - at: 2026-11-03 09:15
+    events: [{accepts: {cohort: L2L, state: invited, as: l1}}]
+    expect:
+      placed: [{who: l1, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

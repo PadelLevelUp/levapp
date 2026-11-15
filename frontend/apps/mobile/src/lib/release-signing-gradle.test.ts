@@ -35,14 +35,14 @@ const TEMPLATE = `android {
 `;
 
 describe("with-release-signing (PAD-355)", () => {
-  it("adds a release signing config that reads the upload key from the environment", () => {
+  it("[MOBILE-ANDROID-PLAY-BUNDLE-1] adds a release signing config that reads the upload key from the environment", () => {
     const out = applyReleaseSigning(TEMPLATE);
     expect(out).toContain(MARKER);
     for (const name of Object.values(ENV)) expect(out).toContain(`System.getenv("${name}")`);
     expect(out).toMatch(/release \{\s*\n\s*if \(System\.getenv\("LEVAPP_UPLOAD_STORE_FILE"\)\)/);
   });
 
-  it("points only the release build type at it, and only when the store file is set", () => {
+  it("[MOBILE-ANDROID-PLAY-BUNDLE-1] points only the release build type at it, and only when the store file is set", () => {
     const out = applyReleaseSigning(TEMPLATE);
     const buildTypes = out.slice(out.indexOf("buildTypes"));
     expect(buildTypes).toMatch(
@@ -53,7 +53,7 @@ describe("with-release-signing (PAD-355)", () => {
     expect(out).toContain("keyAlias 'androiddebugkey'");
   });
 
-  it("writes no key material into the file", () => {
+  it("[MOBILE-ANDROID-PLAY-BUNDLE-1] writes no key material into the file", () => {
     const out = applyReleaseSigning(TEMPLATE);
     // The only literal password is the template's public debug one; the added config reads env.
     expect(out.match(/storePassword .*/g)).toEqual([
@@ -62,12 +62,12 @@ describe("with-release-signing (PAD-355)", () => {
     ]);
   });
 
-  it("is idempotent", () => {
+  it("[MOBILE-ANDROID-PLAY-BUNDLE-1] is idempotent", () => {
     const once = applyReleaseSigning(TEMPLATE);
     expect(applyReleaseSigning(once)).toBe(once);
   });
 
-  it("fails loudly when the template's shape changes", () => {
+  it("[MOBILE-ANDROID-PLAY-BUNDLE-2] fails loudly when the template's shape changes", () => {
     expect(() => applyReleaseSigning(TEMPLATE.replace("signingConfig signingConfigs.debug\n            def", "def"))).toThrow(
       /with-release-signing/,
     );

@@ -28,6 +28,7 @@ const SOURCES = [
   "src/features/presences/PresencesScreen.tsx",
   "src/features/presences/PresenceReportCharts.tsx",
   "src/features/presences/PresenceReportSheets.tsx",
+  "src/features/presences/PresencePeriodControl.tsx",
 ].map((rel) => path.join(MOBILE_ROOT, rel));
 
 type Dict = Record<string, unknown>;
@@ -102,7 +103,16 @@ const TEMPLATE_SUFFIXES: Record<string, string[]> = {
     "unjustified",
     "invitesReceived",
     "invitesJoined",
+    // PAD-837 (rule 17d): the hours twins and the balance.
+    "presenceMinutes",
+    "justifiedMinutes",
+    "guestPresenceMinutes",
+    "balanceMinutes",
   ],
+  // PAD-837 (rule 17e): the guest columns' help lines, under the column's name in the sheet.
+  "presences.columnHelp.": ["invitesReceived", "invitesJoined"],
+  // PAD-837c: the period control iterates `presencePeriodShortcuts`.
+  "presences.period.": ["thisWeek", "thisMonth", "lastMonth", "season"],
 };
 
 /** Literal and template `t()` keys in a source file, templates expanded. */

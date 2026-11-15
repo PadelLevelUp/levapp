@@ -53,13 +53,13 @@ describe("useAppBadgeSync", () => {
     expect(setBadgeCountAsync).not.toHaveBeenCalled();
   });
 
-  it("writes the first fetched count on a cold launch", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-23] writes the first fetched count on a cold launch", () => {
     hook = renderHook(loaded(3, 100));
     expect(setBadgeCountAsync).toHaveBeenCalledTimes(1);
     expect(setBadgeCountAsync).toHaveBeenLastCalledWith(3);
   });
 
-  it("writes again on a fresh fetch even when the count did not change (the PAD-147 case)", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-23] writes again on a fresh fetch even when the count did not change (the PAD-147 case)", () => {
     // Badge was left at 1 by an APNs payload; the app held 0 before and the
     // message was read on another device, so the refetch returns 0 again.
     hook = renderHook(loaded(0, 100));
@@ -76,7 +76,7 @@ describe("useAppBadgeSync", () => {
     expect(setBadgeCountAsync).toHaveBeenCalledTimes(1);
   });
 
-  it("tracks a changed count", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-23] tracks a changed count", () => {
     hook = renderHook(loaded(1, 100));
     hook.update(loaded(0, 150));
     expect(setBadgeCountAsync).toHaveBeenLastCalledWith(0);

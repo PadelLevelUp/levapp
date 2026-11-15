@@ -67,3 +67,5 @@ from .admin_audit_log import AdminAuditLog
 from .finance import FinanceCost, FinanceCostRevision, FinanceGcpCost, FinanceImportRun
 from .realtime_event import realtime_events
 from .auth_rate_limit_hit import auth_rate_limit_hits
+# PAD-916: the new invitation engine's table-backed store (swap plan §5).
+from .engine_store import EngineEffect, EngineExclusion, EngineInvitation, EngineSession

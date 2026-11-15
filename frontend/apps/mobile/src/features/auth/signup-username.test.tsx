@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 describe("SignUpScreen — the username explains itself (PAD-651, auth.register rule 21)", () => {
-  it("21a: the name pre-fills the username, until the user types in it", async () => {
+  it("[AUTH-REGISTER-24] 21a: the name pre-fills the username, until the user types in it", async () => {
     const n = await renderNative(createElement(SignUpScreen));
     await n.changeText("signup-name", "Jorge Torres");
     expect(n.byTestId("signup-username").props.value).toBe("jorge.torres");
@@ -68,14 +68,14 @@ describe("SignUpScreen — the username explains itself (PAD-651, auth.register 
     expect(n.byTestId("signup-username").props.value).toBe("jpt"); // rule 2a (PAD-799): lowercase as typed
   });
 
-  it("21b: an email typed as the username gets its own message, and nothing is sent", async () => {
+  it("[AUTH-REGISTER-25] 21b: an email typed as the username gets its own message, and nothing is sent", async () => {
     const n = await filled("jorge.torres@gmail.com");
     await n.press("signup-submit");
     expect(text(n, "signup-error-username")).toBe("auth.signup.usernameIsEmail");
     expect(register).not.toHaveBeenCalled();
   });
 
-  it("21c: a second tap while the sign-up is in flight sends nothing", async () => {
+  it("[AUTH-REGISTER-26] 21c: a second tap while the sign-up is in flight sends nothing", async () => {
     register.mockReturnValue(new Promise(() => {}));
     const n = await filled("jpt");
     await n.press("signup-submit");
@@ -83,7 +83,7 @@ describe("SignUpScreen — the username explains itself (PAD-651, auth.register 
     expect(register).toHaveBeenCalledTimes(1);
   });
 
-  it("21c: after the account exists, the form never sends again", async () => {
+  it("[AUTH-REGISTER-26] 21c: after the account exists, the form never sends again", async () => {
     register.mockResolvedValue({ user: { id: 1, roles: ["student"], emailVerification: "pending" } });
     const n = await filled("jpt");
     await n.press("signup-submit");
@@ -96,7 +96,7 @@ describe("SignUpScreen — the username explains itself (PAD-651, auth.register 
 });
 
 describe("SignUpScreen — a chosen username is lowercase (PAD-799, auth.register rule 2a)", () => {
-  it("2a: capitals typed become lowercase as they are typed, never auto-capitalised or corrected", async () => {
+  it("[AUTH-REGISTER-1] 2a: capitals typed become lowercase as they are typed, never auto-capitalised or corrected", async () => {
     const n = await renderNative(createElement(SignUpScreen));
     await n.changeText("signup-username", "Bernardo.Silva");
     const field = n.byTestId("signup-username");

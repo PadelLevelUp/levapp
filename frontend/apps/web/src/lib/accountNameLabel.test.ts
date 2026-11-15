@@ -8,7 +8,7 @@ import authEn from "../../../../src/locales/en/auth.json";
  * (`auth.register.name`, `auth.coachInvite.name`) share the label. Both apps import these files.
  */
 describe("account name label (PAD-666)", () => {
-  it.each(["signup", "register", "coachInvite"] as const)("%s asks for first and last name", (form) => {
+  it.each(["signup", "register", "coachInvite"] as const)("[AUTH-REGISTER-27] %s asks for first and last name", (form) => {
     expect(authPt.auth[form].name).toBe("Nome e Apelido");
     expect(authEn.auth[form].name).toBe("First and last name");
   });

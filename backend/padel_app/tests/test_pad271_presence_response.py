@@ -5,7 +5,7 @@ Decided 2026-09-11 (coordinator, owner informed): the `response` /
 `late_cancellation` is derived; the legacy booleans stay as shadow columns until
 phase 2 moves the readers and both shells to `response`.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -65,15 +65,29 @@ def test_a_reminder_no_writes_response_declined(app):
         assert p.recorded_by == "student"
 
 
+def _pin_class(ids, start, now):
+    """Move the fixture's class to a fixed start (winter: club wall clock = UTC) and return `now`."""
+    from padel_app.models import LessonInstance
+    instance = db.session.get(LessonInstance, ids["instance_id"])
+    instance.start_datetime = start
+    instance.end_datetime = start + timedelta(hours=1)
+    db.session.commit()
+    return now
+
+
 def test_a_cancel_writes_response_cancelled_and_a_proactive_decline_its_own_value(app):
     from padel_app.services.notification_service import cancel_attendance
 
     ids = _world(app)
     with app.app_context():
+        # Clock pinned: nine days before the class is well before the reminder would fire, so the
+        # decline is proactive whatever day the suite runs (the old fixture read the real clock).
+        now = _pin_class(ids, datetime(2027, 3, 10, 18, 0), datetime(2027, 3, 1, 12, 0))
         with patch(PATCHES[0]), patch(PATCHES[1]):
-            out = cancel_attendance(ids["alice_user"], lesson_instance_id=ids["instance_id"])
+            out = cancel_attendance(ids["alice_user"], lesson_instance_id=ids["instance_id"], now=now)
+        assert out["proactive"] is True
         p = _presence(ids)
-        assert p.response == ("proactive_decline" if out["proactive"] else "cancelled")
+        assert p.response == "proactive_decline"
         assert p.recorded_by == "student"
 
 

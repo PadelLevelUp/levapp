@@ -97,7 +97,7 @@ describe("approvalCardState", () => {
     });
   });
 
-  it("offers the at-window choice only while the window is still ahead", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-11] offers the at-window choice only while the window is still ahead", () => {
     expect(
       approvalCardState(bundle({ windowOpenAt: "2026-09-06T18:00:00" }), { now })
         .windowOpenInFuture
@@ -208,11 +208,11 @@ describe("approvalCardState defaults to the club's clock (PAD-295)", () => {
     vi.useRealTimers();
   });
 
-  it("a window opening at 10:30 Lisbon is still ahead on any device", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-11] a window opening at 10:30 Lisbon is still ahead on any device", () => {
     expect(approvalCardState(bundle({ windowOpenAt: "2027-07-15T10:30:00" })).windowOpenInFuture).toBe(true);
   });
 
-  it("a window that opened at 09:30 Lisbon is open on any device", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-13] a window that opened at 09:30 Lisbon is open on any device", () => {
     expect(approvalCardState(bundle({ windowOpenAt: "2027-07-15T09:30:00" })).windowOpenInFuture).toBe(false);
   });
 });
@@ -226,7 +226,7 @@ describe("approvalRespondOutcome — a recomputed bundle (PAD-545)", () => {
 });
 
 describe("approvalCardState — PAD-765 (rule 11)", () => {
-  it("a message whose every spot filled or expired offers no buttons", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-19] a message whose every spot filled or expired offers no buttons", () => {
     const resolved = bundle({
       vacancies: [{ vacancyId: 1, declinedPlayerId: 10, declinedPlayerName: "Case 7", queue: [], resolved: "filled" }],
     });
@@ -235,7 +235,7 @@ describe("approvalCardState — PAD-765 (rule 11)", () => {
     expect(state.showActions).toBe(false);
   });
 
-  it("one spot of two filled keeps the buttons for the other", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-19] one spot of two filled keeps the buttons for the other", () => {
     const half = bundle({
       vacancies: [
         { vacancyId: 1, declinedPlayerId: 10, declinedPlayerName: "Case 7", queue: [], resolved: "filled" },

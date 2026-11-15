@@ -43,7 +43,7 @@ describe("usePushNotifications (rule 9)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("focus saves a granted browser's subscription once per session, with no prompt", async () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-6] focus saves a granted browser's subscription once per session, with no prompt", async () => {
     const { result } = renderHook(() => usePushNotifications("tok-focus"));
     await waitFor(() => expect(result.current.saveState).toBe("saved"));
     expect(saves()).toBe(1);
@@ -56,7 +56,7 @@ describe("usePushNotifications (rule 9)", () => {
     expect(requestPermission).not.toHaveBeenCalled();
   });
 
-  it("saves nothing while permission is not granted", async () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-6] saves nothing while permission is not granted", async () => {
     vi.stubGlobal("Notification", { permission: "default", requestPermission });
     renderHook(() => usePushNotifications("tok-default"));
     await act(async () => {
@@ -66,7 +66,7 @@ describe("usePushNotifications (rule 9)", () => {
     expect(requestPermission).not.toHaveBeenCalled();
   });
 
-  it("a failed save is the failed state, and subscribe() retries it without rejecting", async () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-7] a failed save is the failed state, and subscribe() retries it without rejecting", async () => {
     saveStatus = 500;
     const { result } = renderHook(() => usePushNotifications("tok-fail"));
     await waitFor(() => expect(result.current.saveState).toBe("failed"));

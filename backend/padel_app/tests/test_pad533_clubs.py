@@ -43,6 +43,7 @@ def world(app):
     return ids
 
 
+@pytest.mark.criterion("ADMIN-CLUBS-AND-SWITCHES-1")
 def test_staff_edit_a_club_and_its_courts_without_being_a_member(app, client, world):
     op = world["operator"]
     r = client.patch(f"/admin/api/clubs/{world['norte']}", headers=op, json={"name": "Padel Norte Porto"})
@@ -66,6 +67,7 @@ def test_staff_edit_a_club_and_its_courts_without_being_a_member(app, client, wo
     assert edit["before"]["name"] == "Padel Norte" and edit["after"]["name"] == "Padel Norte Porto"
 
 
+@pytest.mark.criterion("ADMIN-CLUBS-AND-SWITCHES-2")
 def test_court_validation_matches_the_coach_routes(app, client, world):
     r = client.post(f"/admin/api/clubs/{world['norte']}/courts", headers=world["operator"], json={"name": "court 1"})
     assert r.status_code == 400 and r.get_json()["code"] == "invalid_court"
@@ -77,6 +79,7 @@ def test_court_validation_matches_the_coach_routes(app, client, world):
         assert Court.query.filter_by(club_id=world["norte"]).count() == 2
 
 
+@pytest.mark.criterion("ADMIN-CLUBS-AND-SWITCHES-3")
 def test_staff_link_and_unlink_a_coach(app, client, world):
     op = world["operator"]
     r = client.post(f"/admin/api/clubs/{world['b']}/coaches", headers=op, json={"coachId": world["coach"]})

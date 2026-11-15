@@ -1,0 +1,55 @@
+id: 12
+title: o limite corta o primeiro envio
+source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [452, 468]}
+what_it_tests: o limite aplica-se só aos convites da ronda atual e não bloqueia a aula
+tags: [max-open, rounds, timers, aviso]
+depends_on: []
+corrections: []
+notes: >
+  M counts only the current round's unanswered invitations (R10), and each round sends X x spots (15)
+  capped at M without subtracting earlier open invitations (R11), so 24 are open at 19:20 with M = 12.
+  19:40 sends 6 because the group runs out of candidates, not because of M. The 20:00 Aviso probe is
+  derived from "Quem disser Sim depois recebe o Aviso" (R9).
+
+roster:
+  regulars: {L: 8, R: 3}
+students:
+  - {cohort: L2R, count: 30, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 12, side_named: null, group: 3}]
+      missing: {L: 0, R: 5}
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: [{cohort: L2R, count: 12, side_named: null, group: 3}]
+      open_unanswered: 24
+  - at: 2026-11-01 19:40
+    expect:
+      invitations: [{cohort: L2R, count: 6, side_named: null, group: 3}]
+      open_unanswered: 30
+      invitations_total_sent: 30
+  - at: 2026-11-01 19:55
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: a1}}
+      - {accepts: {cohort: L2R, state: invited, as: a2}}
+      - {accepts: {cohort: L2R, state: invited, as: a3}}
+      - {accepts: {cohort: L2R, state: invited, as: a4}}
+      - {accepts: {cohort: L2R, state: invited, as: a5}}
+    expect:
+      placed:
+        - {who: a1, side: R, how: invitation}
+        - {who: a2, side: R, how: invitation}
+        - {who: a3, side: R, how: invitation}
+        - {who: a4, side: R, how: invitation}
+        - {who: a5, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 20:00
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect:
+      messages: [{who: b, kind: aviso}]
+      invitations: none
+final:
+  roster: {L: 8, R: 8}

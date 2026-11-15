@@ -1,0 +1,46 @@
+id: 85
+title: um grupo sem candidatos não conta
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1835, 1855]}
+what_it_tests: o tempo útil só é dividido pelos grupos com candidatos, sem desperdiçar tempo em grupos vazios
+tags: [method-b, timers, groups, other-side]
+depends_on: [U12, U28]
+corrections: []
+notes: >
+  Method B, as 83 without level-3 left-siders, so group 6 is empty. The 10 h split over 3 groups is 4h, 3h20,
+  2h40, which is the 6:5:4 division (lines 2161, 2174-2180; the 40/33/27 percentages are an unvalidated
+  assumption). One round per group, so the whole group time is the wait (lines 2158-2160). The 23:05 Aviso
+  probe is derived from "Os outros convidados veem o Aviso se disserem Sim" (R9).
+
+settings:
+  timing: {method: B}
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-02 15:30
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 19:30
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-02 22:50
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: R, group: 5}]
+  - at: 2026-11-02 23:00
+    events: [{accepts: {cohort: L2L, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 23:05
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect: {messages: [{who: b, kind: aviso}]}
+final:
+  roster: {L: 8, R: 8}

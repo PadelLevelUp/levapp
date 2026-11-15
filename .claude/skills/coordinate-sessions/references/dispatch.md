@@ -100,11 +100,11 @@ tell the owner.
 
 - **The delegation block above**, verbatim, in the first brief to every session — a rule the
   session has not been given is not one it is breaking.
-- **The skills line**, in the first brief to every session: "`specflow-entry` first for every
-  ticket, then the skill it routes to (bugs / spec-editor / tests / plan / develop);
-  `cortex insight file|concept` before touching a file; `specflow-request-review` for every
-  review; `verification-before-completion` before any done claim or PR. A done-report names
-  the skills you invoked." On 2026-09-22 no brief carried it and three of five sessions
+- **The skills line**, in the first brief to every session: "the spec check of CLAUDE.md's
+  `## Specs` block first for every ticket (`specflow-spec` for a behaviour no criterion covers,
+  then `specflow-review` on that spec before code); `cortex insight file|concept` before
+  touching a file; `specflow-review` for every review; `verification-before-completion` before
+  any done claim or PR. A done-report names the skills you invoked." On 2026-09-22 no brief carried it and three of five sessions
   invoked almost none all day; the owner caught it, not the coordinator.
 - **The question, not the fix.** Say what must be true when it is done, not how.
 - **The identifiers reserved for it** (see `protocols.md`), marked unconfirmed so the

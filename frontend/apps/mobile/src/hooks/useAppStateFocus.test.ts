@@ -10,7 +10,7 @@ import { subscribeAppStateFocus } from "./useAppStateFocus";
 afterEach(() => __resetReactNativeMock());
 
 describe("subscribeAppStateFocus", () => {
-  it("Control Centre (active → inactive → active) is not a focus event", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-4] Control Centre (active → inactive → active) is not a focus event", () => {
     const setFocused = vi.fn();
     subscribeAppStateFocus(setFocused);
     __emitAppState("inactive");
@@ -18,7 +18,7 @@ describe("subscribeAppStateFocus", () => {
     expect(setFocused).not.toHaveBeenCalled();
   });
 
-  it("a return from the background is, once, also when it passes through inactive", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-4] a return from the background is, once, also when it passes through inactive", () => {
     const setFocused = vi.fn();
     subscribeAppStateFocus(setFocused);
     __emitAppState("background");

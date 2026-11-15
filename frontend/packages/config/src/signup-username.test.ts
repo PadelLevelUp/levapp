@@ -7,7 +7,7 @@ import { suggestUsername, typedChosenUsername, usernameCharsIssue } from "./sign
  * message.
  */
 describe("suggestUsername — rule 21a", () => {
-  it("builds it from the name: accents dropped, spaces to dots, lower-case", () => {
+  it("[AUTH-REGISTER-24] builds it from the name: accents dropped, spaces to dots, lower-case", () => {
     expect(suggestUsername("Jorge Torres", "")).toBe("jorge.torres");
     expect(suggestUsername("  João  Pedro Tomé ", "")).toBe("joao.pedro.tome");
   });
@@ -56,7 +56,7 @@ describe("usernameCharsIssue — rule 21b", () => {
 
 /** auth.register rule 2a (PAD-799): a username being chosen is lowercase as it is typed. */
 describe("typedChosenUsername — rule 2a", () => {
-  it("lowercases what is typed and keeps everything else for the character rule to judge", () => {
+  it("[AUTH-REGISTER-1] lowercases what is typed and keeps everything else for the character rule to judge", () => {
     expect(typedChosenUsername("Bernardo.SILVA")).toBe("bernardo.silva");
     expect(typedChosenUsername("jpt")).toBe("jpt");
     expect(typedChosenUsername("Ana Maria")).toBe("ana maria");

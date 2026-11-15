@@ -42,7 +42,7 @@ const RESTRICTIONS: NotificationRestrictions = {
 };
 
 describe("RestrictionsPanel — excluded players are named after a reload (PAD-433, B-168)", () => {
-  it("names a saved excluded player from the config's excludedPlayerNames", () => {
+  it("[NOTIFICATIONS-CONFIG-35] names a saved excluded player from the config's excludedPlayerNames", () => {
     render(
       <RestrictionsPanel
         restrictions={RESTRICTIONS}
@@ -68,7 +68,7 @@ describe("RestrictionsPanel reads the shared bounds (PAD-433, rule 14)", () => {
 describe("RestrictionsPanel — the coach's quiet window (PAD-451, notifications.config rule 6a)", () => {
   const withQuiet = (quietHours: NotificationRestrictions["quietHours"]) => ({ ...RESTRICTIONS, quietHours });
 
-  it("shows the saved window and names it in the description", () => {
+  it("[NOTIFICATIONS-CONFIG-44] shows the saved window and names it in the description", () => {
     render(<RestrictionsPanel restrictions={withQuiet({ enabled: true, start: "23:00", end: "08:00" })} onChange={() => undefined} />);
     expect(screen.getByTestId("restriction-quietHours-start")).toHaveValue("23:00");
     expect(screen.getByTestId("restriction-quietHours-end")).toHaveValue("08:00");
@@ -81,7 +81,7 @@ describe("RestrictionsPanel — the coach's quiet window (PAD-451, notifications
     expect(screen.getByTestId("restriction-quietHours-end")).toHaveValue("07:00");
   });
 
-  it("reports a valid edit with both bounds", () => {
+  it("[NOTIFICATIONS-CONFIG-44] reports a valid edit with both bounds", () => {
     const onChange = vi.fn();
     render(<RestrictionsPanel restrictions={withQuiet({ enabled: true, start: "23:00", end: "08:00" })} onChange={onChange} />);
     fireEvent.change(screen.getByTestId("restriction-quietHours-start"), { target: { value: "22:30" } });
@@ -101,7 +101,7 @@ describe("RestrictionsPanel — the coach's quiet window (PAD-451, notifications
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("hides the pickers while quiet hours are off", () => {
+  it("[NOTIFICATIONS-CONFIG-44] hides the pickers while quiet hours are off", () => {
     render(<RestrictionsPanel restrictions={withQuiet({ enabled: false, start: "23:00", end: "08:00" })} onChange={() => undefined} />);
     expect(screen.queryByTestId("restriction-quietHours-start")).toBeNull();
   });

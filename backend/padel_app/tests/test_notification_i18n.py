@@ -9,6 +9,7 @@ default language and the missing-level filler fix (PAD-38).
 Run:
     pytest padel_app/tests/test_notification_i18n.py -v
 """
+import pytest
 
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -19,6 +20,8 @@ from padel_app.sql_db import db
 PATCHES = [
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 ]
 
 
@@ -151,6 +154,7 @@ def _reminder_text(app):
 # Tests
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("SETTINGS-LANGUAGE-4")
 def test_reminder_weekday_portuguese(app):
     """A PT coach's reminder renders the weekday name in Portuguese and no
     English weekday / 'this' filler."""
@@ -174,6 +178,7 @@ def test_reminder_weekday_portuguese(app):
     assert "{weekday}" not in text and "{level}" not in text
 
 
+@pytest.mark.criterion("SETTINGS-LANGUAGE-5")
 def test_reminder_weekday_english(app):
     """An EN coach's reminder renders the English weekday name."""
     from babel.dates import format_date
@@ -193,6 +198,7 @@ def test_reminder_weekday_english(app):
     assert "{weekday}" not in text and "{level}" not in text
 
 
+@pytest.mark.criterion("SETTINGS-LANGUAGE-2")
 def test_default_language_is_pt(app):
     """A User created without an explicit language defaults to 'pt'."""
     from padel_app.models.users import User
@@ -212,6 +218,7 @@ def test_default_language_is_pt(app):
         assert fetched.language == "pt"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_missing_level_renders_empty_no_filler(app):
     """An instance with no level renders the reminder without the literal 'this'
     filler and with no raw {level}/{weekday} tokens."""

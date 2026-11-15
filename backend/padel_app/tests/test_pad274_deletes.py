@@ -123,6 +123,7 @@ def _audit_row(entity, entity_id):
 
 
 @pytest.mark.parametrize("action", [None, "disconnect"])
+@pytest.mark.criterion("PLAYERS-REMOVE-1")
 def test_disconnecting_keeps_the_students_record_and_history(app, client, world, action):
     # No action is what every client sent before PAD-274, and it is the B-057 path.
     res = _remove(app, client, world, world["student_id"], action)
@@ -142,6 +143,7 @@ def test_disconnecting_keeps_the_students_record_and_history(app, client, world,
         assert row.actor_user_id == world["coach_user_id"] and row.label == "Rui Student"
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-2")
 def test_a_coach_can_never_delete_a_student_with_an_account(app, client, world):
     res = _remove(app, client, world, world["student_id"], "delete")
     assert res.status_code == 409, res.get_data(as_text=True)
@@ -157,6 +159,7 @@ def test_a_coach_can_never_delete_a_student_with_an_account(app, client, world):
 
 
 @pytest.mark.parametrize("action", [None, "delete"])
+@pytest.mark.criterion("PLAYERS-REMOVE-3")
 def test_a_placeholder_the_coach_created_is_deleted_and_audited(app, client, world, action):
     placeholder_id, placeholder_user_id = _placeholder(app, world)
     res = _remove(app, client, world, placeholder_id, action)
@@ -169,6 +172,7 @@ def test_a_placeholder_the_coach_created_is_deleted_and_audited(app, client, wor
         assert row.actor_user_id == world["coach_user_id"] and row.label == "Ghost Placeholder"
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-7")
 def test_a_placeholder_another_coach_also_has_is_not_deleted(app, client, world):
     from padel_app.models import Association_CoachPlayer
 
@@ -191,6 +195,7 @@ def test_an_unknown_action_is_refused(app, client, world):
         assert _count("SELECT count(*) FROM coach_in_player WHERE id = :r", r=world["rel_id"]) == 1
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-8")
 def test_the_removal_impact_names_the_action_and_what_goes(app, client, world):
     headers = _headers(app, world["coach_user_id"])
     res = client.get(f"/api/app/player/{world['student_id']}/removal_impact", headers=headers)
@@ -203,6 +208,7 @@ def test_the_removal_impact_names_the_action_and_what_goes(app, client, world):
     assert res.get_json() == {"action": "delete", "notes": 0, "evaluations": 0, "presences": 0}
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-8")
 def test_the_removal_impact_is_only_for_the_coachs_own_roster(app, client, world):
     url = f"/api/app/player/{world['student_id']}/removal_impact"
     assert client.get(url, headers=_headers(app, world["coach_user_id"])).status_code == 200
@@ -214,6 +220,7 @@ def test_the_removal_impact_is_only_for_the_coachs_own_roster(app, client, world
 # evaluations.categories — delete shows its impact and is audited
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("EVALUATIONS-CATEGORIES-4")
 def test_the_category_impact_counts_scores_and_players(app, client, world):
     res = client.get(f"/api/app/evaluation_category/{world['category_id']}/impact",
                      headers=_headers(app, world["coach_user_id"]))
@@ -221,6 +228,7 @@ def test_the_category_impact_counts_scores_and_players(app, client, world):
     assert res.get_json() == {"name": "Serve", "scores": 1, "players": 1}
 
 
+@pytest.mark.criterion("EVALUATIONS-CATEGORIES-4")
 def test_deleting_a_category_is_audited_with_what_it_removed(app, client, world):
     res = client.post("/api/app/delete/evaluation_category", json={"id": world["category_id"]},
                       headers=_headers(app, world["coach_user_id"]))
@@ -346,6 +354,7 @@ def _roster_player(app, world, name, *, username, password, status):
         return player.id, user.id
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-4")
 def test_a_legacy_stub_with_a_chosen_username_is_a_placeholder_and_is_deleted(app, client, world):
     # Coach-created before PAD-105: never activated, no password, a hand-picked username.
     stub_id, stub_user_id = _roster_player(app, world, "Legacy Stub", username="legacy-stub", password=None, status="inactive")
@@ -359,6 +368,7 @@ def test_a_legacy_stub_with_a_chosen_username_is_a_placeholder_and_is_deleted(ap
         assert _count("SELECT count(*) FROM users WHERE id = :u", u=stub_user_id) == 0
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-5")
 def test_an_inactive_user_with_a_password_has_an_account_and_is_not_deleted(app, client, world):
     # Registered (a password is set) but not yet activated: that is an account.
     pid, uid = _roster_player(app, world, "Half Registered", username="half-registered", password="hash", status="inactive")
@@ -368,6 +378,7 @@ def test_an_inactive_user_with_a_password_has_an_account_and_is_not_deleted(app,
         assert _count("SELECT count(*) FROM players WHERE id = :p", p=pid) == 1
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-6")
 def test_the_roster_says_which_records_the_coach_can_delete(app, client, world):
     stub_id, _ = _roster_player(app, world, "Legacy Stub", username="legacy-stub", password=None, status="inactive")
     half_id, _ = _roster_player(app, world, "Half Registered", username="half-registered", password="hash", status="inactive")

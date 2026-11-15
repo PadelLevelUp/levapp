@@ -5,6 +5,7 @@ old editor or the import) keep their scale; a catalogue competency is a row
 created when the coach switches it on; a custom one is typed by the coach. New
 ones are 1-5 and active.
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_pad362_evaluation_contract import (  # noqa: F401
     _coach_headers,
@@ -77,6 +78,7 @@ def test_switching_a_catalogue_competency_on_creates_its_row_once(app, client):
     assert _post(app, client, ids, {"catalogueKey": "volley"}).status_code == 409
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-6")
 def test_a_custom_competency_is_trimmed_one_to_five_and_never_a_duplicate(app, client):
     ids = _seed(app)
 
@@ -93,6 +95,7 @@ def test_a_custom_competency_is_trimmed_one_to_five_and_never_a_duplicate(app, c
     assert _post(app, client, ids, {"name": "x" * 101}).status_code == 400
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-7")
 def test_a_rename_is_by_id_and_keeps_the_scores(app, client):
     """B-125: the legacy name-keyed upsert turns a rename into a new category."""
     from padel_app.models import EvaluationCategory, EvaluationEntry
@@ -147,6 +150,7 @@ def test_switching_off_never_deletes_scores(app, client):
         assert EvaluationEntry.query.filter_by(category_id=ids["forehand_id"]).count() == 1
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-15")
 def test_delete_shows_its_impact_is_audited_and_takes_a_catalogue_competency_too(app, client):
     """PAD-431 reversed "a catalogue competency can only be switched off" (rule 9)."""
     from padel_app.models import EvaluationCategory, EvaluationEntry
@@ -174,6 +178,7 @@ def test_delete_shows_its_impact_is_audited_and_takes_a_catalogue_competency_too
         ]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-1")
 def test_the_legacy_list_still_hides_what_this_api_creates(app, client):
     """R-047 holds against the first endpoint that can create a non-legacy row."""
     ids = _seed(app)
@@ -185,6 +190,7 @@ def test_the_legacy_list_still_hides_what_this_api_creates(app, client):
     assert names == ["Forehand", "Volley"]
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-10")
 def test_a_coach_with_no_category_at_all_starts_with_the_default_tree(app, client):
     """Rule 4 (AV-021; PAD-431 D3): created by the first v2 read, never by a legacy endpoint.
     The tree's shape is pinned in test_pad431_categories_api."""

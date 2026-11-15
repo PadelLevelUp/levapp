@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 describe("SignUpPage — the username explains itself (PAD-651, auth.register rule 21)", () => {
-  it("21a: the name pre-fills the username, until the user types in it", () => {
+  it("[AUTH-REGISTER-24] 21a: the name pre-fills the username, until the user types in it", () => {
     mount();
     set("signup-name", "Jorge Torres");
     expect(input("signup-username").value).toBe("jorge.torres");
@@ -71,7 +71,7 @@ describe("SignUpPage — the username explains itself (PAD-651, auth.register ru
     expect(input("signup-username").value).toBe("jpt"); // rule 2a (PAD-799): lowercase as typed
   });
 
-  it("21b: an email typed as the username gets its own message, and nothing is sent", async () => {
+  it("[AUTH-REGISTER-25] 21b: an email typed as the username gets its own message, and nothing is sent", async () => {
     mount();
     fill("jorge.torres@gmail.com");
     fireEvent.click(screen.getByTestId("signup-submit"));
@@ -79,7 +79,7 @@ describe("SignUpPage — the username explains itself (PAD-651, auth.register ru
     expect(register).not.toHaveBeenCalled();
   });
 
-  it("21c: a double click sends one sign-up", async () => {
+  it("[AUTH-REGISTER-26] 21c: a double click sends one sign-up", async () => {
     register.mockReturnValue(new Promise(() => {}));
     mount();
     fill("jpt");
@@ -93,7 +93,7 @@ describe("SignUpPage — the username explains itself (PAD-651, auth.register ru
     expect(register).toHaveBeenCalledTimes(1);
   });
 
-  it("21c: after the account exists, the button stays disabled and nothing is sent again", async () => {
+  it("[AUTH-REGISTER-26] 21c: after the account exists, the button stays disabled and nothing is sent again", async () => {
     register.mockResolvedValue({ accessToken: "t" });
     mount();
     fill("jpt");
@@ -108,7 +108,7 @@ describe("SignUpPage — the username explains itself (PAD-651, auth.register ru
 });
 
 describe("SignUpPage — a chosen username is lowercase (PAD-799, auth.register rule 2a)", () => {
-  it("2a: capitals typed become lowercase as they are typed, and the field never auto-capitalises", () => {
+  it("[AUTH-REGISTER-1] 2a: capitals typed become lowercase as they are typed, and the field never auto-capitalises", () => {
     mount();
     set("signup-username", "Bernardo.Silva");
     expect(input("signup-username").value).toBe("bernardo.silva");

@@ -51,6 +51,7 @@ def _clock(app, seconds):
 
 # --- auth.login rule 7 ------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-LOGIN-5")
 def test_login_is_throttled_per_ip(client, app, ana):
     app.config["AUTH_RATE_LIMIT_LOGIN"] = "3/60"
     _clock(app, 1000)
@@ -121,6 +122,7 @@ def test_limiter_can_be_switched_off(client, app, ana):
 
 # --- auth.register rule 15 ---------------------------------------------------
 
+@pytest.mark.criterion("AUTH-REGISTER-17")
 def test_register_is_throttled_per_ip(client, app, outbox):
     from padel_app.models import User
 
@@ -142,6 +144,7 @@ def test_register_is_throttled_per_ip(client, app, outbox):
 
 # --- auth.password-recovery rule 10 -----------------------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-23")
 def test_recovery_request_and_confirm_share_one_bucket(client, app, ana, outbox):
     import re
 

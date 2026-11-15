@@ -29,13 +29,13 @@ beforeEach(() => {
 afterEach(() => localStorage.clear());
 
 describe("the country prompt", () => {
-  it("shows for a user whose country is null, with PT selected", () => {
+  it("[AUTH-LOGIN-15] shows for a user whose country is null, with PT selected", () => {
     render(<CountryPrompt />);
     expect(screen.getByTestId("country-prompt")).toBeTruthy();
     expect(screen.getByTestId("country-prompt-select")).toHaveTextContent("Portugal");
   });
 
-  it("not for a set country, nobody, a held user or a dismissed device", () => {
+  it("[AUTH-LOGIN-15] not for a set country, nobody, a held user or a dismissed device", () => {
     auth.user = { id: 7, roles: ["player"], country: "ES" };
     const a = render(<CountryPrompt />);
     expect(screen.queryByTestId("country-prompt")).toBeNull();
@@ -62,14 +62,14 @@ describe("the country prompt", () => {
     expect(screen.queryByTestId("country-prompt")).toBeNull();
   });
 
-  it("Guardar sends {country: PT} and refreshes the signed-in user", async () => {
+  it("[AUTH-LOGIN-15] Guardar sends {country: PT} and refreshes the signed-in user", async () => {
     render(<CountryPrompt />);
     fireEvent.click(screen.getByTestId("country-prompt-save"));
     await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ country: "PT" }));
     await waitFor(() => expect(auth.refreshUser).toHaveBeenCalledTimes(1));
   });
 
-  it("Agora não hides it and remembers for 30 days", () => {
+  it("[AUTH-LOGIN-15] Agora não hides it and remembers for 30 days", () => {
     render(<CountryPrompt />);
     fireEvent.click(screen.getByTestId("country-prompt-later"));
     expect(screen.queryByTestId("country-prompt")).toBeNull();

@@ -47,7 +47,7 @@ beforeEach(() => { api.listClassWaitingList.mockReset().mockImplementation(() =>
 afterEach(cleanup);
 
 describe("PAD-577 a lost spot offers that class's waiting list", () => {
-  it("offers the join on a spot someone else took, and joining shows the on-list state with Leave", async () => {
+  it("[NOTIFICATIONS-INVITATIONS-77] offers the join on a spot someone else took, and joining shows the on-list state with Leave", async () => {
     renderBubble(invite({}));
     const join = await screen.findByTestId("invite-join-waiting-list");
     fireEvent.click(join);
@@ -77,7 +77,7 @@ describe("PAD-577 a lost spot offers that class's waiting list", () => {
     expect(screen.queryByTestId("invite-on-waiting-list")).toBeNull();
   });
 
-  it("PAD-581: an invitation withdrawn for side balance says so and offers the list too", async () => {
+  it("[NOTIFICATIONS-INVITATIONS-67] PAD-581: an invitation withdrawn for side balance says so and offers the list too", async () => {
     renderBubble(invite({ response: "side_balanced" }));
     expect(await screen.findByText("messages.noLongerNeededOnSide")).toBeInTheDocument();
     expect(screen.queryByText("messages.spotFilled")).toBeNull();
@@ -85,7 +85,7 @@ describe("PAD-577 a lost spot offers that class's waiting list", () => {
     await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 }, "both"));
   });
 
-  it("reads the student's own lists: already on this class's list shows the on-list state, not the button", async () => {
+  it("[NOTIFICATIONS-INVITATIONS-77] reads the student's own lists: already on this class's list shows the on-list state, not the button", async () => {
     api.listClassWaitingList.mockImplementation(() => Promise.resolve([{ kind: "waiting_list", id: 1, lessonInstanceId: 7, status: "active" }]));
     renderBubble(invite({}));
     await screen.findByTestId("invite-on-waiting-list");

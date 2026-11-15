@@ -1,0 +1,61 @@
+id: 2
+title: aula cheia desde o início
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [263, 277]}
+what_it_tests: o início dos convites não gera envios quando não há vagas
+tags: [waiting-list, reminders]
+depends_on: []
+corrections: []
+notes: >
+  The student on the students' waiting list is part of the initial situation; it is encoded as a
+  joins_waiting_list event at 2026-11-01 18:00, before the invitations start (§2.2: membership is an
+  event, never an attribute). The PDF gives no level for that student, so level is null (§2.2). "Todos
+  dizem Sim" is sixteen `confirms` events on the regulars (cohort-form ids L-1..L-8, R-1..R-8) in a
+  second 17:00 step, after the reminders went out. The final waiting_list check makes "nunca é chamado"
+  testable.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: W1, level: null, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-01 18:00
+    events:
+      - {joins_waiting_list: W1, sides: own}
+    expect:
+      waiting_list: {coach: [], students: [W1]}
+      roster: {L: 8, R: 8}
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: none
+      invitations_total_sent: 0
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars]
+        not_to: [W1]
+  - at: 2026-11-02 17:00
+    events:
+      - {confirms: L-1}
+      - {confirms: L-2}
+      - {confirms: L-3}
+      - {confirms: L-4}
+      - {confirms: L-5}
+      - {confirms: L-6}
+      - {confirms: L-7}
+      - {confirms: L-8}
+      - {confirms: R-1}
+      - {confirms: R-2}
+      - {confirms: R-3}
+      - {confirms: R-4}
+      - {confirms: R-5}
+      - {confirms: R-6}
+      - {confirms: R-7}
+      - {confirms: R-8}
+    expect:
+      invitations: none
+      roster: {L: 8, R: 8}
+      waiting_list: {students: [W1]}
+final:
+  roster: {L: 8, R: 8}

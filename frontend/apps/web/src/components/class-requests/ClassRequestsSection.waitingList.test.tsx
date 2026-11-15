@@ -83,7 +83,7 @@ function renderSection(role: "coach" | "student") {
 afterEach(() => vi.clearAllMocks());
 
 describe("ClassRequestsSection — waiting lists (PAD-504)", () => {
-  it("lists an active place with its state, class, coach and a leave button that asks once", async () => {
+  it("[CLASSES-ACADEMY-CLASS-BOOKING-12] lists an active place with its state, class, coach and a leave button that asks once", async () => {
     requestsApi.listClassRequests.mockResolvedValue([]);
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
     academyApi.listClassWaitingList.mockResolvedValue([waitingRow({})]);

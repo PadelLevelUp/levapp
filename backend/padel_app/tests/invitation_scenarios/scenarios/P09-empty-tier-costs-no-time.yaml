@@ -1,0 +1,37 @@
+id: P09
+title: an empty tier costs no time
+source: {section: "Plano §9.1 Coverage and group order", lines: [244, 244]}
+what_it_tests: empty tiers are skipped in the same run
+tags: [groups]
+derived_from: [S9, D9, §6 step 2.4]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). A third group (one level above the class, same side) is added. Groups 3 and 4 have nobody, so group 5
+  is invited at 19:00.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+    - {level: +1, side: same}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 3}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 5}]
+      invitations_total_sent: 3
+final:
+  roster: {L: 4, R: 3}

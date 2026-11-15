@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 describe("NotifyModal: the class started while the picker was open (PAD-798)", () => {
-  it("409 CLASS_STARTED reads 'invitations are closed' and closes the picker", async () => {
+  it("[NOTIFICATIONS-MANUAL-4] 409 CLASS_STARTED reads 'invitations are closed' and closes the picker", async () => {
     mutateAsync.mockRejectedValue(refusal(409, "CLASS_STARTED"));
     const onClose = vi.fn();
     await send(onClose);
@@ -83,7 +83,7 @@ describe("NotifyModal: the class started while the picker was open (PAD-798)", (
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("any other failure keeps the generic message", async () => {
+  it("[NOTIFICATIONS-MANUAL-4] any other failure keeps the generic message", async () => {
     mutateAsync.mockRejectedValue(refusal(500));
     await send(vi.fn());
     expect(toast.error).toHaveBeenCalledWith("calendar.notify.failedSendInvitations");

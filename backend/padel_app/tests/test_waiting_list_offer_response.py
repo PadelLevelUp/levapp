@@ -10,6 +10,7 @@ reminder bubbles do, so the answer must be written back onto the message.
 Run:
     pytest padel_app/tests/test_waiting_list_offer_response.py -v
 """
+import pytest
 
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -19,6 +20,8 @@ from padel_app.sql_db import db
 PATCHES = [
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 ]
 
 
@@ -110,6 +113,7 @@ class TestWaitingListOfferResponse:
             assert offer.msg_metadata["lessonInstanceId"] == ids["instance"].id
             assert offer.msg_metadata["responded"] is False
 
+    @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-5")
     def test_yes_queues_the_student_and_settles_the_offer(self, app):
         from padel_app.services.notification_service import respond_to_waiting_list
         from padel_app.models.waiting_list_entry import WaitingListEntry
@@ -132,6 +136,7 @@ class TestWaitingListOfferResponse:
             assert offer.msg_metadata["responded"] is True
             assert offer.msg_metadata["response"] == "yes"
 
+    @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-8")
     def test_no_settles_the_offer_without_queueing(self, app):
         from padel_app.services.notification_service import respond_to_waiting_list
         from padel_app.models.waiting_list_entry import WaitingListEntry
@@ -149,6 +154,7 @@ class TestWaitingListOfferResponse:
             assert offer.msg_metadata["responded"] is True
             assert offer.msg_metadata["response"] == "no"
 
+    @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-7")
     def test_second_answer_does_not_resettle_the_offer(self, app):
         """Changing the answer still works; the settled message keeps the first.
 
@@ -219,6 +225,7 @@ class TestOnlyOfferedPlayersMayAnswer:
         with app.app_context():
             return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
 
+    @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-7")
     def test_no_offer_is_403_and_writes_nothing(self, app, client):
         from padel_app.models import Conversation
         from padel_app.models.waiting_list_entry import WaitingListEntry
@@ -238,6 +245,7 @@ class TestOnlyOfferedPlayersMayAnswer:
                 lesson_instance_id=instance_id, player_id=player_id).first() is None
             assert Conversation.query.count() == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-7")
     def test_offered_player_is_accepted_and_double_tap_is_idempotent(self, app, client):
         from padel_app.models.waiting_list_entry import WaitingListEntry
 
@@ -267,6 +275,7 @@ class TestOnlyOfferedPlayersMayAnswer:
                 lesson_instance_id=instance_id, player_id=player_id).all()
             assert len(entries) == 1 and entries[0].is_active
 
+    @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-7")
     def test_service_refuses_without_offer_before_touching_the_instance(self, app):
         from werkzeug.exceptions import Forbidden
         from padel_app.services.notification_service import respond_to_waiting_list

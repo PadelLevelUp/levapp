@@ -71,6 +71,7 @@ def _seed_engine():
     return coach.id
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-1")
 def test_the_summary_counts_what_the_engine_holds(app, client):
     headers = _support(app)
     with app.app_context():
@@ -82,6 +83,7 @@ def test_the_summary_counts_what_the_engine_holds(app, client):
     assert body["invitations"]["live"] == 3
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-2")
 def test_overdue_jobs_and_missing_singletons_are_visible(app, client, live_scheduler, monkeypatch):
     from apscheduler.triggers.date import DateTrigger
 
@@ -119,6 +121,7 @@ def test_a_failed_email_is_recorded_without_the_address(app):
         assert all("coach534" not in str(v) for v in (row.detail, row.error_class, row.subject_type))
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-4")
 def test_a_failed_web_push_is_recorded_without_subscription_data(app):
     from pywebpush import WebPushException
 
@@ -139,6 +142,7 @@ def test_a_failed_web_push_is_recorded_without_subscription_data(app):
         assert "push.example" not in (row.detail or "")
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-5")
 def test_a_missed_reminder_job_is_recorded(app, live_scheduler):
     with app.app_context():
         live_scheduler._on_job_missed(SimpleNamespace(job_id="reminder_lesson_5_2027-07-12"))
@@ -166,6 +170,7 @@ def test_a_pass_that_finds_its_class_started_is_recorded(app, live_scheduler):
         assert (row.subject_type, row.subject_id) == ("lesson_instance", inst.id)
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-6")
 def test_a_failing_incident_insert_never_breaks_a_send(app):
     from padel_app.models.delivery_incident import DeliveryIncident
     from padel_app.tools import email_tools
@@ -181,6 +186,7 @@ def test_a_failing_incident_insert_never_breaks_a_send(app):
             email_tools.send_email("Hello", ["x@t.test"], body="x")
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-7")
 def test_old_incidents_are_pruned(app, monkeypatch):
     from padel_app.models.delivery_incident import DeliveryIncident
     from padel_app.services import delivery_incidents
@@ -194,6 +200,7 @@ def test_old_incidents_are_pruned(app, monkeypatch):
         assert [round((NOW - r.created_at).days) for r in DeliveryIncident.query.all()] == [29]
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-9")
 def test_deploy_identity_for_both_environments(app, client, monkeypatch):
     import time as _time
 
@@ -278,6 +285,7 @@ def test_every_peer_refusal(app, client, case):
     assert "gitSha" not in (r.get_data(as_text=True) or "")
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-10")
 def test_per_coach_settings_are_readable_and_not_writable(app, client):
     headers = bearer(admin_token(app, make_role(app, "olga@levapp.app", "operator")))
     with app.app_context():
@@ -300,6 +308,7 @@ def test_per_coach_settings_are_readable_and_not_writable(app, client):
         assert NotificationConfig.query.filter_by(coach_id=coach_id).one().invitation_mode == "semi_automatic"
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-16")
 def test_no_write_route_on_the_page(app):
     rules = [r for r in app.url_map.iter_rules() if r.rule.startswith("/admin/api/engine-health")
              or r.rule == "/admin/api/deploy-identity"]

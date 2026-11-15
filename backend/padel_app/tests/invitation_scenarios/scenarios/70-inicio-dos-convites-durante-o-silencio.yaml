@@ -1,0 +1,37 @@
+id: 70
+title: o início dos convites calha durante o silêncio
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1547, 1564]}
+what_it_tests: o silêncio adia o início dos convites para o fim do silêncio
+tags: [quiet-hours, rounds]
+depends_on: []
+corrections: []
+notes: >
+  The first invitation is 2 days before at 00:30, so 1 Nov 00:30, inside quiet hours. The first round goes out
+  at 07:00 and the next round 20 minutes later sends the group's last 2.
+
+settings:
+  first_invite: {days_before: 2, at: "00:30"}
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 00:30
+    expect:
+      invitations: none
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 07:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 07:20
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-01 07:30
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

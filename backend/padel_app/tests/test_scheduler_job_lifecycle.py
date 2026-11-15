@@ -314,6 +314,7 @@ class TestSendClassReminders:
 # ---------------------------------------------------------------------------
 
 class TestFireTimeUtc:
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-25")
     def test_hours_before(self):
         # PAD-256: 10:00 WEST is 09:00 UTC; 48 real hours before is 09:00 UTC.
         from padel_app.scheduler import _fire_time_utc
@@ -321,6 +322,7 @@ class TestFireTimeUtc:
         result = _fire_time_utc(start, {"type": "hours_before", "value": 48})
         assert result == datetime(2026, 5, 30, 9, 0)
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-26")
     def test_days_before_at_time(self):
         # PAD-134: "09:00" is a CLUB_TZ wall clock; June is WEST (UTC+1), so
         # the naive-UTC fire time the scheduler arms is 08:00.

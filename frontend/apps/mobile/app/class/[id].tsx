@@ -19,10 +19,7 @@ import {
   classEvaluationsAction,
   effectiveFilledSpots,
   participantsHeader,
-  INVITATION_OUTCOME_KEY,
-  INVITATION_OUTCOME_TONE,
   inviteeActionsFor,
-  inviteeNotes,
   outcomeAfterCoachAction,
   outcomeAfterResponse,
   statusForOutcome,
@@ -36,12 +33,17 @@ import {
   sideWordKey,
   assignedSideOf,
   joinRequestAcceptedAtOnce,
+  joinRequestStatusKey,
   sideLongKeyOf,
   shouldReportSent,
   splitBlockedByCause,
   hasRecordedAttendance,
   mergeSuggestionBundles,
   suggestionBundles,
+  JOIN_REFUSAL_CODES,
+  joinRefusalKey,
+  joinRefusalOf,
+  isEngineApproval,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -101,6 +103,7 @@ import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
 import { ClassEvaluationsAction } from "@/features/evaluations/class-evaluations-action";
 import {
   canCancelAttendance,
@@ -109,6 +112,8 @@ import {
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { classCourtsQuery } from "@/features/calendar/class-courts";
+import { InviteeOutcome, OpenSpotsLine } from "@/features/calendar/invitee-outcome";
+import { ClassNotifyAction, notifyState, shouldAutoOpenNotify } from "@/features/calendar/notify-new-engine";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
@@ -116,7 +121,7 @@ import { messagesApi, presencesApi } from "@levelup/api";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { ClassJoinRequest, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
-import { commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
+import { classEditRefusal, commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
 import {
   presencesOfParticipants,
   toggleDraftParticipant as toggledParticipants,
@@ -136,6 +141,10 @@ import {
   type AttendancePayloadItem,
 } from "@/features/calendar/hooks";
 import { NotifyModal } from "@/features/calendar/notify-modal";
+import {
+  ENGINE_APPROVAL_CLASS_START,
+  engineApprovalClassState,
+} from "@/features/notifications/engine-approval-class-state";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import {
   eventFromLessonInstance,
@@ -314,6 +323,8 @@ export default function ClassDetailScreen() {
   const [suggestionsIgnored, setSuggestionsIgnored] = React.useState(false);
   const [semiAutomatic, setSemiAutomatic] = React.useState(false);
   const [recomputing, setRecomputing] = React.useState(false);
+  // PAD-920 (semi-auto-approval N1): a new-engine session's cards, one per group about to start.
+  const [engineApproval, dispatchEngineApproval] = React.useReducer(engineApprovalClassState, ENGINE_APPROVAL_CLASS_START);
   const suggestionsInstanceId = React.useMemo(() => {
     const fromPresence = instance?.presences?.[0]?.lessonInstanceId;
     if (fromPresence != null) return Number(fromPresence);
@@ -325,11 +336,21 @@ export default function ClassDetailScreen() {
     if (!isCoach || suggestionsInstanceId == null) return;
     let cancelled = false;
     notificationEngineApi
-      .getApprovalSuggestions(suggestionsInstanceId)
+      .getApprovalState(suggestionsInstanceId)
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
+        if (isEngineApproval(s)) {
+          // N1: one card per pending request; an approved group's card stays until the class is
+          // closed (PAD-770); a dismissed group offers the recompute.
+          dispatchEngineApproval({ type: "read", state: s });
+          // No old-engine card beside a new-engine one.
+          setApprovalBundles([]);
+          setSuggestionsIgnored(s.dismissedGroups.length > 0);
+          return;
+        }
         // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
+        dispatchEngineApproval({ type: "reset" });
         setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
       })
@@ -344,8 +365,15 @@ export default function ClassDetailScreen() {
     if (suggestionsInstanceId == null || recomputing) return;
     setRecomputing(true);
     try {
-      const s = await notificationEngineApi.recomputeApprovalSuggestions(suggestionsInstanceId);
-      if (s.state === "pending" && s.bundle) setApprovalBundles(suggestionBundles(s));
+      const s = await notificationEngineApi.recomputeApprovalState(suggestionsInstanceId);
+      // N3: the dismissed groups reopen; the fresh requests replace their cards.
+      if (isEngineApproval(s)) {
+        dispatchEngineApproval({ type: "recomputed", state: s });
+        setApprovalBundles([]);
+      } else if (s.state === "pending" && s.bundle) {
+        dispatchEngineApproval({ type: "reset" });
+        setApprovalBundles(suggestionBundles(s));
+      }
       setSuggestionsIgnored(false);
     } catch {
       toast.error(t("notificationsUi.replacementApproval.genericError"));
@@ -414,17 +442,21 @@ export default function ClassDetailScreen() {
   const [showNotify, setShowNotify] = React.useState(false);
   // PAD-798 (notifications.manual rule 10): once the class has started nobody can be invited, so
   // Notificar gives way to the warning and `notify=1` opens nothing (club clock, PAD-295).
-  const notifyClosed = hasClassStarted(active?.date ?? event?.date, active?.startTime ?? event?.startTime);
+  // PAD-933 (NM2): a new-engine class offers no Notificar at all (owner decision 17).
+  const notify = notifyState(
+    active?.engineVersion ?? event?.engineVersion,
+    hasClassStarted(active?.date ?? event?.date, active?.startTime ?? event?.startTime)
+  );
   // PAD-285 (dashboard.blocks rule 10): the dashboard's "Convidar" arrives with
   // `notify=1` — open Notificar as soon as the class is on screen, once.
   const notifyParam = Array.isArray(params.notify) ? params.notify[0] : params.notify;
   const autoNotifiedRef = React.useRef(false);
   React.useEffect(() => {
-    if (notifyParam === "1" && isCoach && !isPending && !notifyClosed && !autoNotifiedRef.current) {
+    if (shouldAutoOpenNotify(notifyParam, isCoach && !isPending, notify, autoNotifiedRef.current)) {
       autoNotifiedRef.current = true;
       setShowNotify(true);
     }
-  }, [notifyParam, isCoach, isPending, notifyClosed]);
+  }, [notifyParam, isCoach, isPending, notify]);
   const [invitationsOpen, setInvitationsOpen] = React.useState(false);
 
   // ── Training planning ──
@@ -739,11 +771,6 @@ export default function ClassDetailScreen() {
     }
   };
 
-  // The Badge has no "muted" variant; the quiet outcomes (withdrawn, expired) read as secondary.
-  const inviteeBadgeVariant = (outcome: ClassInvitation["outcome"]) => {
-    const tone = INVITATION_OUTCOME_TONE[outcome];
-    return tone === "muted" ? "secondary" : tone;
-  };
 
 
   // PAD-659 (rule 22): the coach's read view is the grouped list; marking is a mode the coach
@@ -782,6 +809,13 @@ export default function ClassDetailScreen() {
 
   const saveEdit = () => {
     if (!draft || !instance) return;
+    // eligibility.rules rule 13: a bar rule with no value, in a bar this edit sends, refuses the Save
+    // before any overlap or scope dialog (the flow module decides).
+    const refusal = classEditRefusal(instance, draft);
+    if (refusal) {
+      toast.error(t(refusal));
+      return;
+    }
     // classes.edit rule 9 (PAD-474): a participants-only edit is an edit; the
     // decision is the flow module's, never this screen's.
     if (!hasClassEditChanges(instance, draft)) {
@@ -831,16 +865,28 @@ export default function ClassDetailScreen() {
     if (!event) return;
     setEditScopeOpen(false);
     setIsEditing(false);
+    let keepDraft = false;
     try {
       await editClass.mutateAsync({ event, updates: changes, scope });
       toast.success(t("calendar.page.classUpdated"));
-    } catch {
-      toast.error(
-        t("calendar.page.updateFailed"),
-        t("calendar.page.updateFailedDescription")
-      );
+    } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): an add at an hour the student is already
+      // going elsewhere is refused whole. Say who and where, one line per clash, and give the
+      // coach the form back with their other changes, never the generic failure toast. One toast
+      // for every clash (busy-same-hour-toast.ts): the store shows only 3 at a time.
+      const busy = busySameHourToast(err, i18n.language);
+      if (busy) {
+        keepDraft = true;
+        showBusySameHourToast(busy, t, toast.error);
+        setIsEditing(true);
+      } else {
+        toast.error(
+          t("calendar.page.updateFailed"),
+          t("calendar.page.updateFailedDescription")
+        );
+      }
     } finally {
-      setDraft(null);
+      if (!keepDraft) setDraft(null);
     }
   };
 
@@ -1037,14 +1083,16 @@ export default function ClassDetailScreen() {
     void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
   };
   const handleSideFailed = async (err: unknown, mode: "request" | "waiting") => {
+    // PAD-920 (classes.join-requests NJ1–NJ2): a refusal of either join reads its code's own
+    // line (a code this build does not know reads the generic one, never a raw key).
+    const refusal = joinRefusalOf(err);
     if (mode === "waiting") {
-      toast.error(t("calendar.waitingList.failed"));
+      // A code this build does not know reads the waiting list's own generic line.
+      const known = refusal && (JOIN_REFUSAL_CODES as readonly string[]).includes(refusal.code);
+      toast.error(known ? t(joinRefusalKey(refusal.code)) : t("calendar.waitingList.failed"));
       return;
     }
-    const refusal = classJoinRequestsApi.joinRequestRefusal(err);
-    toast.error(
-      refusal ? t(`calendar.joinRequest.refusal.${refusal.code}`) : t("calendar.joinRequest.failed")
-    );
+    toast.error(t(joinRefusalKey(refusal?.code)));
     await refreshInstance();
   };
   const handleWithdrawJoinRequest = async (id: number) => {
@@ -1071,6 +1119,13 @@ export default function ClassDetailScreen() {
         })
       );
     } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): accepting is an add, refused at an hour
+      // the student is already going elsewhere; say who and where, never the generic line.
+      const busy = accept ? busySameHourToast(err, i18n.language) : null;
+      if (busy) {
+        showBusySameHourToast(busy, t, toast.error);
+        return;
+      }
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setJoinBusy(false);
@@ -1411,9 +1466,15 @@ export default function ClassDetailScreen() {
                     </Pressable>
                   </View>
                 ) : (
-                  <Text className="text-sm font-medium">
-                    {maxPlayers ? `${filled}/${maxPlayers}` : "—"}
-                  </Text>
+                  <>
+                    <Text className="text-sm font-medium">
+                      {maxPlayers ? `${filled}/${maxPlayers}` : "—"}
+                    </Text>
+                    {/* PAD-920 (ND2): the open spots and "N pendentes", as on web. */}
+                    {isCoach ? (
+                      <OpenSpotsLine openSpots={maxPlayers - filled} invitations={invitations} />
+                    ) : null}
+                  </>
                 )}
               </View>
               <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
@@ -1760,7 +1821,27 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
-          {isCoach && !isEditing && approvalBundles.length === 0 && suggestionsIgnored ? (
+          {/* PAD-920 (semi-auto-approval N1, N5): one card per group about to start, "Sim" and "Ignorar". */}
+          {isCoach && !isEditing && engineApproval.cards.length > 0 ? (
+            <>
+              <Separator />
+              {engineApproval.cards.map((card) => (
+                <ReplacementApprovalCard
+                  key={card.meta.requestId}
+                  bundle={card.meta}
+                  allowDismiss
+                  onResult={(action) => {
+                    // An approved card stays; an ignored one reads "Ignorado", the recompute beside it.
+                    const result = action === "dismiss" ? "dismissed" : "approved";
+                    dispatchEngineApproval({ type: "answered", requestId: card.meta.requestId, result });
+                    if (action === "dismiss") setSuggestionsIgnored(true);
+                  }}
+                />
+              ))}
+            </>
+          ) : null}
+
+          {isCoach && !isEditing && approvalBundles.length === 0 && (suggestionsIgnored || engineApproval.dismissed) ? (
             <>
               <Separator />
               <Button
@@ -1868,23 +1949,9 @@ export default function ClassDetailScreen() {
                           {displayName(inv.playerId, inv.playerName)}
                         </Text>
                         {/* PAD-548 (calendar.event-detail rules 16–17): one outcome word, decided
-                            by the server; actions only on a pending or declined row. */}
-                        <View className="items-end">
-                          <Badge variant={inviteeBadgeVariant(inv.outcome)}>
-                            <Text testID={`invitee-outcome-${inv.playerId}-${inv.outcome}`}>
-                              {t(INVITATION_OUTCOME_KEY[inv.outcome])}
-                            </Text>
-                          </Badge>
-                          {inviteeNotes(inv).map((note) => (
-                            <Text
-                              key={note.id}
-                              testID={`invitee-${note.id}-${inv.playerId}`}
-                              className="text-[10px] text-muted-foreground"
-                            >
-                              {t(note.key)}
-                            </Text>
-                          ))}
-                        </View>
+                            by the server; actions only where `inviteeActionsFor` offers them.
+                            PAD-920 (ND1, ND3): a new-engine row adds its tier text. */}
+                        <InviteeOutcome inv={inv} />
                         {inviteeActionsFor(inv.outcome).length > 0 ? (
                           <Pressable
                             testID={`invitee-actions-${inv.playerId}`}
@@ -2072,9 +2139,11 @@ export default function ClassDetailScreen() {
                   </>
                 ) : (
                   <>
-                    {instance?.myJoinRequest && instance.myJoinRequest.status !== "withdrawn" ? (
-                      <Text className="text-xs text-muted-foreground">
-                        {t(`calendar.joinRequest.${instance.myJoinRequest.status}`)}
+                    {/* PAD-842 (event-detail rule 26): no "Está marcado!" here; this block shows only
+                        while the student holds no place, which an accepted request outlives. */}
+                    {joinRequestStatusKey(instance?.myJoinRequest) ? (
+                      <Text className="text-xs text-muted-foreground" testID="class-join-request-status">
+                        {t(joinRequestStatusKey(instance?.myJoinRequest)!)}
                       </Text>
                     ) : null}
                     {event.openSpot ? (
@@ -2315,29 +2384,7 @@ export default function ClassDetailScreen() {
                       <Ionicons name="copy-outline" size={16} color={lightTheme.foreground} />
                       <Text>{t("calendar.detail.clone")}</Text>
                     </Button>
-                    {notifyClosed ? (
-                      <Text
-                        className="flex-1 self-center text-sm text-muted-foreground"
-                        testID="class-notify-closed"
-                      >
-                        {t("calendar.notify.classStarted")}
-                      </Text>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        testID="class-notify"
-                        accessibilityLabel={t("classDetail.notifyStudentsAria")}
-                        onPress={() => setShowNotify(true)}
-                      >
-                        <Ionicons
-                          name="send-outline"
-                          size={16}
-                          color={lightTheme.foreground}
-                        />
-                        <Text>{t("calendar.detail.notify")}</Text>
-                      </Button>
-                    )}
+                    <ClassNotifyAction state={notify} onOpen={() => setShowNotify(true)} />
                     <Button
                       variant="outline"
                       className="flex-1"

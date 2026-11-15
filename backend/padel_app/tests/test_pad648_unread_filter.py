@@ -115,6 +115,7 @@ def _list(client, app, user_id, **params):
     return res.get_json()
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-29")
 def test_unread_lists_only_the_threads_with_a_pill_even_from_the_last_page(app, client, inbox):
     coach_id, ids = inbox
     # Without the filter, Ana's thread is the oldest: not on page 1 of 2.
@@ -127,6 +128,7 @@ def test_unread_lists_only_the_threads_with_a_pill_even_from_the_last_page(app, 
     assert body["conversations"][0]["unreadCount"] == 1
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-29")
 def test_the_filter_lists_exactly_the_rows_with_unread_count(app, client, inbox):
     coach_id, _ = inbox
     rows = []
@@ -142,6 +144,7 @@ def test_the_filter_lists_exactly_the_rows_with_unread_count(app, client, inbox)
     assert filtered == with_pill
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-29")
 def test_unread_is_the_callers_not_the_other_sides(app, client, inbox):
     """Eva has not read the coach's message: that thread is unread for Eva, listed for her only."""
     from padel_app.models import User
@@ -153,6 +156,7 @@ def test_unread_is_the_callers_not_the_other_sides(app, client, inbox):
 
 
 @pytest.mark.parametrize("value", ["0", "false", ""])
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-29")
 def test_any_other_value_is_the_full_list(app, client, inbox, value):
     coach_id, _ = inbox
     assert _list(client, app, coach_id, unread=value, limit=50) == _list(client, app, coach_id, limit=50)

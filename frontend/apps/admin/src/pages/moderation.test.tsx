@@ -95,7 +95,7 @@ afterEach(() => {
 });
 
 describe("the reports list", () => {
-  it("renders open reports, then closed ones when the tab is switched", async () => {
+  it("[ADMIN-MODERATION-1] renders open reports, then closed ones when the tab is switched", async () => {
     mockApi((c) => {
       if (c.url.startsWith("/reports/summary")) return { status: 200, body: { open: 1 } };
       if (c.url.startsWith("/reports?status=open")) return { status: 200, body: { items: [row()], total: 1, hasMore: false, page: 1 } };
@@ -144,7 +144,7 @@ describe("the report detail", () => {
     });
   }
 
-  it("shows the context in order with the reported message marked, and links participants", async () => {
+  it("[ADMIN-MODERATION-2] shows the context in order with the reported message marked, and links participants", async () => {
     api();
     renderAt("/reports/7", "operator");
     const marked = await screen.findByTestId("report-context-40");
@@ -255,7 +255,7 @@ describe("the deletion audits", () => {
     ...over,
   });
 
-  it("renders rows with counts and 'system' for no actor, and filters by entity on submit", async () => {
+  it("[ADMIN-MODERATION-4] renders rows with counts and 'system' for no actor, and filters by entity on submit", async () => {
     mockApi((c) => {
       if (!c.url.startsWith("/deletion-audits")) return undefined;
       const filtered = c.url.includes("entity=club");

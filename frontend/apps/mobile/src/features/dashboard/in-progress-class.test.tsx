@@ -62,21 +62,21 @@ const row = (id: string, title: string, inProgress: boolean) => ({
 });
 
 describe("a class that has started on the coach's home (PAD-792)", () => {
-  it("the hero reads A DECORRER with start and end while it runs", async () => {
+  it("[DASHBOARD-BLOCKS-32] the hero reads A DECORRER with start and end while it runs", async () => {
     const n = await renderNative(createElement(NextClassHero, { block: hero(true) }));
     const all = text(n.byTestId("dashboard-next-class"));
     expect(all).toContain('dashboard.hero.inProgress {"start":"19:30","end":"21:00"}');
     expect(all).not.toContain("dashboard.hero.upNext");
   });
 
-  it("before its start the hero still reads A SEGUIR", async () => {
+  it("[DASHBOARD-BLOCKS-32] before its start the hero still reads A SEGUIR", async () => {
     const n = await renderNative(createElement(NextClassHero, { block: hero(false) }));
     const all = text(n.byTestId("dashboard-next-class"));
     expect(all).toContain('dashboard.hero.upNext {"time":"19:30"}');
     expect(all).not.toContain("dashboard.hero.inProgress");
   });
 
-  it("the running row has no seats badge; the row that has not started keeps its Vazia", async () => {
+  it("[DASHBOARD-BLOCKS-32] the running row has no seats badge; the row that has not started keeps its Vazia", async () => {
     const block = {
       id: "schedule_7d",
       type: "schedule_7d",

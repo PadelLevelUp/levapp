@@ -66,7 +66,7 @@ describe("summarizeNotificationBlock", () => {
     ).toEqual([NOTIFICATION_BLOCK_LEVEL_KEYS.auto]);
   });
 
-  it("keeps the student's stated reason", () => {
+  it("[NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-12] keeps the student's stated reason", () => {
     expect(
       summarizeNotificationBlock({
         notificationsBlocked: true,

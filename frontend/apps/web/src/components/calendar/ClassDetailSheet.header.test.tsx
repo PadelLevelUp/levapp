@@ -12,10 +12,10 @@ import type { CalendarEvent } from "@levelup/types";
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ token: "t", user: { id: 1, roles: ["coach"] } }) }));
 vi.mock("@/api/events", () => ({ subscribeAppEvents: () => () => undefined }));
-const api = vi.hoisted(() => ({ getApprovalSuggestions: vi.fn(), getClassInstance: vi.fn() }));
+const api = vi.hoisted(() => ({ getApprovalState: vi.fn(), getClassInstance: vi.fn() }));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getApprovalSuggestions: api.getApprovalSuggestions,
+  getApprovalState: api.getApprovalState,
 }));
 vi.mock("@/api/classes", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -48,7 +48,7 @@ function classOf(enrolled: number, absent: number) {
 }
 
 async function header(enrolled: number, absent: number) {
-  api.getApprovalSuggestions.mockReset().mockResolvedValue({ state: "none" });
+  api.getApprovalState.mockReset().mockResolvedValue({ state: "none" });
   api.getClassInstance.mockReset().mockResolvedValue(classOf(enrolled, absent));
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -71,14 +71,14 @@ async function header(enrolled: number, absent: number) {
 }
 
 describe("the coach's participants header (PAD-771)", () => {
-  it("counts a not-coming student's spot as open", async () => {
+  it("[CALENDAR-EVENT-DETAIL-2] counts a not-coming student's spot as open", async () => {
     const text = await header(16, 4);
     expect(text).toContain("12/16");
     expect(text).toContain("4");
     expect(text).not.toContain("16/16");
   });
 
-  it("reads full when every spot is taken", async () => {
+  it("[CALENDAR-EVENT-DETAIL-2] reads full when every spot is taken", async () => {
     expect(await header(16, 0)).toContain("16/16");
   });
 });

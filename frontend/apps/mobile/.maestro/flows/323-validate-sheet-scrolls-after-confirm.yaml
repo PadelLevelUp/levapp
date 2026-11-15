@@ -1,0 +1,140 @@
+# PAD-829 (attendance.validation rule 30, ATTENDANCE-VALIDATION-52): the coach's "Aulas por
+# validar" list stalled after a confirm. The sheet is a centred dialog whose primitive overlay and
+# panel were Pressables above the list; on Fabric a scroll view never starts its pan while an
+# ancestor is the JS responder, so a drag that began on a non-pressable spot (a validated row's
+# text, a gap, a group label) left the list where it was. After a confirm the list is mostly such
+# rows, so it read as dead. The backdrop is a sibling behind the panel now and the panel claims
+# nothing.
+#
+# Journey: a week of ten ended, ready classes is created for the coach (debug route, rule 30) →
+# coach login → Presences → "Aulas por validar" → four weeks back → drag to the end of the list and tick
+# the last class (the tick proves the row is really on screen: Maestro counts a clipped row as
+# visible) → drag back to the top and tick the first → confirm them all → the list is now the
+# validated rows → drag to the end and undo the last → drag back to the top and tick it again.
+#
+# Backend: -e API_BASE=http://localhost:<port>, else :5001, with E2E_DEBUG_ENDPOINTS on. Writes
+# ten classes and validates them; the teardown deletes them. Flow number 323, attendance stream
+# 2026-11-15.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.cleanup = (typeof output.coachTok === 'undefined') ? false : http.request(output.api + '/api/app/debug/ended-classes', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+# Ten ended classes four weeks ago, every player confirmed, so each is "ready to confirm". Four
+# weeks back is a week the seed never touches (its past fixtures sit 7–20 and 45+ days back), so
+# these ten are the whole list: the first id is the first card and the last id the last row.
+- evalScript: "${output.fx = json(http.post(output.api + '/api/app/debug/ended-classes', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ count: 10, weeksAgo: 4 }) }).body)}"
+- assertTrue: "${output.fx.lessonInstanceIds.length === 10}"
+- evalScript: "${output.firstId = output.fx.lessonInstanceIds[0]}"
+- evalScript: "${output.lastId = output.fx.lessonInstanceIds[9]}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-presences"
+- extendedWaitUntil:
+    visible:
+      id: "presences-validate-trigger"
+    timeout: 20000
+- tapOn:
+    id: "presences-validate-trigger"
+- extendedWaitUntil:
+    visible:
+      id: "presences-week-prev"
+    timeout: 15000
+# Back to the fixture's week (four taps; one more than needed never hurts, the loop stops).
+- repeat:
+    while:
+      notVisible:
+        id: "presences-select-${output.firstId}"
+    times: 6
+    commands:
+      - tapOn:
+          id: "presences-week-prev"
+      - waitForAnimationToEnd:
+          timeout: 3000
+- extendedWaitUntil:
+    visible:
+      id: "presences-select-${output.firstId}"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Before the confirm: to the end of the list, and back to the top. Swipes start inside the list
+# (the box spans about 35%–85% of the screen); more than the content needs, a swipe at the end
+# moves nothing.
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: "50%, 78%"
+          end: "50%, 40%"
+          duration: 400
+- tapOn:
+    id: "presences-select-${output.lastId}"
+- extendedWaitUntil:
+    visible:
+      id: "presences-validate-selected"
+    timeout: 5000
+- tapOn:
+    id: "presences-clear-selection"
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 78%"
+          duration: 400
+- tapOn:
+    id: "presences-select-${output.firstId}"
+- extendedWaitUntil:
+    visible:
+      id: "presences-validate-selected"
+    timeout: 5000
+- tapOn:
+    id: "presences-clear-selection"
+
+# Confirm them all: the ten cards become ten rows under "validated this week".
+- tapOn:
+    id: "presences-select-ready"
+- tapOn:
+    id: "presences-validate-selected"
+- extendedWaitUntil:
+    visible:
+      id: "presences-undo-${output.firstId}"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# After the confirm: to the end, undo the last class (it goes back to "ready", at the top), then
+# back to the top and tick it there.
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: "50%, 78%"
+          end: "50%, 40%"
+          duration: 400
+- tapOn:
+    id: "presences-undo-${output.lastId}"
+- extendedWaitUntil:
+    visible:
+      id: "presences-select-${output.lastId}"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 78%"
+          duration: 400
+- tapOn:
+    id: "presences-select-${output.lastId}"
+- extendedWaitUntil:
+    visible:
+      id: "presences-validate-selected"
+    timeout: 5000
+- assertVisible:
+    id: "presences-week-label"

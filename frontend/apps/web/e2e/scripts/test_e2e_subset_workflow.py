@@ -4,6 +4,7 @@ The workflow cannot run in a unit test, so its contract is read from the file: w
 (rule 1), how a red run is bounded (rule 8), the second look at every red (rule 9), and that every
 quarantined spec cites its ledger entry (rule 4). Pure: reads two files.
 """
+import pytest
 import re
 from pathlib import Path
 
@@ -12,7 +13,14 @@ import yaml
 ROOT = Path(__file__).resolve().parents[5]
 WORKFLOW = ROOT / ".github/workflows/e2e-subset.yaml"
 QUARANTINE = ROOT / "frontend/apps/web/e2e/pr-subset/quarantine.txt"
-LEDGER = ROOT / ".cortex/compass/bugs"
+#: The 4.0 store files a ledger entry under cortex/ with its B-id as an alias and the 3.x fields,
+#: `status:` among them, in a trailing yaml block (PAD-905).
+LEDGER = ROOT / "cortex"
+
+
+def _ledger_entry(bug_id):
+    alias = re.compile(rf"^  - {bug_id}$", re.M)
+    return next((f for f in LEDGER.rglob("*.md") if alias.search(f.read_text())), None)
 
 
 def _wf():
@@ -28,6 +36,7 @@ def _step(wf, name):
     return next(s for s in steps if s.get("name") == name)
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-2")
 def test_it_runs_on_prs_into_staging_and_by_dispatch_only():
     wf = _wf()
     on = _triggers(wf)
@@ -38,6 +47,7 @@ def test_it_runs_on_prs_into_staging_and_by_dispatch_only():
     assert "github.ref" in wf["concurrency"]["group"]
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-8")
 def test_a_red_run_costs_its_time_once_with_the_shared_timeout():
     run = _step(_wf(), "Run the subset")
     assert "--retries=0" in run["run"]
@@ -45,6 +55,7 @@ def test_a_red_run_costs_its_time_once_with_the_shared_timeout():
     assert run["timeout-minutes"] == 20
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-9")
 def test_every_red_file_is_rerun_alone_and_labelled():
     rerun = _step(_wf(), "Re-run red files alone")
     assert "steps.run.outcome == 'failure'" in rerun["if"]
@@ -52,6 +63,7 @@ def test_every_red_file_is_rerun_alone_and_labelled():
     assert "order dependency" in rerun["run"] and "real failure" in rerun["run"]
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-5")
 def test_every_quarantined_spec_cites_a_still_open_ledger_entry():
     lines = [l for l in QUARANTINE.read_text().splitlines() if l.strip() and not l.lstrip().startswith("#")]
     assert lines
@@ -61,8 +73,8 @@ def test_every_quarantined_spec_cites_a_still_open_ledger_entry():
         # The line goes when its entry is fixed (rule 4): at least one cited entry is still open.
         statuses = []
         for b in ids:
-            entry = next(LEDGER.glob(f"{b}-*.md"), None)
-            assert entry is not None, f"{b} has no ledger file in .cortex/compass/bugs: {line}"
+            entry = _ledger_entry(b)
+            assert entry is not None, f"{b} has no ledger file in cortex/ (no file has it as an alias): {line}"
             statuses.append(re.search(r"^status:\s*(\S+)", entry.read_text(), re.M).group(1))
         assert any(s != "resolved" for s in statuses), f"every cited entry is resolved: {line}"
     # PAD-514 fixed B-286 and took its spec out in the same PR (rule 4).

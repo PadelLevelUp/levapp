@@ -1,5 +1,6 @@
 """PAD-271 M5 (attendance.presence rule 7): `lateCancellation` is derived from
 `response` + `responded_at` against the coach's cancellation deadline."""
+import pytest
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -15,11 +16,13 @@ def _p(response, responded_at):
     return SimpleNamespace(response=response, responded_at=responded_at, lesson_instance=INSTANCE)
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-8")
 def test_a_cancellation_inside_the_deadline_is_late():
     assert presence_late_cancellation(_p("cancelled", DEADLINE + timedelta(minutes=1)), INSTANCE) is True
     assert presence_late_cancellation(_p("cancelled", DEADLINE), INSTANCE) is True
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-6")
 def test_a_cancellation_before_the_deadline_is_not_late():
     assert presence_late_cancellation(_p("cancelled", DEADLINE - timedelta(minutes=1)), INSTANCE) is False
 

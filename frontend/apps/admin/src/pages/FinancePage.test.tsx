@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe("Finance page (PAD-742)", () => {
-  it("shows the months with totals and running total, the import banner and the nav item", async () => {
+  it("[ADMIN-FINANCE-24] shows the months with totals and running total, the import banner and the nav item", async () => {
     signIn("owner");
     window.history.pushState({}, "", "/finance");
     mockFetch();
@@ -73,7 +73,7 @@ describe("Finance page (PAD-742)", () => {
     expect(screen.getAllByRole("link", { name: /Financeiro|Finance/ }).length).toBeGreaterThan(0);
   });
 
-  it("is there for every console role, support included", async () => {
+  it("[ADMIN-FINANCE-24] is there for every console role, support included", async () => {
     signIn("support");
     window.history.pushState({}, "", "/finance");
     mockFetch();
@@ -83,7 +83,7 @@ describe("Finance page (PAD-742)", () => {
     expect(screen.getAllByRole("link", { name: /Financeiro|Finance/ }).length).toBeGreaterThan(0);
   });
 
-  it("checks a pasted list, shows the bad line, and creates the costs only once all are valid", async () => {
+  it("[ADMIN-FINANCE-25] checks a pasted list, shows the bad line, and creates the costs only once all are valid", async () => {
     signIn("operator");
     window.history.pushState({}, "", "/finance?tab=costs");
     const bodies: { text: string; dryRun: boolean }[] = [];

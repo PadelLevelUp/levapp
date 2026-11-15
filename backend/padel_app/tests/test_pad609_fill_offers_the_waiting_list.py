@@ -44,6 +44,7 @@ def _manual_two():
     return instance_id, coach_id, a, b
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-71")
 def test_a_coach_recorded_yes_retires_the_others_as_spot_filled(app, monkeypatch):
     """OLD-RED: `_close_vacancy` wrote "expired", which offers nothing."""
     from padel_app.services import notification_service as ns
@@ -60,6 +61,7 @@ def test_a_coach_recorded_yes_retires_the_others_as_spot_filled(app, monkeypatch
         assert _event_of(instance_id, b).status == "expired"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-71")
 def test_a_students_yes_retires_the_others_as_spot_filled(app, monkeypatch):
     """PIN: already true through `_broadcast_spot_filled`; held so the close path cannot drift back."""
     from padel_app.models.players import Player
@@ -77,6 +79,7 @@ def test_a_students_yes_retires_the_others_as_spot_filled(app, monkeypatch):
 
 
 @pytest.mark.parametrize("by", ["coach", "student"])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-71")
 def test_a_fill_retires_the_classs_live_manual_invitations(app, monkeypatch, by):
     """OLD-RED: a manual invitation has no vacancy, so no close touched it — its buttons stayed
     live on a full class."""
@@ -101,6 +104,7 @@ def test_a_fill_retires_the_classs_live_manual_invitations(app, monkeypatch, by)
         assert _bubble(_event_of(instance_id, a))["response"] == "yes"  # the winner's own is spared
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-71")
 def test_a_manual_invitation_stays_live_while_the_class_has_room(app, monkeypatch):
     """PIN: the retire runs only when no place is left: one yes on a two-place class leaves the other open."""
     from padel_app.services import notification_service as ns
@@ -118,6 +122,7 @@ def test_a_manual_invitation_stays_live_while_the_class_has_room(app, monkeypatc
         assert other.status == "sent" and not _bubble(other).get("responded")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-71")
 def test_a_withdrawal_and_a_started_class_still_read_expired(app, monkeypatch):
     """PIN: not fills — the coach's withdrawal and the class starting keep "expired" (581 owns the former)."""
     from padel_app.services import notification_service as ns
@@ -143,6 +148,7 @@ def _join(player_id, instance_id):
     return join_class_waiting_list_service(db.session.get(Player, player_id), "LessonInstance", instance_id, None, now=NOW + timedelta(minutes=2))
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-73")
 def test_an_invited_student_joins_the_waiting_list_with_open_spots_hidden(app, monkeypatch):
     """OLD-RED (not_visible): the coach's open spots are hidden (the default), yet the student who
     lost the spot was shown the class by the invitation itself."""
@@ -160,6 +166,7 @@ def test_an_invited_student_joins_the_waiting_list_with_open_spots_hidden(app, m
         assert created and entry.is_active and entry.lesson_instance_id == instance_id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-73")
 def test_visibility_still_hides_the_list_from_a_student_never_invited_said_no_or_withdrawn(app, monkeypatch):
     """PIN for "never invited" and "said no" (staging refused everyone); the withdrawn cell guards the
     new bypass: the coach's withdrawal reads as a "no" (rules 18, 19)."""
@@ -181,6 +188,7 @@ def test_visibility_still_hides_the_list_from_a_student_never_invited_said_no_or
             assert e.value.response.get_json()["code"] == "not_visible"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-72")
 def test_an_unanswered_invitation_outlives_max_inactive_time_and_the_next_round(app, monkeypatch):
     """PIN, rule 5/8 (owner, 2026-10-10): nobody's silence ends an invitation. Past maxInactiveTime
     the next batch goes out beside it, it is not sent again, and its yes still takes the spot."""
@@ -210,6 +218,7 @@ def test_an_unanswered_invitation_outlives_max_inactive_time_and_the_next_round(
                                           now=later + timedelta(minutes=1)) == {"action": "confirmed"}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-71")
 def test_a_manual_invitation_to_a_class_already_full_survives_the_tick(app, monkeypatch):
     """Review of #644 (missing-test signal): only a fill retires manual invitations. A coach may invite
     by hand to a class that is already full; the tick and a reconcile with no enrolment leave it live."""

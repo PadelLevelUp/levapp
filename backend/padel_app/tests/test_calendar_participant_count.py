@@ -107,6 +107,7 @@ def _make_instance(app, *, enrolled: int, declined: int, max_players: int):
         (0, 0, 4, 0),   # no enrolments
     ],
 )
+@pytest.mark.criterion("CALENDAR-VIEW-6")
 def test_effective_filled_spots(app, enrolled, declined, max_players, expected):
     with app.app_context():
         instance = _make_instance(
@@ -115,6 +116,7 @@ def test_effective_filled_spots(app, enrolled, declined, max_players, expected):
         assert instance.effective_filled_spots == expected
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-6")
 def test_calendar_event_participant_count_excludes_declines(app):
     """The serialized calendar event carries the effective count, not enrolment."""
     from padel_app.serializers.calendar_event import serialize_calendar_event

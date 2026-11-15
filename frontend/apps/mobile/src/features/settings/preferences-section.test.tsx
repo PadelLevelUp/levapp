@@ -129,7 +129,7 @@ const shownLanguage = (n: Awaited<ReturnType<typeof renderNative>>) =>
   n.byTestId("settings-language-select").props.accessibilityValue.text;
 
 describe("iOS Preferences wait for the one Save (settings.explicit-save)", () => {
-  it("choosing a language is held: nothing is sent and the app keeps its language until Save", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-1] choosing a language is held: nothing is sent and the app keeps its language until Save", async () => {
     const n = await open();
 
     await n.press("settings-language-pt");
@@ -173,7 +173,7 @@ describe("iOS Preferences wait for the one Save (settings.explicit-save)", () =>
     expect(registry.hasUnsaved()).toBe(true);
   });
 
-  it("a request-alerts change and back is clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] a request-alerts change and back is clean", async () => {
     const n = await open();
     expect(on(n)).toBe(true);
 
@@ -185,7 +185,7 @@ describe("iOS Preferences wait for the one Save (settings.explicit-save)", () =>
     expect(registry.hasUnsaved()).toBe(false);
   });
 
-  it("a profile read landing while a language is held does not replace it", async () => {
+  it("[SETTINGS-LANGUAGE-8] a profile read landing while a language is held does not replace it", async () => {
     const n = await open();
 
     await n.press("settings-language-pt");

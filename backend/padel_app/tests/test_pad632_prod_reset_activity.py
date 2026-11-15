@@ -152,6 +152,7 @@ def _counts(app):
     return {t: _count(app, t) for t in ACTIVITY}
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-1")
 def test_the_dry_run_prints_the_counts_and_changes_nothing(app):
     world = _world(app)
     before = _counts(app)
@@ -164,6 +165,7 @@ def test_the_dry_run_prints_the_counts_and_changes_nothing(app):
     assert _counts(app) == before
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-2")
 def test_apply_clears_the_activity_and_spares_the_demo_coach(app):
     world = _world(app)
 
@@ -184,6 +186,7 @@ def test_apply_clears_the_activity_and_spares_the_demo_coach(app):
     assert _count(app, "presences", "id = :i", i=kept["past_presence"]) == 1
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-3")
 def test_a_future_enrolment_stays_and_attendance_history_goes(app):
     """A future occurrence's presence IS its enrolment (PAD-259)."""
     world = _world(app)
@@ -194,6 +197,7 @@ def test_a_future_enrolment_stays_and_attendance_history_goes(app):
     assert _count(app, "presences", "id = :i", i=real["past_presence"]) == 0
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-6")
 def test_current_levels_do_not_move(app):
     world = _world(app)
     with app.app_context():
@@ -207,6 +211,7 @@ def test_current_levels_do_not_move(app):
     assert after == before and all(level is not None for _c, _p, level in after)
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-7")
 def test_only_the_follow_ups_of_deleted_reminders_leave_the_scheduler(app):
     """Every job family the scheduler writes: the follow-ups of deleted attempts go; the rest stays."""
     world = _world(app)
@@ -217,6 +222,7 @@ def test_only_the_follow_ups_of_deleted_reminders_leave_the_scheduler(app):
     assert jobs == set(world["kept_jobs"])
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-4")
 def test_a_class_running_during_the_reset_keeps_its_roster(app):
     world = _world(app)
     with app.app_context():
@@ -233,6 +239,7 @@ def test_a_class_running_during_the_reset_keeps_its_roster(app):
     assert _count(app, "presences", "id = :i", i=row_id) == 1
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-5")
 def test_a_demo_student_who_also_trains_with_a_real_coach_keeps_their_invitation(app):
     """The real coach's vacancy would CASCADE the spared event away."""
     world = _world(app)
@@ -259,6 +266,7 @@ def test_a_demo_student_who_also_trains_with_a_real_coach_keeps_their_invitation
     assert _count(app, "vacancies", "id = :i", i=vacancy_id) == 1
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-8")
 def test_a_guard_that_fails_rolls_everything_back(app):
     """A write the script did not intend (here a trigger that clears a student's level when a presence
     goes) trips the guard: apply exits with an error and nothing is deleted."""
@@ -280,6 +288,7 @@ def test_a_guard_that_fails_rolls_everything_back(app):
     assert _counts(app) == before
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-9")
 def test_a_spare_coach_that_is_not_the_reviewer_account_stops_the_script(app):
     """A renumbered database must never spare the wrong coach: the script refuses to run."""
     world = _world(app, spare_username="real.coach")
@@ -292,6 +301,7 @@ def test_a_spare_coach_that_is_not_the_reviewer_account_stops_the_script(app):
     assert _counts(app) == before
 
 
+@pytest.mark.criterion("DELIVERY-PRODUCTION-ACTIVITY-RESET-10")
 def test_a_second_run_deletes_nothing(app):
     world = _world(app)
     assert _run(world, apply=True).returncode == 0

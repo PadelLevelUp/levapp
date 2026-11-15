@@ -106,6 +106,7 @@ def _history(app, ids, category_key, points):
 
 # ── 1. GET /api/app/evaluation_categories ────────────────────────────────────
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_1_evaluation_categories_lists_exactly_id_name_scalemin_scalemax(app, client):
     ids = _seed(app)
 
@@ -121,6 +122,7 @@ def test_1_evaluation_categories_lists_exactly_id_name_scalemin_scalemax(app, cl
     assert all(type(c["id"]) is int for c in body), "the id is a JSON number, whatever the TS type says"
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_1_evaluation_categories_lists_only_the_callers_own(app, client):
     ids = _seed(app)
     _other_coach(app)
@@ -130,6 +132,7 @@ def test_1_evaluation_categories_lists_only_the_callers_own(app, client):
     assert sorted(c["name"] for c in body) == ["Forehand", "Volley"]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_1_evaluation_categories_is_coach_only(app, client):
     ids = _seed(app)
 
@@ -140,6 +143,7 @@ def test_1_evaluation_categories_is_coach_only(app, client):
 
 # ── 2. GET /api/app/player_profile/<id> ──────────────────────────────────────
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_2_player_profile_shape_is_exact(app, client):
     ids = _seed(app)
     _history(app, ids, "forehand_id", [(30, 4)])
@@ -162,6 +166,7 @@ def test_2_player_profile_shape_is_exact(app, client):
     assert all(type(note["id"]) is int for note in body["strengths"] + body["weaknesses"])
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-2")
 def test_2_player_profile_serves_only_the_latest_row_per_category(app, client):
     ids = _seed(app)
     _history(app, ids, "forehand_id", [(90, 2), (60, 3), (30, 5)])
@@ -182,6 +187,7 @@ def test_2_player_profile_omits_a_category_that_was_never_scored(app, client):
     assert [e["categoryName"] for e in _profile(app, client, ids)["evaluations"]] == ["Forehand"]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-9")
 def test_2_evaluated_at_is_a_naive_iso_timestamp_for_every_kind_of_row(app, client):
     """Old builds call `parseISO(ev.evaluatedAt)` unguarded: a row that does not
     parse throws on render. Three writers: the API (utcnow, microseconds), the
@@ -215,6 +221,7 @@ def test_2_evaluated_at_is_a_naive_iso_timestamp_for_every_kind_of_row(app, clie
         datetime.fromisoformat(value)
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_2_player_profile_is_coach_only_and_roster_scoped(app, client):
     ids = _seed(app)
     other = _other_coach(app)
@@ -228,6 +235,7 @@ def test_2_player_profile_is_coach_only_and_roster_scoped(app, client):
 
 # ── 3. POST /api/app/add_evaluation_entry ────────────────────────────────────
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_3_add_evaluation_entry_answers_status_ok_and_the_player_id_it_was_sent(app, client):
     ids = _seed(app)
 
@@ -237,6 +245,7 @@ def test_3_add_evaluation_entry_answers_status_ok_and_the_player_id_it_was_sent(
     assert res.get_json() == {"status": "ok", "playerId": ids["student_id"]}, "echoed as sent: an int here"
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-6")
 def test_3_a_null_value_writes_nothing(app, client):
     ids = _seed(app)
 
@@ -245,6 +254,7 @@ def test_3_a_null_value_writes_nothing(app, client):
     assert _rows(app, ids, "forehand_id") == []
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-6")
 def test_3_a_value_equal_to_the_latest_writes_nothing_and_does_not_move_evaluated_at(app, client):
     ids = _seed(app)
     _history(app, ids, "forehand_id", [(30, 5)])
@@ -428,6 +438,7 @@ def test_3_a_stale_midpoint_equal_to_the_converted_latest_writes_nothing(app, cl
     assert [s for s, _ in _rows(app, ids, "volley_id")] == [3.0], "6 -> 3 equals the latest 3: once"
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_3_add_evaluation_entry_is_coach_only_and_roster_scoped(app, client):
     ids = _seed(app)
     other = _other_coach(app)
@@ -469,6 +480,7 @@ def test_4_add_evaluation_categories_upserts_by_name_and_echoes_the_request(app,
         assert (rows["Smash"].scale_min, rows["Smash"].scale_max) == (1, 5)
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-5")
 def test_4_a_scale_minimum_of_zero_is_dropped_and_the_echo_hides_it(app, client):
     """B-136's mechanism is still unfixed: the form layer reads a falsy value as
     "not sent" (`input_tools.Field.set_value`). On this endpoint it no longer
@@ -501,6 +513,7 @@ def test_4_a_scale_minimum_of_zero_is_dropped_and_the_echo_hides_it(app, client)
     assert listed["Smash"]["scaleMin"] == 1
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_4_renaming_a_category_creates_a_new_one_and_strands_the_old_scores(app, client):
     """DEFECT PINNED, NOT FIXED (B-125). The upsert is keyed on `name` and ids are
     never sent, so a rename in Settings is an insert: the old category stays, with
@@ -524,6 +537,7 @@ def test_4_renaming_a_category_creates_a_new_one_and_strands_the_old_scores(app,
     assert [e["categoryName"] for e in _profile(app, client, ids)["evaluations"]] == ["Forehand"]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-2")
 def test_4_add_evaluation_categories_is_coach_only(app, client):
     ids = _seed(app)
 
@@ -584,6 +598,7 @@ def _import(app, ids, rows):
         return bulk_create_evaluation_entries(rows, db.session.get(Coach, ids["coach_id"]))
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-5")
 def test_6_an_imported_category_keeps_a_zero_minimum_only_when_it_arrives_as_a_string(app, client):
     """B-136's mechanism is still unfixed: `bulk_create_evaluation_categories`
     goes through the same form layer as the settings upsert, which reads the

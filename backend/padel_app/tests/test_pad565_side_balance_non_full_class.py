@@ -12,6 +12,7 @@ absent mark, a reminder "no", a cancellation — converges on ``_create_vacancy_
 Run:
     pytest padel_app/tests/test_pad565_side_balance_non_full_class.py -v
 """
+import pytest
 from collections import Counter
 
 from padel_app.sql_db import db
@@ -31,6 +32,7 @@ def _ticket_class(username):
 
 # ── precondition: rule 2b sides the never-filled spots toward capacity ──────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-45")
 def test_rule_2b_sides_the_eight_never_filled_spots_six_right_two_left(app):
     """Rule 2b on the ticket's roster: R,R,R,R then L,R,L,R — the class would end 8 / 8."""
     from padel_app.services.notification_service import _create_structural_vacancies
@@ -43,6 +45,7 @@ def test_rule_2b_sides_the_eight_never_filled_spots_six_right_two_left(app):
 
 # ── the 2×2: never-filled spots already open × the leaver's path ────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-100")
 def test_with_the_never_filled_spots_open_a_left_leaver_frees_a_right_spot(app):
     """OLD-RED, the ticket's observation: 5L/2R holding + 2L/6R open counted 7 / 8 → left.
     Criterion "A freed spot in a class that is not full counts the players going": 5 / 2 → right."""
@@ -58,6 +61,7 @@ def test_with_the_never_filled_spots_open_a_left_leaver_frees_a_right_spot(app):
         assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == "right"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-100")
 def test_with_no_never_filled_spot_open_yet_the_same_leaver_frees_a_right_spot(app):
     """Green before and after: with no vacancy yet the count was already the roster's 5 / 2 → right.
     Then the 8 never-filled spots balance around it (rule 2b counts the freed spot: 5L/3R →
@@ -76,6 +80,7 @@ def test_with_no_never_filled_spot_open_yet_the_same_leaver_frees_a_right_spot(a
         assert _open_sides(instance.id) == Counter({"right": 6, "left": 3})
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-100")
 def test_the_coach_absent_mark_and_tick_path_lands_in_the_same_place(app):
     """OLD-RED. ``trigger_invitations`` → ``_find_or_create_open_vacancies``: with a spot already
     open it creates only the leaver's vacancy, through the same ``freed_spot_side`` → right."""
@@ -97,6 +102,7 @@ def test_the_coach_absent_mark_and_tick_path_lands_in_the_same_place(app):
         assert _open_sides(instance.id) == Counter({"right": 6, "left": 3})
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-100")
 def test_the_reminder_no_path_lands_in_the_same_place(app):
     """``_free_spot_for_declining_player`` (reminder "no" and cancellation) → ``_ensure_vacancy_for_player``
     → the same side (OLD-RED). The engine is left off so nothing is sent; the vacancy row is the
@@ -147,6 +153,7 @@ def test_two_left_leavers_with_the_never_filled_spots_open_balance_across_each_o
 
 # ── the ticket's table rows 2 and 3 (full classes) already hold ─────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-101")
 def test_a_full_class_of_two_two_losing_a_left_asks_left(app):
     from padel_app.services.notification_service import _create_vacancy_for_absent_player
 
@@ -156,6 +163,7 @@ def test_a_full_class_of_two_two_losing_a_left_asks_left(app):
         assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == "left"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-101")
 def test_a_full_class_of_three_one_losing_a_left_asks_right(app):
     from padel_app.services.notification_service import _create_vacancy_for_absent_player
 
@@ -167,6 +175,7 @@ def test_a_full_class_of_three_one_losing_a_left_asks_right(app):
 
 # ── the owner's case: 5 right + 2 left going, 12 places ─────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-45")
 def test_the_owners_twelve_place_class_opens_four_left_and_one_right(app):
     """Rule 2b unchanged (owner, 2026-10-09): 2L/5R + 5 spots: L,L,L (5/5), tie → L (6/5), R (6/6).
     Four left invitations go out at once for four distinct spots; a "yes" closes only its own spot's

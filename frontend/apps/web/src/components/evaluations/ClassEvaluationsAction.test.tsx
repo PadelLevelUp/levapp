@@ -22,7 +22,7 @@ describe("the 'Avaliações' action on the class detail", () => {
     expect(screen.queryByTestId("class-eval-unavailable")).toBeNull();
   });
 
-  it("is disabled with its one-line explanation for a past class that was never opened", () => {
+  it("[EVALUATIONS-CLASS-PANEL-5] is disabled with its one-line explanation for a past class that was never opened", () => {
     const onOpen = vi.fn();
     render(<ClassEvaluationsAction state="unavailable" onOpen={onOpen} />);
     const button = screen.getByTestId("class-evaluations-open") as HTMLButtonElement;

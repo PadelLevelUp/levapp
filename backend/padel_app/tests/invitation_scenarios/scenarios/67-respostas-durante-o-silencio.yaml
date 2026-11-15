@@ -1,0 +1,54 @@
+id: 67
+title: respostas durante o horário de silêncio
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1487, 1507]}
+what_it_tests: as respostas contam a qualquer hora, mas os envios esperam pelo fim do silêncio
+tags: [quiet-hours, absences, rounds, regulars]
+depends_on: [U29]
+corrections: []
+notes: >
+  The two regulars are R-1 and R-2. Both No's at 23:55 are after the 22:30 cutoff, so they are unjustified
+  (U29). The three No's at 03:10 leave 2 open for 1 spot; the replacement is the single invitation that brings
+  the open heads back to X=3 for the remaining spot (R1, R2), and it waits for the end of quiet hours at
+  07:00. The round timer (5 minutes used before 00:00) would next fire at 07:15, after the scenario ends.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 10, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 23:55
+    events:
+      - {regular_no: R-1}
+      - {regular_no: R-2}
+    expect:
+      absences:
+        - {who: R-1, kind: unjustified}
+        - {who: R-2, kind: unjustified}
+      invitations: [{cohort: L2R, count: 6, side_named: null, group: 3}]
+      missing: {L: 0, R: 2}
+  - at: 2026-11-03 03:00
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 1}
+      open_unanswered: 5
+  - at: 2026-11-03 03:10
+    events:
+      - {declines: {cohort: L2R, state: invited, as: n1}}
+      - {declines: {cohort: L2R, state: invited, as: n2}}
+      - {declines: {cohort: L2R, state: invited, as: n3}}
+    expect:
+      invitations: none
+      open_unanswered: 2
+  - at: 2026-11-03 07:00
+    expect:
+      invitations: [{cohort: L2R, count: 1, side_named: null, group: 3}]
+      open_unanswered: 3
+  - at: 2026-11-03 07:05
+    events: [{accepts: {cohort: L2R, state: invited, as: r2}}]
+    expect:
+      placed: [{who: r2, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

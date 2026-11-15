@@ -156,7 +156,7 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     expect(card1).toHaveAttribute("data-selected", "false");
   });
 
-  it("(b) at /players/<id> the row carries aria-current and the pane renders that player", async () => {
+  it("[PLAYERS-PROFILE-8] (b) at /players/<id> the row carries aria-current and the pane renders that player", async () => {
     renderAt("/players/2");
 
     const card2 = await screen.findByTestId("player-card-2");
@@ -169,7 +169,7 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     expect(screen.getByTestId("player-evaluations-action")).toBeInTheDocument();
   });
 
-  it("(c) clicking another row changes the route and keeps the search input's value", async () => {
+  it("[PLAYERS-PROFILE-8] (c) clicking another row changes the route and keeps the search input's value", async () => {
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Ana Silva" });
 
@@ -192,7 +192,7 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     expect(vi.mocked(getCoachPlayersPaginated).mock.calls.length).toBe(listCallsBefore);
   });
 
-  it("(e) the pane's action row has the screenshot's order", async () => {
+  it("[PLAYERS-PROFILE-10] (e) the pane's action row has the screenshot's order", async () => {
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Ana Silva" });
 
@@ -209,7 +209,7 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     expect(seen).toEqual(wanted);
   });
 
-  it("(f) removing the selected player returns to /players and refetches the list", async () => {
+  it("[PLAYERS-LIST-9] (f) removing the selected player returns to /players and refetches the list", async () => {
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Ana Silva" });
     const listCallsBefore = vi.mocked(getCoachPlayersPaginated).mock.calls.length;
@@ -223,7 +223,7 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     expect(vi.mocked(removePlayer)).toHaveBeenCalled();
   });
 
-  it("(d) on mobile, /players/<id> hides the list", async () => {
+  it("[PLAYERS-PROFILE-9] (d) on mobile, /players/<id> hides the list", async () => {
     state.isMobile = true;
     renderAt("/players/1");
 
@@ -281,7 +281,7 @@ describe("PlayersPage master-detail (PAD-410)", () => {
 describe("PlayersPage search feedback (players.search rule 10, PAD-665)", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("typing fast makes one request, 200 ms after the last letter, and says it is searching meanwhile", async () => {
+  it("[PLAYERS-SEARCH-8] typing fast makes one request, 200 ms after the last letter, and says it is searching meanwhile", async () => {
     renderAt("/players");
     await screen.findByTestId("player-card-1");
     const calls = () => vi.mocked(getCoachPlayersPaginated).mock.calls;

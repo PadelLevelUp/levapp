@@ -46,7 +46,7 @@ async function mountOnPreview() {
 }
 
 describe("JoinCoachScreen re-reads /me after a join (PAD-444)", () => {
-  it("refreshes the signed-in user once the server accepts the join", async () => {
+  it("[PLAYERS-JOIN-TOKEN-12] refreshes the signed-in user once the server accepts the join", async () => {
     acceptJoinToken.mockResolvedValue({ coachName: "Maria", clubName: "Padel Norte", alreadyMember: false });
     const n = await mountOnPreview();
     await n.press("join-coach-confirm");
@@ -56,7 +56,7 @@ describe("JoinCoachScreen re-reads /me after a join (PAD-444)", () => {
     expect(acceptJoinToken.mock.invocationCallOrder[0]).toBeLessThan(refreshUser.mock.invocationCallOrder[0]);
   });
 
-  it("refreshes nothing when the join fails", async () => {
+  it("[PLAYERS-JOIN-TOKEN-12] refreshes nothing when the join fails", async () => {
     acceptJoinToken.mockRejectedValue({ response: { status: 500 } });
     const n = await mountOnPreview();
     await n.press("join-coach-confirm");

@@ -97,6 +97,7 @@ def _create_conversation(client, app, user_id, other_user_id):
 
 # --- Scope enforcement ---------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-4")
 def test_coach_can_message_player_on_own_roster(client, app, scenario):
     resp = _create_conversation(
         client, app, scenario["coach1_user_id"], scenario["player1_user_id"]
@@ -104,6 +105,7 @@ def test_coach_can_message_player_on_own_roster(client, app, scenario):
     assert resp.status_code == 201
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-5")
 def test_coach_cannot_message_a_player_who_is_only_in_their_club(client, app, scenario):
     """PAD-568 / B-461: a shared club is not a link."""
     resp = _create_conversation(
@@ -112,6 +114,7 @@ def test_coach_cannot_message_a_player_who_is_only_in_their_club(client, app, sc
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-7")
 def test_coach_cannot_message_player_outside_own_club(client, app, scenario):
     resp = _create_conversation(
         client, app, scenario["coach1_user_id"], scenario["player2_user_id"]
@@ -126,6 +129,7 @@ def test_student_can_message_a_linked_coach(client, app, scenario):
     assert resp.status_code == 201
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-22")
 def test_student_cannot_message_an_unlinked_coach(client, app, scenario):
     """B-267: coach2 shares no roster, club or class with player1."""
     resp = _create_conversation(
@@ -143,6 +147,7 @@ def test_student_cannot_message_another_student(client, app, scenario):
 
 # --- Messageable-users picker ---------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-5")
 def test_messageable_users_scoped_for_coach(client, app, scenario):
     resp = client.get(
         "/api/app/messageable-users", headers=_auth_header(app, scenario["coach1_user_id"])
@@ -154,6 +159,7 @@ def test_messageable_users_scoped_for_coach(client, app, scenario):
     assert scenario["clubonly_user_id"] not in ids  # PAD-568: club alone is not a link
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-19")
 def test_messageable_users_scoped_for_student(client, app, scenario):
     resp = client.get(
         "/api/app/messageable-users", headers=_auth_header(app, scenario["player1_user_id"])
@@ -194,6 +200,7 @@ def test_blocked_user_prevents_new_conversation(client, app, scenario):
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-1")
 def test_blocked_user_prevents_new_message_in_existing_conversation(client, app, scenario):
     create_resp = _create_conversation(
         client, app, scenario["coach1_user_id"], scenario["player1_user_id"]
@@ -212,6 +219,7 @@ def test_blocked_user_prevents_new_message_in_existing_conversation(client, app,
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-1")
 def test_block_prevents_messages_both_ways(client, app, scenario):
     """messaging.block-and-report rule 2: the blocker is silenced too, not only the blocked."""
     create_resp = _create_conversation(
@@ -229,6 +237,7 @@ def test_block_prevents_messages_both_ways(client, app, scenario):
         assert resp.status_code == 403, sender
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-2")
 def test_blocked_users_absent_from_messageable_users(client, app, scenario):
     _block(client, app, scenario["coach1_user_id"], scenario["player1_user_id"])
     resp = client.get(
@@ -260,6 +269,7 @@ def test_blocked_users_list(client, app, scenario):
 
 # --- Report ------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-3")
 def test_participant_can_report_message(client, app, scenario):
     create_resp = _create_conversation(
         client, app, scenario["coach1_user_id"], scenario["player1_user_id"]
@@ -287,6 +297,7 @@ def test_participant_can_report_message(client, app, scenario):
         assert reports[0].reporter_id == scenario["player1_user_id"]
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-3")
 def test_non_participant_cannot_report_message(client, app, scenario):
     create_resp = _create_conversation(
         client, app, scenario["coach1_user_id"], scenario["player1_user_id"]

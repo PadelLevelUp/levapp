@@ -136,6 +136,7 @@ def _cp(coach_id, player_id):
 # eligibility.rules
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-1")
 def test_unset_bar_admits_everyone(app):
     """eligibility.rules rule 1 / AC "Unset eligibility admits everyone"."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -157,6 +158,7 @@ def test_unset_bar_admits_everyone(app):
             assert passes_eligibility(_cp(ids["coach_id"], pid), instance, ids["coach_id"], rules)
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-1")
 def test_empty_list_bar_admits_everyone(app):
     """`[]` is equivalent to unset (eligibility.rules rule 1)."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -175,6 +177,7 @@ def test_empty_list_bar_admits_everyone(app):
         assert passes_eligibility(_cp(ids["coach_id"], weak), instance, ids["coach_id"], rules)
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-2")
 def test_level_rule_against_class_with_no_level_admits_nobody(app):
     """eligibility.rules rule 2 (PAD-86 fail-closed) — the state that must NOT
     collapse into "no filter". This is the whole reason the column is nullable."""
@@ -204,6 +207,7 @@ def test_level_rule_against_class_with_no_level_admits_nobody(app):
     "value,expected_codes",
     [(1, {"4", "5", "5-"}), (0, {"5"})],
 )
+@pytest.mark.criterion("ELIGIBILITY-RULES-3")
 def test_within_n_of_class_follows_the_ladder(app, value, expected_codes):
     """eligibility.rules rule 6 / AC "Within N follows the ladder, not level values".
 
@@ -233,6 +237,7 @@ def test_within_n_of_class_follows_the_ladder(app, value, expected_codes):
         assert passing == expected_codes
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-10")
 def test_side_never_affects_eligibility(app):
     """eligibility.rules rule 4 — side is a wave criterion, never a bar."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -256,6 +261,7 @@ def test_side_never_affects_eligibility(app):
         assert all(outcomes.values()), f"side changed an eligibility outcome: {outcomes}"
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-11")
 def test_absence_rule_reads_the_coach_scoped_record(app):
     """eligibility.rules rule 3 / AC "Absence rules read the coach-scoped record"."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -326,6 +332,7 @@ def test_unset_bar_is_never_defaulted_to_a_rule_set(app):
 # eligibility.enforcement — invitations
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-7")
 def test_widest_wave_stops_at_the_bar(app):
     """eligibility.enforcement rule 1 / AC "The widest wave stops at the bar".
 
@@ -381,6 +388,7 @@ def test_widest_wave_stops_at_the_bar(app):
 # EXPLICIT BAR: with the bar unset these assertions could not fail.
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-8")
 def test_waiting_list_invitation_respects_the_bar(app):
     """PAD-122 / eligibility.enforcement rule 2.
 
@@ -421,6 +429,7 @@ def test_waiting_list_invitation_respects_the_bar(app):
         )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-17")
 def test_waiting_list_invitation_honours_excluded_players(app):
     """PAD-122 / eligibility.enforcement rule 5 — `restrictions.excludedPlayers`
     was skipped entirely by the fill path in every configuration."""
@@ -460,6 +469,7 @@ def test_waiting_list_invitation_honours_excluded_players(app):
 # bar must not be what produces the result.
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-9")
 def test_cancelling_student_is_not_offered_their_own_vacancy(app):
     """PAD-123 / eligibility.enforcement rule 4 — the `absent` half.
 
@@ -504,6 +514,7 @@ def test_cancelling_student_is_not_offered_their_own_vacancy(app):
         )
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-10")
 def test_enrolled_student_is_never_invited_from_the_list_into_their_own_class(app):
     """PAD-123 / eligibility.enforcement rule 4 — the enrolment half.
 

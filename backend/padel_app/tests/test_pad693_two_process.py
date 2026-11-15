@@ -24,6 +24,7 @@ pytestmark = [
 
 
 @pytest.mark.parametrize("store,expected", [("database", [401] * 4 + [429] * 2), ("memory", [401] * 6)])
+@pytest.mark.criterion("AUTH-LOGIN-16")
 def test_a_login_burst_across_two_processes_draws_on_one_budget(app, postgres_test_database_uri, store, expected):
     env = {"AUTH_RATE_LIMIT_STORE": store, "AUTH_RATE_LIMIT_LOGIN": "4/60"}
     a = Proc(postgres_test_database_uri, "memory", env)

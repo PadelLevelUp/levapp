@@ -40,7 +40,7 @@ describe("RecurrenceEndChoice (PAD-463)", () => {
     expect(p.onModeChange).toHaveBeenCalledWith("season");
   });
 
-  it("the count shows the last class, and a note when it runs past the season", async () => {
+  it("[CLASSES-CREATE-8] the count shows the last class, and a note when it runs past the season", async () => {
     const n = await renderNative(
       <RecurrenceEndChoice {...props({ mode: "count", countText: "6", lastDate: "2027-08-09", pastSeasonEnd: "2027-07-31" })} />,
     );

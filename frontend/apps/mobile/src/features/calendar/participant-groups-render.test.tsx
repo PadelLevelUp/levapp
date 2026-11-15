@@ -37,7 +37,7 @@ describe("ParticipantGroups", () => {
   ] as never;
   const roster = [rosterEntry(1, "left"), rosterEntry(2, "right"), rosterEntry(3, null), rosterEntry(4, "both")];
 
-  it("renders the three groups in order with their rows ordered by side then name", async () => {
+  it("[CALENDAR-EVENT-DETAIL-10] renders the three groups in order with their rows ordered by side then name", async () => {
     const n = await renderNative(
       <ParticipantGroups participants={participants} presences={presences} roster={roster} onOpen={() => undefined} />
     );
@@ -58,7 +58,7 @@ describe("ParticipantGroups", () => {
     ]);
   });
 
-  it("opens the row on its name button, and the side chip is not pressable and carries the long form", async () => {
+  it("[CALENDAR-EVENT-DETAIL-10] opens the row on its name button, and the side chip is not pressable and carries the long form", async () => {
     const onOpen = vi.fn();
     const n = await renderNative(
       <ParticipantGroups participants={participants} presences={presences} roster={roster} onOpen={onOpen} />

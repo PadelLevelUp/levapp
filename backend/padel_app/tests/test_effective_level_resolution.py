@@ -17,6 +17,7 @@ when there is genuinely no level anywhere.
 Run:
     pytest padel_app/tests/test_effective_level_resolution.py -v
 """
+import pytest
 
 from datetime import datetime, timedelta
 
@@ -146,6 +147,7 @@ class TestEffectiveLevelId:
 
             assert effective_level_id(instance) == own.id
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-44")
     def test_falls_back_to_lesson_default_level(self, app):
         from padel_app.services.notification_service import effective_level_id
 
@@ -193,6 +195,7 @@ class TestEffectiveLevelId:
 
 class TestStructuralVacancyLevel:
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-44")
     def test_structural_vacancy_inherits_lesson_default_level(self, app):
         """The bug: the level lives on the Lesson, the vacancy came out level-less."""
         from padel_app.services.notification_service import _create_structural_vacancies
@@ -244,6 +247,7 @@ class TestStructuralVacancyLevel:
 
 class TestGroupEligibilityForStructuralVacancy:
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-44")
     def test_level_only_group_does_not_match_the_whole_roster(self, app):
         """A level-only group must invite same-level students ONLY."""
         from padel_app.services.notification_service import (
@@ -337,6 +341,7 @@ class TestLegacyVacancyFallback:
 
 class TestLevelRulesFailClosed:
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-50")
     def test_no_level_on_vacancy_means_nobody_passes(self, app):
         from padel_app.services.notification_service import _passes_group_rules
 
@@ -356,6 +361,7 @@ class TestLevelRulesFailClosed:
                 assert _passes_group_rules(rules, cp, vacancy, coach.id) is False, op
                 assert _passes_group_rules(rules, cp_no_level, vacancy, coach.id) is False, op
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-50")
     def test_non_level_rules_are_unaffected_by_a_level_less_vacancy(self, app):
         """Only LEVEL rules fail closed — a group without level rules still matches."""
         from padel_app.services.notification_service import _passes_group_rules
@@ -381,6 +387,7 @@ class TestLevelRulesFailClosed:
 
 class TestLevelPlaceholder:
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-44")
     def test_level_code_falls_back_to_the_lesson_default_level(self, app):
         from padel_app.services.notification_service import effective_level_code
 

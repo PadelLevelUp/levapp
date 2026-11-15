@@ -6,6 +6,7 @@ resolved them but the coach's own tap. The tick now does, through the same `reso
 Rows are closed here with a bulk UPDATE, which no session flush sees, so the listener never fires.
 Students are cases 7-13.
 """
+import pytest
 from datetime import datetime
 
 from padel_app.sql_db import db
@@ -46,6 +47,7 @@ def _resolved(prompt, vacancy_id):
     return next(v for v in meta["vacancies"] if v["vacancyId"] == vacancy_id).get("resolved")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-20")
 def test_the_tick_resolves_prompts_on_spots_filled_or_expired_behind_the_listener(app):
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
 
@@ -82,6 +84,7 @@ def _one_bundle(prefix):
     return vacancies, prompts
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-20")
 def test_the_tick_leaves_a_pending_prompt_on_an_open_spot(app):
     """A bundle with one spot filled behind the listener and one still open: per spot, as the
     listener does — the filled one resolves, the open one stays pending and undecided."""
@@ -97,6 +100,7 @@ def test_the_tick_leaves_a_pending_prompt_on_an_open_spot(app):
         assert _resolved(p_open, v_open.id) is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-20")
 def test_the_tick_leaves_a_decided_prompt_on_a_closed_spot(app):
     """A dismissed prompt on a closed spot keeps its decision; a pending one beside it resolves."""
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt

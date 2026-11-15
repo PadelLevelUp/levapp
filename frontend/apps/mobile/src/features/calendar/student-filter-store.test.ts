@@ -21,7 +21,7 @@ describe("student calendar filter persistence (PAD-664)", () => {
     expect(await readStudentFilter(7, memoryStore())).toBe(STUDENT_FILTER_DEFAULT);
   });
 
-  it("round-trips per student under the shared key", async () => {
+  it("[CALENDAR-VIEW-20] round-trips per student under the shared key", async () => {
     const store = memoryStore();
     await writeStudentFilter(7, "mine", store);
     expect(store.data[studentFilterStorageKey(7)]).toBe("mine");

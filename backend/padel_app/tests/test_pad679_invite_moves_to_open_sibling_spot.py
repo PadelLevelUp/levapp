@@ -257,8 +257,10 @@ def test_a_waiting_list_invitation_of_a_side_less_spot_moves(app, monkeypatch):
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
     from padel_app.services.notification_service import (
-        _close_vacancy, _get_or_create_direct_conversation, trigger_invitations,
+        _close_vacancy,
+        trigger_invitations,
     )
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.tests.helpers import pin_clock
 
     pin_clock(monkeypatch, NOW)

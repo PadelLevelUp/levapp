@@ -86,6 +86,7 @@ def _class_payload(**overrides):
 # Service layer
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CALENDAR-SEASONS-7")
 def test_no_season_at_all_is_rejected_and_creates_nothing(app):
     """A coach with zero seasons (the default state) must not get a class."""
     coach_id = make_coach(app)
@@ -105,6 +106,7 @@ def test_no_season_at_all_is_rejected_and_creates_nothing(app):
         assert Lesson.query.count() == 0, "no lesson may be created"
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-7")
 def test_season_not_covering_the_start_date_is_rejected(app):
     """A season exists, but the class starts outside it — still fail closed."""
     coach_id = make_coach(app)
@@ -126,6 +128,7 @@ def test_season_not_covering_the_start_date_is_rejected(app):
         assert Lesson.query.count() == 0
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-7")
 def test_covering_season_bounds_the_recurrence(app):
     """The happy path stays intact: recurrence_end is the season end."""
     coach_id = make_coach(app)
@@ -143,6 +146,7 @@ def test_covering_season_bounds_the_recurrence(app):
         assert lesson.recurrence_end == date(2026, 9, 30)
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-7")
 def test_recurs_until_season_end_never_leaves_recurrence_end_null(app):
     """The invariant this ticket exists to protect."""
     coach_id = make_coach(app)
@@ -190,6 +194,7 @@ def test_toggle_off_still_honours_an_explicit_end_date(app):
 # Route layer — the coach-facing contract
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CALENDAR-SEASONS-7")
 def test_add_class_route_returns_400_with_a_machine_readable_code(app, client):
     coach_id = make_coach(app)
     with app.app_context():
@@ -213,6 +218,7 @@ def test_add_class_route_returns_400_with_a_machine_readable_code(app, client):
         assert Lesson.query.count() == 0
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-7")
 def test_add_class_route_succeeds_when_a_season_covers_the_date(app, client):
     coach_id = make_coach(app)
     with app.app_context():

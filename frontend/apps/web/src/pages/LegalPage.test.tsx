@@ -45,7 +45,7 @@ vi.mock("@/content/legal", async (importOriginal) => {
 });
 
 describe("LegalPage", () => {
-  it("renders the English terms with the version header", () => {
+  it("[AUTH-LEGAL-PAGES-1] renders the English terms with the version header", () => {
     renderAt("/terms");
     expect(screen.getByTestId("legal-version")).toHaveTextContent("2026-10-13");
     expect(screen.getByTestId("legal-effective-date")).toHaveTextContent("October 13, 2026");
@@ -60,7 +60,7 @@ describe("LegalPage", () => {
     expect(screen.getByTestId("legal-body").querySelector("h1")).toHaveTextContent("Privacy Policy");
   });
 
-  it("shows the English body under the Portuguese notice while PT is in preparation", () => {
+  it("[AUTH-LEGAL-PAGES-2] shows the English body under the Portuguese notice while PT is in preparation", () => {
     renderAt("/terms?lang=pt");
     expect(screen.getByTestId("legal-fallback-notice")).toHaveTextContent("legal.portugueseInPreparation");
     expect(screen.getByTestId("legal-body").querySelector("h1")).toHaveTextContent("Terms of Service");
@@ -68,7 +68,7 @@ describe("LegalPage", () => {
     expect(screen.getByTestId("legal-terms")).toHaveAttribute("lang", "en");
   });
 
-  it("keeps internal links as router links and keeps the language on the cross link", () => {
+  it("[AUTH-LEGAL-PAGES-2] keeps internal links as router links and keeps the language on the cross link", () => {
     renderAt("/terms?lang=pt");
     const footer = screen.getByTestId("legal-footer");
     expect(footer.querySelector('a[href="/privacy?lang=pt"]')).toBeTruthy();

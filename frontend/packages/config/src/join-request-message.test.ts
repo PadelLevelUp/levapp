@@ -5,11 +5,11 @@ const meta: JoinRequestMessageMeta = { id: 42, status: "pending" };
 const live = { id: 42, status: "pending" as const };
 
 describe("joinRequestBubbleState (classes.join-requests rule 18, PAD-461)", () => {
-  it("offers the coach Accept / Decline while the request is live pending", () => {
+  it("[CLASSES-JOIN-REQUESTS-18] offers the coach Accept / Decline while the request is live pending", () => {
     expect(joinRequestBubbleState(meta, live, { own: false })).toEqual({ kind: "actions", status: "pending" });
   });
 
-  it("shows the outcome once the request is decided, withdrawn or superseded", () => {
+  it("[CLASSES-JOIN-REQUESTS-19] shows the outcome once the request is decided, withdrawn or superseded", () => {
     expect(joinRequestBubbleState(meta, { ...live, status: "accepted" }, { own: false })).toEqual({ kind: "outcome", status: "accepted" });
     expect(joinRequestBubbleState(meta, { ...live, status: "rejected" }, { own: false })).toEqual({ kind: "outcome", status: "rejected" });
     expect(joinRequestBubbleState(meta, { ...live, status: "withdrawn" }, { own: false })).toEqual({ kind: "outcome", status: "withdrawn" });
@@ -26,7 +26,7 @@ describe("joinRequestBubbleState (classes.join-requests rule 18, PAD-461)", () =
     expect(joinRequestBubbleState(undefined, live, { own: false })).toEqual({ kind: "none", status: undefined });
   });
 
-  it("never offers the student's own copy of the message any actions", () => {
+  it("[CLASSES-JOIN-REQUESTS-19] never offers the student's own copy of the message any actions", () => {
     expect(joinRequestBubbleState(meta, live, { own: true })).toEqual({ kind: "none", status: "pending" });
     expect(joinRequestBubbleState(meta, { ...live, status: "accepted" }, { own: true })).toEqual({ kind: "none", status: "pending" });
     expect(joinRequestBubbleState(meta, null, { own: true })).toEqual({ kind: "none", status: "pending" });

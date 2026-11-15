@@ -144,6 +144,7 @@ def _get_detail(client, app, user_id, instance_id):
     )
 
 
+@pytest.mark.criterion("CLASSES-DETAIL-VISIBILITY-3")
 def test_coach_sees_full_class_detail(client, app, class_scenario):
     resp = _get_detail(
         client, app, class_scenario["coach_user_id"], class_scenario["instance_id"]
@@ -163,6 +164,7 @@ def test_coach_sees_full_class_detail(client, app, class_scenario):
     assert class_scenario["bob_player_id"] in invitation_player_ids
 
 
+@pytest.mark.criterion("CLASSES-DETAIL-VISIBILITY-4")
 def test_student_sees_only_own_data(client, app, class_scenario):
     resp = _get_detail(
         client, app, class_scenario["alice_user_id"], class_scenario["instance_id"]
@@ -195,6 +197,7 @@ def test_student_sees_only_own_data(client, app, class_scenario):
     assert "coachId" in data
 
 
+@pytest.mark.criterion("CLASSES-DETAIL-VISIBILITY-4")
 def test_lesson_instance_detail_scopes_presences_for_student(
     client, app, class_scenario
 ):

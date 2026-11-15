@@ -47,7 +47,7 @@ describe("CompetencyManagerHost", () => {
     expect(screen.queryByTestId("stub-manager")).toBeNull();
   });
 
-  it("is coach-only: a student with the flag in the URL gets nothing", () => {
+  it("[EVALUATIONS-COMPETENCIES-20] is coach-only: a student with the flag in the URL gets nothing", () => {
     auth.roles = ["player"];
     at("/calendar?competencies=open");
 

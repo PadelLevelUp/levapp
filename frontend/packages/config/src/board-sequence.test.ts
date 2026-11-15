@@ -78,7 +78,7 @@ describe("stamping seq on creation (rule 26)", () => {
 });
 
 describe("the timeline of a sequenced step (rule 26)", () => {
-  it("ball → move → ball is three 800 ms moments, played one after another", () => {
+  it("[TRAINING-TACTICAL-BOARD-5] ball → move → ball is three 800 ms moments, played one after another", () => {
     const d = ballMoveBall();
     expect(stepTimeline(d.steps[0])).toEqual([
       { kind: "ball", ball: 0 },
@@ -101,7 +101,7 @@ describe("the timeline of a sequenced step (rule 26)", () => {
     expect(playbackFrameAt(d, 2400)).toBeNull();
   });
 
-  it("consecutive movements of different players share a moment; a player's next leg is the next", () => {
+  it("[TRAINING-TACTICAL-BOARD-6] consecutive movements of different players share a moment; a player's next leg is the next", () => {
     let d = newDiagram("game");
     d = move(d, a1, { x: 20, y: 40 });
     d = move(d, b1, { x: 60, y: 60 });
@@ -123,7 +123,7 @@ describe("the timeline of a sequenced step (rule 26)", () => {
     expect(pos(f1200, "b1")).toEqual({ x: 60, y: 60 });
   });
 
-  it("numbers every action by its moment, parallel movements sharing one", () => {
+  it("[TRAINING-TACTICAL-BOARD-5] numbers every action by its moment, parallel movements sharing one", () => {
     expect(stepActionNumbers(ballMoveBall().steps[0])).toEqual({ balls: [1, 3], movements: [2] });
     let d = newDiagram("game");
     d = move(d, a1, { x: 20, y: 40 });

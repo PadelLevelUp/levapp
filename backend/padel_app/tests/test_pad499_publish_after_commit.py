@@ -35,6 +35,8 @@ def trail(monkeypatch):
         seen.append(f"publish:{event.get('type')}" + (f":{message_id}" if message_id else ""))
 
     monkeypatch.setattr(ns, "publish", fake_publish)
+    # PAD-914: the invitation messages publish from system_messages; the same recorder sees them.
+    monkeypatch.setattr("padel_app.services.system_messages.publish", fake_publish)
     # First in line, so "commit" is recorded before the queued actions that commit runs.
     sa_event.listen(Session, "after_commit", on_commit, insert=True)
     real_close = ns._close_vacancy

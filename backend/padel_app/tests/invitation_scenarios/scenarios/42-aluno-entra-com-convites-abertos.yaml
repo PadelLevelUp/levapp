@@ -1,0 +1,34 @@
+id: 42
+title: um aluno entra com convites abertos
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [1023, 1038]}
+what_it_tests: "a entrada direta compete com os convites abertos: quem responde primeiro fica com a vaga"
+tags: [direct-join, groups, aviso]
+depends_on: [U23, U24, U26]
+corrections: []
+notes: >
+  J1 is a label for the PDF's unnamed level-3 right-sider (group 4), who is never invited because
+  group 3 covers the one spot by heads (R1). The invitations name no side because they are for the
+  student's own side (D11). The 19:15 Yes gets the Aviso because the named side is full (R9).
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {id: J1, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      invitations_total_sent: 3
+  - at: 2026-11-01 19:10
+    events: [{joins_directly: J1}]
+    expect:
+      placed: [{who: J1, side: R, how: direct}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:15
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      messages: [{who: r1, kind: aviso}]
+final:
+  roster: {L: 8, R: 8}

@@ -25,7 +25,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 afterEach(() => getCalendarEvents.mockClear());
 
 describe("useCalendarEvents", () => {
-  it("makes no request while the range is empty, then one once it is known", async () => {
+  it("[CALENDAR-VIEW-23] makes no request while the range is empty, then one once it is known", async () => {
     const { rerender, result } = renderHook(
       ({ from, to }: { from: string; to: string }) => useCalendarEvents(from, to),
       { wrapper, initialProps: { from: "", to: "" } }

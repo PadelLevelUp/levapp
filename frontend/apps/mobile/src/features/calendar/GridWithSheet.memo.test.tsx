@@ -45,7 +45,7 @@ describe("GridWithSheet drag commit (PAD-592)", () => {
   });
   const gridRenders = () => log.mock.calls.filter((c) => c[0] === "[render] timegrid").length;
 
-  it("a committed sheet position re-renders the container but not the time grid", async () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-6] a committed sheet position re-renders the container but not the time grid", async () => {
     const n = await renderNative(<GridWithSheet {...props} />);
     // Layout does not run under react-test-renderer: give the container a height so the sheet mounts.
     const container = n.root.root.findAll((i) => typeof i.props.onLayout === "function")[0]!;

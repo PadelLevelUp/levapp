@@ -69,6 +69,7 @@ def _rate_directly(app, ids, category_key, score, day=None):
 # ── old endpoints × non-legacy competencies exist ───────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-1")
 def test_r047_evaluation_categories_lists_legacy_categories_only(app, client):
     ids = _with_competencies(app, _seed(app))
 
@@ -81,6 +82,7 @@ def test_r047_evaluation_categories_lists_legacy_categories_only(app, client):
     ]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-1")
 def test_r047_evaluation_categories_ignores_a_declared_capability(app, client):
     """By endpoint, not by token: no header makes this endpoint list a competency."""
     ids = _with_competencies(app, _seed(app))
@@ -91,6 +93,7 @@ def test_r047_evaluation_categories_ignores_a_declared_capability(app, client):
     assert names == ["Forehand", "Volley"]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-1")
 def test_r047_the_save_and_the_profile_ignore_a_declared_capability_too(app, client):
     """The freeze reads no header on any of the endpoints, not only on the list."""
     ids = _with_competencies(app, _seed(app))
@@ -138,6 +141,7 @@ def test_r047_a_switched_off_legacy_category_keeps_its_score_on_the_old_profile(
     assert evaluations["Volley"]["score"] == 4.0
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-4")
 def test_r047_a_legacy_score_written_through_the_new_api_reads_back_on_the_old_profile(app, client):
     """The 2x2 cell "new endpoints, no competency exists": a legacy category rated through
     PUT /evaluation_record is served by the frozen `player_profile` with its naive-ISO
@@ -154,6 +158,7 @@ def test_r047_a_legacy_score_written_through_the_new_api_reads_back_on_the_old_p
     assert NAIVE_ISO.match(forehand["evaluatedAt"]), forehand["evaluatedAt"]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-1")
 def test_r047_a_posted_score_for_a_competency_is_ignored_even_at_its_midpoint(app, client):
     """What an old build would send if it ever learned the id: every category,
     the unrated ones at Math.round((min + max) / 2) — 3 on a 1-5 competency."""
@@ -170,6 +175,7 @@ def test_r047_a_posted_score_for_a_competency_is_ignored_even_at_its_midpoint(ap
     assert _all_entries(app, ids) == [(ids["forehand_id"], 5.0)]
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-5")
 def test_r047_a_posted_score_for_a_foreign_or_unknown_category_is_ignored(app, client):
     ids = _seed(app)
     other = _other_coach(app)
@@ -184,6 +190,7 @@ def test_r047_a_posted_score_for_a_foreign_or_unknown_category_is_ignored(app, c
     assert _all_entries(app, ids) == [(ids["forehand_id"], 5.0)]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-1")
 def test_r047_player_profile_never_carries_a_competency_rating(app, client):
     ids = _with_competencies(app, _seed(app))
     assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
@@ -209,6 +216,7 @@ def test_r047_a_competency_rating_does_not_disturb_the_legacy_skip_rules(app, cl
     assert _rows(app, ids, "forehand_id") == before
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-5")
 def test_r047_the_category_upsert_never_touches_or_collides_into_a_competency(app, client):
     """evaluations.legacy-conversion rule 5: the legacy endpoint always stores and
     echoes scale_min=1, scale_max=5, whatever the request body says."""
@@ -243,6 +251,7 @@ def test_r047_the_category_upsert_never_touches_or_collides_into_a_competency(ap
     }
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-6")
 def test_r047_deleting_a_competency_through_the_legacy_endpoint_is_refused(app, client):
     from padel_app.models import EvaluationCategory, EvaluationEntry
     from padel_app.models.deletion_audit import DeletionAudit
@@ -280,6 +289,7 @@ def test_the_record_service_rates_a_competency_next_to_the_legacy_scores_of_the_
 # ── under the pins: what slice 1 adds when no competency exists ─────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-11")
 def test_a_legacy_save_lands_in_the_days_classless_record(app, client):
     from padel_app.models import EvaluationEntry, EvaluationRecord
     from padel_app.services.evaluation_record_service import record_day
@@ -352,6 +362,7 @@ def _switch_off(app, category_id):
         db.session.commit()
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-7")
 def test_r047_a_stale_list_cannot_score_a_switched_off_legacy_category(app, client):
     """A build holding a list fetched before the switch-off still posts its
     midpoint for it; a hidden category must not collect scores nobody chose."""
@@ -372,6 +383,7 @@ def test_r047_a_stale_list_cannot_score_a_switched_off_legacy_category(app, clie
         assert [e.category_id for e in record.entries] == [ids["forehand_id"]]
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CLIENT-CONTRACT-8")
 def test_r047_the_category_upsert_never_revives_or_rescales_a_switched_off_legacy_category(app, client):
     from padel_app.models import EvaluationCategory
 
@@ -390,6 +402,7 @@ def test_r047_the_category_upsert_never_revives_or_rescales_a_switched_off_legac
 # ── a NEW legacy category, created after the PAD-403 conversion ─────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-5")
 def test_a_new_legacy_category_is_stored_and_served_at_1_5_whatever_the_body_says(app, client):
     """evaluations.legacy-conversion rule 5: the legacy endpoint always stores and
     echoes scale_min=1, scale_max=5, whatever scaleMin/scaleMax the request sends

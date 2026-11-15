@@ -92,7 +92,7 @@ beforeEach(() => {
 });
 
 describe("Afinal vou (PAD-684)", () => {
-  it("rejoin: the button answers yes for the occurrence", async () => {
+  it("[ATTENDANCE-CONFIRM-32] rejoin: the button answers yes for the occurrence", async () => {
     api.getClassInstance.mockResolvedValue(instance({ comeBack: "rejoin" }));
     renderSheet();
     fireEvent.click(await screen.findByTestId("attendance-come-back"));
@@ -111,7 +111,7 @@ describe("Afinal vou (PAD-684)", () => {
     expect(screen.getByTestId("attendance-come-back-waiting-list")).toBeTruthy();
   });
 
-  it("waiting_list: the spot-taken line and the join for this occurrence", async () => {
+  it("[ATTENDANCE-CONFIRM-33] waiting_list: the spot-taken line and the join for this occurrence", async () => {
     api.getClassInstance
       .mockResolvedValueOnce(instance({ comeBack: "waiting_list" }))
       .mockResolvedValue(instance({ comeBack: "on_waiting_list" }));
@@ -123,7 +123,7 @@ describe("Afinal vou (PAD-684)", () => {
     expect(await screen.findByTestId("attendance-come-back-on-waiting-list")).toBeTruthy();
   });
 
-  it("on_waiting_list: the state line and no button", async () => {
+  it("[ATTENDANCE-CONFIRM-33] on_waiting_list: the state line and no button", async () => {
     api.getClassInstance.mockResolvedValue(instance({ comeBack: "on_waiting_list" }));
     renderSheet();
     expect(await screen.findByTestId("attendance-come-back-on-waiting-list")).toBeTruthy();

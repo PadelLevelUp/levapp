@@ -41,6 +41,7 @@ def _history(app, client, ids):
     return res.get_json()
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-1")
 def test_put_gets_or_creates_the_days_record_and_answers_it(app, client):
     ids = _seed(app)
 
@@ -59,6 +60,7 @@ def test_put_gets_or_creates_the_days_record_and_answers_it(app, client):
     assert again["id"] == record["id"] and again["ratings"][0]["score"] == 5  # in place: one row, re-rated
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-2")
 def test_the_record_day_is_the_clubs_day(app, client, monkeypatch):
     ids = _seed(app)
     pin_clock(monkeypatch, dt.datetime(2026, 7, 1, 23, 30))  # 00:30 on 2 July in Lisbon
@@ -67,6 +69,7 @@ def test_the_record_day_is_the_clubs_day(app, client, monkeypatch):
 
 
 @pytest.mark.parametrize("score", [0, 11, 2.5, "7", True, [7]])
+@pytest.mark.criterion("EVALUATIONS-RECORDS-6")
 def test_a_score_must_be_an_integer_within_the_scale(app, client, score):
     """B-126: this is where the range rule is finally enforced. Forehand is 1-5."""
     from padel_app.models import EvaluationEntry, EvaluationRecord
@@ -80,6 +83,7 @@ def test_a_score_must_be_an_integer_within_the_scale(app, client, score):
         assert EvaluationEntry.query.count() == 0 and EvaluationRecord.query.count() == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-6")
 def test_a_whole_number_sent_as_a_float_is_an_integer(app, client):
     ids = _seed(app)
 
@@ -119,6 +123,7 @@ def test_nothing_to_write_creates_no_record(app, client):
         assert EvaluationRecord.query.count() == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-9")
 def test_delete_removes_the_record_and_its_ratings_any_day(app, client, monkeypatch):
     from padel_app.models import EvaluationEntry, EvaluationRecord
 
@@ -134,6 +139,7 @@ def test_delete_removes_the_record_and_its_ratings_any_day(app, client, monkeypa
     assert client.delete(f"{BASE}/evaluation_record/{record_id}", headers=_coach_headers(app, ids)).status_code == 404
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-9")
 def test_a_put_on_a_later_day_never_edits_yesterdays_record(app, client, monkeypatch):
     """Q9: a record is editable on the day it was made. PUT addresses today's
     record only, so tomorrow's PUT makes tomorrow's record and yesterday's stands."""
@@ -150,6 +156,7 @@ def test_a_put_on_a_later_day_never_edits_yesterdays_record(app, client, monkeyp
     ]
 
 
+@pytest.mark.criterion("EVALUATIONS-HISTORY-1")
 def test_the_history_lists_records_only_newest_first(app, client, monkeypatch):
     """Q29: record-less entries are served NOWHERE in v2. A same-day superseded
     legacy score stays in the table (data survives) and is simply not read: the
@@ -177,6 +184,7 @@ def test_the_history_lists_records_only_newest_first(app, client, monkeypatch):
     assert all(r["id"] is not None for r in body["records"])
 
 
+@pytest.mark.criterion("EVALUATIONS-EVOLUTION-9")
 def test_a_competency_with_only_record_less_rows_has_no_data_in_v2(app, client):
     from padel_app.tests.evaluation_history import seed_evaluation_history
 
@@ -188,12 +196,14 @@ def test_a_competency_with_only_record_less_rows_has_no_data_in_v2(app, client):
     assert _history(app, client, ids) == {"lastEvaluatedOn": None, "records": [], "competenciesWithData": []}
 
 
+@pytest.mark.criterion("EVALUATIONS-HISTORY-2")
 def test_an_empty_history_has_no_last_evaluation(app, client):
     ids = _seed(app)
 
     assert _history(app, client, ids) == {"lastEvaluatedOn": None, "records": [], "competenciesWithData": []}
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-11")
 def test_a_legacy_save_shows_up_in_the_history(app, client):
     ids = _seed(app)
     assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200  # 1-5 since PAD-403
@@ -224,6 +234,7 @@ def test_latest_is_the_greatest_evaluated_at_then_id(app, client, monkeypatch):
         assert latest_entries(ids["rel_id"])[ids["forehand_id"]].id == max(first.id, second.id)
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-9")
 def test_a_form_left_open_across_midnight_is_refused_not_filed_under_a_new_day(app, client, monkeypatch):
     """Rule 11: `recordId` names the record the client has open."""
     from padel_app.models import EvaluationRecord
@@ -242,6 +253,7 @@ def test_a_form_left_open_across_midnight_is_refused_not_filed_under_a_new_day(a
     assert _put(app, client, ids, {"recordId": 987654, "ratings": {}}).status_code == 404
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-8")
 def test_a_value_equal_to_the_latest_is_still_a_rating(app, client, monkeypatch):
     """"Still a 4" is a rating: the equal-to-latest skip is the legacy handler's only."""
     ids = _seed(app)

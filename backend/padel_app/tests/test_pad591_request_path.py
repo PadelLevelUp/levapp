@@ -131,6 +131,7 @@ def _calendar(app, client, user_id):
     )
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-2")
 def test_a_coach_calendar_costs_a_fixed_number_of_statements(app, client):
     small_user, small_ids, roster = _coach_with_lessons(app, tag="small", in_range=3, past=20)
     big_user, big_ids, _ = _coach_with_lessons(app, tag="big", in_range=13, past=20)
@@ -152,6 +153,7 @@ def test_a_coach_calendar_costs_a_fixed_number_of_statements(app, client):
     _assert_same_count(small, big, "coach calendar")
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-2")
 def test_the_loaders_leave_out_past_one_off_lessons_but_keep_recurring_series(app):
     import json
 
@@ -243,6 +245,7 @@ def _class_detail(app, client, user_id, instance_id):
 
 
 @pytest.mark.parametrize("with_config", [True, False], ids=["config-row", "no-config-row"])
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-11")
 def test_a_class_detail_costs_a_fixed_number_of_statements(app, client, with_config):
     small_user, small_id, small_players = _instance_with_roster(app, tag="dsmall", participants=3, with_config=with_config)
     big_user, big_id, big_players = _instance_with_roster(app, tag="dbig", participants=12, with_config=with_config)
@@ -269,6 +272,7 @@ def test_a_class_detail_costs_a_fixed_number_of_statements(app, client, with_con
 # ---------------------------------------------------------------------------
 # Task 3 — attendance.presence rule 10
 # ---------------------------------------------------------------------------
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-1")
 def test_the_presences_list_does_not_grow_with_the_roster(app, client):
     small_user, small_id, _ = _instance_with_roster(app, tag="psmall", participants=3)
     big_user, big_id, _ = _instance_with_roster(app, tag="pbig", participants=12)
@@ -330,6 +334,7 @@ def _pending_count(app, client, user_id):
     )
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-1")
 def test_the_pending_count_does_not_load_the_rows(app, client):
     from padel_app.services.presence_overview_service import list_pending_validation
 
@@ -365,6 +370,7 @@ def test_the_pending_count_does_not_load_the_rows(app, client):
 # ---------------------------------------------------------------------------
 # Task 5 — auth.logout rule 5
 # ---------------------------------------------------------------------------
+@pytest.mark.criterion("AUTH-LOGOUT-1")
 def test_one_blocklist_lookup_per_request(app, client):
     from padel_app.tests.admin_helpers import make_user
 

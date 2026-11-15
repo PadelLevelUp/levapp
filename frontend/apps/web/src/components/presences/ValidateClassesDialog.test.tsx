@@ -3,7 +3,7 @@
  * flight, EVERY queued class is disabled — not just the first.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentType } from "react";
 import type { PendingValidationClass } from "@/types";
 import { ValidateClassesDialog } from "./ValidateClassesDialog";
@@ -82,7 +82,7 @@ function renderDialog(busyClassIds: number[]) {
 }
 
 describe("ValidateClassesDialog bulk-run guard", () => {
-  it("disables every queued class while the run is in flight", () => {
+  it("[ATTENDANCE-VALIDATION-12] disables every queued class while the run is in flight", () => {
     renderDialog([1, 2]);
     const buttons = screen.getAllByTestId("presences-validate-class");
     expect(buttons).toHaveLength(2);
@@ -125,7 +125,7 @@ describe("ValidateClassesDialog undecided players (PAD-443)", () => {
     fireEvent.click(screen.getByTestId("presences-open-class"));
   }
 
-  it("flags only the undecided player and counts them in the header", () => {
+  it("[ATTENDANCE-VALIDATION-27] flags only the undecided player and counts them in the header", () => {
     openSilentClass();
     expect(screen.getByTestId("validate-player-row-11")).toHaveAttribute("data-undecided", "true");
     expect(screen.getByTestId("validate-undecided-icon-11")).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("ValidateClassesDialog undecided players (PAD-443)", () => {
     expect(screen.getByTestId("validate-undecided-summary")).toHaveTextContent("presences.validate.awaiting:1");
   });
 
-  it("drops the flag the moment the player is marked", () => {
+  it("[ATTENDANCE-VALIDATION-27] drops the flag the moment the player is marked", () => {
     openSilentClass();
     const row = screen.getByTestId("validate-player-row-11");
     fireEvent.click(within(row).getByTestId("presence-mark-present"));
@@ -208,7 +208,7 @@ describe("ValidateClassesDialog keeps a completed class in place (PAD-442)", () 
   const cardOf = (rowTestId: string) =>
     screen.getByTestId(rowTestId).closest('[data-testid="presences-class-card"]') as HTMLElement;
 
-  it("keeps the class under needs-input with Validate enabled once its last player is marked", () => {
+  it("[ATTENDANCE-VALIDATION-7] keeps the class under needs-input with Validate enabled once its last player is marked", () => {
     renderQueue();
     const needsInput = screen.getByTestId("presences-group-needsInput");
     expect(within(needsInput).getByTestId("validate-list-row-1-31")).toBeInTheDocument();
@@ -344,5 +344,94 @@ describe("the walk-in picker searches and sorts (PAD-537)", () => {
     expect(ids()).toEqual(["presences-walk-in-option-92", "presences-walk-in-option-93", "presences-walk-in-option-91"]);
     fireEvent.change(screen.getByTestId("presences-walk-in-search"), { target: { value: "silva ana" } });
     expect(ids()).toEqual(["presences-walk-in-option-92"]);
+  });
+});
+
+// PAD-924 (attendance.validation rule 29): every row says which class it is, by day and time range,
+// so same-named classes can be told apart; the validated rows come oldest start first.
+describe("every row shows its day and time range (PAD-924)", () => {
+  const peak = (id: number, start: string, end: string): PendingValidationClass => ({
+    ...klass(1, "PEAK PERFORMANCE"),
+    lessonInstanceId: id,
+    calendarEventId: `lessoninstance-${id}`,
+    startDatetime: start,
+    endDatetime: end,
+    date: start.slice(0, 10),
+  });
+
+  it("[ATTENDANCE-VALIDATION-53] validated rows read title, day, time range and present count, oldest first", () => {
+    render(
+      <Dialog
+        pending={[]}
+        validated={[
+          peak(3, "2026-11-11T18:00:00", "2026-11-11T19:30:00"),
+          peak(1, "2026-11-09T10:30:00", "2026-11-09T12:00:00"),
+          peak(2, "2026-11-09T18:00:00", "2026-11-09T19:30:00"),
+        ]}
+        pendingCount={0}
+        pendingTotal={0}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    const labels = screen.getAllByTestId("presences-class-when").map((el) => el.textContent);
+    expect(labels).toEqual(["Mon 09/11 · 10:30–12:00", "Mon 09/11 · 18:00–19:30", "Wed 11/11 · 18:00–19:30"]);
+    expect(screen.getAllByTestId("presences-class-present-count")).toHaveLength(3);
+  });
+
+  it("[ATTENDANCE-VALIDATION-53] a pending card carries the same day and time range", () => {
+    render(
+      <Dialog
+        pending={[peak(1, "2026-11-09T10:30:00", "2026-11-09T12:00:00")]}
+        validated={[]}
+        pendingCount={1}
+        pendingTotal={1}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    expect(screen.getByTestId("presences-class-when").textContent).toBe("Mon 09/11 · 10:30–12:00");
+  });
+
+  it("[ATTENDANCE-VALIDATION-53] pending classes run oldest first whatever order they arrive in", async () => {
+    const onValidate = vi.fn(async () => {});
+    render(
+      <Dialog
+        // Within a day the later class arrives first here.
+        pending={[
+          peak(3, "2026-11-11T18:00:00", "2026-11-11T19:30:00"),
+          peak(2, "2026-11-09T18:00:00", "2026-11-09T19:30:00"),
+          peak(1, "2026-11-09T10:30:00", "2026-11-09T12:00:00"),
+        ]}
+        validated={[]}
+        pendingCount={3}
+        pendingTotal={3}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={onValidate}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    const labels = screen.getAllByTestId("presences-class-when").map((el) => el.textContent);
+    expect(labels).toEqual(["Mon 09/11 · 10:30–12:00", "Mon 09/11 · 18:00–19:30", "Wed 11/11 · 18:00–19:30"]);
+
+    // The bulk run sends them in the same order, not the order the server listed them in.
+    fireEvent.click(screen.getByRole("button", { name: "presences.validate.selectReady" }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("presences-validate-selected"));
+    });
+    expect(onValidate).toHaveBeenCalledTimes(1);
+    const sent = (onValidate.mock.calls[0] as unknown as [{ lessonInstanceId: number }[]])[0];
+    expect(sent.map((c) => c.lessonInstanceId)).toEqual([1, 2, 3]);
   });
 });

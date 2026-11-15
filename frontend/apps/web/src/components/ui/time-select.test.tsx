@@ -31,16 +31,16 @@ function Harness({ initial = "09:00", from, onChange }: { initial?: string; from
 const field = () => screen.getByTestId("t") as HTMLInputElement;
 
 describe("parseTime", () => {
-  it.each([["9", "09:00"], ["930", "09:30"], ["0930", "09:30"], ["9:30", "09:30"], ["9h30", "09:30"], ["21.15", "21:15"], [" 7 ", "07:00"], ["2359", "23:59"]])("%s → %s", (input, out) => {
+  it.each([["9", "09:00"], ["930", "09:30"], ["0930", "09:30"], ["9:30", "09:30"], ["9h30", "09:30"], ["21.15", "21:15"], [" 7 ", "07:00"], ["2359", "23:59"]])("[CLASSES-CREATE-5] %s → %s", (input, out) => {
     expect(parseTime(input)).toBe(out);
   });
-  it.each(["", "abc", "25", "2460", "9:7", "12345", "9:30pm"])("%s → null", (input) => {
+  it.each(["", "abc", "25", "2460", "9:7", "12345", "9:30pm"])("[CLASSES-CREATE-4] %s → null", (input) => {
     expect(parseTime(input)).toBeNull();
   });
 });
 
 describe("the time never empties and never falls back to zero (PAD-508 criterion)", () => {
-  it("a cleared field puts the last valid time back when the coach leaves it", () => {
+  it("[CLASSES-CREATE-4] a cleared field puts the last valid time back when the coach leaves it", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     fireEvent.change(field(), { target: { value: "" } });
@@ -50,7 +50,7 @@ describe("the time never empties and never falls back to zero (PAD-508 criterion
     expect(onChange).not.toHaveBeenCalledWith("00:00");
   });
 
-  it("typing with the list closed, then leaving the field, saves the typed time", () => {
+  it("[CLASSES-CREATE-5] typing with the list closed, then leaving the field, saves the typed time", () => {
     // #544 review: after Escape (or Enter, or a pick) the list is closed and the field keeps focus;
     // typing and then Tab or a click elsewhere must still commit.
     const onChange = vi.fn();
@@ -64,7 +64,7 @@ describe("the time never empties and never falls back to zero (PAD-508 criterion
     expect(field().value).toBe("19:30");
   });
 
-  it("text that is not a time goes back to the last valid one", () => {
+  it("[CLASSES-CREATE-4] text that is not a time goes back to the last valid one", () => {
     const onChange = vi.fn();
     render(<Harness initial="18:00" onChange={onChange} />);
     fireEvent.change(field(), { target: { value: "abc" } });
@@ -73,7 +73,7 @@ describe("the time never empties and never falls back to zero (PAD-508 criterion
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("typed text is read as a time", () => {
+  it("[CLASSES-CREATE-5] typed text is read as a time", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     fireEvent.change(field(), { target: { value: "1930" } });
@@ -84,7 +84,7 @@ describe("the time never empties and never falls back to zero (PAD-508 criterion
 });
 
 describe("the list", () => {
-  it("offers every quarter hour from 06:00 to 23:45, with the current time selected", () => {
+  it("[CLASSES-CREATE-5] offers every quarter hour from 06:00 to 23:45, with the current time selected", () => {
     render(<Harness />);
     fireEvent.click(field());
     const list = screen.getByTestId("t-list");
@@ -95,7 +95,7 @@ describe("the list", () => {
     expect(list.querySelector("[data-selected=true]")?.textContent).toBe("09:00");
   });
 
-  it("choosing an option sets it and closes the list", () => {
+  it("[CLASSES-CREATE-5] choosing an option sets it and closes the list", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     fireEvent.click(field());
@@ -105,7 +105,7 @@ describe("the list", () => {
     expect(screen.queryByTestId("t-list")).toBeNull();
   });
 
-  it("the end list starts after the start and shows each option's duration", () => {
+  it("[CLASSES-CREATE-5] the end list starts after the start and shows each option's duration", () => {
     render(<Harness initial="19:30" from="18:00" />);
     fireEvent.click(field());
     const options = within(screen.getByTestId("t-list")).getAllByRole("option");
@@ -174,7 +174,7 @@ describe("PAD-559: the keyboard walks the list (rule 8c)", () => {
 });
 
 describe("PAD-559: the end never precedes the start (rule 8c)", () => {
-  it("an end typed at or before the start snaps to the start plus the usual length and reports it", () => {
+  it("[CLASSES-CREATE-17] an end typed at or before the start snaps to the start plus the usual length and reports it", () => {
     const onChange = vi.fn();
     const onRefused = vi.fn();
     function EndHarness() {
@@ -198,7 +198,7 @@ describe("PAD-559: the end never precedes the start (rule 8c)", () => {
 });
 
 describe("PAD-559: the list opens near now, never at dawn (rule 8c)", () => {
-  it("an empty field (a clone's start) opens scrolled to the next quarter hour from the club's clock", () => {
+  it("[CLASSES-CREATE-18] an empty field (a clone's start) opens scrolled to the next quarter hour from the club's clock", () => {
     const scrolled: string[] = [];
     Element.prototype.scrollIntoView = function () { scrolled.push(this.textContent ?? ""); };
     render(<TimeSelect data-testid="t" aria-label="Início" value="" placeholder="Escolhe" onChange={() => {}} now={() => new Date(2026, 9, 9, 14, 7)} />);
@@ -253,7 +253,7 @@ describe("PAD-559 PR-2: a complete HH:MM commits as it is typed; shorthands wait
     fireEvent.keyDown(field(), { key: "Enter" });
     expect(onChange).toHaveBeenLastCalledWith("09:30");
   });
-  it("a complete end typed at or before the start is still refused in the field", () => {
+  it("[CLASSES-CREATE-17] a complete end typed at or before the start is still refused in the field", () => {
     const onChange = vi.fn();
     const onRefused = vi.fn();
     render(<TimeSelect data-testid="t" aria-label="Fim" value="19:00" from="18:00" usualMinutes={60} onRefused={onRefused} onChange={onChange} />);

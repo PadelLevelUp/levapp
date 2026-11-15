@@ -32,22 +32,22 @@ function fakeAudio() {
 }
 
 describe("notifications.notification-sound rule 2: what chimes", () => {
-  it("a message from someone else chimes", () => {
+  it("[NOTIFICATIONS-NOTIFICATION-SOUND-2] a message from someone else chimes", () => {
     expect(shouldChime(fromOther, base)).toBe(true);
   });
 
-  it("the user's own message echo does not", () => {
+  it("[NOTIFICATIONS-NOTIFICATION-SOUND-2] the user's own message echo does not", () => {
     expect(shouldChime({ type: "message_created", payload: { senderId: 3, conversationId: 42 } }, base)).toBe(false);
     expect(shouldChime({ type: "message_created", payload: { senderId: "3", conversationId: 42 } }, base)).toBe(false);
   });
 
-  it("status events never chime: one arrival, one sound", () => {
+  it("[NOTIFICATIONS-NOTIFICATION-SOUND-2] status events never chime: one arrival, one sound", () => {
     for (const type of ["notify_sent", "notification_responded", "join_request_created", "class_request_changed", "message_edited"]) {
       expect(shouldChime({ type, payload: { senderId: 7 } }, base)).toBe(false);
     }
   });
 
-  it("the open thread in a focused tab does not chime; another thread, or an unfocused tab, does", () => {
+  it("[NOTIFICATIONS-NOTIFICATION-SOUND-2] the open thread in a focused tab does not chime; another thread, or an unfocused tab, does", () => {
     expect(shouldChime(fromOther, { ...base, pathname: "/messages/42" })).toBe(false);
     expect(shouldChime(fromOther, { ...base, pathname: "/messages/9" })).toBe(true);
     expect(shouldChime(fromOther, { ...base, pathname: "/messages/42", attentive: false })).toBe(true);
@@ -62,7 +62,7 @@ describe("notifications.notification-sound rule 2: what chimes", () => {
 describe("notifications.notification-sound rules 1 and 3: when it plays", () => {
   beforeEach(() => resetChimeForTests());
 
-  it("plays once for several messages within the window", () => {
+  it("[NOTIFICATIONS-NOTIFICATION-SOUND-2] plays once for several messages within the window", () => {
     const { ctx, started } = fakeAudio();
     resetChimeForTests(ctx);
     expect(playChime(10_000)).toBe(true);
@@ -71,7 +71,7 @@ describe("notifications.notification-sound rules 1 and 3: when it plays", () => 
     expect(started.length).toBe(4); // two notes per chime
   });
 
-  it("the switch off plays nothing", () => {
+  it("[NOTIFICATIONS-NOTIFICATION-SOUND-2] the switch off plays nothing", () => {
     const { ctx, started } = fakeAudio();
     resetChimeForTests(ctx);
     setNotificationSoundEnabled(false);
@@ -79,7 +79,7 @@ describe("notifications.notification-sound rules 1 and 3: when it plays", () => 
     expect(started).toEqual([]);
   });
 
-  it("before any interaction (no audio context, or a suspended one) it is skipped, not queued", () => {
+  it("[NOTIFICATIONS-NOTIFICATION-SOUND-2] before any interaction (no audio context, or a suspended one) it is skipped, not queued", () => {
     expect(playChime(10_000)).toBe(false);
     const { ctx } = fakeAudio();
     resetChimeForTests({ ...ctx, state: "suspended" } as unknown as AudioContext);

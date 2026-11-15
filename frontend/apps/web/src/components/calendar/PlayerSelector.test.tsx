@@ -36,11 +36,11 @@ function chips(classLevelId: string | null) {
 }
 
 describe("PlayerSelector shows every student's level (PAD-527)", () => {
-  it("marks the class's level as same, another level or none as other", () => {
+  it("[CLASSES-CREATE-2] marks the class's level as same, another level or none as other", () => {
     expect(chips("1")).toEqual({ rui: "same", sara: "other", tome: "other" });
   });
 
-  it("is neutral for a class with no level, and a student with no level shows no chip", () => {
+  it("[CLASSES-CREATE-2] is neutral for a class with no level, and a student with no level shows no chip", () => {
     expect(chips(null)).toEqual({ rui: "none", sara: "none", tome: null });
   });
 });
@@ -66,13 +66,13 @@ describe("PlayerSelector search (PAD-665)", () => {
       .map((el) => el.getAttribute("data-testid")!.replace("player-selector-row-", ""));
   };
 
-  it("finds 'rui basto' → Rui Pedro Basto and 'andre' → André", () => {
+  it("[PLAYERS-SEARCH-1] finds 'rui basto' → Rui Pedro Basto and 'andre' → André", () => {
     expect(rowsFor("rui basto")).toEqual(["3"]);
     cleanup();
     expect(rowsFor("andre")).toEqual(["4"]);
   });
 
-  it("lists the best match first and a blank search in the given order", () => {
+  it("[PLAYERS-SEARCH-2] lists the best match first and a blank search in the given order", () => {
     expect(rowsFor("rita")).toEqual(["2", "1"]);
     cleanup();
     expect(rowsFor("")).toEqual(["1", "2", "3", "4"]);

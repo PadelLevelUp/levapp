@@ -18,7 +18,7 @@ const HELP_PARTS = ["intro", ...SIDE_BALANCE_EXAMPLES, "special"];
 const sideRuleCount = DEFAULT_INVITATION_GROUPS.flatMap((g) => g.rules).filter((r) => r.attribute === "side").length;
 
 describe("PAD-564 the side criterion says it balances the class (rule 6)", () => {
-  it("labels the side rule as balancing, keeps the level label, and shows the examples under it", () => {
+  it("[NOTIFICATIONS-GROUPS-1] labels the side rule as balancing, keeps the level label, and shows the examples under it", () => {
     expect(sideRuleCount).toBeGreaterThan(0);
     render(<InvitationGroupsSection groups={DEFAULT_INVITATION_GROUPS} onChange={() => {}} />);
 

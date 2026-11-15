@@ -10,13 +10,13 @@ import { describe, expect, it } from "vitest";
 import { externalUrlForPushData, routeForPushData } from "./push-routing";
 
 describe("routeForPushData", () => {
-  it("routes a message push to its conversation", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-11] routes a message push to its conversation", () => {
     expect(routeForPushData({ type: "message", conversationId: "12" })).toBe(
       "/conversation/12"
     );
   });
 
-  it("keeps a message push in the thread even when a class id rides along", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-11] keeps a message push in the thread even when a class id rides along", () => {
     expect(
       routeForPushData({
         type: "message",
@@ -26,7 +26,7 @@ describe("routeForPushData", () => {
     ).toBe("/conversation/7");
   });
 
-  it("ignores the retired `class` type (PAD-326)", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-11] ignores the retired `class` type (PAD-326)", () => {
     // This asserted `/class/5` until PAD-326. The type had no producer left
     // once the join-request push took the message shape, and a type nobody
     // sends must not be routable — reviving it needs
@@ -38,7 +38,7 @@ describe("routeForPushData", () => {
     expect(routeForPushData({ type: "class", classInstanceId: 5 })).toBeNull();
   });
 
-  it("never routes on a class id without the class type (the PAD-240 dead end)", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-11] never routes on a class id without the class type (the PAD-240 dead end)", () => {
     expect(routeForPushData({ classInstanceId: "5" })).toBeNull();
     expect(routeForPushData({ type: "message", classInstanceId: "5" })).toBeNull();
   });
@@ -91,7 +91,7 @@ describe("routeForPushData carries the tapped message (PAD-408, rule 12)", () =>
     ).toBe("/conversation/7?message=42");
   });
 
-  it("keeps a push without messageId exactly as before", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-11] keeps a push without messageId exactly as before", () => {
     expect(routeForPushData({ type: "message", conversationId: 7 })).toBe(
       "/conversation/7"
     );

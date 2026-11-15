@@ -37,6 +37,7 @@ def _user(app, username):
 
 # ── player invitation ──────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-7")
 def test_player_invite_refuses_under_18_and_writes_nothing(client, app, monkeypatch):
     pin_clock(monkeypatch, NOW)
     token = _player_invite(client, app)
@@ -47,6 +48,7 @@ def test_player_invite_refuses_under_18_and_writes_nothing(client, app, monkeypa
     assert _user(app, "teen457") is None  # the placeholder was not given this username
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-9")
 def test_player_invite_accepts_18_today_and_stores_the_date(client, app, monkeypatch):
     pin_clock(monkeypatch, NOW)
     token = _player_invite(client, app)
@@ -56,6 +58,7 @@ def test_player_invite_accepts_18_today_and_stores_the_date(client, app, monkeyp
     assert _user(app, "adult457") == {"status": "active", "birth_date": date(2008, 9, 25)}
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-9")
 def test_player_invite_without_a_birth_date_is_refused(client, app):
     token = _player_invite(client, app)
     res = client.post(f"/api/app/player-invitations/{token}/accept",
@@ -67,6 +70,7 @@ def test_player_invite_without_a_birth_date_is_refused(client, app):
 
 # ── coach invitation, new-user branch ────────────────────────────────────────────
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-13")
 def test_coach_invite_refuses_under_18_and_creates_no_account(client, app, monkeypatch):
     pin_clock(monkeypatch, NOW)
     _, coach_id, club_id = _make_coach_with_club(app)
@@ -79,6 +83,7 @@ def test_coach_invite_refuses_under_18_and_creates_no_account(client, app, monke
     assert _user(app, "teencoach457") is None
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-13")
 def test_coach_invite_accepts_an_adult_and_stores_the_date(client, app, monkeypatch):
     pin_clock(monkeypatch, NOW)
     _, coach_id, club_id = _make_coach_with_club(app)

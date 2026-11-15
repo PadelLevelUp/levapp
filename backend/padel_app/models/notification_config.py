@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, JSON, String, text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -40,13 +40,15 @@ DEFAULT_NOTIFICATION_GROUPS = [
     {"id": "all_students", "label": "All students", "enabled": True},
 ]
 
+# PAD-830 (notifications.message-templates rule 20): no default names the class level; `{level}`
+# stays a placeholder a coach can write into their own text.
 DEFAULT_MESSAGE_TEMPLATES = {
-    "invite": "Hey {name}, we have an opening in the {level} class next {weekday} at {time}. Do you want to come?",
+    "invite": "Hey {name}, we have an opening in the class next {weekday} at {time}. Do you want to come?",
     "confirm": "Great! I'm counting on you! See you there 🎾",
     "decline": "No problem, see you next time!",
     "spot_filled": "Sorry, this place was filled already! I'll get back to you if something else opens up.",
-    "reminder": "Hey {name}, just a reminder that you have the {level} class this {weekday} at {time}. Are you coming?",
-    "reminder_followup": "Hey {name}, still haven't heard back — do you have a spot for the {level} class this {weekday} at {time}?",
+    "reminder": "Hey {name}, just a reminder that you have class this {weekday} at {time}. Are you coming?",
+    "reminder_followup": "Hey {name}, still haven't heard back — do you have a spot for the class this {weekday} at {time}?",
     "reminder_confirmed": "Great, see you then! 🎾",
     "reminder_declined": "Got it, thanks for letting us know!",
     "waiting_list_offer": "This spot was just taken, but we can put you on the waiting list and notify you if another opens up. Interested?",
@@ -54,7 +56,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     # reads as a place. A coach who saved the template editor keeps their stored text.
     "waiting_list_confirm": "You're on the waiting list. You don't have a place yet; we'll let you know if a spot opens.",
     # PAD-446: the waiting list is asked first (group 0); `{side}` names the spot's side only when it has one.
-    "waiting_list_invite": "Hey {name}, you're on the waiting list for the {level} class on {weekday} at {time}{side}, and a spot just opened. You're asked first: do you want it?",
+    "waiting_list_invite": "Hey {name}, you're on the waiting list for the class on {weekday} at {time}{side}, and a spot just opened. You're asked first: do you want it?",
     # PAD-330: the coach put this student in a class. `{when}` already carries
     # its own leading space (" on <weekday> at <time>") and is empty for a class
     # with no start time, which `_format_template` tidies up.
@@ -62,24 +64,38 @@ DEFAULT_MESSAGE_TEMPLATES = {
     # PAD-489 (notifications.reminders rule 22): a class created after its reminder time; the
     # student is counted as coming and told so. No question in it.
     "added_to_class_coming": "Hi {name}, I've added you to {class}{when}. You're counted as coming. If you can't make it, tell me in the app. 🎾",
-    "class_cancelled": "Hi {name}, your {level} class on {weekday} at {time} has been cancelled. Sorry for the inconvenience!",
+    "class_cancelled": "Hi {name}, your class on {weekday} at {time} has been cancelled. Sorry for the inconvenience!",
+    # PAD-928 (notifications.message-templates rule 24): the coach took the student off one date, or
+    # off a recurring class from a date on. An empty {club} leaves "()", which the formatter removes.
+    "removed_from_class": "Hi {name}, you've been removed from the class on {weekday}, {date}, at {time} ({club}). If you have any questions, talk to your coach.",
+    "removed_from_series": "Hi {name}, you've been removed from the {weekday} {time} class ({club}) and are no longer booked for its upcoming classes. If you have any questions, talk to your coach.",
+    # The new engine (notifications.message-templates, new-engine section N1-N2; PAD-916's outbox): a
+    # waiting-list student it placed, a side it set, and the coach's nobody-left-to-invite alert.
+    "waiting_list_added": "Hi {name}, a spot opened in the class on {weekday} at {time} and you were on the waiting list, so you're in{side}. If you can't make it, let me know. 🎾",
+    "side_moved": "Hi {name}, in the class on {weekday} at {time} you'll play on the {sideName} side. See you there!",
+    "coach_no_candidate": "{class} on {weekday} at {time}: {count} open spot(s){side} and nobody left to invite automatically.",
 }
 
 DEFAULT_MESSAGE_TEMPLATES_PT = {
-    "invite": "Olá {name}, abriu uma vaga na aula de {level} na próxima {weekday} às {time}. Queres vir?",
+    "invite": "Olá {name}, abriu uma vaga na aula da próxima {weekday} às {time}. Queres vir?",
     "confirm": "Boa! Conto contigo! Até já 🎾",
     "decline": "Sem problema, para a próxima!",
     "spot_filled": "Desculpa, esta vaga já foi preenchida! Aviso-te se abrir outra.",
-    "reminder": "Olá {name}, lembrete: tens a aula de {level} esta {weekday} às {time}. Vens?",
-    "reminder_followup": "Olá {name}, ainda não tive resposta — tens vaga para a aula de {level} esta {weekday} às {time}?",
+    "reminder": "Olá {name}, lembrete: tens a aula esta {weekday} às {time}. Vens?",
+    "reminder_followup": "Olá {name}, ainda não tive resposta — tens vaga para a aula esta {weekday} às {time}?",
     "reminder_confirmed": "Boa, até já! 🎾",
     "reminder_declined": "Entendido, obrigado por avisares!",
     "waiting_list_offer": "Esta vaga acabou de ser ocupada, mas podemos pôr-te na lista de espera e avisar-te se abrir outra. Interessa?",
     "waiting_list_confirm": "Ficaste em lista de espera. Ainda não tens lugar; avisamos-te se abrir uma vaga.",
-    "waiting_list_invite": "Olá {name}, estás na lista de espera da aula de {level} na {weekday} às {time}{side} e abriu uma vaga. És o primeiro a ser perguntado: queres vir?",
+    "waiting_list_invite": "Olá {name}, estás na lista de espera da aula de {weekday} às {time}{side} e abriu uma vaga. És o primeiro a ser perguntado: queres vir?",
     "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
     "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
-    "class_cancelled": "Olá {name}, a tua aula de {level} de {weekday} às {time} foi cancelada. Pedimos desculpa pelo incómodo!",
+    "class_cancelled": "Olá {name}, a tua aula de {weekday} às {time} foi cancelada. Pedimos desculpa pelo incómodo!",
+    "removed_from_class": "Olá {name}, foste removido da aula de {weekday}, {date}, às {time} ({club}). Qualquer dúvida, fala com o teu treinador.",
+    "removed_from_series": "Olá {name}, foste removido da turma de {weekday} às {time} ({club}) e já não estás inscrito nas próximas aulas. Qualquer dúvida, fala com o teu treinador.",
+    "waiting_list_added": "Olá {name}, abriu uma vaga na aula de {weekday} às {time} e estavas na lista de espera, por isso já estás inscrito{side}. Se não puderes ir, avisa. 🎾",
+    "side_moved": "Olá {name}, na aula de {weekday} às {time} vais jogar do lado {sideName}. Até já!",
+    "coach_no_candidate": "{class} na {weekday} às {time}: {count} vaga(s) por preencher{side} e já não há ninguém para convidar automaticamente.",
 }
 
 
@@ -221,6 +237,19 @@ class NotificationConfig(db.Model, model.Model):
         Integer, ForeignKey("coaches.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     auto_notify_enabled = Column(Boolean, default=False, nullable=False)
+    # notifications.config rule 18 (PAD-917): which invitation engine runs this coach's classes,
+    # 'old' or 'new', and when that last changed (naive UTC). Carried by PAD-916's migration.
+    engine_version = Column(String(3), nullable=False, default="old", server_default="old")
+    engine_switched_at = Column(DateTime, nullable=True)
+    # notifications.config rule 20 (PAD-917): the new engine's settings no client edits yet. Carried by
+    # PAD-916's migration; PAD-917 maps them to EngineSettings.
+    max_at_a_time = Column(Integer, nullable=True)
+    timing_method = Column(String(16), nullable=False, default="fixed", server_default="fixed")
+    between_rounds_minutes = Column(Integer, nullable=True)
+    between_groups_minutes = Column(Integer, nullable=True)
+    per_tier_timing = Column(JSON, nullable=True)
+    auto_entry_before_attendance_request = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    waiting_list_side_choice = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     # "automatic" (default) or "semi_automatic" — only relevant when
     # auto_notify_enabled is true. In semi_automatic mode vacancies require
     # coach approval before invitations are sent.
@@ -530,6 +559,43 @@ class NotificationConfig(db.Model, model.Model):
 
     def get_tiebreakers(self):
         return self.tiebreakers if self.tiebreakers is not None else DEFAULT_TIEBREAKERS
+
+    # -- the new engine's own settings (notifications.config rule 20, PAD-917) -----------------
+
+    def get_engine_settings(self):
+        """The wire ``engine`` object. Nulls stay null: M null is the engine's default, a minutes
+        value null falls back to ``maxInactiveTime`` (rule 19). The old engine reads none of it."""
+        return {
+            "maxAtATime": self.max_at_a_time,
+            "timing": {
+                "method": self._col(self.timing_method, "fixed"),
+                "betweenRoundsMinutes": self.between_rounds_minutes,
+                "betweenGroupsMinutes": self.between_groups_minutes,
+                "perTier": list(self.per_tier_timing or []),
+            },
+            "autoEntryBeforeAttendanceRequest": bool(self._col(self.auto_entry_before_attendance_request, False)),
+            "waitingListSideChoice": bool(self._col(self.waiting_list_side_choice, False)),
+        }
+
+    def set_engine_settings(self, data):
+        """Write the keys present in a validated ``engine`` object (``notification_service`` checks it)."""
+        if "maxAtATime" in data:
+            self.max_at_a_time = data["maxAtATime"]
+        timing = data.get("timing") or {}
+        if "method" in timing:
+            self.timing_method = timing["method"]
+            if timing["method"] != "per_tier" and "perTier" not in timing:
+                self.per_tier_timing = None      # the clients drop perTier with any other method (rule 20)
+        if "betweenRoundsMinutes" in timing:
+            self.between_rounds_minutes = timing["betweenRoundsMinutes"]
+        if "betweenGroupsMinutes" in timing:
+            self.between_groups_minutes = timing["betweenGroupsMinutes"]
+        if "perTier" in timing:
+            self.per_tier_timing = list(timing["perTier"] or []) or None
+        if "autoEntryBeforeAttendanceRequest" in data:
+            self.auto_entry_before_attendance_request = bool(data["autoEntryBeforeAttendanceRequest"])
+        if "waitingListSideChoice" in data:
+            self.waiting_list_side_choice = bool(data["waitingListSideChoice"])
 
     def get_eligibility_rules(self):
         """The coach's standard eligibility bar, or ``None`` when unset (PAD-128).

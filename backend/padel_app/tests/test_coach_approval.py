@@ -102,6 +102,7 @@ def test_migration_backfills_existing_coaches_to_approved():
 
 # --- Superadmin lists and approves a pending coach -------------------------
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-2")
 def test_superadmin_lists_and_approves_pending_coach(client, app):
     from padel_app.models import Coach, User
 
@@ -151,6 +152,7 @@ def test_pending_list_is_oldest_first(client, app):
 
 # --- Rejection stores the reason and blocks the coach ----------------------
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-3")
 def test_rejection_stores_reason_and_blocks_coach(client, app):
     from padel_app.models import Coach, User
 
@@ -185,6 +187,7 @@ def test_rejection_stores_reason_and_blocks_coach(client, app):
 
 # --- Ordinary coach cannot approve ------------------------------------------
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-4")
 def test_ordinary_coach_cannot_approve(client, app):
     from padel_app.models import Coach
 
@@ -218,6 +221,7 @@ def test_student_cannot_approve(client, app):
 
 # --- Invited coach is approved at creation ---------------------------------
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-9")
 def test_invited_coach_is_approved_at_creation(client, app):
     from datetime import datetime, timedelta
 
@@ -251,6 +255,7 @@ def test_invited_coach_is_approved_at_creation(client, app):
 
 # --- Pending coach keeps per-user access -----------------------------------
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-10")
 def test_pending_coach_keeps_per_user_access(client, app):
     from padel_app.models import User
 
@@ -265,6 +270,7 @@ def test_pending_coach_keeps_per_user_access(client, app):
 
 # --- Approval email is best-effort -----------------------------------------
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-13")
 def test_approval_email_is_best_effort(client, app, monkeypatch):
     from padel_app.models import Coach
     from padel_app.tools import email_tools
@@ -327,6 +333,7 @@ def test_approved_coach_without_club_gets_409_no_club(client, app):
     assert res.status_code == 409
 
 
+@pytest.mark.criterion("CLUBS-CRUD-1")
 def test_approved_coach_creates_a_club(client, app):
     from padel_app.models import Association_CoachClub, Club
 
@@ -402,6 +409,7 @@ def _register_and_reject(client, app, reason="not a coach"):
     return body["user"]["id"], coach_id, admin_id
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-4")
 def test_rejection_disables_user_and_kills_sessions(client, app):
     body = _register_coach(client)
     token = body["accessToken"]
@@ -421,6 +429,7 @@ def test_rejection_disables_user_and_kills_sessions(client, app):
     assert client.get("/api/auth/me", headers=_auth(app, body["user"]["id"])).status_code == 401
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-5")
 def test_login_tells_rejected_coach_why(client, app):
     _register_and_reject(client, app)
     res = client.post("/api/auth/login", json={"username": "rui", "password": "Segura123"})
@@ -432,6 +441,7 @@ def test_login_tells_rejected_coach_why(client, app):
     assert "reason" not in res.get_json()
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-6")
 def test_rejected_coach_can_reapply(client, app, monkeypatch):
     from padel_app.models import Coach, User
     from padel_app.tools import email_tools
@@ -462,6 +472,7 @@ def test_rejected_coach_can_reapply(client, app, monkeypatch):
     _register_and_reject_second = None  # noqa: F841 (readability)
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-6")
 def test_reapply_rejects_wrong_password_and_deleted_accounts(client, app):
     from padel_app.models import Coach, User
 

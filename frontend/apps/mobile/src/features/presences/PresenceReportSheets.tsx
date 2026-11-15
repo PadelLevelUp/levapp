@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import {
   DEFAULT_SORT,
   EMPTY_FILTERS,
+  HELPED_COLUMNS,
   PINNED_COLUMN,
   PRESENCE_COLUMNS,
   type PresenceColumnKey,
@@ -98,7 +99,7 @@ export function PresenceFiltersSheet({
           <DialogTitle>{t("presences.table.filters")}</DialogTitle>
         </DialogHeader>
 
-        <ScrollView contentContainerClassName="gap-4 pb-2">
+        <ScrollView contentContainerClassName="gap-4 pb-2" keyboardShouldPersistTaps="handled">
           <View className="gap-1.5">
             <Text className="text-xs text-muted-foreground">
               {t("presences.table.minTotal")}
@@ -254,7 +255,7 @@ export function PresenceColumnsSheet({
           {t("presences.table.columnsHint")}
         </Text>
 
-        <ScrollView contentContainerClassName="gap-1 pb-2">
+        <ScrollView contentContainerClassName="gap-1 pb-2" keyboardShouldPersistTaps="handled">
           {PRESENCE_COLUMNS.map((column) => {
             const checked = draft.includes(column.key);
             // The pinned column is what every other cell is about, on the list
@@ -283,9 +284,18 @@ export function PresenceColumnsSheet({
                     setDraft((prev) => toggleColumn(prev, column.key))
                   }
                 />
-                <Text className="flex-1 text-sm">
-                  {t(`presences.column.${column.key}`)}
-                </Text>
+                <View className="flex-1">
+                  <Text className="text-sm">{t(`presences.column.${column.key}`)}</Text>
+                  {/* PAD-837 (rule 17e): iOS has no tooltips, so the line sits under the name. */}
+                  {HELPED_COLUMNS.includes(column.key) ? (
+                    <Text
+                      testID={`presences-column-help-${column.key}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      {t(`presences.columnHelp.${column.key}`)}
+                    </Text>
+                  ) : null}
+                </View>
               </Pressable>
             );
           })}

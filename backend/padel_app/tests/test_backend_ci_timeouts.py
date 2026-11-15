@@ -6,6 +6,7 @@ failures and was cancelled four seconds later, which blocked every PR. The caps 
 PAD-654 (2026-10-13): the Postgres lane then ran 46-73 min against 75 and is two shards of 60. This pins them, read as text like test_pad534_image_knows_its_commit:
 lowering either back, or losing it, turns this red.
 """
+import pytest
 import pathlib
 import re
 
@@ -22,10 +23,12 @@ def _timeout_of(job_name: str) -> int:
     return int(match.group(1))
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-4")
 def test_each_postgres_shard_has_60_minutes():
     # PAD-654: the lane ran 46-73 min against its 75 cap (12-13 Oct), so it is two pytest-split shards.
     assert _timeout_of("pytest (postgres, real migrations, group ${{ matrix.group }}/2)") == 60
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-4")
 def test_the_sqlite_lane_has_60_minutes():
     assert _timeout_of("pytest (sqlite, FK on)") == 60

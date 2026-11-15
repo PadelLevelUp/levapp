@@ -96,6 +96,7 @@ def _relations(events):
     return {e["originalId"]: e.get("studentRelation") for e in events if e.get("model") == "LessonInstance"}
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-15")
 def test_a_declaring_client_gets_each_class_with_its_relation_once(app, client):
     ids = _world(app)
     events = _calendar(client, ids, DECLARED)
@@ -109,6 +110,7 @@ def test_a_declaring_client_gets_each_class_with_its_relation_once(app, client):
     assert len(lesson_ids) == len(set(lesson_ids))
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-16")
 def test_an_undeclared_client_gets_no_invited_or_waiting_events(app, client):
     """Point 9: App Store 1.3.0 (open-spots only) and older get exactly the old calendar."""
     ids = _world(app)
@@ -140,6 +142,7 @@ def test_invited_beats_waiting_and_both_show_with_the_open_spot_toggle_off(app, 
     assert rel[ids["waiting"]] == "waiting"
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-17")
 def test_an_expired_invitation_and_an_inactive_entry_show_nothing(app, client):
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.models.waiting_list_entry import WaitingListEntry

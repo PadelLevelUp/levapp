@@ -29,6 +29,7 @@ def waits(app, monkeypatch):
     e2e_stall.disarm()
 
 
+@pytest.mark.criterion("CLIENT-PULL-TO-REFRESH-8")
 def test_off_the_flag_the_switch_is_404_and_nothing_waits(app, waits):
     app.config["E2E_DEBUG_ENDPOINTS"] = None
     client = app.test_client()
@@ -40,6 +41,7 @@ def test_off_the_flag_the_switch_is_404_and_nothing_waits(app, waits):
     assert waits == []
 
 
+@pytest.mark.criterion("CLIENT-PULL-TO-REFRESH-8")
 def test_on_the_flag_requests_under_the_path_wait_until_disarmed(app, waits):
     app.config["E2E_DEBUG_ENDPOINTS"] = "true"
     client = app.test_client()
@@ -67,6 +69,7 @@ def test_a_stall_is_capped_and_needs_an_api_path(app, waits):
     assert res.get_json()["seconds"] == e2e_stall.MAX_STALL_SECONDS
 
 
+@pytest.mark.criterion("CLIENT-PULL-TO-REFRESH-8")
 def test_without_a_token_the_switch_is_401(app, waits):
     """Both verbs take a JWT (test_frontend_api_authz covers the POST with the other debug routes)."""
     app.config["E2E_DEBUG_ENDPOINTS"] = "true"

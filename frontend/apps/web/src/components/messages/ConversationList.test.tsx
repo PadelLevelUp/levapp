@@ -44,7 +44,7 @@ function conversation(overrides: Partial<Conversation>): Conversation {
 const noop = () => {};
 
 describe("ConversationList — unread rows are unmistakable (PAD-414)", () => {
-  it("bolds the name and preview, shows the count pill, and flags data-unread on a heavily-unread row", () => {
+  it("[MESSAGING-CONVERSATIONS-27] bolds the name and preview, shows the count pill, and flags data-unread on a heavily-unread row", () => {
     render(
       <ConversationList
         conversations={[conversation({ id: "5", unreadCount: 12 })]}
@@ -64,7 +64,7 @@ describe("ConversationList — unread rows are unmistakable (PAD-414)", () => {
     expect(preview.className).toMatch(/font-semibold/);
   });
 
-  it("shows the exact count under 10", () => {
+  it("[MESSAGING-CONVERSATIONS-27] shows the exact count under 10", () => {
     render(
       <ConversationList
         conversations={[conversation({ id: "6", unreadCount: 3 })]}
@@ -76,7 +76,7 @@ describe("ConversationList — unread rows are unmistakable (PAD-414)", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
   });
 
-  it("a read row is regular weight, has no pill, and data-unread is false", () => {
+  it("[MESSAGING-CONVERSATIONS-27] a read row is regular weight, has no pill, and data-unread is false", () => {
     render(
       <ConversationList
         conversations={[conversation({ id: "7", unreadCount: 0 })]}
@@ -127,7 +127,7 @@ describe("ConversationList filter (PAD-665)", () => {
     return ids;
   };
 
-  it("coach: 'rui basto' finds 'Rui Pedro Basto'; best match first; blank keeps the order", () => {
+  it("[PLAYERS-SEARCH-2] coach: 'rui basto' finds 'Rui Pedro Basto'; best match first; blank keeps the order", () => {
     expect(rowIds("rui basto", true)).toEqual(["3"]);
     expect(rowIds("rita", true)).toEqual(["2", "1"]);
     expect(rowIds("", true)).toEqual(["1", "2", "3"]);

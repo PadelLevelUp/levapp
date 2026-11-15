@@ -33,6 +33,7 @@ from padel_app.tests.test_pad588_rollout import sb  # noqa: F401 — the stub-do
     ("worker", True, "compete"),
     ("worker", False, "off"),
 ])
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-2")
 def test_role_and_split_pick_the_scheduler_mode(role, split, mode):
     assert sched_mod.scheduler_mode(role, split) == mode
 
@@ -93,6 +94,7 @@ def _noop():
     pass
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-1")
 def test_api_under_the_split_is_a_paused_job_store_client(boot):
     from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
     from apscheduler.schedulers.base import STATE_PAUSED
@@ -113,18 +115,21 @@ def test_api_under_the_split_is_a_paused_job_store_client(boot):
     store.shutdown()
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-2")
 def test_without_the_split_the_api_competes_as_before(boot):
     app, sched, started = boot(ROLE="api", WORKER_SPLIT="off")
     assert {j.id for j in sched.get_jobs()} >= {"process_batches", "extend_schedule_window"}
     assert started == ["leadership"]
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-2")
 def test_a_worker_competes_under_the_split(boot):
     app, sched, started = boot(ROLE="worker", WORKER_SPLIT="on")
     assert {j.id for j in sched.get_jobs()} >= {"process_batches", "retention_sweep"}
     assert started == ["leadership"]
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-2")
 def test_a_worker_without_the_split_starts_no_scheduler(boot):
     app, sched, started = boot(ROLE="worker", WORKER_SPLIT="off")
     assert sched is None and started == []
@@ -180,6 +185,7 @@ def make_worker(calls, *, leader, split=True, clock=None):
     )
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-4")
 def test_the_leader_wakes_its_scheduler_every_tick():
     calls = []
     w = make_worker(calls, leader=True)
@@ -187,6 +193,7 @@ def test_the_leader_wakes_its_scheduler_every_tick():
     assert calls == ["wakeup", "wakeup"]
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-3")
 def test_a_standby_waits_with_a_warning_every_minute_and_never_exits(capsys):
     calls, clock = [], Clock()
     w = make_worker(calls, leader=False, clock=clock)
@@ -207,6 +214,7 @@ def test_livez_reports_the_leader_and_the_split():
     assert idle.livez() == {"status": "alive", "leader": False, "split": "off"}
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-5")
 def test_sigterm_finishes_jobs_then_drains_then_gives_up_the_lock():
     calls = []
     w = make_worker(calls, leader=True)
@@ -255,6 +263,7 @@ def wsb(sb, monkeypatch):  # noqa: F811
     return sb
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-19")
 def test_worker_swap_starts_the_new_worker_then_stops_the_old_and_checks_it_leads(wsb):
     live(wsb, "padelapp", 5000)
     (wsb["home"] / "containers" / "padelapp_worker").write_text("\n")
@@ -272,6 +281,7 @@ def test_worker_swap_starts_the_new_worker_then_stops_the_old_and_checks_it_lead
     assert set(containers(wsb)) == {"padelapp", "padelapp_worker"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-19")
 def test_an_unanswering_new_worker_is_removed_and_the_old_keeps_leading(wsb):
     live(wsb, "padelapp", 5000)
     (wsb["home"] / "containers" / "padelapp_worker").write_text("\n")
@@ -282,6 +292,7 @@ def test_an_unanswering_new_worker_is_removed_and_the_old_keeps_leading(wsb):
     assert "padelapp_worker" in containers(wsb) and "padelapp_worker_next" not in containers(wsb)
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-19")
 def test_a_new_worker_that_never_leads_turns_the_run_red_but_stays_up(wsb):
     live(wsb, "padelapp", 5000)
     r, _ = rollout_run(wsb, "--worker", STUB_WORKER_LEADS="0")
@@ -290,6 +301,7 @@ def test_a_new_worker_that_never_leads_turns_the_run_red_but_stays_up(wsb):
     assert "padelapp_worker" in containers(wsb), "left running: it may still take over"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-19")
 def test_without_worker_a_leftover_worker_is_removed(wsb):
     live(wsb, "padelapp", 5000)
     (wsb["home"] / "containers" / "padelapp_worker").write_text("\n")
@@ -315,6 +327,7 @@ def test_dry_run_prints_the_worker_steps(wsb):
     assert "dry-run: docker rename padelapp_worker_next padelapp_worker" in r.stderr
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-6")
 def test_the_split_is_on_for_staging_and_off_for_prod():
     from pathlib import Path
 

@@ -3,7 +3,8 @@ ledger and CI lane timing from GitHub; TestFlight builds from App Store Connect.
 Read-only; the tokens and the App Store Connect key stay here (rules 5, 9).
 
 Each source is answered on its own (rule 1): `ok`, `not_configured` (a setting is missing) or
-`unavailable` (it could not be reached). The whole answer is cached in this process for 5 minutes,
+`unavailable` (it could not be reached). The bug ledger is `retired` (PAD-905): the 4.0 store
+keeps no ledger index to read. The whole answer is cached in this process for 5 minutes,
 and a forced refresh is honoured at most once a minute (rule 7).
 """
 from __future__ import annotations
@@ -35,10 +36,6 @@ ASC_API = "https://api.appstoreconnect.apple.com"
 ASC_TOKEN_SECONDS = 20 * 60
 ASC_SETTINGS = ("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_PRIVATE_KEY", "ASC_APP_ID")
 ASC_BUILDS = 10
-#: Rule 10: the ledger index, read on staging (where every ticket's ledger entry lands first).
-BUGS_INDEX = ".cortex/compass/bugs/_index.md"
-BUG_CLOSED = frozenset({"resolved", "wontfix", "duplicate"})
-SEVERITY_ORDER = ("critical", "high", "medium", "low")
 #: Rule 11: the CI workflows whose lanes are timed; runs read for the failure rate, runs timed.
 CI_WORKFLOWS = ("backend-tests.yaml", "checks-frontend.yaml", "e2e-subset.yaml", "admin-e2e.yaml",
                 "android-build.yaml")
@@ -320,10 +317,7 @@ def _testflight(config, now):
     return {"status": "ok", "builds": builds}
 
 
-# ── open bugs (rule 10) ─────────────────────────────────────────────────────────────────────
-
-_BUG_LINE = re.compile(r"^- \[(B-\d+)\]\(([^)]+)\)\s+—\s+(.*)\(([^()]*)\)\s*$")
-
+# ── GitHub contents ─────────────────────────────────────────────────────────────────────────
 
 def _github_headers(config):
     headers = {"Accept": "application/vnd.github+json"}
@@ -340,30 +334,10 @@ def _file_on_staging(repo, path, headers):
 
 
 def _bugs(config, now):
-    repo = (config.get("WORK_GITHUB_REPO") or "").strip()
-    if not repo:
-        return {"status": "not_configured", "missing": "WORK_GITHUB_REPO"}
-    text = _file_on_staging(repo, BUGS_INDEX, _github_headers(config))
-    open_, counts, resolved, unparsed = [], {}, 0, 0
-    for line in text.splitlines():
-        if not line.startswith("- [B-"):
-            continue
-        match = _BUG_LINE.match(line.strip())
-        parts = [p.strip() for p in match.group(4).split(",")] if match else []
-        if len(parts) < 3:
-            unparsed += 1
-            continue
-        bug_id, file, title = match.group(1), match.group(2), match.group(3).strip()
-        kind, severity, status = parts[0], parts[1].lower(), (parts[2].split() or [""])[0].lower()
-        if status in BUG_CLOSED:
-            resolved += status == "resolved"
-            continue
-        counts[severity] = counts.get(severity, 0) + 1
-        open_.append({"id": bug_id, "title": title, "type": kind, "severity": severity, "status": status,
-                      "url": f"https://github.com/{repo}/blob/staging/.cortex/compass/bugs/{file}"})
-    rank = {name: i for i, name in enumerate(SEVERITY_ORDER)}
-    open_.sort(key=lambda b: (rank.get(b["severity"], len(rank)), int(b["id"].split("-")[1])))
-    return {"status": "ok", "open": open_, "counts": {"open": counts, "resolved": resolved}, "unparsed": unparsed}
+    """Rule 10, retired (PAD-905): the bugs were read from the 3.x ledger index
+    (`.cortex/compass/bugs/_index.md`), which the 4.0 store replaced with one file per incident
+    under `cortex/history/incidents/` and no index. Nothing is fetched; the panel says so."""
+    return {"status": "retired"}
 
 
 # ── CI lanes (rule 11) ──────────────────────────────────────────────────────────────────────

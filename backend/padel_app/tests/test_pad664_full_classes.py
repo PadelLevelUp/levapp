@@ -72,6 +72,7 @@ def _by_id(events):
     return {e["originalId"]: e for e in events}
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-18")
 def test_a_declaring_client_gets_open_full_and_waiting_each_once(app, client):
     ids = _world(app)
     events = _calendar(client, ids, ALL)
@@ -86,6 +87,7 @@ def test_a_declaring_client_gets_open_full_and_waiting_each_once(app, client):
     assert len(ids_seen) == len(set(ids_seen))
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-5")
 def test_a_client_without_full_classes_never_gets_a_full_class(app, client):
     ids = _world(app)
     # Control: the declaring client gets it.
@@ -106,6 +108,7 @@ def test_a_full_class_opens_by_id_only_for_a_client_declaring_full_classes(app, 
     assert refused.status_code == 403, refused.get_data(as_text=True)[:200]
 
 
+@pytest.mark.criterion("CALENDAR-VIEW-21")
 def test_opening_a_full_class_lets_the_student_join_its_waiting_list(app, client):
     from padel_app.models.waiting_list_entry import WaitingListEntry
 
@@ -157,6 +160,7 @@ def _read(client, ids, lesson_id, date, headers):
     )
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-14")
 def test_a_never_materialised_open_spot_opens_for_a_declaring_student(app, client):
     from padel_app.models.lesson_instances import LessonInstance
 
@@ -179,6 +183,7 @@ def test_a_never_materialised_open_spot_opens_for_a_declaring_student(app, clien
     assert _read(client, ids, lesson_id, date, {}).status_code == 403
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-14")
 def test_a_never_materialised_full_class_opens_only_with_full_classes(app, client):
     ids = _world(app)
     lesson_id, date = _virtual_lesson(app, ids, days=9, title="Virtual full", fill=2)
@@ -186,6 +191,7 @@ def test_a_never_materialised_full_class_opens_only_with_full_classes(app, clien
     assert _read(client, ids, lesson_id, date, WITHOUT_FULL).status_code == 403
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-14")
 def test_a_never_materialised_class_stays_closed_to_an_ineligible_student(app, client):
     from padel_app.models.players import Player
 

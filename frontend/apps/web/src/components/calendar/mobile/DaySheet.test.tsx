@@ -45,7 +45,7 @@ function renderSheet(onTopChange = vi.fn()) {
 }
 
 describe("DaySheet grab handle (PAD-286)", () => {
-  it("is a 28px row with a primary 40×5 pill, and the collapsed height follows it", () => {
+  it("[CALENDAR-MOBILE-VIEWS-19] is a 28px row with a primary 40×5 pill, and the collapsed height follows it", () => {
     renderSheet();
     const handle = screen.getByTestId("calendar-sheet-handle");
     expect(SHEET_HANDLE_HEIGHT).toBeGreaterThanOrEqual(28);
@@ -57,7 +57,7 @@ describe("DaySheet grab handle (PAD-286)", () => {
     expect(SHEET_COLLAPSED_HEIGHT).toBe(SHEET_HANDLE_HEIGHT + 76);
   });
 
-  it("moves the sheet when the drag starts on the day header, exactly as on the pill", () => {
+  it("[CALENDAR-MOBILE-VIEWS-19] moves the sheet when the drag starts on the day header, exactly as on the pill", () => {
     const onTopChange = renderSheet();
     const heading = screen.getByRole("heading", { level: 3 });
     fireEvent.pointerDown(heading, { clientY: 300, pointerId: 1, button: 0, isPrimary: true });
@@ -73,7 +73,7 @@ describe("DaySheet grab handle (PAD-286)", () => {
     expect(onTopChange).toHaveBeenLastCalledWith(150);
   });
 
-  it("clamps a header drag to the bounds", () => {
+  it("[CALENDAR-MOBILE-VIEWS-18] clamps a header drag to the bounds", () => {
     const onTopChange = renderSheet();
     const heading = screen.getByRole("heading", { level: 3 });
     fireEvent.pointerDown(heading, { clientY: 300, pointerId: 3, button: 0, isPrimary: true });

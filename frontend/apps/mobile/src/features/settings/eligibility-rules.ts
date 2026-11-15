@@ -1,6 +1,8 @@
 import type { GroupRule } from "@levelup/types";
 import {
-  isWithinNOperation,
+  ELIGIBILITY_ATTRIBUTES,
+  eligibilityNeedsValue as needsValue,
+  findEligibilityAttribute as findAttribute,
   operationForMenuPick,
   withinNOperation,
   type WithinNDirection,
@@ -20,94 +22,21 @@ import {
  *  - **level operations are anchored to the CLASS**, not to a vacancy, because
  *    the bar must be answerable for a class with no spot open.
  *
+ * The attribute table lives in `@levelup/config` (rule-values), shared with web.
  * The transitions below live here rather than in the screen so the mobile unit
  * runner can pin them: they are the part with real rules, and getting one
  * wrong leaves a stale value silently attached to a rule that has no value.
  */
 
-export type EligibilityValueType = "number" | "percentage" | "conditional-number";
-
-export type EligibilityAttribute = {
-  id: string;
-  labelKey: string;
-  operations: { id: string; labelKey: string }[];
-  valueType: EligibilityValueType;
-};
-
-export const ELIGIBILITY_ATTRIBUTES: EligibilityAttribute[] = [
-  {
-    id: "level",
-    labelKey: "settings.eligibility.attributes.level",
-    operations: [
-      { id: "same_as_class", labelKey: "settings.eligibility.operations.sameAsClass" },
-      {
-        id: "equal_or_above_class",
-        labelKey: "settings.eligibility.operations.equalOrAboveClass",
-      },
-      {
-        id: "equal_or_below_class",
-        labelKey: "settings.eligibility.operations.equalOrBelowClass",
-      },
-      {
-        id: "one_below_or_above_class",
-        labelKey: "settings.eligibility.operations.oneBelowOrAboveClass",
-      },
-      {
-        id: "within_n_of_class",
-        labelKey: "settings.eligibility.operations.withinNOfClass",
-      },
-    ],
-    // Only the three `within_n_*` operations carry a value (PAD-481: the
-    // direction is the operation — see `@levelup/config`'s level-direction).
-    valueType: "conditional-number",
-  },
-  {
-    id: "unjustified_absences",
-    labelKey: "settings.eligibility.attributes.unjustifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.eligibility.operations.lessThan" },
-      { id: "equals", labelKey: "settings.eligibility.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.eligibility.operations.atMost" },
-    ],
-    valueType: "number",
-  },
-  {
-    id: "justified_absences",
-    labelKey: "settings.eligibility.attributes.justifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.eligibility.operations.lessThan" },
-      { id: "equals", labelKey: "settings.eligibility.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.eligibility.operations.atMost" },
-    ],
-    valueType: "number",
-  },
-  {
-    id: "attendance_rate",
-    labelKey: "settings.eligibility.attributes.attendanceRate",
-    operations: [
-      { id: "greater_than", labelKey: "settings.eligibility.operations.greaterThan" },
-      {
-        id: "greater_than_or_equal",
-        labelKey: "settings.eligibility.operations.atLeast",
-      },
-    ],
-    valueType: "percentage",
-  },
-];
-
-export function findAttribute(id: string): EligibilityAttribute | undefined {
-  return ELIGIBILITY_ATTRIBUTES.find((a) => a.id === id);
-}
-
-/** Does this attribute/operation pair take a numeric value? */
-export function needsValue(
-  attr: EligibilityAttribute,
-  operation: string
-): boolean {
-  if (attr.valueType === "number" || attr.valueType === "percentage") return true;
-  if (attr.valueType === "conditional-number") return isWithinNOperation(operation);
-  return false;
-}
+// The table and "needs a value" moved to `@levelup/config` (eligibility.rules rule 13), one copy for
+// both apps; re-exported under the names this file has always had.
+export {
+  ELIGIBILITY_ATTRIBUTES,
+  eligibilityNeedsValue as needsValue,
+  findEligibilityAttribute as findAttribute,
+  type EligibilityAttribute,
+  type EligibilityValueType,
+} from "@levelup/config";
 
 /** A brand-new rule: first attribute, its first operation, no value. */
 export function newRule(): GroupRule {

@@ -17,6 +17,7 @@ Jobs
 - ``reminder_{instance_id}``                   — DateTrigger — fires send_class_reminders() (legacy, for already-materialized instances)
 - ``invite_start_{instance_id}``               — DateTrigger — fires trigger_invitations()
 - ``process_batches``                          — IntervalTrigger (2 min) — fires process_invitation_batches()
+- ``engine_tick``                              — IntervalTrigger (1 min) — the new engine's run (PAD-918)
 - ``read_push_receipts``                       — IntervalTrigger (10 min) — redeems Expo tickets (PAD-745)
 - ``extend_schedule_window``                   — CronTrigger (daily 02:47 UTC) — extends 60-day reminder horizon
                                                  and re-derives any missing lesson reminder jobs
@@ -518,6 +519,10 @@ def arm_ask_for_student(instance, player_id, *, now=None) -> bool:
     """
     if _scheduler is None or _ASKS_SUPPRESSED.get():
         return False
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        return False            # PAD-918 (CONFIG-78): the engine asks a new-engine session's students
     from apscheduler.triggers.date import DateTrigger
     from padel_app.services.notification_service import next_ask_time
 
@@ -586,6 +591,70 @@ def _run_send_reminders(instance_id: int) -> None:
 PAST_DUE_GRACE_SECONDS = 6 * 3600
 
 
+def _on_new_engine(instance) -> bool:
+    """Rule 18: the occurrence is the new engine's (an ``engine_sessions`` row)."""
+    from padel_app.services.engine_switch import engine_for
+
+    return instance is not None and engine_for(instance) == "new"
+
+
+def _instance_on_new_engine(instance_id: int) -> bool:
+    from padel_app.models import LessonInstance
+
+    return _on_new_engine(LessonInstance.query.get(instance_id))
+
+
+def _drop_old_instance_jobs(instance) -> None:
+    """Remove every old-engine job of one occurrence (rule 18, CONFIG-78): its reminder and invitation
+    start, its past-due pass, its asks and follow-ups, its invite-now, its lesson-date jobs, and the
+    decline and approval jobs of its vacancies."""
+    if _scheduler is None:
+        return
+    cancel_instance_jobs(instance.id)
+    occ_date = instance.original_lesson_occurence_date or (
+        instance.start_datetime.date() if instance.start_datetime else None)
+    if occ_date is not None:
+        cancel_lesson_occurrence_job(instance.lesson_id, occ_date.isoformat())
+    from padel_app.models import Vacancy
+
+    vacancies = [vid for (vid,) in Vacancy.query.with_entities(Vacancy.id).filter_by(lesson_instance_id=instance.id).all()]
+    for job in old_engine_jobs(instance_ids={instance.id}, vacancy_ids=vacancies):
+        try:
+            _scheduler.remove_job(job.id)
+        except Exception:  # noqa: BLE001 — gone meanwhile
+            pass
+
+
+#: The old engine's job ids (rule 18, CONFIG-78/79), by what they are keyed on.
+OLD_INSTANCE_PREFIXES = ("reminder_", "invite_start_", "pastdue_", "ask_", "invite_now_", "approval_now_")
+OLD_LESSON_PREFIXES = ("reminder_lesson_", "invite_start_lesson_")
+OLD_VACANCY_PREFIXES = ("decline_next_",)
+
+
+def _old_job_key(job_id: str):
+    """``("lesson", lesson_id)``, ``("vacancy", vacancy_id)`` or ``("instance", instance_id)`` for an
+    old-engine job id (follow-ups ``<base>_retry_<ts>`` included), else ``None``."""
+    for prefixes, kind in ((OLD_LESSON_PREFIXES, "lesson"), (OLD_VACANCY_PREFIXES, "vacancy"),
+                           (OLD_INSTANCE_PREFIXES, "instance")):
+        for prefix in prefixes:
+            if job_id.startswith(prefix):
+                head = job_id[len(prefix):].split("_", 1)[0]
+                return (kind, int(head)) if head.isdigit() else None
+    return None
+
+
+def old_engine_jobs(*, instance_ids=(), lesson_ids=(), vacancy_ids=()) -> list:
+    """The scheduler's old-engine jobs keyed on any of ``instance_ids``, ``lesson_ids`` or
+    ``vacancy_ids`` (a decline job is keyed on its vacancy)."""
+    if _scheduler is None:
+        return []
+    wanted = {("instance", int(i)) for i in instance_ids} | {("lesson", int(i)) for i in lesson_ids} \
+        | {("vacancy", int(i)) for i in vacancy_ids}
+    if not wanted:
+        return []
+    return [job for job in _scheduler.get_jobs() if _old_job_key(job.id) in wanted]
+
+
 def past_due_job_id(instance_id: int) -> str:
     return f"pastdue_{instance_id}"
 
@@ -596,8 +665,8 @@ def arm_past_due_pass(instance_id: int, when: datetime) -> None:
     not the class's ``reminder_<id>``: that one is derived from the configuration, and a
     startup or daily pass would remove a job sitting at a time the configuration does not
     imply. ``schedule_instance_jobs`` removes this job when it arms the ordinary reminder again."""
-    if _scheduler is None:
-        return
+    if _scheduler is None or _instance_on_new_engine(instance_id):
+        return                  # rule 18 (CONFIG-78): the engine asks a new-engine session's students
     from apscheduler.triggers.date import DateTrigger
 
     _scheduler.add_job(
@@ -668,14 +737,23 @@ def arm_invitations_now(instance_id: int, coach_id: int) -> bool:
     """PAD-733 (invitations rule 1b): a decline or an attendance sheet that opens a spot inside the
     invitation window starts its invitations from here, after the request's commit, instead of
     fanning out inside the request. ``trigger_invitations`` starts only a never-started vacancy,
-    under its claim lock, so this job, the 2-minute sweep and ``invite_start`` never double-send."""
+    under its claim lock, so this job, the 2-minute sweep and ``invite_start`` never double-send. Rule 18
+    (CONFIG-78): nothing is armed for a new-engine session."""
+    if _instance_on_new_engine(instance_id):
+        return False
     return _arm_now(_run_trigger_invitations, [instance_id, coach_id], invite_now_job_id(instance_id))
 
 
 def arm_next_on_decline(vacancy_id: int, event_id: int) -> bool:
     """PAD-733: a student's "no" invites the next student from here. The vacancy has started, so
     ``trigger_invitations`` would not continue it (rule 1b); this runs the decline's own follow-up,
-    which decides under the vacancy lock and sends nothing on a spot no longer open."""
+    which decides under the vacancy lock and sends nothing on a spot no longer open. Rule 18
+    (CONFIG-78): nothing is armed for a new-engine session's vacancy."""
+    from padel_app.models import Vacancy
+
+    vacancy = Vacancy.query.get(vacancy_id)
+    if vacancy is not None and _instance_on_new_engine(vacancy.lesson_instance_id):
+        return False
     return _arm_now(_run_send_next_on_decline, [vacancy_id], decline_next_job_id(vacancy_id, event_id))
 
 
@@ -684,7 +762,10 @@ def arm_approval_now(instance_id: int, coach_id: int, vacancy_id: int) -> bool:
     approval prompt from here. Building its queue ranks the coach's whole roster once per wave, which is
     seconds of work on a large roster; the student's answer does not wait on it. PAD-764: one job per
     vacancy, asking for that vacancy alone. With one id per class, a second decline while the first
-    job ran re-armed the same id and APScheduler skipped it (max_instances 1): no prompt, ever."""
+    job ran re-armed the same id and APScheduler skipped it (max_instances 1): no prompt, ever. Rule 18
+    (CONFIG-78): nothing is armed for a new-engine session."""
+    if _instance_on_new_engine(instance_id):
+        return False
     return _arm_now(
         _run_create_vacancy_approval_prompt, [vacancy_id, coach_id], approval_now_job_id(instance_id, vacancy_id)
     )
@@ -724,6 +805,20 @@ def _run_process_batches() -> None:
             process_invitation_batches()
         except Exception as exc:
             app.logger.error("process_invitation_batches failed: %s", exc)
+
+
+def _run_engine_tick() -> None:
+    """The new invitation engine's run (PAD-918, notifications.engine-store rule 7): adopt, tick every
+    listed session in its own unit, send the outbox. Nothing is listed until a coach is switched."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        from padel_app.services import engine_runner
+        try:
+            engine_runner.run_tick()
+        except Exception as exc:
+            app.logger.error("engine_tick failed: %s", exc)
 
 
 def _missed_reminder_subject(job_id: str):
@@ -961,6 +1056,18 @@ def init_scheduler(app, test_config=None) -> None:
         func=_run_process_batches,
         trigger=IntervalTrigger(seconds=batch_seconds),
         id="process_batches",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=60,
+    )
+    # PAD-918: the new engine's run, every ENGINE_RUN_EVERY (engine-store rule 7).
+    from padel_app.invitation_engine.constants import ENGINE_RUN_EVERY
+
+    sched.add_job(
+        func=_run_engine_tick,
+        trigger=IntervalTrigger(seconds=int(ENGINE_RUN_EVERY.total_seconds())),
+        id="engine_tick",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
@@ -1367,6 +1474,10 @@ def schedule_lesson_reminder_jobs(
         materialised_instances = []
         with _derivation_lock(coach_id):
             config = _saved_config(coach_id)
+            # Rule 18 (CONFIG-78, CONFIG-80): a switched coach's occurrence that does not exist yet will
+            # be the new engine's, which materialises it (engine_switch.adopt_due); no old job is
+            # armed for it, and one left from before the switch is removed.
+            switched = getattr(config, "engine_version", "old") == "new"
             for occ_dt in occurrences:
                 # expand_occurrences labels the wall-clock occurrence as UTC; drop the label.
                 occ_dt_naive = occ_dt.replace(tzinfo=None) if occ_dt.tzinfo else occ_dt
@@ -1388,6 +1499,9 @@ def schedule_lesson_reminder_jobs(
                     scheduled += 1
                     continue
 
+                if switched:
+                    cancel_lesson_occurrence_job(lesson_id, date_str)
+                    continue
                 # PAD-478 (B-249): past, or no timing at all, arms nothing AND removes a job
                 # left over from another timing (it used to stay, and fire).
                 outcome = _reconcile_date_job(
@@ -1561,6 +1675,10 @@ def schedule_instance_jobs(instance_id: int, coach_id: int, *, now: datetime | N
 
         instance = LessonInstance.query.get(instance_id)
         if not instance:
+            return
+        if _on_new_engine(instance):
+            # Rule 18 (CONFIG-78): no old-engine job for a new-engine session; any left is removed.
+            _drop_old_instance_jobs(instance)
             return
 
         # PAD-478: ONE configuration decides a class's jobs, the one the send path honours:
@@ -1754,8 +1872,16 @@ def _retime_pending_followups(coach_id: int, config) -> None:
         owed = False
         anchor = None
         if instance.status not in ("canceled", "completed") and instance.id not in seen_instances:
+            from padel_app.services.engine_switch import engine_for
+            from padel_app.services.notification_service import answered_for_reminders
+            first_reminder = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
+            on_new_engine = None
             for presence in list(instance.presences):
-                if presence.confirmed:
+                # PAD-820 (reminders rule 24): the pass's own test, so a chain owed only to an
+                # invitation joiner is re-timed too.
+                if on_new_engine is None and presence.confirmed and presence.response == "none":
+                    on_new_engine = engine_for(instance) == "new"
+                if answered_for_reminders(presence, first_reminder, new_engine=bool(on_new_engine)):
                     continue
                 sent = attempts.count_attempts(instance.id, presence.player_id)
                 if sent >= reminder_count:

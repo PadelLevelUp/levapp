@@ -76,6 +76,7 @@ def test_calendar_edit_absent_title_and_description_are_kept(app, client):
 
 
 @pytest.mark.parametrize("cleared", [None, ""], ids=["null (what both shells send)", "empty-string"])
+@pytest.mark.criterion("CALENDAR-BLOCKS-5")
 def test_calendar_edit_an_emptied_title_or_description_is_cleared(app, client, cleared):
     """FIXED in PAD-386 (B-136 step 1). Was: `_build_payload` sent `""` for an absent
     key too, so the two cases were indistinguishable and neither cleared. Both
@@ -106,6 +107,7 @@ WEEKLY = {**EVENT, "isRecurring": True, "recurrenceRule": {"frequency": "weekly"
 
 
 @pytest.mark.parametrize("end", [None, ""], ids=["null (what both edit sheets send when cleared)", "empty-string"])
+@pytest.mark.criterion("CALENDAR-BLOCKS-6")
 def test_calendar_edit_cannot_remove_the_end_date_of_a_block_that_still_recurs(app, client, end):
     """PAD-386, D83 (Coordinator, 2026-09-22): a NULL recurrence_end means "forever"
     downstream (the feed expands 400 days ahead; reminders and blocked windows
@@ -123,6 +125,7 @@ def test_calendar_edit_cannot_remove_the_end_date_of_a_block_that_still_recurs(a
 
 
 @pytest.mark.parametrize("missing", ["type", "date", "startTime", "endTime"])
+@pytest.mark.criterion("CALENDAR-BLOCKS-5")
 def test_calendar_edit_without_a_required_key_is_refused_not_a_500(app, client, missing):
     """PAD-386: `_build_payload` hard-subscripted these (KeyError → 500); a cleared web
     date/time input sends "" (ValueError → 500). 400 naming the field, nothing written."""
@@ -179,6 +182,7 @@ def test_calendar_edit_a_new_title_and_description_are_written(app, client):
     assert (after["title"], after["description"]) == ("Physio", "knee")
 
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-4")
 def test_calendar_edit_recurring_to_one_off_leaves_the_rule_and_the_end_date_on_the_row(app, client):
     """FLIPPED by PAD-377 (B-150), by the fix's author — this pin asserted the DEFECT and went red when
     `edit_event_service` began clearing the rule on an explicit `isRecurring: false`. Was: DEFECT PINNED, NOT FIXED (B-136). `is_recurring` has its own Boolean handler
@@ -199,6 +203,7 @@ def test_calendar_edit_recurring_to_one_off_leaves_the_rule_and_the_end_date_on_
         assert row.recurrence_end is None, "PAD-377: and the end date with it"
 
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-4")
 def test_calendar_edit_a_block_made_one_off_still_repeats_in_the_calendar_feed(app, client):
     """FLIPPED by PAD-377 (B-150), by the fix's author — this pin asserted the DEFECT and went red when
     `edit_event_service` began clearing the rule on an explicit `isRecurring: false`. Was: DEFECT PINNED, NOT FIXED (B-150) — the user-visible end of the test above. The
@@ -250,6 +255,7 @@ def _give_the_student_a_phone(app, ids):
         db.session.commit()
 
 
+@pytest.mark.criterion("PLAYERS-EDIT-9")
 def test_edit_player_absent_fields_are_kept(app, client):
     ids = _seed(app)
     _give_the_student_a_phone(app, ids)
@@ -262,6 +268,7 @@ def test_edit_player_absent_fields_are_kept(app, client):
 
 
 @pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+@pytest.mark.criterion("PLAYERS-EDIT-4")
 def test_edit_player_an_emptied_note_side_or_phone_is_cleared(app, client, cleared):
     """FIXED in PAD-388 (B-136 step 3). Was: the route diffed `updates` against
     `player`, so an emptied field WAS a change and reached the form as "" — where
@@ -288,6 +295,7 @@ def _make_placeholder(app, ids):
 
 
 @pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+@pytest.mark.criterion("PLAYERS-EDIT-5")
 def test_edit_player_a_placeholders_email_is_the_coachs_to_clear(app, client, cleared):
     ids = _seed(app)
     _make_placeholder(app, ids)
@@ -299,6 +307,7 @@ def test_edit_player_a_placeholders_email_is_the_coachs_to_clear(app, client, cl
 
 @pytest.mark.parametrize("sent", ["", None, "   ", "other@test.com"],
                          ids=["empty-string", "null", "whitespace", "another-address"])
+@pytest.mark.criterion("PLAYERS-EDIT-5")
 def test_edit_player_an_account_holders_email_is_the_students_own(app, client, sent):
     """Coordinator, 2026-09-22 (widened after Session-B's review): once a student has
     an account (a password) the e-mail is their login and password recovery — the
@@ -317,6 +326,7 @@ def test_edit_player_an_account_holders_email_is_the_students_own(app, client, s
     assert _roster_row(app, ids) == before
 
 
+@pytest.mark.criterion("PLAYERS-EDIT-5")
 def test_edit_player_a_placeholders_email_may_be_changed_by_the_coach(app, client):
     ids = _seed(app)
     _make_placeholder(app, ids)
@@ -327,6 +337,7 @@ def test_edit_player_a_placeholders_email_may_be_changed_by_the_coach(app, clien
 
 
 @pytest.mark.parametrize("zero", [0, False, "0"], ids=["zero", "false", "string-zero"])
+@pytest.mark.criterion("PLAYERS-EDIT-6")
 def test_edit_player_a_zero_level_is_refused_before_anything_is_written(app, client, zero):
     """Session-B's F3 on #371: the old code read 0 as "not sent"; present mode would
     have handed it to set_roster_level after the user part had already committed —
@@ -345,6 +356,7 @@ def test_edit_player_a_zero_level_is_refused_before_anything_is_written(app, cli
     assert _roster_row(app, ids) == before
 
 
+@pytest.mark.criterion("PLAYERS-EDIT-7")
 def test_edit_player_a_cleared_level_is_no_level_and_writes_no_history_row(app, client):
     """PAD-388: `levelId: null` clears through the one writer (players.level-history
     rule 1): history records assignments, so a clear writes no row."""
@@ -369,6 +381,7 @@ def test_edit_player_a_cleared_level_is_no_level_and_writes_no_history_row(app, 
 
 
 @pytest.mark.parametrize("emptied", ["", None, "   "], ids=["empty-string", "null", "blank"])
+@pytest.mark.criterion("PLAYERS-EDIT-8")
 def test_edit_player_an_emptied_name_is_refused_and_nothing_is_written(app, client, emptied):
     """PAD-388: users.name is NOT NULL — 400 naming the field, before any write; the
     note sent beside it is not written either. No shell can send this (Save is
@@ -385,6 +398,7 @@ def test_edit_player_an_emptied_name_is_refused_and_nothing_is_written(app, clie
     assert _roster_row(app, ids) == before
 
 
+@pytest.mark.criterion("PLAYERS-EDIT-9")
 def test_edit_player_an_old_build_body_with_omitted_keys_keeps_everything(app, client):
     """PAD-388: App Store 1.0 / 1.1.0 (and the current shells before this ticket)
     send the FULL form with every emptied box OMITTED — an omitted key still
@@ -523,6 +537,7 @@ def _lesson_count(app):
 
 @pytest.mark.parametrize("capacity", [0, None, "", "0", -1, "abc", 2.5, "6.0", True, ABSENT_KEY],
                          ids=["zero", "null", "empty", "string-zero", "negative", "text", "fraction", "string-float", "true", "absent"])
+@pytest.mark.criterion("CLASSES-CREATE-12")
 def test_add_class_a_capacity_that_is_not_a_positive_integer_is_refused(app, client, capacity):
     """FIXED in PAD-390 (B-136 step 5). Was: `maxPlayers: 0` read as "not sent" and
     `lessons.max_players` NOT NULL → an unhandled IntegrityError (a 500); an absent
@@ -539,6 +554,7 @@ def test_add_class_a_capacity_that_is_not_a_positive_integer_is_refused(app, cli
 
 
 @pytest.mark.parametrize("name", ["", "   ", None, ABSENT_KEY], ids=["empty", "blank", "null", "absent"])
+@pytest.mark.criterion("CLASSES-CREATE-12")
 def test_add_class_without_a_name_is_refused(app, client, name):
     """PAD-390: `lessons.title` is NOT NULL; an empty name used to reach the column
     as NULL (a 500), an absent key a KeyError. The same 400 the edit route gives."""
@@ -552,6 +568,7 @@ def test_add_class_without_a_name_is_refused(app, client, name):
     assert _lesson_count(app) == before
 
 
+@pytest.mark.criterion("CLASSES-CREATE-12")
 def test_add_class_with_both_wrong_names_both_fields(app, client):
     world = _class_world(app, client)
 
@@ -561,6 +578,7 @@ def test_add_class_with_both_wrong_names_both_fields(app, client):
     assert res.get_json() == {"error": "invalid_fields", "fields": ["title", "max_players"]}
 
 
+@pytest.mark.criterion("CLASSES-CREATE-12")
 def test_add_class_a_capacity_sent_as_a_numeric_string_is_stored_as_the_number(app, client):
     """The control: what the shells send (an integer) and what an old build might
     (an integer string) both create the class with that capacity. "6.0" is refused
@@ -592,6 +610,7 @@ def test_edit_class_absent_keys_are_kept(app, client):
 @pytest.mark.parametrize("updates,field", [
     ({"name": ""}, "title"), ({"maxPlayers": 0}, "max_players"), ({"maxPlayers": None}, "max_players"),
 ], ids=["empty-name", "zero-capacity", "null-capacity"])
+@pytest.mark.criterion("CLASSES-EDIT-11")
 def test_edit_class_an_emptied_not_null_value_is_refused_and_nothing_is_written(app, client, updates, field):
     """FIXED in PAD-387 (B-136 step 2): an empty name and a 0/null capacity are answered
     400 naming the field, not silently ignored (was 201 + no change). 0 is not a legal
@@ -610,6 +629,7 @@ def test_edit_class_an_emptied_not_null_value_is_refused_and_nothing_is_written(
     ({"levelId": None}, "level"), ({"levelId": ""}, "level"),
     ({"color": ""}, "color"), ({"color": None}, "color"),
 ], ids=["null-level", "empty-level", "empty-color", "null-color"])
+@pytest.mark.criterion("CLASSES-EDIT-11")
 def test_edit_class_an_emptied_nullable_value_clears_it(app, client, updates, column):
     """FIXED in PAD-387 (B-136 step 2): a coach CAN take the level off a class ("all
     levels") or its colour — both null and "" clear (decided 2026-09-21). Was: 201 and
@@ -627,6 +647,7 @@ def test_edit_class_an_emptied_nullable_value_clears_it(app, client, updates, co
 
 
 @pytest.mark.parametrize("cleared", ["", None], ids=["empty-string (a cleared web date input)", "null"])
+@pytest.mark.criterion("CLASSES-EDIT-12")
 def test_edit_class_refuses_to_empty_the_end_date_of_a_recurring_class(app, client, cleared):
     """Session-B's review of #368: a NULL recurrence_end means "recurs forever"
     downstream, the create path refuses to make one (PAD-90) and calendar.seasons
@@ -644,6 +665,7 @@ def test_edit_class_refuses_to_empty_the_end_date_of_a_recurring_class(app, clie
     assert _class_row(app, world["lesson_id"]) == before
 
 
+@pytest.mark.criterion("CLASSES-EDIT-13")
 def test_edit_class_an_explicit_end_date_is_the_coachs_and_the_season_no_longer_caps_it(app, client):
     """Session-B's F2 on #368: the legacy path reset `recurs_until_season_end` on
     every edit by accident (PAD-93's family); present mode leaves it alone — so an
@@ -663,6 +685,7 @@ def test_edit_class_an_explicit_end_date_is_the_coachs_and_the_season_no_longer_
         assert (str(row.recurrence_end), row.recurs_until_season_end, row.is_recurring) == ("2027-01-15", False, True)
 
 
+@pytest.mark.criterion("CLASSES-EDIT-14")
 def test_edit_class_single_scope_a_cleared_level_makes_the_occurrence_inherit_the_series_level(app, client):
     """Session-B's F3 on #368 (classes.edit rule 7 as narrowed): an occurrence has
     no colour, end date or court of its own, and a NULL level on it INHERITS the
@@ -704,6 +727,7 @@ def test_edit_class_leaves_the_booleans_it_was_not_sent_alone(app, client):
         assert db.session.get(Lesson, world["lesson_id"]).recurs_until_season_end is True
 
 
+@pytest.mark.criterion("CLASSES-EDIT-15")
 def test_edit_class_single_scope_without_a_name_keeps_the_occurrence_title_override(app, client):
     """PAD-387: in present mode a key that is not sent is left alone — including the
     instance's title override, which the helper used to recompute from an absent title."""
@@ -843,6 +867,7 @@ def test_a_students_blocker_edit_clears_an_emptied_title_and_refuses_a_null_end_
     assert _block_row(app, blocker_id)["end"] == "2026-12-01"
 
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-4")
 def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly_block(app, client):
     """FLAG ASSERTION FLIPPED by PAD-377 (B-150), by the fix's author: an edit that OMITS `isRecurring` now
     leaves the flag alone as well as the rule and the end date. The rule-and-end-date assertions
@@ -887,6 +912,7 @@ def _message_texts(app):
 
 
 @pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
+@pytest.mark.criterion("MESSAGING-MESSAGES-19")
 def test_message_with_no_text_is_refused_and_nothing_is_written(app, client, text):
     """FIXED in PAD-390 (B-136 step 5). Was: `""` read as "not sent" and
     `messages.text` NOT NULL → an unhandled IntegrityError; an absent key a
@@ -904,6 +930,7 @@ def test_message_with_no_text_is_refused_and_nothing_is_written(app, client, tex
     assert _message_texts(app) == []
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-19")
 def test_message_a_text_that_is_there_is_stored_as_sent(app, client):
     """The control: "0" is a text, and a text is stored as sent (no trimming —
     what the message says is the sender's)."""
@@ -916,6 +943,7 @@ def test_message_a_text_that_is_there_is_stored_as_sent(app, client):
 
 
 @pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
+@pytest.mark.criterion("MESSAGING-MESSAGES-19")
 def test_message_edit_with_no_text_is_refused_and_the_message_is_unchanged(app, client, text):
     """Session-B on #373: the same defect on the same column, three lines away —
     PUT /message/<id> with `""` hit the NOT NULL column, an absent key a KeyError."""

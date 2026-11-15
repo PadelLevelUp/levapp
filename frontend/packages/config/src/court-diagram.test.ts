@@ -57,7 +57,7 @@ describe("court geometry (training.tactical-board rule 5/6)", () => {
     expect(toPercent({ x: 170, y: 300 })).toEqual({ x: 50, y: 50 });
   });
 
-  it("maps legacy 280×520 coordinates to percent of the playing surface (rule 12)", () => {
+  it("[TRAINING-TACTICAL-BOARD-12] maps legacy 280×520 coordinates to percent of the playing surface (rule 12)", () => {
     expect(legacyToPercent({ x: 20, y: 20 })).toEqual({ x: 0, y: 0 });
     expect(legacyToPercent({ x: 260, y: 500 })).toEqual({ x: 100, y: 100 });
     expect(legacyToPercent({ x: 80, y: 140 })).toEqual({ x: 25, y: 25 });
@@ -123,7 +123,7 @@ describe("hit testing helpers", () => {
 });
 
 describe("upgradeCourtDiagram (rule 12)", () => {
-  it("upgrades the spec's legacy fixture into basket mode", () => {
+  it("[TRAINING-TACTICAL-BOARD-12] upgrades the spec's legacy fixture into basket mode", () => {
     const d = upgradeCourtDiagram(LEGACY);
     expect(d.version).toBe(2);
     expect(d.mode).toBe("basket");
@@ -180,7 +180,7 @@ const TWO_STEPS: CourtDiagramV2 = {
 };
 
 describe("piecesAtStep / positionAfterStep (rule 18)", () => {
-  it("step 0 starts from the starting position and later steps from the previous end", () => {
+  it("[TRAINING-TACTICAL-BOARD-17] step 0 starts from the starting position and later steps from the previous end", () => {
     expect(piecesAtStep(TWO_STEPS, 0).find((p) => p.id === "a1")).toMatchObject({ x: 32, y: 26 });
     expect(piecesAtStep(TWO_STEPS, 1).find((p) => p.id === "a1")).toMatchObject({ x: 20, y: 40 });
     expect(positionAfterStep(TWO_STEPS, 1).find((p) => p.id === "a1")).toMatchObject({ x: 10, y: 60 });
@@ -193,7 +193,7 @@ describe("piecesAtStep / positionAfterStep (rule 18)", () => {
 });
 
 describe("interpolateStep (rule 20)", () => {
-  it("moves the players along their movement and the ball along a flat path", () => {
+  it("[TRAINING-TACTICAL-BOARD-18] moves the players along their movement and the ball along a flat path", () => {
     const mid = interpolateStep(TWO_STEPS, 0, 0.5);
     expect(mid.pieces.find((p) => p.id === "a1")).toMatchObject({ x: 26, y: 33 });
     expect(mid.ball).toEqual({ x: 49, y: 50 });
@@ -234,7 +234,7 @@ describe("a player with several legs in a step", () => {
     return p && p.kind !== "stroke" ? { x: p.x, y: p.y } : null;
   };
 
-  it("movementLegs chains each player's legs and numbers them per player", () => {
+  it("[TRAINING-TACTICAL-BOARD-4] movementLegs chains each player's legs and numbers them per player", () => {
     const legs = movementLegs(LEGS.steps[0], start);
     expect(legs).toEqual([
       { pieceId: "a1", from: { x: 32, y: 26 }, to: { x: 20, y: 40 }, leg: 0, index: 0 },
@@ -243,11 +243,11 @@ describe("a player with several legs in a step", () => {
     ]);
   });
 
-  it("the step ends with the player at its last leg's end", () => {
+  it("[TRAINING-TACTICAL-BOARD-4] the step ends with the player at its last leg's end", () => {
     expect(piecesAtStep(LEGS, 1).find((p) => p.id === "a1")).toMatchObject({ x: 10, y: 60 });
   });
 
-  it("AUTO walks the legs in order, splitting the step evenly", () => {
+  it("[TRAINING-TACTICAL-BOARD-4] AUTO walks the legs in order, splitting the step evenly", () => {
     const at = (t: number) => interpolateStep(LEGS, 0, t).pieces.find((p) => p.id === "a1");
     expect(at(0)).toMatchObject({ x: 32, y: 26 });
     expect(at(0.25)).toMatchObject({ x: 26, y: 33 });

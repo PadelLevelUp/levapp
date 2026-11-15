@@ -12,6 +12,7 @@ the sides its open vacancies already carry, ``both`` and no side counting on nei
 Run:
     pytest padel_app/tests/test_pad421_balance_structural_sides.py -v
 """
+import pytest
 from collections import Counter
 
 from padel_app.sql_db import db
@@ -37,6 +38,7 @@ def _sides(vacancies):
     return Counter(v.side for v in vacancies)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-45")
 def test_a_class_of_16_with_4_left_and_2_right_gets_6_right_and_4_left_spots(app):
     """Criterion "Never-filled spots balance the class's sides" (rule 2b): it would end 8/8."""
     from padel_app.services.notification_service import _create_structural_vacancies
@@ -56,6 +58,7 @@ def test_a_class_of_16_with_4_left_and_2_right_gets_6_right_and_4_left_spots(app
         assert _sides(vacancies) == Counter({"right": 6, "left": 4})
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-46")
 def test_both_and_side_less_players_count_on_neither_side(app):
     """Criterion ""Both" and side-less players count on neither side when balancing"."""
     from padel_app.services.notification_service import _create_structural_vacancies
@@ -113,6 +116,7 @@ def test_an_open_vacancy_s_side_counts_toward_the_balance(app):
         assert [v.side for v in vacancies] == ["left", "right"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-49")
 def test_a_balancing_side_is_filled_by_that_side_first_and_by_anyone_if_nobody_matches():
     """Criterion "A balancing side is filled by that side first…" (rules 2b, 4a): round 1's
     same-side check admits the vacancy's side and `both`; round 2 has no side check at all."""
@@ -123,6 +127,7 @@ def test_a_balancing_side_is_filled_by_that_side_first_and_by_anyone_if_nobody_m
     assert not _side_eligible("left", "right")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-47")
 def test_a_roster_with_no_sided_player_keeps_spots_side_less(app):
     """Criterion "A roster with no left or right player keeps never-filled spots side-less" (rule 2b):
     balancing would only empty round 1 (a side-less player matches no side) and delay the fill."""
@@ -142,6 +147,7 @@ def test_a_roster_with_no_sided_player_keeps_spots_side_less(app):
         assert [v.side for v in vacancies] == [None]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-48")
 def test_a_player_who_gave_the_spot_up_counts_only_through_their_open_vacancy(app):
     """Criterion "A player who gave the spot up counts only through their open vacancy" (rule 2b):
     the count is the players HOLDING a spot (effective_filled_spots' predicate) plus the

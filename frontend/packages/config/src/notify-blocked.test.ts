@@ -10,7 +10,7 @@ const unavailableRow = { name: "Ana", cause: "unavailable" };
 const optedOutRow = { name: "Bruno", cause: "preference", reason: "Só à noite" };
 
 describe("splitBlockedByCause", () => {
-  it("splits the two causes apart", () => {
+  it("[NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-9] splits the two causes apart", () => {
     const { unavailable, optedOut } = splitBlockedByCause([
       unavailableRow,
       optedOutRow,
@@ -27,7 +27,7 @@ describe("splitBlockedByCause", () => {
     expect(optedOut).toEqual([]);
   });
 
-  it("splits on cause, not on reason being empty", () => {
+  it("[NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-9] splits on cause, not on reason being empty", () => {
     // A student can block notifications without giving a reason; classifying
     // them as "unavailable" would tell the coach the wrong story.
     const silentOptOut = { name: "Dina", cause: "preference" };
@@ -70,7 +70,7 @@ describe("blockedReasons", () => {
 });
 
 describe("shouldReportSent", () => {
-  it("reports a successful send", () => {
+  it("[NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-9] reports a successful send", () => {
     expect(shouldReportSent(3, [optedOutRow])).toBe(true);
   });
 
@@ -78,7 +78,7 @@ describe("shouldReportSent", () => {
     expect(shouldReportSent(0, [])).toBe(true);
   });
 
-  it("stays quiet when everyone was blocked", () => {
+  it("[NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-9] stays quiet when everyone was blocked", () => {
     // PAD-107's ordering: no "sent to 0" on top of the blocked toast.
     expect(shouldReportSent(0, [unavailableRow, optedOutRow])).toBe(false);
   });

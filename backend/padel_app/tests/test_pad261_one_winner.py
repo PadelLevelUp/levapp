@@ -84,6 +84,7 @@ def test_accept_locks_the_vacancy_then_the_class_before_enrolling(app, locks):
     assert locks.index("Vacancy") < locks.index("LessonInstance"), "vacancy first, then the class"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-53")
 def test_a_departing_player_gets_one_open_vacancy(app, locks):
     from padel_app.models import LessonInstance, Vacancy
     from padel_app.services.notification_service import _create_vacancy_for_absent_player
@@ -185,6 +186,7 @@ def test_a_waiting_list_invitation_is_never_sent_for_a_full_class(app):
         assert db.session.get(WaitingListEntry, entry_id).is_active is True
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-26")
 def test_with_room_the_waiting_list_student_is_invited_not_enrolled(app):
     coach_id, instance_id, players = _world(app, students=1)
     ((player_id, _),) = players
@@ -236,6 +238,7 @@ def _moved_to_start_while_locking(monkeypatch, instance_id, start):
     monkeypatch.setattr(ns, "_lock_vacancy_and_instance", moved)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-52")
 def test_a_yes_that_waits_past_the_start_enrols_nobody(app, monkeypatch):
     from padel_app.models import LessonInstance, NotificationEvent, Vacancy
     from padel_app.services.notification_service import respond_to_notification, trigger_invitations
@@ -261,6 +264,7 @@ def test_a_yes_that_waits_past_the_start_enrols_nobody(app, monkeypatch):
         assert db.session.get(Vacancy, vacancy_id).status == "expired"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-19")
 def test_a_class_that_has_started_asks_nobody_from_the_waiting_list(app, monkeypatch):
     """PAD-68 at the batch's door (PAD-446: the waiting list is asked, never placed)."""
     from padel_app.models import LessonInstance, Vacancy, WaitingListEntry

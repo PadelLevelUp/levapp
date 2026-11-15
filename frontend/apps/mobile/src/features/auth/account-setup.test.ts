@@ -51,17 +51,17 @@ describe("inviteTokenFromParam", () => {
     expect(inviteTokenFromParam("player", "a%2Bb")).toBe("a+b");
   });
 
-  it("rejects a missing param", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-4] rejects a missing param", () => {
     expect(inviteTokenFromParam("player", undefined)).toBeNull();
   });
 
-  it("rejects an empty or whitespace-only token", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-4] rejects an empty or whitespace-only token", () => {
     expect(inviteTokenFromParam("player", "")).toBeNull();
     expect(inviteTokenFromParam("player", "   ")).toBeNull();
     expect(inviteTokenFromParam("coach", "")).toBeNull();
   });
 
-  it("rejects a token that smuggles extra path segments", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-4] rejects a token that smuggles extra path segments", () => {
     // `/invite/player/a/b` is four segments — not a claimed shape.
     expect(inviteTokenFromParam("player", "a/b")).toBeNull();
   });
@@ -84,13 +84,13 @@ describe("registerUserIdFromParam", () => {
     expect(registerUserIdFromParam("42")).toBe("42");
   });
 
-  it("rejects a missing, empty or blank id", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-4] rejects a missing, empty or blank id", () => {
     expect(registerUserIdFromParam(undefined)).toBeNull();
     expect(registerUserIdFromParam("")).toBeNull();
     expect(registerUserIdFromParam("  ")).toBeNull();
   });
 
-  it("rejects an id carrying extra segments", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-4] rejects an id carrying extra segments", () => {
     expect(registerUserIdFromParam("42/extra")).toBeNull();
   });
 
@@ -106,7 +106,7 @@ describe("registerTokenFromParam", () => {
     expect(registerTokenFromParam("  abc123 ")).toBe("abc123");
   });
 
-  it("rejects a missing, empty or blank secret", () => {
+  it("[AUTH-ACTIVATE-7] rejects a missing, empty or blank secret", () => {
     expect(registerTokenFromParam(undefined)).toBeNull();
     expect(registerTokenFromParam("")).toBeNull();
     expect(registerTokenFromParam("  ")).toBeNull();
@@ -269,11 +269,11 @@ describe("validateAccountForm — register", () => {
 /* ---------- submit failures ---------- */
 
 describe("submitOutcomeForStatus", () => {
-  it("maps 409 to a recoverable username clash", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-5] maps 409 to a recoverable username clash", () => {
     expect(submitOutcomeForStatus(409)).toBe("username-taken");
   });
 
-  it("maps 404 and 410 to a dead link", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-5] maps 404 and 410 to a dead link", () => {
     expect(submitOutcomeForStatus(404)).toBe("invalid-token");
     expect(submitOutcomeForStatus(410)).toBe("invalid-token");
   });
@@ -287,7 +287,7 @@ describe("submitOutcomeForStatus", () => {
 });
 
 describe("statusFromError / submitOutcomeForError", () => {
-  it("reads an axios-shaped rejection", () => {
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-5] reads an axios-shaped rejection", () => {
     expect(statusFromError({ response: { status: 409 } })).toBe(409);
     expect(submitOutcomeForError({ response: { status: 410 } })).toBe(
       "invalid-token"
@@ -509,7 +509,7 @@ describe("coach invite: the invited coach's email (clubs.coach-invitation rule 9
     expect(coachInviteEmailError(new Error("network"))).toBeUndefined();
   });
 
-  it("a pending account lands on Verify your email, then the dashboard", () => {
+  it("[CLUBS-COACH-INVITATION-3] a pending account lands on Verify your email, then the dashboard", () => {
     const me = (emailVerification: string) => ({ emailVerification }) as unknown as authApi.MeResponse;
     expect(coachInviteLanding(me("pending"))).toBe(
       `/verify-email?next=${encodeURIComponent("/(tabs)/dashboard")}`

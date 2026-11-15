@@ -51,13 +51,13 @@ describe("SIDE_LABEL_KEYS", () => {
     expect(value).not.toBe("");
   });
 
-  it("renders the Portuguese labels from the ticket's acceptance criterion", () => {
+  it("[PLAYERS-EDIT-2] renders the Portuguese labels from the ticket's acceptance criterion", () => {
     expect(resolve(ptPlayers, SIDE_LABEL_KEYS.left)).toBe("Esquerda");
     expect(resolve(ptPlayers, SIDE_LABEL_KEYS.right)).toBe("Direita");
     expect(resolve(ptPlayers, SIDE_LABEL_KEYS.both)).toBe("Ambos");
   });
 
-  it("keeps the English labels the E2E suite asserts on", () => {
+  it("[PLAYERS-EDIT-2] keeps the English labels the E2E suite asserts on", () => {
     expect(resolve(enPlayers, SIDE_LABEL_KEYS.left)).toBe("Left");
     expect(resolve(enPlayers, SIDE_LABEL_KEYS.right)).toBe("Right");
     expect(resolve(enPlayers, SIDE_LABEL_KEYS.both)).toBe("Both");

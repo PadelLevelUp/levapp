@@ -77,6 +77,7 @@ def _state(app, iid, player_id):
 # ── rule 27: asked = the reminder instant, or a reminder actually sent ──────────────────
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-27")
 def test_before_the_instant_only_nao_vou_is_offered_and_a_yes_is_refused(app, world, monkeypatch):
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() - timedelta(minutes=1))
@@ -107,6 +108,7 @@ def test_a_no_before_the_instant_is_still_a_proactive_decline(app, world, monkey
     assert _state(app, iid, ids["student_id"]) == "not_coming"
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-28")
 def test_after_the_instant_vou_is_offered_and_recorded(app, world, monkeypatch):
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() + timedelta(minutes=1))
@@ -126,6 +128,7 @@ def test_after_the_instant_vou_is_offered_and_recorded(app, world, monkeypatch):
 
 
 @pytest.mark.parametrize("voided", [False, True], ids=["counted", "voided-round-PAD-318"])
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-29")
 def test_a_reminder_the_coach_sent_by_hand_counts_as_asked(app, world, monkeypatch, voided):
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() - timedelta(days=3))
@@ -147,6 +150,7 @@ def test_a_reminder_the_coach_sent_by_hand_counts_as_asked(app, world, monkeypat
         assert respond_to_reminder(iid, "yes", ids["student_user_id"], now=now)["action"] == "confirmed"
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-30")
 def test_a_class_with_reminders_off_never_asks(app, world, monkeypatch):
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() + timedelta(hours=1))
@@ -233,6 +237,7 @@ def test_a_coach_viewer_never_sees_the_flag_raised(app, world, monkeypatch):
 # ── rule 28: "Não vou" is final ─────────────────────────────────────────────────────────
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-26")
 def test_nao_vou_is_not_final_a_later_yes_with_a_spot_comes_back(app, world, monkeypatch):
     """PAD-684 (rule 28) superseded PAD-570's "Não vou is final": on a class that has not
     started, a yes after a no answers `confirmed` while there is room (never `already_declined`)."""
@@ -257,6 +262,7 @@ def test_nao_vou_is_not_final_a_later_yes_with_a_spot_comes_back(app, world, mon
 # ── rule 29: the coach's mark stands ────────────────────────────────────────────────────
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-36")
 def test_a_student_the_coach_marked_present_is_never_asked(app, world, monkeypatch):
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() + timedelta(minutes=1))

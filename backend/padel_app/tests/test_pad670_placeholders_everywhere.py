@@ -36,7 +36,7 @@ class TestTemplateVariables:
     def test_an_occurrence_is_dated_and_a_series_is_weekday_only(self, app, monkeypatch):
         from padel_app.models.lesson_instances import LessonInstance
         from padel_app.models.players import Player
-        from padel_app.services.notification_service import template_variables
+        from padel_app.services.message_text import template_variables
 
         pin_clock(monkeypatch, EVE)
         ids = _seed430(app, language="pt", lesson_type="academy", court_name="Campo 2")
@@ -56,7 +56,7 @@ class TestTemplateVariables:
         assert "side" not in occ
 
     def test_side_is_passed_only_when_given(self, app):
-        from padel_app.services.notification_service import template_variables
+        from padel_app.services.message_text import template_variables
 
         with app.app_context():
             assert template_variables(None, None, "pt", side=" (lado esquerdo)")["side"] == " (lado esquerdo)"
@@ -77,6 +77,7 @@ def _remind_and_answer(app, ids, action):
         return _all_texts()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-1")
 def test_reminder_confirmed_renders_the_coachs_placeholders(app, monkeypatch):
     pin_clock(monkeypatch, EVE)
     ids = _seed430(app, language="pt", lesson_type="academy", court_name="Campo 2")
@@ -87,6 +88,7 @@ def test_reminder_confirmed_renders_the_coachs_placeholders(app, monkeypatch):
     assert "Obrigado Ana, até amanhã às 19:00 no Campo 2!" in texts
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-1")
 def test_reminder_declined_renders_the_coachs_placeholders(app, monkeypatch):
     pin_clock(monkeypatch, EVE)
     ids = _seed430(app, language="pt", lesson_type="academy", court_name="Campo 2")
@@ -102,6 +104,7 @@ def test_reminder_declined_renders_the_coachs_placeholders(app, monkeypatch):
 # ── invitation answers: decline / confirm ──────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("action, key", [("no", "decline"), ("yes", "confirm")])
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-1")
 def test_invitation_answers_render_placeholders(app, monkeypatch, action, key):
     from padel_app.models import LessonInstance, NotificationEvent, Player
     from padel_app.services.notification_service import respond_to_notification, trigger_invitations
@@ -122,6 +125,7 @@ def test_invitation_answers_render_placeholders(app, monkeypatch, action, key):
 
 # ── waiting list ───────────────────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-1")
 def test_waiting_list_offer_and_confirm_render_placeholders(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.players import Player
@@ -148,6 +152,7 @@ def test_waiting_list_offer_and_confirm_render_placeholders(app):
 
 # ── spot_filled (join request closed by a full class) ──────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-1")
 def test_spot_filled_renders_placeholders_for_a_superseded_request(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.notification_service import _add_player_to_instance

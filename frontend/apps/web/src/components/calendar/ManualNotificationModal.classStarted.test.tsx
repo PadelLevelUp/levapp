@@ -49,7 +49,7 @@ async function send(onClose: () => void) {
       existingPlayerIds={[]}
     />
   );
-  await screen.findByText("All students");
+  await screen.findByText("settings.notificationGroups.labels.allStudents");
   fireEvent.change(screen.getByPlaceholderText("calendar.notify.searchPlaceholder"), { target: { value: "R" } });
   fireEvent.click(await screen.findByText("Rui Fine", { exact: true }));
   fireEvent.click(screen.getByRole("button", { name: /calendar\.notify\.sendToCount|calendar\.notify\.send$/ }));
@@ -63,7 +63,7 @@ beforeEach(() => {
 });
 
 describe("the class started while the picker was open (PAD-798)", () => {
-  it("409 CLASS_STARTED reads 'invitations are closed' and closes the picker", async () => {
+  it("[NOTIFICATIONS-MANUAL-4] 409 CLASS_STARTED reads 'invitations are closed' and closes the picker", async () => {
     api.sendManualNotifications.mockRejectedValue(refusal(409, "CLASS_STARTED"));
     const onClose = vi.fn();
     await send(onClose);
@@ -72,7 +72,7 @@ describe("the class started while the picker was open (PAD-798)", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("any other failure keeps the generic message", async () => {
+  it("[NOTIFICATIONS-MANUAL-4] any other failure keeps the generic message", async () => {
     api.sendManualNotifications.mockRejectedValue(refusal(500));
     await send(vi.fn());
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("calendar.notify.failedSendInvitations"));

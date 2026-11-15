@@ -4,6 +4,7 @@
 layer's own record. Two enrolled players, one reminded: only that one carries a
 timestamp, on every endpoint that serialises presences.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -43,6 +44,7 @@ def _bearer(app, user_id):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-4")
 def test_only_the_reminded_player_carries_reminder_sent_at(app, client):
     from padel_app.services.notification_service import send_class_reminders
     from padel_app.models import Presence
@@ -88,6 +90,7 @@ def test_only_the_reminded_player_carries_reminder_sent_at(app, client):
     assert by_player[quiet_id]["reminderSentAt"] is None
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-4")
 def test_an_invitation_counts_as_a_message_that_reached_the_player(app, client):
     from padel_app.models import (
         Conversation,
@@ -104,9 +107,7 @@ def test_an_invitation_counts_as_a_message_that_reached_the_player(app, client):
         # PAD-330: enrolling a student now writes a message telling them, so the
         # coach-student thread already exists by the time this runs. Building one
         # by hand collided with it; get-or-create is what production does.
-        from padel_app.services.notification_service import (
-            _get_or_create_direct_conversation,
-        )
+        from padel_app.services.system_messages import _get_or_create_direct_conversation
 
         conv = _get_or_create_direct_conversation(
             ids["coach_user_id"], ids["student_user_id"]

@@ -86,7 +86,7 @@ beforeEach(() => {
 });
 
 describe("a full class (PAD-664)", () => {
-  it("offers the waiting list, never the join request; joining calls the API and flips to 'on'", async () => {
+  it("[CALENDAR-VIEW-21] offers the waiting list, never the join request; joining calls the API and flips to 'on'", async () => {
     const ev = event();
     const invalidate = renderSheet(ev);
     const join = await screen.findByTestId("class-waiting-list-join");

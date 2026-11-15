@@ -25,6 +25,7 @@ def csb(sb):  # noqa: F811
     return sb
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-20")
 def test_two_copies_after_the_swap(csb):
     live(csb, "padelapp", 5000)
     r, calls = run(csb, "--copies", "2")
@@ -34,6 +35,7 @@ def test_two_copies_after_the_swap(csb):
     assert "copies 2" in r.stdout and "padelapp_b serves on 127.0.0.1:5000" in r.stdout
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-20")
 def test_the_last_deploys_second_copy_gives_back_its_port_first(csb):
     live(csb, "padelapp", 5000)
     live(csb, "padelapp_b", 5002)
@@ -43,6 +45,7 @@ def test_the_last_deploys_second_copy_gives_back_its_port_first(csb):
     assert containers(csb) == {"padelapp": "5002", "padelapp_b": "5000"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-20")
 def test_both_copies_serve_through_the_migrate_step(csb):
     live(csb, "padelapp", 5000)
     live(csb, "padelapp_b", 5002)
@@ -51,6 +54,7 @@ def test_both_copies_serve_through_the_migrate_step(csb):
     assert index(calls, "docker run --rm --name padelapp_migrate") < index(calls, "docker stop -t 10 padelapp_b")
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-20")
 def test_one_copy_removes_a_leftover_second(csb):
     live(csb, "padelapp", 5000)
     live(csb, "padelapp_b", 5002)
@@ -60,6 +64,7 @@ def test_one_copy_removes_a_leftover_second(csb):
     assert containers(csb) == {"padelapp": "5002"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-20")
 def test_stop_first_never_runs_a_second_copy(csb):
     live(csb, "padelapp", 5000)
     live(csb, "padelapp_b", 5002)
@@ -69,6 +74,7 @@ def test_stop_first_never_runs_a_second_copy(csb):
     assert containers(csb) == {"padelapp": "5000"}, "and no old second copy left serving the old release"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-20")
 def test_a_sick_second_copy_is_removed_and_the_run_is_red(csb):
     live(csb, "padelapp", 5000)
     r, calls = run(csb, "--copies", "2", STUB_SICK="padelapp_b")

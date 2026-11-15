@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("phone navigation (admin.phone-console rule 2)", () => {
-  it("desktop keeps the sidebar and renders no top bar or menu button", async () => {
+  it("[ADMIN-PHONE-CONSOLE-4] desktop keeps the sidebar and renders no top bar or menu button", async () => {
     setPhoneViewport(false);
     renderShell("operator");
     expect(screen.getByTestId("admin-sidebar")).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("phone navigation (admin.phone-console rule 2)", () => {
     expect(screen.queryByTestId("admin-nav-drawer")).not.toBeInTheDocument();
   });
 
-  it("support sees the read-only badge in the drawer", () => {
+  it("[ADMIN-PHONE-CONSOLE-3] support sees the read-only badge in the drawer", () => {
     setPhoneViewport(true);
     renderShell("support");
     fireEvent.click(screen.getByTestId("admin-menu-button"));

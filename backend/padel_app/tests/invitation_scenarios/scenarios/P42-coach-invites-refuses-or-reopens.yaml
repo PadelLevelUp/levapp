@@ -1,0 +1,77 @@
+id: P42
+title: the coach's invitation by hand refuses with a reason or reopens the row
+source: {section: "Plano §5 Group 0, the coach's list; engine-answers rule 15 (PAD-932, the owner's decision 17)", lines: [120, 120]}
+what_it_tests: a coach's invitation by hand is refused for no open spot, the same hour or a counting invitation, and reopens a row answered No or no longer counting
+tags: [groups, multi-class]
+derived_from: [D1, D17]
+corrections: []
+notes: >
+  Not a PDF or plan scenario: a P file for engine-answers rule 15 (ANSWERS-31; S's e43cfee2c). One right
+  spot. BUSY joins class B, at the same hour, before invitations start. At 19:00 HOLD and NOPE are invited
+  (group 3; nobody else plays right and no other-side group is set). NOPE says No. At 19:20 the coach invites
+  by hand: LEFTY (left only) is refused no_open_spot, BUSY same_hour, HOLD already_invited (it still
+  counts), and NOPE's row is reopened as a coach's-list invitation with a new invitation message (one row,
+  D1). At 20:10, HOLD's invitation has stopped counting (T 60m), so the coach's invitation reopens it too;
+  HOLD's Yes takes the spot. The refusal for a student already in the class is ANSWERS-31's unit test.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 3}
+other_classes:
+  - {id: B, level: 3, capacity: 8, start: 2026-11-03 10:30, regulars: {L: 4, R: 3}}
+students:
+  - {id: LEFTY, level: 3, side: L}
+  - {id: BUSY, level: 3, side: R}
+  - {id: HOLD, level: 3, side: R, participations: 1}
+  - {id: NOPE, level: 3, side: R, participations: 2}
+
+timeline:
+  - at: 2026-11-01 18:00
+    events:
+      - {other_class: B, event: {joins_directly: BUSY}}
+    expect:
+      invitations: none
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: HOLD, side_named: null, group: 3}
+        - {who: NOPE, side_named: null, group: 3}
+  - at: 2026-11-01 19:10
+    events: [{declines: NOPE}]
+    expect:
+      nothing_sent: true
+  - at: 2026-11-01 19:20
+    events:
+      - {coach_invites: LEFTY}
+      - {coach_invites: BUSY}
+      - {coach_invites: HOLD}
+      - {coach_invites: NOPE}
+    expect:
+      refused:
+        - {who: LEFTY, action: coach_invite, reason: no_open_spot}
+        - {who: BUSY, action: coach_invite, reason: same_hour}
+        - {who: HOLD, action: coach_invite, reason: already_invited}
+      invitations: [{who: NOPE, side_named: null, group: 1}]
+      messages: [{who: NOPE, kind: invite}]
+      open_unanswered: 2
+  - at: 2026-11-01 20:10
+    events: [{coach_invites: HOLD}]
+    expect:
+      invitations: [{who: HOLD, side_named: null, group: 1}]
+      messages: [{who: HOLD, kind: invite}]
+  - at: 2026-11-01 20:15
+    events: [{accepts: HOLD}]
+    expect:
+      placed: [{who: HOLD, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 4, R: 4}
+  other_classes:
+    B: {roster: {L: 4, R: 4}}

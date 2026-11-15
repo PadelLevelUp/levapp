@@ -126,6 +126,7 @@ def test_the_models_declare_the_two_unique_indexes(app):
         assert _reflected(db.engine, "vacancies")[OPEN_VACANCY_UNIQUE]["unique"]
 
 
+@pytest.mark.criterion("CLASSES-INSTANCES-7")
 def test_a_second_instance_for_the_same_occurrence_is_refused_but_null_dates_are_not_covered(app):
     with app.app_context():
         w = _world()
@@ -141,6 +142,7 @@ def test_a_second_instance_for_the_same_occurrence_is_refused_but_null_dates_are
         db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-86")
 def test_a_second_open_vacancy_for_the_same_departing_player_is_refused_but_closed_and_structural_ones_are_not(app):
     with app.app_context():
         w = _world()
@@ -168,6 +170,7 @@ def _release():
 
 
 @postgres_only
+@pytest.mark.criterion("CLASSES-INSTANCES-8")
 def test_the_migration_refuses_on_duplicates_then_applies_reapplies_downgrades_and_returns(app):
     from flask_migrate import downgrade, upgrade
 
@@ -265,6 +268,7 @@ def _run(engine, step):
 
 
 @pytest.mark.parametrize("already_there", [(), (OCCURRENCE_UNIQUE,), (OPEN_VACANCY_UNIQUE,)])
+@pytest.mark.criterion("CLASSES-INSTANCES-8")
 def test_upgrade_and_downgrade_are_guarded_and_idempotent(app, tmp_path, already_there):
     """Staging is a prod copy (PAD-200) and has carried indexes no revision created
     (PAD-204's crash-loop): every create and drop is guarded, so the revision

@@ -20,18 +20,18 @@ describe("with-google-services (PAD-355)", () => {
     expect(fcmRequested({})).toBe(false);
   });
 
-  it("without the flag there is no Firebase, even if a file is lying around", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-31] without the flag there is no Firebase, even if a file is lying around", () => {
     expect(resolveGoogleServicesFile(ROOT, {}, present(LOCAL))).toBeNull();
     expect(resolveGoogleServicesFile(ROOT, { [PATH_VAR]: "/tmp/gs.json" }, present("/tmp/gs.json"))).toBeNull();
   });
 
-  it("with the flag, $GOOGLE_SERVICES_JSON wins (CI writes the secret there)", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-31] with the flag, $GOOGLE_SERVICES_JSON wins (CI writes the secret there)", () => {
     expect(resolveGoogleServicesFile(ROOT, { [FLAG]: "1", [PATH_VAR]: "/tmp/gs.json" }, present("/tmp/gs.json", LOCAL))).toBe(
       "/tmp/gs.json",
     );
   });
 
-  it("with the flag and no variable, the operator's copy in docs/infra is used", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-31] with the flag and no variable, the operator's copy in docs/infra is used", () => {
     expect(resolveGoogleServicesFile(ROOT, { [FLAG]: "1" }, present(LOCAL))).toBe(path.resolve(LOCAL));
   });
 

@@ -30,7 +30,7 @@ describe("the store link (rule 2)", () => {
     expect(APP_STORE_URL).toBe("https://apps.apple.com/app/id6794271800");
   });
 
-  it("the Smart App Banner meta tag in index.html carries the same id (rule 5, R-029)", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-5] the Smart App Banner meta tag in index.html carries the same id (rule 5, R-029)", () => {
     const html = fs.readFileSync(
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../apps/web/index.html"),
       "utf8"
@@ -54,14 +54,14 @@ describe("iPhone-class user agents (rule 1)", () => {
 });
 
 describe("the audience (rule 1)", () => {
-  it("a student on an iPhone", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-1] a student on an iPhone", () => {
     expect(suggestsIosApp({ roles: ["player"] }, IPHONE)).toBe(true);
   });
-  it("a coach on an iPhone never", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-3] a coach on an iPhone never", () => {
     expect(suggestsIosApp({ roles: ["coach"] }, IPHONE)).toBe(false);
     expect(suggestsIosApp({ roles: ["coach", "player"] }, IPHONE)).toBe(false);
   });
-  it("a student on Android or desktop never", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-3] a student on Android or desktop never", () => {
     expect(suggestsIosApp({ roles: ["player"] }, ANDROID)).toBe(false);
     expect(suggestsIosApp({ roles: ["player"] }, DESKTOP)).toBe(false);
   });
@@ -91,7 +91,7 @@ describe("the 30-day dismissal on the device (rule 3)", () => {
     expect(INSTALL_SUGGESTION_STORAGE_KEY).toBe("levapp.installSuggestion.dismissedAt");
   });
 
-  it("not dismissed until dismissed; then hidden for 30 days, back on the 31st", () => {
+  it("[MOBILE-INSTALL-SUGGESTION-2] not dismissed until dismissed; then hidden for 30 days, back on the 31st", () => {
     const storage = memoryStorage();
     const d = installSuggestionDismissal(storage);
     const t0 = Date.UTC(2026, 9, 9, 12, 0, 0);

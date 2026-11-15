@@ -1,0 +1,40 @@
+id: 62
+title: um regular volta atrás e a vaga está livre
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1393, 1408]}
+what_it_tests: o regular tem prioridade sobre os convites abertos enquanto ninguém aceitou a vaga
+tags: [regulars, absences, aviso, rounds]
+depends_on: [U29, U25]
+corrections: []
+notes: >
+  The regular is R-1. "A falta desaparece" is encoded as an absence of kind none at 12:00. The 12:10 Aviso
+  only exists if open invitations survive the class filling (today's engine retires them at the fill, rules
+  15/15a), so the step rides on U25 as well as on U29.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 10:00
+    events: [{regular_no: R-1}]
+    expect:
+      absences: [{who: R-1, kind: justified}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 10:20
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-02 12:00
+    events: [{regular_returns: R-1}]
+    expect:
+      placed: [{who: R-1, side: R, how: regular_returns}]
+      absences: [{who: R-1, kind: none}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 12:10
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      messages: [{who: r1, kind: aviso}]
+      roster: {L: 8, R: 8}
+final:
+  roster: {L: 8, R: 8}

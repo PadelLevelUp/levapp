@@ -8,6 +8,7 @@ late-cancel/late-return notices and the `{when}` of `added_to_class`; dating an
 occurrence there fixes every one. A series stays undated: a recurring enrolment has
 no single day.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -36,12 +37,15 @@ def _quiet(monkeypatch):
     monkeypatch.setattr("padel_app.utils.push_notifications.send_push_notification", lambda **kw: None)
     monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda user_id, **kw: None)
     monkeypatch.setattr("padel_app.services.notification_service.publish", lambda event, recipients: None)
+    monkeypatch.setattr("padel_app.services.system_messages.publish", lambda event, recipients: None)
+    monkeypatch.setattr("padel_app.realtime.publish", lambda event, recipients: None)
 
 
 # ── the formatter ─────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-11")
 def test_the_formatter_dates_an_occurrence_and_not_a_series(app):
-    from padel_app.services.notification_service import _format_class_when, _format_when
+    from padel_app.services.message_text import _format_class_when, _format_when
 
     saturday = datetime(2027, 4, 10, 18, 0)
     assert _format_when(saturday, "pt", dated=True) == " no dia 10/04 (sábado) às 18:00"
@@ -62,10 +66,11 @@ def test_the_formatter_dates_an_occurrence_and_not_a_series(app):
 
 # ── the waiting-list join notice (the ticket) ─────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-11")
 def test_a_waiting_list_join_tells_the_coach_the_day(app, monkeypatch):
     from padel_app.models import Coach, LessonInstance, Message
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.tests.test_pad358_academy_classes import _add_class, _join, _setup
 
     _quiet(monkeypatch)
@@ -84,10 +89,11 @@ def test_a_waiting_list_join_tells_the_coach_the_day(app, monkeypatch):
     assert texts[0].endswith(f"entrou na lista de espera de Sábado 18h{_dated(start)}."), texts[0]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-11")
 def test_an_english_coach_reads_the_day_too(app, monkeypatch):
     from padel_app.models import Coach, LessonInstance, Message
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.tests.test_pad358_academy_classes import _add_class, _join, _setup
 
     _quiet(monkeypatch)
@@ -110,6 +116,7 @@ def test_an_english_coach_reads_the_day_too(app, monkeypatch):
 
 # ── the join-request notices share the formatter ──────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-12")
 def test_a_refused_join_request_names_the_day(app, monkeypatch):
     from padel_app.models import LessonInstance
     from padel_app.tests.test_pad131_join_requests import (
@@ -140,6 +147,7 @@ def test_a_refused_join_request_names_the_day(app, monkeypatch):
 
 # ── `{when}` in added_to_class: dated for one occurrence, not for a series ────
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-13")
 def test_added_to_a_series_stays_undated_but_an_occurrence_is_dated(app):
     from padel_app.models import LessonInstance
     from padel_app.services.lesson_service import create_lesson_helper, edit_lesson_helper, enrol

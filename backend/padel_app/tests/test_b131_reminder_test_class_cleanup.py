@@ -5,7 +5,7 @@ B-131 — the reminder debug endpoint's cleanup counterpart.
 + LessonInstance titled ``REMINDER_TEST_CLASS_TITLE`` at club-now + 48h and
 nothing ever removed it — five E2E specs called it and none cleaned up, so the
 leaked classes eventually overlapped a seeded slot (see
-.cortex/compass/bugs/B-131-a-debug-endpoints-test-class-was-never-removed.md).
+cortex/history/incidents/2026-09-22-a-debug-endpoints-test-class-was-never-removed.md).
 
 This pins the new sibling route, ``POST
 /api/app/notify/debug/schedule_reminder_test/cleanup``, which deletes every

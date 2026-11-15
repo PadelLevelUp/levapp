@@ -38,14 +38,14 @@ function mount() {
 }
 
 describe("a session's cached data ends with it (PAD-716)", () => {
-  it("logout empties the query cache", () => {
+  it("[AUTH-LOGOUT-6] logout empties the query cache", () => {
     const { qc, auth } = mount();
     act(() => auth().logout());
     expect(qc.getQueryData(["auth-me"])).toBeUndefined();
     expect(qc.getQueryData(["conversations"])).toBeUndefined();
   });
 
-  it("signing in as someone else starts from an empty cache", async () => {
+  it("[AUTH-LOGOUT-6] signing in as someone else starts from an empty cache", async () => {
     const { qc, auth } = mount();
     let cachedWhenReadingMe: unknown = "not read";
     getMe.mockImplementationOnce(async () => {

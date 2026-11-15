@@ -53,7 +53,7 @@ const hero = (alsoRunning?: ReturnType<typeof card>[]) =>
   }) as unknown as DashboardNextClassBlock;
 
 describe("two classes running at once on the coach's home (PAD-797)", () => {
-  it("shows one A DECORRER card per running class, each with its own times", () => {
+  it("[DASHBOARD-BLOCKS-34] shows one A DECORRER card per running class, each with its own times", () => {
     render(<MemoryRouter><NextClassHero block={hero([card("lessoninstance-2", "Treino B", "20:00", "21:00")])} /></MemoryRouter>);
 
     const first = screen.getByTestId("dashboard-next-class");
@@ -65,7 +65,7 @@ describe("two classes running at once on the coach's home (PAD-797)", () => {
     expect(other).not.toHaveTextContent("Treino A");
   });
 
-  it("each card opens its own class, and none offers an invite", () => {
+  it("[DASHBOARD-BLOCKS-34] each card opens its own class, and none offers an invite", () => {
     render(<MemoryRouter><NextClassHero block={hero([card("lessoninstance-2", "Treino B", "20:00", "21:00")])} /></MemoryRouter>);
 
     const other = screen.getByTestId("dashboard-next-class-running");
@@ -77,7 +77,7 @@ describe("two classes running at once on the coach's home (PAD-797)", () => {
     ]);
   });
 
-  it("one running class is a single card, as in PAD-792", () => {
+  it("[DASHBOARD-BLOCKS-34] one running class is a single card, as in PAD-792", () => {
     render(<MemoryRouter><NextClassHero block={hero()} /></MemoryRouter>);
 
     expect(screen.getByTestId("dashboard-next-class")).toHaveTextContent("Treino A");

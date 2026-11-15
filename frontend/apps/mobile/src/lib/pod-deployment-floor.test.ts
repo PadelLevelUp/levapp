@@ -13,7 +13,7 @@ const { BEGIN, END, FLOOR, applyPodDeploymentFloor } = require("../../plugins/po
 const TEMPLATE = readFileSync(join(__dirname, "__fixtures__", "sdk54-template.Podfile"), "utf8");
 
 describe("pod deployment floor (PAD-467)", () => {
-  it("lifts pods below the floor, as the last step of post_install, and changes nothing else", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-7] lifts pods below the floor, as the last step of post_install, and changes nothing else", () => {
     const out: string = applyPodDeploymentFloor(TEMPLATE);
     expect(FLOOR).toBe("15.1");
     const lines: string[] = out.split("\n");
@@ -34,7 +34,7 @@ describe("pod deployment floor (PAD-467)", () => {
     expect([...lines.slice(0, first), ...lines.slice(last + 1)].join("\n")).toBe(TEMPLATE);
   });
 
-  it("is idempotent: a second prebuild adds nothing", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-7] is idempotent: a second prebuild adds nothing", () => {
     const once: string = applyPodDeploymentFloor(TEMPLATE);
     expect(applyPodDeploymentFloor(once)).toBe(once);
     expect(once.split(BEGIN).length - 1).toBe(1);

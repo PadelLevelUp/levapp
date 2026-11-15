@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 describe("GoogleSignInButton", () => {
-  it("renders nothing when VITE_GOOGLE_WEB_CLIENT_ID is unset", () => {
+  it("[AUTH-SOCIAL-SIGN-IN-7] renders nothing when VITE_GOOGLE_WEB_CLIENT_ID is unset", () => {
     vi.stubEnv("VITE_GOOGLE_WEB_CLIENT_ID", "");
     const { container } = render(<GoogleSignInButton onResult={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();

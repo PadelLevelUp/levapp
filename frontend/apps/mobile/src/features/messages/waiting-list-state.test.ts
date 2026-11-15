@@ -26,7 +26,7 @@ describe("waitingListOfferState", () => {
     expect(waitingListOfferState(null).showResponseButtons).toBe(true);
   });
 
-  it("shows joined once the student answered yes", () => {
+  it("[NOTIFICATIONS-WAITING-LIST-5] shows joined once the student answered yes", () => {
     const s = waitingListOfferState({ responded: true, response: "yes" });
 
     expect(s.joined).toBe(true);
@@ -35,7 +35,7 @@ describe("waitingListOfferState", () => {
     expect(s.showResponseButtons).toBe(false);
   });
 
-  it("shows declined once the student answered no", () => {
+  it("[NOTIFICATIONS-WAITING-LIST-8] shows declined once the student answered no", () => {
     const s = waitingListOfferState({ responded: true, response: "no" });
 
     expect(s.declined).toBe(true);
@@ -92,14 +92,14 @@ describe("waitingListOfferState", () => {
 });
 
 describe("waitingListResponseOutcome", () => {
-  it("records a yes when the server queued the student", () => {
+  it("[NOTIFICATIONS-WAITING-LIST-5] records a yes when the server queued the student", () => {
     expect(waitingListResponseOutcome("added_to_waiting_list")).toEqual({
       write: "yes",
       toastKey: null,
     });
   });
 
-  it("records a no when the server took the decline", () => {
+  it("[NOTIFICATIONS-WAITING-LIST-8] records a no when the server took the decline", () => {
     expect(waitingListResponseOutcome("declined")).toEqual({
       write: "no",
       toastKey: null,

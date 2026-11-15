@@ -68,6 +68,7 @@ def _signed_in_id(app, res):
 
 # ── choosing a username ───────────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-REGISTER-1")
 def test_a_mixed_case_sign_up_is_saved_lowercase(client, app):
     from padel_app.models import User
 
@@ -78,6 +79,7 @@ def test_a_mixed_case_sign_up_is_saved_lowercase(client, app):
 
 
 @pytest.mark.parametrize("typed", ["Bernardo", "BERNARDO", "bernardo"])
+@pytest.mark.criterion("AUTH-REGISTER-2")
 def test_a_sign_up_differing_only_by_case_is_taken(client, app, typed):
     _user(app, "bernardo")
     res = _register(client, typed)
@@ -94,6 +96,7 @@ def test_the_availability_check_ignores_case(client, app):
     assert res.status_code == 409, res.get_json()
 
 
+@pytest.mark.criterion("AUTH-REGISTER-2")
 def test_activation_saves_the_chosen_username_lowercase_and_refuses_one_taken_by_case(client, app):
     from padel_app.tests.test_pad254_activation_token import _inactive_user
     from padel_app.tests.test_pad761_activation_email_taken import _activate
@@ -108,6 +111,7 @@ def test_activation_saves_the_chosen_username_lowercase_and_refuses_one_taken_by
     assert _stored(app, uid) == "bruno.activa"
 
 
+@pytest.mark.criterion("AUTH-REGISTER-2")
 def test_a_player_invitation_saves_the_username_lowercase_and_refuses_one_taken_by_case(client, app):
     from padel_app.tests.test_player_invitation import _auth_header, make_coach
 
@@ -124,6 +128,7 @@ def test_a_player_invitation_saves_the_username_lowercase_and_refuses_one_taken_
     assert _stored(app, _signed_in_id(app, ok)) == "invited.player"
 
 
+@pytest.mark.criterion("AUTH-REGISTER-2")
 def test_a_coach_invitation_saves_the_username_lowercase_and_refuses_one_taken_by_case(client, app):
     from padel_app.tests.test_coach_invitation import _make_coach_with_club, _make_invitation
 
@@ -143,6 +148,7 @@ def test_a_coach_invitation_saves_the_username_lowercase_and_refuses_one_taken_b
 # ── looking a username up ─────────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("typed", ["Bernardo", "BERNARDO", " bernardo "])
+@pytest.mark.criterion("AUTH-LOGIN-1")
 def test_a_mixed_case_sign_in_finds_the_account(client, app, typed):
     uid = _user(app, "bernardo")
     res = _login(client, typed)
@@ -150,6 +156,7 @@ def test_a_mixed_case_sign_in_finds_the_account(client, app, typed):
     assert _signed_in_id(app, res) == uid
 
 
+@pytest.mark.criterion("AUTH-LOGIN-1")
 def test_a_stored_mixed_case_username_signs_in_in_any_case(client, app):
     """An account saved before PAD-799 with capitals ("Joana") signs in as "joana" too."""
     uid = _user(app, "Joana")
@@ -158,6 +165,7 @@ def test_a_stored_mixed_case_username_signs_in_in_any_case(client, app):
     assert _signed_in_id(app, res) == uid
 
 
+@pytest.mark.criterion("AUTH-LOGIN-2")
 def test_a_pair_differing_only_by_case_each_signs_into_its_own_account(client, app):
     """PIN (green before and after; the guard on the three-step lookup). Two accounts from before
     PAD-799 ("Bernardo" and "bernardo"): each spelling reaches its own
@@ -195,6 +203,7 @@ def test_a_claim_by_username_finds_each_of_a_pair_by_its_spelling(app):
         assert _resolve_target_student("bernardo").id == lower
 
 
+@pytest.mark.criterion("AUTH-LOGIN-2")
 def test_find_user_by_username_three_steps(app):
     from padel_app.tools.username_tools import find_user_by_username, normalize_username, username_taken
 

@@ -45,7 +45,7 @@ function renderList(onOpen = vi.fn()) {
 }
 
 describe("ParticipantGroups (rule 22)", () => {
-  it("renders the non-empty groups in order with their counts", () => {
+  it("[CALENDAR-EVENT-DETAIL-5] renders the non-empty groups in order with their counts", () => {
     renderList();
     const groups = screen.getAllByTestId("participant-group");
     expect(groups.map((g) => g.getAttribute("data-group"))).toEqual(["going", "not_going"]);
@@ -53,7 +53,7 @@ describe("ParticipantGroups (rule 22)", () => {
     expect(within(groups[1]).getByText("calendar.participants.group.not_going:1")).toBeTruthy();
   });
 
-  it("orders a group by side and keeps the stored state on the row", () => {
+  it("[CALENDAR-EVENT-DETAIL-1] orders a group by side and keeps the stored state on the row", () => {
     renderList();
     const going = screen.getAllByTestId("participant-group")[0];
     const rows = within(going).getAllByTestId(/^participant-row-/);
@@ -61,7 +61,7 @@ describe("ParticipantGroups (rule 22)", () => {
     expect(rows[0].getAttribute("data-state")).toBe("attended");
   });
 
-  it("shows the side chip with its long form as the tooltip, and no level or state word", () => {
+  it("[CALENDAR-EVENT-DETAIL-1] shows the side chip with its long form as the tooltip, and no level or state word", () => {
     renderList();
     const row = screen.getByTestId("participant-row-1");
     const chip = within(row).getByTestId("participant-side");
@@ -86,12 +86,31 @@ describe("ParticipantGroups (rule 22)", () => {
     expect(chip.textContent).toBe("calendar.participants.sideShort.both_left");
     expect(chip.getAttribute("title")).toBe("calendar.participants.sideLong.both_left");
     expect(chip.getAttribute("data-side-assigned")).toBe("left");
-    // A left player carrying an assignedSide is not a both player: the label stays today's.
+    // A left player with no assignedSide keeps today's label.
     const left = within(screen.getByTestId("participant-row-1")).getByTestId("participant-side");
     expect(left.textContent).toBe("calendar.participants.sideShort.left");
   });
 
-  it("opens the pop-up from the name or avatar button, not from the chip", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-42] a left player placed on a right spot reads Esq → Dir; on the left, today's label", () => {
+    const onRight = presences.map((p) => (p.playerId === "1" ? { ...p, assignedSide: "right" } : p));
+    const { unmount } = render(
+      <ParticipantGroups participants={participants as never} presences={onRight as never} roster={roster as never} onOpen={vi.fn()} />
+    );
+    const chip = within(screen.getByTestId("participant-row-1")).getByTestId("participant-side");
+    expect(chip.textContent).toBe("calendar.participants.sideShort.left_right");
+    expect(chip.getAttribute("title")).toBe("calendar.participants.sideLong.left_right");
+    expect(chip.getAttribute("data-side-assigned")).toBe("right");
+    unmount();
+    const onLeft = presences.map((p) => (p.playerId === "1" ? { ...p, assignedSide: "left" } : p));
+    render(
+      <ParticipantGroups participants={participants as never} presences={onLeft as never} roster={roster as never} onOpen={vi.fn()} />
+    );
+    const same = within(screen.getByTestId("participant-row-1")).getByTestId("participant-side");
+    expect(same.textContent).toBe("calendar.participants.sideShort.left");
+    expect(same.getAttribute("data-side-assigned")).toBeNull();
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-7] opens the pop-up from the name or avatar button, not from the chip", () => {
     const onOpen = renderList();
     fireEvent.click(within(screen.getByTestId("participant-row-1")).getByTestId("participant-side"));
     expect(onOpen).not.toHaveBeenCalled();

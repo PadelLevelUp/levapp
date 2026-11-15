@@ -130,10 +130,12 @@ def _anas_bar_admits_rui(app, *, absent_with):
         return passes_eligibility(_cp(ids["coach_id"], rui), instance, ids["coach_id"], rules)
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-11")
 def test_two_justified_absences_with_another_coach_do_not_fail_this_coachs_bar(app):
     assert _anas_bar_admits_rui(app, absent_with="bruno") is True
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-11")
 def test_control_two_justified_absences_with_this_coach_fail_the_bar(app):
     assert _anas_bar_admits_rui(app, absent_with="ana") is False
 

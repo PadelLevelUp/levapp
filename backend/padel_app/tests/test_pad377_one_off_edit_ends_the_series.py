@@ -116,6 +116,7 @@ def test_the_fixture_repeats_on_the_four_mondays(app):
 
 # ── explicit isRecurring: false ends the series ──────────────────────────────
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-4")
 def test_a_block_edited_to_one_off_loses_its_rule_and_end_date(client, app):
     user_id, block_id = _weekly_block(app)
     res = client.put(f"/api/app/calendar_block/{block_id}", headers=_auth_header(app, user_id), json=ONE_OFF)
@@ -125,6 +126,7 @@ def test_a_block_edited_to_one_off_loses_its_rule_and_end_date(client, app):
     assert (row["is_recurring"], row["rule"], row["end"]) == (False, None, None)
 
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-4")
 def test_a_block_edited_to_one_off_is_served_on_one_day(client, app):
     """The regression: the response said one-off, the feed kept serving all four Mondays."""
     user_id, block_id = _weekly_block(app)
@@ -150,6 +152,7 @@ def test_a_students_unavailability_made_one_off_stops_excluding_them_every_week(
 
 # ── an absent key changes nothing about recurrence ───────────────────────────
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-4")
 def test_an_edit_that_omits_isRecurring_leaves_flag_rule_and_end_date_alone(client, app):
     """`data.get("isRecurring", False)` flipped the flag of a block still meant to be weekly."""
     user_id, block_id = _weekly_block(app)

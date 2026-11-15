@@ -73,6 +73,7 @@ def _analyze(app, client, user_id):
         return _events(res), llm
 
 
+@pytest.mark.criterion("IMPORT-ANALYZE-2")
 def test_analysis_maps_spreadsheet_levels_onto_the_coachs_existing_levels(app, client):
     user_id = _seed(app)
     events, llm = _analyze(app, client, user_id)
@@ -90,6 +91,7 @@ def test_analysis_maps_spreadsheet_levels_onto_the_coachs_existing_levels(app, c
     assert any(c.kwargs.get("label") == "map_levels" for c in llm.call_args_list)
 
 
+@pytest.mark.criterion("IMPORT-ANALYZE-2")
 def test_analysis_without_existing_levels_still_streams_tables(app, client):
     """A coach with no ladder yet gets players with their level left unmapped, no error."""
     from padel_app.models.coaches import Coach

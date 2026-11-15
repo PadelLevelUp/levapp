@@ -87,7 +87,7 @@ describe("Escala de avaliações (iOS)", () => {
     expect(registry.hasUnsaved()).toBe(false);
   });
 
-  it("a failed Save keeps the choice held and unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed Save keeps the choice held and unsaved", async () => {
     hooks.data = { scaleMax: 20 };
     hooks.mutateAsync.mockRejectedValue(new Error("offline"));
     const n = await mount();
@@ -100,7 +100,7 @@ describe("Escala de avaliações (iOS)", () => {
     expect(registry.hasUnsaved()).toBe(true);
   });
 
-  it("choosing a scale and back is clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] choosing a scale and back is clean", async () => {
     hooks.data = { scaleMax: 5 };
     const n = await mount();
 

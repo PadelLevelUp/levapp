@@ -124,6 +124,7 @@ def index(calls, prefix):
     return next(i for i, c in enumerate(calls) if c.startswith(prefix))
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-4")
 def test_the_new_container_is_healthy_before_the_old_one_stops(sb):
     live(sb, "padelapp", 5000)
     r, calls = run(sb)
@@ -136,6 +137,7 @@ def test_the_new_container_is_healthy_before_the_old_one_stops(sb):
     assert containers(sb) == {"padelapp": "5002"}, "the stable name serves on the other port"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-4")
 def test_ports_alternate_across_deploys(sb):
     live(sb, "padelapp", 5002)
     r, _ = run(sb)
@@ -143,6 +145,7 @@ def test_ports_alternate_across_deploys(sb):
     assert containers(sb) == {"padelapp": "5000"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-17")
 def test_an_unhealthy_new_container_is_removed_and_the_old_keeps_serving(sb):
     live(sb, "padelapp", 5000)
     r, calls = run(sb, STUB_NEW_IS_HEALTHY="0")
@@ -152,6 +155,7 @@ def test_an_unhealthy_new_container_is_removed_and_the_old_keeps_serving(sb):
     assert containers(sb) == {"padelapp": "5000"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-17")
 def test_a_crash_looping_new_container_fails_fast(sb):
     live(sb, "padelapp", 5000)
     r, calls = run(sb, STUB_NEW_IS_HEALTHY="0", STUB_RESTARTS="2")
@@ -160,6 +164,7 @@ def test_a_crash_looping_new_container_fails_fast(sb):
     assert containers(sb) == {"padelapp": "5000"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-24")
 def test_without_the_upstream_on_the_host_it_falls_back_to_stop_first(sb):
     sb["upstream"].unlink()
     live(sb, "padelapp", 5000)
@@ -192,6 +197,7 @@ def test_a_leftover_next_container_is_cleared_first(sb):
     assert containers(sb) == {"padelapp": "5002"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-24")
 def test_an_upstream_no_vhost_uses_still_means_stop_first(sb):
     (sb["sites"] / "levapp").write_text("location /api/ {\n    proxy_pass http://127.0.0.1:5000;\n}\n")
     live(sb, "padelapp", 5000)
@@ -201,6 +207,7 @@ def test_an_upstream_no_vhost_uses_still_means_stop_first(sb):
     assert containers(sb) == {"padelapp": "5000"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-23")
 def test_a_vhost_enabled_by_symlink_is_seen_and_the_deploy_rolls(sb, tmp_path):
     """B-662: Debian's sites-enabled holds symlinks into sites-available. GNU `grep -r` skips a
     symlink met while recursing, so every deploy after the host apply fell back to stop-first."""
@@ -223,6 +230,7 @@ def migrate_call(calls):
     return next(c for c in calls if c.startswith("docker run --rm --name padelapp_migrate"))
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-5")
 def test_the_migrate_step_runs_before_the_new_container_while_the_old_one_serves(sb):
     live(sb, "padelapp", 5000)
     r, calls = run(sb, "--migrate")
@@ -235,6 +243,7 @@ def test_the_migrate_step_runs_before_the_new_container_while_the_old_one_serves
     assert containers(sb) == {"padelapp": "5002"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-5")
 def test_the_migrate_container_drops_the_restart_policy_and_keeps_the_rest(sb):
     live(sb, "padelapp", 5000)
     r, calls = run(sb, "--migrate")
@@ -245,6 +254,7 @@ def test_the_migrate_container_drops_the_restart_policy_and_keeps_the_rest(sb):
     assert "-p " not in call, "the migrate container publishes no port"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-6")
 def test_a_failed_migrate_step_touches_no_api_container(sb):
     live(sb, "padelapp", 5000)
     r, calls = run(sb, "--migrate", STUB_MIGRATE_EXIT="1")
@@ -263,6 +273,7 @@ def test_without_migrate_no_migrate_container_runs(sb):
     assert not (sb["home"] / "migrate.log").exists()
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-7")
 def test_stop_first_migrates_after_the_stop(sb):
     live(sb, "padelapp", 5002)
     r, calls = run(sb, "--stop-first", "--migrate")
@@ -274,6 +285,7 @@ def test_stop_first_migrates_after_the_stop(sb):
     assert containers(sb) == {"padelapp": "5000"}, "the old container is removed once the new one is healthy"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-7")
 def test_stop_first_starts_the_old_container_again_when_the_migrate_step_fails(sb):
     live(sb, "padelapp", 5002)
     r, calls = run(sb, "--stop-first", "--migrate", STUB_MIGRATE_EXIT="1")
@@ -385,6 +397,7 @@ def test_the_staging_sync_finds_the_port_the_api_is_on():
 
 # --- B-664: nginx's fail_timeout window after "healthy" -----------------------------------------
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-18")
 def test_the_old_container_serves_for_fail_timeout_plus_one_after_the_new_is_healthy(sb):
     sb["upstream"].write_text("upstream levapp_api {\n    server 127.0.0.1:5000 max_fails=1 fail_timeout=5s;\n"
                               "    server 127.0.0.1:5002 max_fails=1 fail_timeout=7s;\n}\n")
@@ -398,6 +411,7 @@ def test_the_old_container_serves_for_fail_timeout_plus_one_after_the_new_is_hea
     assert healthy < settle < through < stopped
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-18")
 def test_fail_timeout_defaults_to_nginx_s_ten_seconds(sb):
     live(sb, "padelapp", 5000)  # the fixture's upstream lines carry no fail_timeout
     r, calls = run(sb)
@@ -406,6 +420,7 @@ def test_fail_timeout_defaults_to_nginx_s_ten_seconds(sb):
     assert "skipping the request through nginx" in r.stdout
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-18")
 def test_a_5xx_through_nginx_keeps_the_old_container_and_removes_the_new(sb):
     live(sb, "padelapp", 5000)
     r, calls = run(sb, "--probe-host", "levapp.app", STUB_NGINX_CODE="502", PROBE_TRIES="3")
@@ -416,6 +431,7 @@ def test_a_5xx_through_nginx_keeps_the_old_container_and_removes_the_new(sb):
     assert "padelapp keeps serving" in r.stdout
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-18")
 def test_a_4xx_through_nginx_counts_as_live(sb):
     live(sb, "padelapp", 5000)
     r, _ = run(sb, "--probe-host", "levapp.app", STUB_NGINX_CODE="404")
@@ -450,6 +466,7 @@ def reloads(calls):
     return [c for c in calls if c.startswith("reload ")]
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-26")
 def test_each_edge_happens_on_a_port_nginx_does_not_send_to(dsb):
     live(dsb, "padelapp", 5000)
     r, calls = run(dsb, "--drain", "--probe-host", "levapp.app")
@@ -470,6 +487,7 @@ def test_each_edge_happens_on_a_port_nginx_does_not_send_to(dsb):
     assert containers(dsb) == {"padelapp": "5002"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-27")
 def test_without_the_host_step_the_swap_is_exactly_as_before(dsb, sb):
     live(dsb, "padelapp", 5000)
     r, calls = run(dsb, "--drain", "--probe-host", "levapp.app", NGINX_DRAIN_CMD="false")
@@ -479,6 +497,7 @@ def test_without_the_host_step_the_swap_is_exactly_as_before(dsb, sb):
     assert calls.index("sleep 6") < index(calls, "docker stop -t 10 padelapp"), "B-664's wait is back"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-28")
 def test_a_failed_probe_through_nginx_leaves_both_ports_up_and_the_old_one_serving(dsb):
     live(dsb, "padelapp", 5000)
     r, calls = run(dsb, "--drain", "--probe-host", "levapp.app", STUB_NGINX_CODE="502", PROBE_TRIES="2")
@@ -490,6 +509,7 @@ def test_a_failed_probe_through_nginx_leaves_both_ports_up_and_the_old_one_servi
     assert containers(dsb) == {"padelapp": "5000"}
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-28")
 def test_an_unhealthy_new_container_leaves_no_port_down(dsb):
     live(dsb, "padelapp", 5000)
     r, calls = run(dsb, "--drain", STUB_NEW_IS_HEALTHY="0")
@@ -508,6 +528,7 @@ def test_a_down_left_by_a_killed_run_is_cleared(dsb):
     assert reloads(calls)[0] == "reload down=5002", "the live port is put back up in the same reload"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-29")
 def test_with_two_copies_the_second_copy_stops_and_boots_out_of_rotation(dsb):
     live(dsb, "padelapp", 5000)
     live(dsb, "padelapp_b", 5002)
@@ -544,6 +565,7 @@ def helper(dsb, *args, **env):
     return subprocess.run([str(HELPER), *args], env={**dsb["env"], **env}, capture_output=True, text=True, timeout=30)
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-30")
 def test_the_helper_edits_only_the_named_upstream(dsb):
     dsb["upstream"].write_text(SHARED)
     assert helper(dsb, str(dsb["upstream"]), "levapp_api_staging", "5102=down").returncode == 0
@@ -556,6 +578,7 @@ def test_the_helper_edits_only_the_named_upstream(dsb):
     assert dsb["upstream"].read_text() == SHARED
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-30")
 def test_the_helper_puts_the_file_back_when_nginx_refuses_it(dsb):
     dsb["upstream"].write_text(SHARED)
     r = helper(dsb, str(dsb["upstream"]), "levapp_api", "5000=down", STUB_NGINX_T_FAIL="1")
@@ -571,6 +594,7 @@ def test_the_helper_puts_the_file_back_when_nginx_refuses_it(dsb):
     ("{conf}", "levapp_api", "5000=drop"),
     ("{conf}", "nope", "5000=down"),
 ])
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-30")
 def test_the_helper_refuses_anything_else(dsb, tmp_path, args):
     dsb["upstream"].write_text(SHARED)
     (tmp_path / "other.conf").write_text(SHARED)

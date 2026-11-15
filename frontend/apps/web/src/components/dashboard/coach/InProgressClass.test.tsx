@@ -57,19 +57,19 @@ const row = (id: string, title: string, inProgress: boolean) => ({
 });
 
 describe("a class that has started on the coach's home (PAD-792)", () => {
-  it("the hero reads A DECORRER with start and end while it runs", () => {
+  it("[DASHBOARD-BLOCKS-32] the hero reads A DECORRER with start and end while it runs", () => {
     render(<MemoryRouter><NextClassHero block={hero(true)} /></MemoryRouter>);
     const section = screen.getByTestId("dashboard-next-class");
     expect(section).toHaveTextContent('dashboard.hero.inProgress {"start":"19:30","end":"21:00"}');
     expect(section).not.toHaveTextContent("dashboard.hero.upNext");
   });
 
-  it("before its start the hero still reads A SEGUIR", () => {
+  it("[DASHBOARD-BLOCKS-32] before its start the hero still reads A SEGUIR", () => {
     render(<MemoryRouter><NextClassHero block={hero(false)} /></MemoryRouter>);
     expect(screen.getByTestId("dashboard-next-class")).toHaveTextContent('dashboard.hero.upNext {"time":"19:30"}');
   });
 
-  it("the running row has neither Vazia nor Convidar; the row that has not started keeps both", () => {
+  it("[DASHBOARD-BLOCKS-32] the running row has neither Vazia nor Convidar; the row that has not started keeps both", () => {
     const block = {
       id: "schedule_7d",
       type: "schedule_7d",

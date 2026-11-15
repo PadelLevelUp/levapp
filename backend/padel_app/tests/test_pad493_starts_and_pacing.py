@@ -54,6 +54,7 @@ def _state(instance_id):
 # ── the invitation-start job, and the same job re-armed by a config save ─────────────────────
 
 @pytest.mark.parametrize("repeat", [False, True])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_the_invitation_start_job(app, monkeypatch, repeat):
     from padel_app import scheduler
     from padel_app.tests.helpers import pin_clock
@@ -77,6 +78,7 @@ def test_the_invitation_start_job(app, monkeypatch, repeat):
 # ── a decline after the start opens a second spot: that one starts, the first is untouched ───
 
 @pytest.mark.parametrize("repeat", [False, True])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_a_decline_after_the_start(app, monkeypatch, repeat):
     from padel_app.services.notification_service import respond_to_reminder
     from padel_app.tests.helpers import pin_clock
@@ -101,6 +103,7 @@ def test_a_decline_after_the_start(app, monkeypatch, repeat):
 
 @pytest.mark.parametrize("repeat", [False, True])
 @pytest.mark.parametrize("starter", ["trigger", "tick"])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_a_spot_held_by_quiet_hours(app, monkeypatch, repeat, starter):
     from padel_app.services.notification_service import process_invitation_batches, trigger_invitations
     from padel_app.tests.helpers import pin_clock
@@ -140,6 +143,7 @@ def _approve_pending(coach_id, vacancy_id, now):
 
 
 @pytest.mark.parametrize("repeat", [False, True])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_a_semi_automatic_approval(app, monkeypatch, repeat):
     from padel_app.services.notification_service import respond_to_reminder
     from padel_app.tests.helpers import pin_clock
@@ -164,6 +168,7 @@ def test_a_semi_automatic_approval(app, monkeypatch, repeat):
 
 # ── pacing: only the tick sends a later batch, and only after maxInactiveTime ────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_only_the_tick_sends_the_next_batch_and_only_after_the_interval(app, monkeypatch):
     from padel_app.services.notification_service import process_invitation_batches, trigger_invitations
     from padel_app.tests.helpers import pin_clock
@@ -211,6 +216,7 @@ def locks(monkeypatch):
 
 
 @pytest.mark.parametrize("starter", ["trigger", "tick"])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-60")
 def test_the_start_locks_the_vacancy(app, monkeypatch, locks, starter):
     from padel_app.services.notification_service import process_invitation_batches, trigger_invitations
     from padel_app.tests.helpers import pin_clock
@@ -229,6 +235,7 @@ def test_the_start_locks_the_vacancy(app, monkeypatch, locks, starter):
         assert _vacancies(instance_id) == [(1, "open", 1, 1)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-60")
 def test_the_start_decides_on_the_row_not_on_a_stale_copy(app, monkeypatch):
     """Another caller started the spot after this one loaded it: the locked re-read sees it."""
     from sqlalchemy import text
@@ -317,6 +324,7 @@ def _trigger(instance_id, coach_id):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-60")
 def test_two_triggers_at_once_start_the_spot_once(app, monkeypatch):
     from padel_app.tests.helpers import pin_clock
 
@@ -330,6 +338,7 @@ def test_two_triggers_at_once_start_the_spot_once(app, monkeypatch):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-60")
 def test_without_the_lock_the_same_race_starts_the_spot_twice(app, monkeypatch):
     """The harness has teeth: with a check-then-send start (no lock, no re-read) both callers start
     the spot and run its first batch. (PAD-495's per-student lock and first-batch cap then keep
@@ -396,6 +405,7 @@ def _answer(event_id, action, user_id, results):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_a_double_yes_at_once_leaves_the_winner_confirmed(app, monkeypatch):
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.tests.helpers import pin_clock
@@ -411,6 +421,7 @@ def test_a_double_yes_at_once_leaves_the_winner_confirmed(app, monkeypatch):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_a_double_no_at_once_invites_one_next_student(app, monkeypatch):
     from padel_app.tests.helpers import pin_clock
 
@@ -429,6 +440,7 @@ def test_a_double_no_at_once_invites_one_next_student(app, monkeypatch):
 # ── review finding 1: a start that sent nothing is not a start ───────────────────────────────
 
 @pytest.mark.parametrize("max_inactive", [True, False])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_a_spot_whose_first_batch_maxtotal_stopped_is_retried_on_the_next_tick(app, monkeypatch, max_inactive):
     """Two spots, four students, maxTotal 3. One call starts both: the first spot's batch takes the
     whole budget, so the second spot's first batch (it could ask the fourth student) sends nothing.
@@ -464,6 +476,7 @@ def test_a_spot_whose_first_batch_maxtotal_stopped_is_retried_on_the_next_tick(a
 
 # ── review finding 2: a second absence while a spot holds gets its own vacancy ───────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-61")
 def test_a_student_marked_absent_while_another_spot_holds_gets_a_vacancy(app, monkeypatch):
     """Two places, one enrolled, two other students: the never-filled place is started (both asked)
     and, with nobody else to ask, holds while their offers are live. The coach then marks the

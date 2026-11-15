@@ -22,7 +22,7 @@ describe("the 30-day dismissal on the device", () => {
     expect(COUNTRY_PROMPT_STORAGE_KEY).toBe("levapp.countryPrompt.dismissedAt");
   });
 
-  it("not dismissed until dismissed; then hidden for 30 days, back on the 31st", () => {
+  it("[AUTH-LOGIN-15] not dismissed until dismissed; then hidden for 30 days, back on the 31st", () => {
     const storage = memoryStorage();
     const d = countryPromptDismissal(storage);
     const t0 = Date.UTC(2026, 9, 11, 12);
@@ -66,20 +66,20 @@ describe("the 30-day dismissal on the device", () => {
 
 describe("shouldAskCountry", () => {
   const open = { dismissed: false, gated: false };
-  it("asks a signed-in user whose country is null, empty or missing", () => {
+  it("[AUTH-LOGIN-15] asks a signed-in user whose country is null, empty or missing", () => {
     expect(shouldAskCountry({ country: null }, open)).toBe(true);
     expect(shouldAskCountry({ country: "" }, open)).toBe(true);
     expect(shouldAskCountry({ country: "  " }, open)).toBe(true);
     expect(shouldAskCountry({}, open)).toBe(true);
   });
-  it("never asks a user whose country is set", () => {
+  it("[AUTH-LOGIN-15] never asks a user whose country is set", () => {
     expect(shouldAskCountry({ country: "PT" }, open)).toBe(false);
   });
   it("never asks nobody", () => {
     expect(shouldAskCountry(null, open)).toBe(false);
     expect(shouldAskCountry(undefined, open)).toBe(false);
   });
-  it("not when dismissed, not when gated", () => {
+  it("[AUTH-LOGIN-15] not when dismissed, not when gated", () => {
     expect(shouldAskCountry({ country: null }, { dismissed: true, gated: false })).toBe(false);
     expect(shouldAskCountry({ country: null }, { dismissed: false, gated: true })).toBe(false);
   });

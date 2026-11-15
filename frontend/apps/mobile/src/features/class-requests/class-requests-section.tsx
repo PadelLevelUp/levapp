@@ -37,6 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, type Opt
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
 import { cn } from "@/lib/utils";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 
@@ -63,7 +64,7 @@ export function ClassRequestsSection({
   /** Rule 10: open the "propose another time" picker on this request (from the chat bubble). */
   proposeFor?: number | null;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   // PAD-660: a coach sees the nickname they gave the student; the student side stays off the roster.
   const displayName = useCoachDisplayName({ enabled: role === "coach" });
@@ -132,6 +133,13 @@ export function ClassRequestsSection({
       await classJoinRequestsApi.acceptClassJoinRequest(row.id, confirm);
       toast.success(t("calendar.joinRequest.acceptedToast", { name: displayName(row.playerId, row.playerName) }));
     } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): accepting is an add, refused at an hour
+      // the student is already going elsewhere; say who and where, never the generic line.
+      const busy = busySameHourToast(err, i18n.language);
+      if (busy) {
+        showBusySameHourToast(busy, t, toast.error);
+        return;
+      }
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setBusyJoinId(null);

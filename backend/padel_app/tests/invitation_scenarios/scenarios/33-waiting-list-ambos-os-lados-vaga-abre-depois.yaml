@@ -1,0 +1,36 @@
+id: 33
+title: waiting list “ambos os lados” e vaga que abre depois
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [852, 868]}
+what_it_tests: antes dos lembretes, aceitar ambos os lados permite a entrada automática em qualquer lado
+tags: [waiting-list, sides, both-sides, reminders]
+depends_on: [U16, U18]
+corrections: []
+notes: >
+  Setup step at 1 Nov 19:00 (derived): S1, a left-sider, joins the students' list for both sides while
+  the class is full. S1 has no level (level null). "Diz Sim" to the reminder is the `confirms` event.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: S1, level: null, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    derived: true
+    events:
+      - {joins_waiting_list: S1, sides: both}
+    expect: {invitations: none}
+  - at: 2026-11-02 09:00
+    events: [{regular_no: R-1}]
+    expect:
+      placed: [{who: S1, side: R, how: auto_from_waiting_list}]
+      messages: [{who: S1, kind: added}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, S1]}
+  - at: 2026-11-02 17:00
+    events: [{confirms: S1}]
+    expect: {roster: {L: 8, R: 8}}
+final:
+  roster: {L: 8, R: 8}

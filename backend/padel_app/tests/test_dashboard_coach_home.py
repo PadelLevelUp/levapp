@@ -4,6 +4,7 @@ The rules these lock down are the ones the redesign turns on — the hero is
 absent rather than empty, the queue can reach zero, and every metric ships with
 its denominator.
 """
+import pytest
 from datetime import datetime, timedelta
 
 
@@ -411,6 +412,7 @@ def test_delta_is_null_without_a_prior_week_to_compare(app):
 LATE = datetime(2026, 8, 4, 22, 30)
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-23")
 def test_b031_class_crossing_utc_midnight_stays_on_every_coach_block(app):
     from padel_app.helpers.dashboard.coach_home import (
         build_needs_you_block,

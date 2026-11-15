@@ -62,6 +62,7 @@ def _rows(app, user_id):
         return [json.loads(r.subscription_json) for r in PushSubscription.query.filter_by(user_id=user_id).all()]
 
 
+@pytest.mark.criterion("AUTH-PUSH-SUBSCRIPTION-4")
 def test_a_save_whose_insert_collides_updates_the_winners_row(app, client, monkeypatch):
     """The race loser's path: its lookup found nothing, but the winner's row is there by the insert."""
     from padel_app.models import PushSubscription
@@ -112,6 +113,7 @@ def _both_requests_reach_the_insert(app):
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="needs two real connections",
 )
+@pytest.mark.criterion("AUTH-PUSH-SUBSCRIPTION-3")
 def test_two_saves_at_once_both_succeed_and_keep_one_row(app):
     user_id = _user(app)
     headers = _headers(app, user_id)
@@ -156,6 +158,7 @@ def _device_rows(app, user_id):
         return [(r.token, r.platform) for r in DeviceToken.query.filter_by(user_id=user_id).all()]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-25")
 def test_a_device_registration_whose_insert_collides_updates_the_winners_row(app, client, monkeypatch):
     from padel_app.models import DeviceToken
 
@@ -206,6 +209,7 @@ def _both_registrations_reach_the_insert(app):
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="needs two real connections",
 )
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-25")
 def test_two_device_registrations_at_once_both_succeed_and_keep_one_row(app):
     user_id = _user(app)
     headers = _headers(app, user_id)

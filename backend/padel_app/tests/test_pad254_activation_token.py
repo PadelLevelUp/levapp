@@ -69,6 +69,7 @@ def test_token_depends_on_the_server_secret(app):
 # rules 4-5 — the id alone opens nothing
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-ACTIVATE-2")
 def test_the_id_alone_opens_nothing(app, client):
     uid = _inactive_user(app)
 
@@ -85,6 +86,7 @@ def test_the_id_alone_opens_nothing(app, client):
     assert after["status"] == "inactive" and after["password"] is None
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-2")
 def test_the_guard_lives_in_the_service(app):
     """Route-independent: calling the service without the token is refused."""
     from werkzeug.exceptions import NotFound
@@ -114,6 +116,7 @@ def test_lookup_with_the_token_returns_only_the_form_fields(app, client):
     assert body["username"] is None
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-3")
 def test_lookup_of_an_active_account_says_only_that_it_is_active(app, client):
     uid = _inactive_user(app, status="active", username="chosen-by-me", password="Original1!")
     res = client.get(f"/api/app/register/user/{uid}?token={_token(app, uid)}")
@@ -125,6 +128,7 @@ def test_lookup_of_an_active_account_says_only_that_it_is_active(app, client):
 # rules 1, 6, 7 — activation itself
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-ACTIVATE-1")
 def test_activate_with_the_token(app, client):
     uid = _inactive_user(app)
     res = client.post(
@@ -139,6 +143,7 @@ def test_activate_with_the_token(app, client):
     assert after["password"] and after["password"] != "NewPass1!"  # stored hashed
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-3")
 def test_only_an_inactive_account_can_be_activated(app, client):
     uid = _inactive_user(app, status="active", username="chosen-by-me", password="Original1!")
     before = _fresh(app, uid)["password"]
@@ -155,6 +160,7 @@ def test_only_an_inactive_account_can_be_activated(app, client):
     assert res.status_code == 410
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-4")
 def test_activation_writes_only_the_five_fields(app, client):
     uid = _inactive_user(app)
     res = client.post(
@@ -174,6 +180,7 @@ def test_activation_writes_only_the_five_fields(app, client):
 # rule 3 — the owning coach's roster carries the secret while inactive
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("AUTH-ACTIVATE-5")
 def test_the_roster_carries_the_secret_until_activation(app, coach_id):
     from padel_app.models import Coach, Player
     from padel_app.services.player_service import add_player_service, get_coach_players_list

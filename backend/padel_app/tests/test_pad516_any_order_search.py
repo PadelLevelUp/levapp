@@ -31,12 +31,14 @@ def _names(client, roster, term):
     return sorted(r["name"] for r in res.json["items"])
 
 
+@pytest.mark.criterion("PLAYERS-LIST-5")
 def test_the_words_match_in_any_order(client, roster):
     assert _names(client, roster, "pedro sousa") == ["Pedro Mesquita e Sousa", "Sousa Pedrosa"]
     assert _names(client, roster, "sousa pedro") == ["Pedro Mesquita e Sousa", "Sousa Pedrosa"]
     assert _names(client, roster, "PEDRO   mesq") == ["Pedro Mesquita e Sousa"]
 
 
+@pytest.mark.criterion("PLAYERS-LIST-5")
 def test_every_word_is_required(client, roster):
     assert _names(client, roster, "pedro zzz") == []
 
@@ -55,6 +57,7 @@ def test_the_type_ahead_search_uses_the_same_rule(app, roster):
         assert search_coach_players(roster["coach"], "   ") == []
 
 
+@pytest.mark.criterion("PLAYERS-LIST-5")
 def test_accents_fold_on_the_server_as_on_the_pickers(app, client, roster):
     """The coordinator's call on #569: "joao" must find "João" in the Players tab too."""
     _, pid = _student(app, username="p5", name="João Álvares")
@@ -63,6 +66,7 @@ def test_accents_fold_on_the_server_as_on_the_pickers(app, client, roster):
     assert _names(client, roster, "ALVARES joão") == ["João Álvares"]
 
 
+@pytest.mark.criterion("PLAYERS-LIST-5")
 def test_a_search_still_paginates(app, client, roster):
     for i in range(5):
         _, pid = _student(app, username=f"s{i}", name=f"Sousa Extra {i}")

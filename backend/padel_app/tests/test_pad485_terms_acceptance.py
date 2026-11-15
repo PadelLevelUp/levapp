@@ -39,6 +39,7 @@ def _user(app, username):
 
 
 @pytest.mark.parametrize("role", ["student", "coach"])
+@pytest.mark.criterion("AUTH-REGISTER-3")
 def test_an_accepted_sign_up_records_when_and_which_terms(app, client, role):
     """Criterion "The acceptance is stored" — both roles share the one form."""
     res = client.post("/api/auth/register", json=_body(role=role, termsAccepted=True), headers=DECLARING)
@@ -48,6 +49,7 @@ def test_an_accepted_sign_up_records_when_and_which_terms(app, client, role):
 
 
 @pytest.mark.parametrize("terms", ["absent", False, None, "true", 1])
+@pytest.mark.criterion("AUTH-REGISTER-4")
 def test_a_declaring_client_that_does_not_accept_is_refused_and_nothing_is_created(app, client, terms):
     """Criterion "Registration cannot be submitted without accepting"."""
     body = _body() if terms == "absent" else _body(termsAccepted=terms)
@@ -60,6 +62,7 @@ def test_a_declaring_client_that_does_not_accept_is_refused_and_nothing_is_creat
 
 
 @pytest.mark.parametrize("headers", [OLD_BUILD, {}])
+@pytest.mark.criterion("AUTH-REGISTER-5")
 def test_builds_27_and_28_register_exactly_as_before(app, client, headers):
     """Criterion "Older builds still register": no capability, no field — 201, nothing recorded."""
     res = client.post("/api/auth/register", json=_body(), headers=headers)

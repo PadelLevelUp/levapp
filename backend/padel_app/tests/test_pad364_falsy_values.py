@@ -8,6 +8,7 @@ falsy values meaning something, so its endpoints parse JSON themselves and tell
 2026-09-21): each case below is asserted by reading the row back, and the file
 runs on SQLite and on Postgres.
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_pad362_evaluation_contract import (  # noqa: F401 — _jwt_secret is an autouse fixture
     _coach_headers,
@@ -46,6 +47,7 @@ def _record_rows(app, ids):
         ]
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-5")
 def test_is_active_false_switches_a_competency_off(app, client):
     ids = _seed(app)
 
@@ -56,6 +58,7 @@ def test_is_active_false_switches_a_competency_off(app, client):
     assert _category(app, ids["forehand_id"])["is_active"] is False
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-5")
 def test_sort_order_zero_is_stored_as_zero(app, client):
     ids = _seed(app)
 
@@ -66,6 +69,7 @@ def test_sort_order_zero_is_stored_as_zero(app, client):
     assert _category(app, ids["forehand_id"])["sort_order"] == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-5")
 def test_an_absent_key_changes_nothing_on_a_competency(app, client):
     ids = _seed(app)
     assert _patch(app, client, ids, ids["forehand_id"], {"isActive": False, "sortOrder": 0}).status_code == 200
@@ -79,6 +83,7 @@ def test_an_absent_key_changes_nothing_on_a_competency(app, client):
     assert _category(app, ids["forehand_id"]) == {**before, "name": "Forehand drive"}
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-7")
 def test_a_null_rating_clears_it(app, client):
     ids = _seed(app)
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 5, str(ids["volley_id"]): 4}}).status_code == 200
@@ -90,6 +95,7 @@ def test_a_null_rating_clears_it(app, client):
     assert _record_rows(app, ids) == [(None, {ids["volley_id"]: 4.0})]
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-7")
 def test_an_empty_note_clears_the_private_note(app, client):
     ids = _seed(app)
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 4}, "note": "Late to the ball."}).status_code == 200
@@ -102,6 +108,7 @@ def test_an_empty_note_clears_the_private_note(app, client):
     assert _record_rows(app, ids) == [(None, {ids["forehand_id"]: 4.0})]
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-7")
 def test_an_absent_key_changes_nothing_on_a_record(app, client):
     ids = _seed(app)
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 5}, "note": "Late to the ball."}).status_code == 200
@@ -129,6 +136,7 @@ def test_a_score_of_zero_is_saved_where_the_scale_starts_at_zero(app, client):
     assert _record_rows(app, ids) == []
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-7")
 def test_clearing_the_last_rating_of_a_record_with_no_note_removes_the_record(app, client):
     ids = _seed(app)
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 4}}).status_code == 200

@@ -64,6 +64,7 @@ def _manual(app, client, ids):
 
 # ── manual rule 10: the coach's Notificar ─────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-2")
 def test_a_minute_before_the_start_the_coach_can_still_invite(app, client, monkeypatch):
     from test_semi_auto_approval import _patched_io
 
@@ -80,6 +81,7 @@ def test_a_minute_before_the_start_the_coach_can_still_invite(app, client, monke
 
 
 @pytest.mark.parametrize("utc_now", [AT_START, RUNNING], ids=["at-start", "running"])
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-2")
 def test_once_the_class_has_started_manual_invitations_are_refused(app, client, monkeypatch, utc_now):
     from test_semi_auto_approval import _patched_io
 
@@ -95,6 +97,7 @@ def test_once_the_class_has_started_manual_invitations_are_refused(app, client, 
         assert _events(ids["instance"]) == 0, "no invitation, no message, no push"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-2")
 def test_another_coach_is_still_refused_as_not_their_class(app, client, monkeypatch):
     """The ownership check (manual rule 7) runs first: a stranger learns nothing about the class."""
     from test_semi_auto_approval import _create_coach, _create_user
@@ -129,6 +132,7 @@ def test_the_service_refuses_too(app):
 
 @pytest.mark.parametrize("utc_now, invites", [(BEFORE, True), (AT_START, False), (RUNNING, False)],
                          ids=["before", "at-start", "running"])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-107")
 def test_the_engine_opens_no_round_once_the_class_has_started(app, utc_now, invites):
     from test_semi_auto_approval import _mark_absent, _patched_io
 
@@ -149,6 +153,7 @@ def test_the_engine_opens_no_round_once_the_class_has_started(app, utc_now, invi
             assert Vacancy.query.filter_by(lesson_instance_id=world["instance"].id).count() == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-107")
 def test_a_round_under_way_does_not_continue_past_the_start(app):
     """A vacancy whose first batch went out before the start: the tick after the start sends no
     further batch, closes the vacancy, and expires the invitation already out, as it did before

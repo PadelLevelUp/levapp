@@ -136,6 +136,7 @@ def restored(sandbox):
     return p.read_bytes() if p.exists() else None
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-9")
 def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
     """PAD-691 (zero-downtime-deploy rule 9): the app no longer migrates itself, so the sync runs
     the migrate step in a one-shot container of the app's own image, env and network first."""
@@ -163,6 +164,7 @@ def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
     assert not Path((home / "migrate.env.path").read_text().strip()).exists(), "the env-file is removed"
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-9")
 def test_a_failed_migrate_step_wipes_staging_before_any_scrub(sandbox):
     """PAD-606 rule 9b: a copy that cannot reach the image's head cannot be scrubbed at a known
     schema, so it fails closed like a failed scrub: wiped, exit 3, nothing recorded, the app started
@@ -178,6 +180,7 @@ def test_a_failed_migrate_step_wipes_staging_before_any_scrub(sandbox):
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-1")
 def test_a_push_after_the_dump_was_restored_leaves_staging_alone(sandbox):
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{NEW}\n")
     result, calls = run(sandbox)
@@ -187,6 +190,7 @@ def test_a_push_after_the_dump_was_restored_leaves_staging_alone(sandbox):
     assert "pg_restore" not in calls and "pg_dump" not in calls
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-2")
 def test_a_new_nightly_dump_is_restored_from_gcs_not_from_prod(sandbox):
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
     result, calls = run(sandbox)
@@ -207,6 +211,7 @@ def test_the_first_run_with_no_state_restores_the_newest_dump(sandbox):
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{NEW}"
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-3")
 def test_a_restore_that_produced_no_users_is_retried_next_time(sandbox):
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
     result, _ = run(sandbox, STUB_USERS="0")
@@ -214,6 +219,7 @@ def test_a_restore_that_produced_no_users_is_retried_next_time(sandbox):
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-4")
 def test_reload_restores_the_already_restored_dump_again(sandbox):
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{NEW}\n")
     result, calls = run(sandbox, "reload")
@@ -222,6 +228,7 @@ def test_reload_restores_the_already_restored_dump_again(sandbox):
     assert "pg_dump" not in calls
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-4")
 def test_live_copies_prod_and_records_no_state(sandbox):
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{NEW}\n")
     result, calls = run(sandbox, "live")
@@ -238,6 +245,7 @@ def test_an_unknown_mode_is_refused_without_stopping_staging(sandbox):
 
 
 @pytest.mark.parametrize("case", ["no-dump", "no-bucket"])
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-5")
 def test_no_source_means_no_stop(sandbox, case):
     if case == "no-dump":
         for f in (sandbox["bucket"] / "padel_app").iterdir():
@@ -265,6 +273,7 @@ def test_a_stale_backup_is_reported_and_still_restored(sandbox):
     assert "WARNING: newest backup is from 2026-10-10_0300" in result.stdout
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-6")
 def test_the_workflow_passes_the_mode_and_offers_three():
     text = WORKFLOW.read_text()
     dispatch = text.split("workflow_dispatch:", 1)[1].split("concurrency:", 1)[0]
@@ -275,6 +284,7 @@ def test_the_workflow_passes_the_mode_and_offers_three():
     assert "${{ inputs.sync_db || 'auto' }}" in job
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-8")
 def test_a_failed_scrub_wipes_staging_and_records_nothing(sandbox):
     """PAD-606 rule 9: fail closed. Staging comes up empty rather than with unscrubbed data, and the
     dump is not recorded, so the next push restores and scrubs again."""
@@ -289,6 +299,7 @@ def test_a_failed_scrub_wipes_staging_and_records_nothing(sandbox):
     assert "padelapp_staging_migrate" in calls[wiped_at:], "the wiped schema is migrated to head again"
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-11")
 def test_after_a_failed_scrub_the_next_push_restores_the_same_dump_again(sandbox):
     """PAD-606 rule 9: exit 3 records nothing, so the next auto push is not skipped (the
     2026-10-23 failure: the state still names the older dump, and the fixed script re-restores)."""
@@ -303,6 +314,7 @@ def test_after_a_failed_scrub_the_next_push_restores_the_same_dump_again(sandbox
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{NEW}"
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-12")
 def test_a_failed_scrub_whose_wipe_fails_leaves_staging_stopped(sandbox):
     """PAD-606 rule 9: if staging cannot be wiped either, it may hold unscrubbed data. The app is not
     started again, and the exit code (4) tells the deploy apart from a wiped, empty staging (3)."""
@@ -313,6 +325,7 @@ def test_a_failed_scrub_whose_wipe_fails_leaves_staging_stopped(sandbox):
     assert "docker start padelapp_staging" not in after_scrub, "never serve what could not be scrubbed"
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-12")
 def test_an_already_restored_dump_is_skipped_with_exit_zero(sandbox):
     """The exit code separates "nothing new, skipped" (0) from a failed scrub (3, 4)."""
     first, _ = run(sandbox)
@@ -323,6 +336,7 @@ def test_an_already_restored_dump_is_skipped_with_exit_zero(sandbox):
     assert "SKIPPED" in result.stdout and "ON_ERROR_STOP=1" not in calls
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-12")
 def test_the_workflow_fails_the_sync_job_on_a_failed_scrub():
     """PAD-606 rule 9: the sync-db job no longer swallows the script's exit, and puts the scrub's
     lines in the job summary; the job stays continue-on-error, so the deploy does not fail (rule 6)."""
@@ -336,6 +350,7 @@ def test_the_workflow_fails_the_sync_job_on_a_failed_scrub():
     assert re.search(r"3\)[^\n]*exit 3", verdict) and re.search(r"4\)[^\n]*exit 4", verdict)
 
 
+@pytest.mark.criterion("DELIVERY-WORKER-ROLE-7")
 def test_the_worker_is_stopped_with_the_app_and_started_after_it(sandbox):
     """PAD-695 (delivery.worker-role): a worker holds connections to the target and would run jobs
     on a half-restored database."""
@@ -353,6 +368,7 @@ def test_without_a_worker_the_sync_touches_none(sandbox):
     assert "padelapp_staging_worker" not in calls.replace("docker inspect padelapp_staging_worker", "")
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-11")
 def test_the_events_container_is_stopped_with_the_app_and_started_after_it(sandbox):
     """PAD-697 (delivery.events-role rule 10): its listener and stream handshakes would hit a wiped
     schema mid-restore."""
@@ -364,6 +380,7 @@ def test_the_events_container_is_stopped_with_the_app_and_started_after_it(sandb
     assert lines.index("docker start padelapp_staging") < lines.index("docker start padelapp_staging_events")
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-11")
 def test_without_an_events_container_the_sync_touches_none(sandbox):
     result, calls = run(sandbox, "reload")
     assert "padelapp_staging_events" not in calls.replace("docker inspect padelapp_staging_events", "")

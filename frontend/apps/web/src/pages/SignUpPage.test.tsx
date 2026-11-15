@@ -69,7 +69,7 @@ beforeEach(() => {
 });
 
 describe("SignUpPage — adults only (PAD-445, auth.register rule 18)", () => {
-  it("refuses a day short of 18 on the birth-date field and sends nothing", async () => {
+  it("[AUTH-REGISTER-22] refuses a day short of 18 on the birth-date field and sends nothing", async () => {
     mount();
     fill(yearsAgo(18, 1));
     fireEvent.click(screen.getByTestId("signup-submit"));
@@ -77,7 +77,7 @@ describe("SignUpPage — adults only (PAD-445, auth.register rule 18)", () => {
     expect(register).not.toHaveBeenCalled();
   });
 
-  it("never shows the guardian field, even for a 12-year-old's date (under PT's 13)", () => {
+  it("[AUTH-REGISTER-22] never shows the guardian field, even for a 12-year-old's date (under PT's 13)", () => {
     mount();
     fill(yearsAgo(12));
     expect(screen.queryByTestId("signup-guardian")).toBeNull();
@@ -92,7 +92,7 @@ describe("SignUpPage — adults only (PAD-445, auth.register rule 18)", () => {
     expect(register.mock.calls[0][0]).not.toHaveProperty("guardianEmail");
   });
 
-  it("maps a server UNDERAGE to the same message on the same field", async () => {
+  it("[AUTH-REGISTER-22] maps a server UNDERAGE to the same message on the same field", async () => {
     register.mockRejectedValue({
       response: {
         status: 400,
@@ -107,7 +107,7 @@ describe("SignUpPage — adults only (PAD-445, auth.register rule 18)", () => {
 });
 
 describe("SignUpPage — the Terms must be accepted (PAD-485, auth.register rule 19)", () => {
-  it("unticked, nothing is sent and the box says why", async () => {
+  it("[AUTH-REGISTER-3] unticked, nothing is sent and the box says why", async () => {
     mount();
     fill(yearsAgo(30), { terms: false });
     fireEvent.click(screen.getByTestId("signup-submit"));
@@ -115,7 +115,7 @@ describe("SignUpPage — the Terms must be accepted (PAD-485, auth.register rule
     expect(register).not.toHaveBeenCalled();
   });
 
-  it("ticking the box clears the message, and the sign-up sends termsAccepted: true", async () => {
+  it("[AUTH-REGISTER-3] ticking the box clears the message, and the sign-up sends termsAccepted: true", async () => {
     register.mockResolvedValue({ accessToken: "t", user: { id: 1, role: "student" } });
     mount();
     fill(yearsAgo(30), { terms: false });

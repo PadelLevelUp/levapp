@@ -4,6 +4,7 @@ current Sunday-to-Saturday week only.
 The queue used to cut a rolling ``[now, now + 7 days)``, so on Thursday 22 Oct the owner saw
 next Thursday's class. Every clock here is pinned; 25 Oct 2026 is a Sunday.
 """
+import pytest
 from datetime import datetime, timedelta
 
 
@@ -83,6 +84,7 @@ def _empty_seat_titles(app, coach_id, user_id, now, *, both_paths=True):
     return preloaded
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-24")
 def test_on_a_thursday_next_thursday_is_absent(app):
     """The owner's report: on Thursday 22 Oct, next Thursday's class was on the queue."""
     from padel_app.helpers.dashboard.coach_home import build_schedule_block
@@ -101,6 +103,7 @@ def test_on_a_thursday_next_thursday_is_absent(app):
     assert [i["title"] for i in schedule["data"]["items"]] == ["Sat 24", "Thu 29"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-25")
 def test_the_week_ends_at_saturday_midnight(app):
     """The Saturday edge: a class starting at 23:45 is in, Sunday 00:30 is next week.
 
@@ -115,6 +118,7 @@ def test_the_week_ends_at_saturday_midnight(app):
     assert _empty_seat_titles(app, coach_id, user_id, now) == ["Sat 23:45"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-26")
 def test_on_sunday_the_queue_moves_to_the_new_week(app):
     """The Sunday edge: at Sunday 00:00 the week is 25-31 Oct, so Sunday 1 Nov is out."""
     now = datetime(2026, 10, 25, 0, 0)

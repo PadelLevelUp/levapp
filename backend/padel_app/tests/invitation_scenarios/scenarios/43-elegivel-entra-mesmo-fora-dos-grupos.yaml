@@ -1,0 +1,44 @@
+id: 43
+title: quem é elegível entra, mesmo fora dos grupos
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [1039, 1059]}
+what_it_tests: para entrar sozinho basta ser elegível; para receber convite é preciso estar num grupo
+tags: [direct-join, eligibility, groups]
+depends_on: [U23, U24]
+corrections: []
+notes: >
+  N1 (level 1) and K1 (level 4) are labels for the PDF's unnamed students. N1 is eligible (2 levels
+  above) but in no group (group 3 is one level above only). At 13:00 K1's join is an attempt the engine
+  must turn down (`refused`, coordinator's format decision 6); the class stays one short. The 19:00
+  list is exhaustive, so N1 must not be invited.
+
+roster:
+  regulars: {L: 8, R: 6}
+students:
+  - {id: N1, level: 1, side: R}
+  - {id: K1, level: 4, side: R}        # not eligible: level 4 is below the class
+  - {cohort: L2R, count: 3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 12:00
+    events: [{joins_directly: N1}]
+    expect:
+      placed: [{who: N1, side: R, how: direct}]
+      missing: {L: 0, R: 1}
+      invitations: none
+  - at: 2026-11-01 13:00
+    events: [{joins_directly: K1}]
+    expect:
+      refused: [{who: K1, action: direct_join}]
+      missing: {L: 0, R: 1}
+      roster: {L: 8, R: 7}
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      invitations_total_sent: 3
+  - at: 2026-11-01 19:15
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

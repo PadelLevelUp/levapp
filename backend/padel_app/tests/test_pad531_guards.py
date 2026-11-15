@@ -8,6 +8,7 @@
   `/admin/api`, or is an admin resource client (the product's `resources/admin.ts` talks to
   `/api/app/admin`, a different string, and leaves with PAD-532).
 """
+import pytest
 import pathlib
 import re
 
@@ -29,6 +30,7 @@ IS_SUPERADMIN_READERS = {
 }
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-15")
 def test_no_new_reader_of_is_superadmin():
     offenders = []
     for path in PKG.rglob("*.py"):
@@ -45,6 +47,7 @@ def test_the_allow_list_is_not_stale():
     assert stale == [], f"remove from the allow-list, they no longer read it: {stale}"
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-16")
 def test_every_write_route_is_audited(app):
     missing = []
     for rule in app.url_map.iter_rules():
@@ -75,6 +78,7 @@ ADMIN_API = re.compile(r"/admin/api")
 ALLOWED_ADMIN_API_MENTIONS = set()  # empty by design (rule 14)
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-23")
 def test_the_product_apps_carry_no_admin_code():
     offenders = []
     for tree in PRODUCT_TREES:

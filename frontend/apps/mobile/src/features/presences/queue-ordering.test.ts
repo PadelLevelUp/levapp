@@ -24,7 +24,7 @@ function deferred<T>() {
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("the iOS validation queue under two quick undos (PAD-413)", () => {
-  it("drops an earlier refresh that resolves after a later one: the queue shows the latest state", async () => {
+  it("[ATTENDANCE-VALIDATION-14] drops an earlier refresh that resolves after a later one: the queue shows the latest state", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const key = ["presence-pending", "2026-09-21", "2026-09-27"];
     const fetches: ReturnType<typeof deferred<Queue>>[] = [];

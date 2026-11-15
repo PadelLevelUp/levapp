@@ -8,6 +8,7 @@ neither gets 403. `/app/class-requests` (private requests) is untouched.
 
 Seed: PAD-131's (the Phase-1 eligibility class, open spots visible).
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_pad131_join_requests import _config, _decide, _request, _student
 from padel_app.tests.test_pad128_eligibility import _seed
@@ -46,6 +47,7 @@ def _setup(app):
     return ids, carla, bruno
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-15")
 def test_the_coach_lists_every_join_request_newest_first_with_its_class(app, client):
     ids, carla, bruno = _setup(app)
     first, _, _ = _request(app, ids, carla)

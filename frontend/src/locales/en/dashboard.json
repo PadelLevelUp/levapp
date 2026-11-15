@@ -68,7 +68,10 @@
         "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
         "invite_one": "Invite {{count}} player",
         "invite_other": "Invite {{count}} players",
-        "invite_zero": "Invite {{count}} players"
+        "invite_zero": "Invite {{count}} players",
+        "pending_one": "{{count}} pending invitation",
+        "pending_other": "{{count}} pending invitations",
+        "pending_zero": "{{count}} pending invitations"
       },
       "reply": {
         "title": "{{name}} replied",
@@ -99,6 +102,21 @@
         "title": "Waiting list for {{class}}",
         "detail": "{{date}} · {{time}} · the spot was taken — want to be on the list?",
         "open": "Open"
+      },
+      "engineAlert": {
+        "title": "Nobody left to invite",
+        "line": "{{count}} open spot(s) · {{class}}, {{weekday}} {{time}}",
+        "lineSided": "{{count}} open spot(s) ({{side}}) · {{class}}, {{weekday}} {{time}}",
+        "sideLeft": "left side",
+        "sideRight": "right side",
+        "hint": "Invite someone by hand or widen your invitation groups."
+      },
+      "engineAnswer": {
+        "confirmed": "You're in.",
+        "declined": "Declined.",
+        "sorry": "The spot was already taken.",
+        "closedSameHour": "You're already in another class at that time.",
+        "classStarted": "The class has started."
       }
     },
     "schedule": {

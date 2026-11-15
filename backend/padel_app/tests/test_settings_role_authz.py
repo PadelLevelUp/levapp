@@ -127,6 +127,7 @@ COACH_ONLY_READS = [
 
 
 @pytest.mark.parametrize("label,method,path", COACH_ONLY_READS)
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-5")
 def test_student_cannot_read_coach_only_settings(
     app, client, world, label, method, path
 ):
@@ -192,6 +193,7 @@ COACH_ONLY_WRITES = [
 
 
 @pytest.mark.parametrize("label,method,path,body", COACH_ONLY_WRITES)
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-6")
 def test_student_cannot_write_coach_only_settings(
     app, client, world, label, method, path, body
 ):
@@ -213,6 +215,7 @@ def test_student_cannot_write_coach_only_settings(
     )
 
 
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-6")
 def test_student_cannot_upload_an_import_file(app, client, world):
     """`/import/analyze` is multipart, so it needs its own case.
 
@@ -229,6 +232,7 @@ def test_student_cannot_upload_an_import_file(app, client, world):
     assert res.status_code == 403, f"import/analyze -> {res.status_code}"
 
 
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-6")
 def test_student_writes_leave_the_coachs_settings_untouched(app, client, world):
     """The 403s above must be pure: nothing created, nothing deleted."""
     from padel_app.models import CoachLevel, EvaluationCategory, CoachSeason
@@ -297,6 +301,7 @@ NOTIFY_ROUTES = [
 
 
 @pytest.mark.parametrize("method,path,body", NOTIFY_ROUTES)
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-7")
 def test_student_cannot_reach_the_notification_engine(
     app, client, world, method, path, body
 ):
@@ -326,6 +331,7 @@ COACH_HAPPY_PATH_READS = [
 
 
 @pytest.mark.parametrize("method,path", COACH_HAPPY_PATH_READS)
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-8")
 def test_coach_still_reads_their_own_settings(app, client, world, method, path):
     res = getattr(client, method)(
         path.format(club=world["club"]),
@@ -334,6 +340,7 @@ def test_coach_still_reads_their_own_settings(app, client, world, method, path):
     assert res.status_code == 200, f"{method.upper()} {path} -> {res.status_code}"
 
 
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-8")
 def test_coach_still_writes_their_own_settings(app, client, world):
     from padel_app.models import CoachLevel, EvaluationCategory, CoachSeason
 
@@ -375,6 +382,7 @@ def test_coach_still_writes_their_own_settings(app, client, world):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("SETTINGS-ROLE-SCOPE-9")
 def test_student_can_still_read_and_update_their_own_profile(app, client, world):
     """Profile + language live on the `users` row, not on a coach.
 

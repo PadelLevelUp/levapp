@@ -99,16 +99,19 @@ def _titles_on(client, headers, to, day=SUNDAY):
     return {e["title"] for e in res.get_json() if e.get("date") == day}
 
 
+@pytest.mark.criterion("PLAYERS-PROFILE-5")
 def test_a_one_off_class_on_the_weeks_sunday_is_listed(client, app):
     headers = _setup(app)
     assert "B192 Sunday one-off" in _titles_on(client, headers, SUNDAY)
 
 
+@pytest.mark.criterion("PLAYERS-PROFILE-5")
 def test_a_recurring_classs_sunday_occurrence_is_listed(client, app):
     headers = _setup(app)
     assert "B192 Sunday series" in _titles_on(client, headers, SUNDAY)
 
 
+@pytest.mark.criterion("PLAYERS-PROFILE-5")
 def test_the_inclusive_end_stops_at_the_end_of_that_day(client, app):
     headers = _setup(app)
     res = client.get(f"/api/app/lesson_instances?from={MONDAY}&to={SUNDAY}", headers=headers)
@@ -116,6 +119,7 @@ def test_the_inclusive_end_stops_at_the_end_of_that_day(client, app):
     assert "B192 next Monday midnight" not in titles
 
 
+@pytest.mark.criterion("PLAYERS-PROFILE-5")
 def test_a_full_timestamp_to_keeps_its_exact_meaning(client, app):
     headers = _setup(app)
     # 08:00 on Sunday: the 10:00 and 11:00 classes are after it, so neither is listed.

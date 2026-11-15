@@ -46,7 +46,7 @@ const openSpot = (extra: Partial<CalendarEvent> = {}): CalendarEvent =>
   }) as CalendarEvent;
 
 describe("the phone day card for an open spot", () => {
-  it("is the dashed outline in the class colour, readable ink, with the chip", () => {
+  it("[CALENDAR-MOBILE-VIEWS-5] is the dashed outline in the class colour, readable ink, with the chip", () => {
     render(<MobileEventCard event={openSpot()} now={NOW} />);
     const card = screen.getByTestId("calendar-event-card");
     expect(card.getAttribute("data-event-state")).toBe("open-spot");
@@ -63,7 +63,7 @@ describe("the phone day card for an open spot", () => {
 });
 
 describe("the phone Semana grid block for an open spot", () => {
-  it("carries the same dashed treatment as the card", () => {
+  it("[CALENDAR-MOBILE-VIEWS-5] carries the same dashed treatment as the card", () => {
     const day = new Date(2026, 9, 19);
     render(
       <TimeGrid
@@ -81,7 +81,7 @@ describe("the phone Semana grid block for an open spot", () => {
 });
 
 describe("the day's dot for an outlined treatment (rule 10)", () => {
-  it("is the class colour for an open spot, never the white card", () => {
+  it("[CALENDAR-MOBILE-VIEWS-5] is the class colour for an open spot, never the white card", () => {
     expect(dotColor(openSpot(), NOW)).toBe(BLUE);
   });
 });
@@ -92,7 +92,7 @@ describe("the ✓ on a student's enrolled class (PAD-578)", () => {
   const enrolled = () => openSpot({ id: `class-8-${DAY}`, openSpot: false, title: "Treino" });
   const day = new Date(2026, 9, 19);
 
-  it("marks the card for a student, not an open spot", () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] marks the card for a student, not an open spot", () => {
     render(
       <CalendarViewerProvider viewer="student">
         <MobileEventCard event={enrolled()} now={NOW} />
@@ -105,7 +105,7 @@ describe("the ✓ on a student's enrolled class (PAD-578)", () => {
     expect(cards[1].querySelector('[data-testid="calendar-open-spot-chip"]')).not.toBeNull();
   });
 
-  it("marks the grid block for a student", () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] marks the grid block for a student", () => {
     render(
       <CalendarViewerProvider viewer="student">
         <TimeGrid
@@ -122,7 +122,7 @@ describe("the ✓ on a student's enrolled class (PAD-578)", () => {
     expect(marked.map((b) => b.getAttribute("data-event-id"))).toEqual([`class-8-${DAY}`]);
   });
 
-  it("a coach (the default viewer) sees no tick", () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] a coach (the default viewer) sees no tick", () => {
     render(<MobileEventCard event={enrolled()} now={NOW} />);
     expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
   });
@@ -130,7 +130,7 @@ describe("the ✓ on a student's enrolled class (PAD-578)", () => {
 
 // B-543 (calendar.mobile-views rule 13): past two classes at once, one "+N" selects the day.
 describe("the phone grid on a busy hour (B-543)", () => {
-  it("three at 18:00: one block and a '+2' that selects the day", () => {
+  it("[CALENDAR-MOBILE-VIEWS-7] three at 18:00: one block and a '+2' that selects the day", () => {
     const day = new Date(2026, 9, 28);
     const onSelectDay = vi.fn();
     const at6 = (id: string) => openSpot({ id, openSpot: false, title: id, date: "2026-10-28", startTime: "18:00", endTime: "19:00" });
@@ -179,7 +179,7 @@ describe("the phone card — a student's relations (PAD-611)", () => {
     ]);
   });
 
-  it("control: the same invited card read by the coach keeps the class colour (R-032)", () => {
+  it("[CALENDAR-VIEW-19] control: the same invited card read by the coach keeps the class colour (R-032)", () => {
     render(
       <CalendarViewerProvider viewer="coach">
         <MobileEventCard event={rel("invited", "i3")} now={NOW} />
@@ -204,7 +204,7 @@ describe("the phone card — a student's relations (PAD-611)", () => {
 
 // PAD-664 (calendar.view rule 23): the phone card for a full class.
 describe("the phone card — a full class (PAD-664)", () => {
-  it("full: the 'Cheia' chip, no ✓, and never an amber seats-short flag", () => {
+  it("[CALENDAR-VIEW-19] full: the 'Cheia' chip, no ✓, and never an amber seats-short flag", () => {
     render(
       <CalendarViewerProvider viewer="student">
         <MobileEventCard event={openSpot({ id: "f2", studentRelation: "full" })} now={NOW} />

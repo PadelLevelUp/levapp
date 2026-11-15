@@ -89,7 +89,7 @@ def _resolve_owned_instance(coach, model: str, original_id: int, date_str: str |
 def template_preview():
     """PAD-549 (notifications.message-templates rule 19): the settings help's live preview — the
     coach's template rendered by the real formatter with example values, plus each example."""
-    from padel_app.services.notification_service import (
+    from padel_app.services.message_text import (
         _resolve_locale,
         render_template_preview,
         template_preview_examples,
@@ -320,6 +320,15 @@ def manual_notify():
     # nothing about the class; before anything is worked out or sent. The service refuses too.
     if class_has_started(instance):
         return _class_started()
+    # PAD-932 (notifications.manual NM1): on a new-engine class the invitation is the engine's.
+    from padel_app.services.engine_switch import engine_for
+
+    on_new_engine = engine_for(instance) == "new"
+    if on_new_engine:
+        from padel_app.services.engine_entry import has_open_spot
+
+        if not has_open_spot(instance):
+            return jsonify({"error": "NO_OPEN_SPOT", "code": "NO_OPEN_SPOT"}), 409
     # PAD-107 + PAD-112: work out who will be skipped BEFORE sending, so the
     # coach is told by name exactly who could not be reached instead of just
     # seeing a count that is quietly short. Two independent reasons a student is
@@ -339,11 +348,28 @@ def manual_notify():
     for entry in already_invited_players(instance.id, player_ids):
         blocked_by_id.setdefault(entry["playerId"], entry)
     blocked = list(blocked_by_id.values())
+    if on_new_engine:
+        return _engine_manual(instance, [p for p in player_ids if p not in blocked_by_id], blocked)
     try:
         events = send_manual_notifications(instance.id, player_ids, coach.id)
     except ClassStartedError:  # the start came while the lists above were worked out
         return _class_started()
     return jsonify({"sent": len(events), "blocked": blocked})
+
+
+def _engine_manual(instance, player_ids, blocked):
+    """NM1: ``CoachInvites`` for the students the route let through; the engine's refusals join
+    ``blocked`` with their cause and the student's name, as the route's own do."""
+    from padel_app.models.players import Player
+    from padel_app.services.engine_entry import coach_invites
+    from padel_app.sql_db import db
+
+    sent, refused = coach_invites(instance, player_ids)
+    for pid, cause in refused.items():
+        player = db.session.get(Player, pid)
+        blocked.append({"playerId": pid, "name": player.user.name if player and player.user else "",
+                        "cause": cause})
+    return jsonify({"sent": len(sent), "blocked": blocked})
 
 
 def _class_started():
@@ -481,6 +507,11 @@ def respond():
     """Called by the player when they press Yes or No on a notification invite message."""
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
+    if data.get("invitationId") is not None:
+        # PAD-918 (invitations NB5): a new-engine invitation, keyed by its id.
+        from padel_app.services.engine_entry import respond_to_invitation
+
+        return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), user_id))
     notification_event_id = int(data.get("notificationEventId"))
     action = data.get("action")  # "yes" | "no"
     result = respond_to_notification(notification_event_id, action, user_id)
@@ -618,6 +649,12 @@ def coach_respond():
     """Coach manually records a player's Yes/No response to an invitation."""
     coach = _current_coach()
     data = request.get_json() or {}
+    if data.get("invitationId") is not None:
+        # PAD-918 (invitations NB5): the coach records a new-engine invitation's answer by its id.
+        from padel_app.services.engine_entry import respond_to_invitation
+
+        return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), int(get_jwt_identity()),
+                                             coach_id=coach.id))
     notification_event_id = int(data.get("notificationEventId"))
     action = data.get("action")  # "yes" | "no"
     result = coach_respond_to_notification(notification_event_id, action, coach.id)
@@ -637,7 +674,9 @@ def withdraw_invitation_route(event_id: int):
 def approval_respond():
     """Coach responds to a replacement approval bundle (semi-automatic mode).
 
-    Body: { "bundleId": str, "action": "yes_now" | "yes_at_window" | "dismiss" }
+    Body: { "bundleId": str, "action": "yes_now" | "yes_at_window" | "dismiss", "removed"?: [playerId] }
+    A new-engine request (PAD-919) takes "yes_now" or "dismiss", and "removed" the students the
+    coach took out of its queue.
     """
     coach = _current_coach()
     data = request.get_json() or {}
@@ -646,7 +685,7 @@ def approval_respond():
     if not bundle_id:
         abort(400, "bundleId is required")
     from padel_app.services.replacement_approval_service import respond_to_approval
-    result = respond_to_approval(bundle_id, action, coach.id)
+    result = respond_to_approval(bundle_id, action, coach.id, removed=data.get("removed") or ())
     return jsonify(result)
 
 
@@ -1137,9 +1176,9 @@ def debug_offer_waiting_list():
 
     from padel_app.services.notification_service import (
         _offer_waiting_list,
-        _resolve_locale,
         get_or_create_config,
     )
+    from padel_app.services.message_text import _resolve_locale
 
     coach = _current_coach()
     data = request.get_json() or {}

@@ -1,0 +1,45 @@
+id: 50
+variant: sim
+title: regular que joga dos dois lados cobre o lado sem candidatos
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1174, 1195]}
+what_it_tests: a aplicação conta alunos em falta, não vagas por lado, e não convida a mais por causa do aluno que joga dos dois lados
+tags: [both-sides, regulars, groups, unbalanced]
+depends_on: [U11]
+corrections: []
+notes: >
+  Branch "Se disser Sim" (variant sim; the Não branch is 50b, with the same 19:00 step). Capacity 4,
+  one student missing from either side (R7): everyone counts as same side, groups 3 and 4 merge both
+  sides, groups 5 and 6 are empty. The single L2R (group 3) covers the one missing student by heads, so
+  group 4 does not enter (R1). The PDF gives no time for the answer; 19:10 is the encoder's. Final:
+  1 left, 2 right and the both-sides regular, who completes the left (encoded as total 4). The app does
+  not assign the regular's side (U11). missing {total} per the coordinator's format decision 5.
+
+class:
+  level: 3
+  capacity: 4
+  start: 2026-11-03 10:30
+  created_at: null
+
+roster:
+  regulars: {L: 1, R: 1, both: 1}
+students:
+  - {cohort: L2R, count: 1, level: 2, side: R}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 1, side_named: null, group: 3}]
+      missing: {total: 1}
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {total: 0}
+  - at: 2026-11-01 20:00
+    derived: true
+    expect:
+      invitations: none
+      invitations_total_sent: 1
+final:
+  roster: {total: 4}

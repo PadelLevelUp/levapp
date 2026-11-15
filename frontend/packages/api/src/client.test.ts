@@ -75,7 +75,7 @@ describe("createApiClient", () => {
     expect(seen[0].headers.Authorization).toBeUndefined();
   });
 
-  it("persists the rolling-refresh x-new-token response header", async () => {
+  it("[AUTH-TOKEN-REFRESH-1] persists the rolling-refresh x-new-token response header", async () => {
     const storage = memoryStorage("old-token");
     const client = createApiClient({ baseURL: "http://api.test", storage });
     installAdapter(client, { headers: { "x-new-token": "fresh-token" } });
@@ -86,7 +86,7 @@ describe("createApiClient", () => {
     await expect(storage.getToken()).resolves.toBe("fresh-token");
   });
 
-  it("does not touch storage when no x-new-token header is present", async () => {
+  it("[AUTH-TOKEN-REFRESH-1] does not touch storage when no x-new-token header is present", async () => {
     const storage = memoryStorage("tok");
     const client = createApiClient({ baseURL: "http://api.test", storage });
     installAdapter(client);

@@ -13,7 +13,7 @@ name: Deploy prod
 # dispatch with rollback_to=<sha of a commit this workflow already deployed>;
 # the build is skipped and the deploy runs the same script with the same
 # secrets. What that does not cover is in
-# .cortex/atlas/decisions/2026-09-13-prod-rollback-procedure.md — read it before
+# cortex/world/decisions/prod-rollback-procedure.md — read it before
 # rolling back: a migration that has applied since is not undone.
 #
 # Path filtering happens INSIDE the jobs (dorny/paths-filter), never at the

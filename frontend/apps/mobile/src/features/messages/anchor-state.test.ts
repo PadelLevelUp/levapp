@@ -88,19 +88,19 @@ describe("reveal — the offset, not the height", () => {
    * opened on 171-182. The height had settled and `scrollToEnd` had been
    * issued, but the offset had not moved. Height stability must NOT reveal.
    */
-  it("does NOT reveal just because the content stopped growing", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-15] does NOT reveal just because the content stopped growing", () => {
     const { state, effects } = run([layout(), data(), size(4000), size(4000)]);
     expect(effects).toEqual([null, null, "scrollToEnd", "scrollToEnd"]);
     expect(state.phase).toBe("positioning");
   });
 
-  it("reveals when a following frame reports the offset at the end", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-15] reveals when a following frame reports the offset at the end", () => {
     const { state, effects } = run([data(), size(4000), scrolled(0)]);
     expect(effects).toEqual([null, "scrollToEnd", "reveal"]);
     expect(state.phase).toBe("anchored");
   });
 
-  it("accepts a sub-pixel residue at the end as being at the end", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-15] accepts a sub-pixel residue at the end as being at the end", () => {
     const { state } = run([data(), size(4000), scrolled(0.5)]);
     expect(state.phase).toBe("anchored");
   });
@@ -111,18 +111,18 @@ describe("reveal — the offset, not the height", () => {
    * sub-pixel epsilon rejected that and every open fell through to the
    * fallback, correctly positioned but unrecognised.
    */
-  it("accepts the list's own bottom padding as being at the end", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-15] accepts the list's own bottom padding as being at the end", () => {
     const { state } = run([data(), size(4000), scrolled(14)]);
     expect(state.phase).toBe("anchored");
   });
 
-  it("does NOT reveal on a frame that is still short of the end", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-15] does NOT reveal on a frame that is still short of the end", () => {
     const { state, effects } = run([data(), size(4000), scrolled(900)]);
     expect(effects).toEqual([null, "scrollToEnd", null]);
     expect(state.phase).toBe("positioning");
   });
 
-  it("does not reveal on an at-the-end frame before anything was positioned", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-15] does not reveal on an at-the-end frame before anything was positioned", () => {
     const { state } = run([data(), scrolled(0)]);
     expect(state.phase).toBe("positioning");
   });

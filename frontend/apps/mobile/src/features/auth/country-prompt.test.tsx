@@ -62,13 +62,13 @@ async function mount() {
 }
 
 describe("the country prompt (iOS)", () => {
-  it("shows for a null country, with PT selected", async () => {
+  it("[AUTH-LOGIN-15] shows for a null country, with PT selected", async () => {
     const n = await mount();
     expect(n.queryByTestId("country-prompt")).not.toBeNull();
     expect(n.byTestId("country-prompt-option-PT").props.accessibilityState).toMatchObject({ selected: true });
   });
 
-  it("not for a set country, nobody, a held user or a dismissed device", async () => {
+  it("[AUTH-LOGIN-15] not for a set country, nobody, a held user or a dismissed device", async () => {
     auth.user = { id: 7, roles: ["player"], country: "ES" };
     expect((await mount()).queryByTestId("country-prompt")).toBeNull();
     auth.user = null;
@@ -82,7 +82,7 @@ describe("the country prompt (iOS)", () => {
     expect((await mount()).queryByTestId("country-prompt")).toBeNull();
   });
 
-  it("Guardar sends the chosen country and refreshes the signed-in user", async () => {
+  it("[AUTH-LOGIN-15] Guardar sends the chosen country and refreshes the signed-in user", async () => {
     const n = await mount();
     await n.press("country-prompt-option-BR");
     await n.press("country-prompt-save");
@@ -91,7 +91,7 @@ describe("the country prompt (iOS)", () => {
     expect(auth.refreshUser).toHaveBeenCalledTimes(1);
   });
 
-  it("Agora não hides it and remembers it on the device", async () => {
+  it("[AUTH-LOGIN-15] Agora não hides it and remembers it on the device", async () => {
     const n = await mount();
     await n.press("country-prompt-later");
     expect(n.queryByTestId("country-prompt")).toBeNull();

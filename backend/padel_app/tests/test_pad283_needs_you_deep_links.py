@@ -36,7 +36,7 @@ def test_reply_href_is_the_conversation_route(app):
     from padel_app.sql_db import db
     from padel_app.helpers.dashboard.coach_home import reply_items
     from padel_app.models import Message, User
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     now = datetime(2026, 8, 4, 10, 0)
     coach_id, user_id, _ = _seed(app, now=now)

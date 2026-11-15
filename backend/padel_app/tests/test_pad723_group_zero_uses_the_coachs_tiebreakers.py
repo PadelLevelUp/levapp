@@ -5,6 +5,7 @@ priority criteria — the same `_rank_invited` the other groups use — and a st
 Before PAD-723 group 0 went strictly by join time, and a row fanned out by a standing entry took the
 standing entry's (earlier) creation time: the origin decided.
 """
+import pytest
 from datetime import timedelta
 
 from padel_app.sql_db import db
@@ -38,6 +39,7 @@ def _rank_by_attendance(coach_id):
     db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-19")
 def test_the_coachs_criteria_order_group_0_not_the_join_time(app, monkeypatch):
     """Ana joined the list first but comes 1 in 4; Bea joined later and comes 4 in 4. With the coach
     ranking by attendance and one invitation at a time, Bea is asked first."""
@@ -55,6 +57,7 @@ def test_the_coachs_criteria_order_group_0_not_the_join_time(app, monkeypatch):
         assert _invites(instance_id) == [(bea, 0)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-18")
 def test_a_standing_entrys_age_gives_no_priority(app, monkeypatch):
     """Equal attendance: Ana's own row joined at 10:00; Bea's row was fanned out at 11:00 by a standing
     entry created at 09:00. The origin gives nothing, so the rows' own times decide: Ana first."""

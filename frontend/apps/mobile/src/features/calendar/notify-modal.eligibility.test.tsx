@@ -97,7 +97,7 @@ beforeEach(() => {
 });
 
 describe("NotifyModal: inviting below the bar", () => {
-  it("asks first with the invite verb; cancel sends nothing", async () => {
+  it("[ELIGIBILITY-ENFORCEMENT-12] asks first with the invite verb; cancel sends nothing", async () => {
     checkEligibility.mockResolvedValue({ ineligible: failingRita });
     const ui = await openAndSend(["7"]);
     expect(checkEligibility).toHaveBeenCalledWith("LessonInstance", "5", "2026-06-11", ["7"]);
@@ -110,7 +110,7 @@ describe("NotifyModal: inviting below the bar", () => {
     expect(ui.byTestId("class-notify-send")).toBeTruthy(); // the modal and its selection stay
   });
 
-  it("confirm sends the whole selection", async () => {
+  it("[ELIGIBILITY-ENFORCEMENT-12] confirm sends the whole selection", async () => {
     checkEligibility.mockResolvedValue({ ineligible: failingRita });
     const ui = await openAndSend(["7", "8"]);
     await ui.press("eligibility-confirm-proceed");
@@ -135,7 +135,7 @@ describe("NotifyModal: inviting below the bar", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("sends at once when nobody fails", async () => {
+  it("[ELIGIBILITY-ENFORCEMENT-12] sends at once when nobody fails", async () => {
     checkEligibility.mockResolvedValue({ ineligible: [] });
     const ui = await openAndSend(["8"]);
     expect(ui.queryByTestId("eligibility-confirm")).toBeNull();
@@ -144,7 +144,7 @@ describe("NotifyModal: inviting below the bar", () => {
 });
 
 describe("NotifyModal: a search that finds nobody says so (players.search rule 10, PAD-665)", () => {
-  it("shows the shared empty line for a non-matching query, and removes it once the box is cleared", async () => {
+  it("[PLAYERS-SEARCH-7] shows the shared empty line for a non-matching query, and removes it once the box is cleared", async () => {
     const ui = await renderNative(<NotifyModal open onClose={() => {}} event={event} existingPlayerIds={[]} />);
     expect(ui.queryByTestId("player-search-empty")).toBeNull();
     await ui.changeText("class-notify-search", "  xavier ");

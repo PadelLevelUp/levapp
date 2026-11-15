@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe("ExpoPushRegistrar (rule 15)", () => {
-  it("registers without a prompt once permission is granted, and never prompts before that", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-5] registers without a prompt once permission is granted, and never prompts before that", async () => {
     const registrar = new ExpoPushRegistrar();
     notifications.permission = "undetermined";
     await registrar.registerIfPermitted();
@@ -82,7 +82,7 @@ describe("ExpoPushRegistrar (rule 15)", () => {
     expect(notifications.requested).toBe(1);
   });
 
-  it("retries a failed POST at 2 s, 10 s and 30 s, then reports failed", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-10] retries a failed POST at 2 s, 10 s and 30 s, then reports failed", async () => {
     post.mockRejectedValue(new Error("network"));
     const registrar = new ExpoPushRegistrar();
     await registrar.register();
@@ -113,7 +113,7 @@ describe("ExpoPushRegistrar (rule 15)", () => {
     expect(registrar.status()).toBe("no-permission");
   });
 
-  it("a logout during the waits cancels the remaining retries", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-10] a logout during the waits cancels the remaining retries", async () => {
     post.mockRejectedValue(new Error("network"));
     const registrar = new ExpoPushRegistrar();
     await registrar.register();
@@ -131,7 +131,7 @@ describe("ExpoPushRegistrar (rule 15)", () => {
     expect(registrar.status()).toBe("unsupported");
   });
 
-  it("a rotation fetches the Expo token again, caches and posts it, and logout revokes it (PAD-741)", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-7] a rotation fetches the Expo token again, caches and posts it, and logout revokes it (PAD-741)", async () => {
     const registrar = new ExpoPushRegistrar();
     await registrar.register();
     const stop = registrar.watchTokenRotation();
@@ -148,7 +148,7 @@ describe("ExpoPushRegistrar (rule 15)", () => {
     expect(notifications.tokenListener).toBeNull();
   });
 
-  it("a rotation whose Expo token did not change posts nothing and keeps the cached token (PAD-741)", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-7] a rotation whose Expo token did not change posts nothing and keeps the cached token (PAD-741)", async () => {
     const registrar = new ExpoPushRegistrar();
     await registrar.register();
     const stop = registrar.watchTokenRotation();
@@ -221,7 +221,7 @@ describe("onRegistrationFailure (the PAD-746 hook)", () => {
 });
 
 describe("startPushRecovery (rule 15)", () => {
-  it("a return to the app registers without a prompt until this session has registered", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-6] a return to the app registers without a prompt until this session has registered", async () => {
     const registrar = new ExpoPushRegistrar();
     notifications.permission = "denied";
     await registrar.register(); // at login: denied, nothing sent

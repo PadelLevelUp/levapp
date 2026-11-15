@@ -14,15 +14,15 @@ import { SIDE_SHEET_PADDING, sideSheetPaddingBottom } from "./side-sheet-layout"
 const PIXEL_6 = { bottom: 48 }; // 3-button navigation
 
 describe("sideSheetPaddingBottom (rule 9c, PAD-817)", () => {
-  it("leaves iOS as it was", () => {
+  it("[MOBILE-ANDROID-RUNTIME-9] leaves iOS as it was", () => {
     expect(sideSheetPaddingBottom("ios", { bottom: 34 })).toBe(SIDE_SHEET_PADDING);
   });
 
-  it("on Android, adds the navigation bar to the padding", () => {
+  it("[MOBILE-ANDROID-RUNTIME-9] on Android, adds the navigation bar to the padding", () => {
     expect(sideSheetPaddingBottom("android", PIXEL_6)).toBe(SIDE_SHEET_PADDING + 48);
   });
 
-  it("on Android with no inset, is the plain padding", () => {
+  it("[MOBILE-ANDROID-RUNTIME-9] on Android with no inset, is the plain padding", () => {
     expect(sideSheetPaddingBottom("android", { bottom: 0 })).toBe(SIDE_SHEET_PADDING);
   });
 

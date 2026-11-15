@@ -82,6 +82,7 @@ def _events_on(app, coach_id, date, title):
         ]
 
 
+@pytest.mark.criterion("CLASSES-DELETE-5")
 def test_delete_single_edited_occurrence_stays_gone(app, recurring_with_coach):
     coach_id, user_id, lesson_id, first_start = recurring_with_coach
     from padel_app.services.lesson_service import (
@@ -131,6 +132,7 @@ def test_delete_single_edited_occurrence_stays_gone(app, recurring_with_coach):
         "third occurrence should remain"
 
 
+@pytest.mark.criterion("CLASSES-RECURRENCE-2")
 def test_delete_single_non_materialized_occurrence_via_lesson_path(app, recurring_with_coach):
     """Deleting a NON-edited recurring occurrence (model="Lesson", scope="single")
     must also exclude the date — the latent split_lesson off-by-one that

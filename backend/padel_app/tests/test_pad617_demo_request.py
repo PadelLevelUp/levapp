@@ -86,6 +86,7 @@ def fields_of(call):
     return {f["name"]: f["value"] for f in call["json"]["fields"]}
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_a_valid_request_is_forwarded_to_the_hubspot_form(client, app, hubspot):
     app.config["HUBSPOT_MARKETING_SUBSCRIPTION_ID"] = SUBSCRIPTION_ID
     res = post(client, body())
@@ -125,6 +126,7 @@ def test_a_valid_request_is_forwarded_to_the_hubspot_form(client, app, hubspot):
     }
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_an_unticked_marketing_box_is_sent_as_false(client, app, hubspot):
     app.config["HUBSPOT_MARKETING_SUBSCRIPTION_ID"] = SUBSCRIPTION_ID
     assert post(client, body(marketing=False)).status_code == 200
@@ -132,6 +134,7 @@ def test_an_unticked_marketing_box_is_sent_as_false(client, app, hubspot):
     assert comm["value"] is False
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_without_a_subscription_id_no_communications_are_sent(client, app, hubspot):
     app.config["HUBSPOT_MARKETING_SUBSCRIPTION_ID"] = ""
     assert post(client, body(marketing=True)).status_code == 200
@@ -139,6 +142,7 @@ def test_without_a_subscription_id_no_communications_are_sent(client, app, hubsp
     assert consent == {"consentToProcess": True, "text": CONSENT_PT}
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_without_a_pedido_no_button_is_recorded(client, hubspot):
     payload = body(hutk=None)
     del payload["pedido"]
@@ -158,6 +162,7 @@ def test_without_a_pedido_no_button_is_recorded(client, hubspot):
         ("+44 7700 900123", "+44 7700 900123"),
     ],
 )
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_the_phone_is_normalised(client, hubspot, typed, sent):
     assert post(client, body(phone=typed)).status_code == 200
     assert fields_of(hubspot[0])["phone"] == sent
@@ -204,6 +209,7 @@ def test_the_texts_sent_are_the_texts_the_form_shows(lang):
         ({"firstname": "x" * 201}, "firstname"),
     ],
 )
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_an_invalid_field_is_refused_and_nothing_is_sent(client, hubspot, over, field):
     res = post(client, body(**over))
     assert res.status_code == 400, res.get_json()
@@ -211,18 +217,21 @@ def test_an_invalid_field_is_refused_and_nothing_is_sent(client, hubspot, over, 
     assert hubspot == []
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_a_filled_honeypot_is_answered_as_success_and_dropped(client, hubspot):
     res = post(client, body(website="http://spam.example"))
     assert res.status_code == 200 and res.get_json() == {"ok": True}
     assert hubspot == []
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_a_form_filled_in_under_three_seconds_is_dropped(client, hubspot):
     res = post(client, body(elapsedMs=900))
     assert res.status_code == 200 and res.get_json() == {"ok": True}
     assert hubspot == []
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_without_a_form_id_the_endpoint_is_unavailable(client, app, hubspot):
     app.config["HUBSPOT_DEMO_FORM_ID"] = ""
     res = post(client, body())
@@ -232,6 +241,7 @@ def test_without_a_form_id_the_endpoint_is_unavailable(client, app, hubspot):
 
 
 @pytest.mark.parametrize("status", [400, 404, 500])
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_a_hubspot_refusal_is_a_502_and_logs_no_personal_data(client, hubspot, status, caplog):
     hubspot.res.status_code = status
     with caplog.at_level(logging.WARNING, logger="padel_app.services.demo_request_service"):
@@ -243,6 +253,7 @@ def test_a_hubspot_refusal_is_a_502_and_logs_no_personal_data(client, hubspot, s
     assert "rita@academia.pt" not in logged and "912" not in logged and "Academia" not in logged
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_hubspot_unreachable_is_a_502(client, app, monkeypatch):
     app.config["HUBSPOT_DEMO_FORM_ID"] = FORM_ID
 
@@ -254,6 +265,7 @@ def test_hubspot_unreachable_is_a_502(client, app, monkeypatch):
     assert res.status_code == 502
 
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_requests_are_rate_limited_per_ip(client, app, hubspot):
     app.config["AUTH_RATE_LIMIT_ENABLED"] = True
     app.config["AUTH_RATE_LIMIT_DEMO"] = "3/3600"
@@ -268,6 +280,7 @@ def test_requests_are_rate_limited_per_ip(client, app, hubspot):
 
 # ── review round ────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-LANDING-PAGE-25")
 def test_a_bot_that_fills_the_honeypot_learns_nothing_even_with_invalid_fields(client, hubspot):
     res = post(client, {"website": "http://spam.example", "email": "nope"})
     assert res.status_code == 200 and res.get_json() == {"ok": True}

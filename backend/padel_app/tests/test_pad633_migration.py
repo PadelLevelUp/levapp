@@ -2,6 +2,7 @@
 `@email.com` address get `email` NULL, a `pending-…` username and no password when they never
 chose one (NULL, or the hash of "" the import wrote before 933d7827c); nothing else is touched.
 Scratch SQLite with a hand-made table, the way test_b216 proves its migration."""
+import pytest
 import importlib.util
 import pathlib
 
@@ -66,6 +67,7 @@ def _users(conn):
     return {r.id: (r.email, r.username, r.password, r.status) for r in conn.execute(sa.text("SELECT * FROM users"))}
 
 
+@pytest.mark.criterion("IMPORT-CONFIRM-6")
 def test_upgrade_drops_only_the_invented_addresses_and_gives_a_placeholder(capsys):
     conn = _scratch()
     _run(conn, "upgrade")

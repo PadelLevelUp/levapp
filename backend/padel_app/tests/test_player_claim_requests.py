@@ -42,6 +42,7 @@ def world(app):
 
 # ── trigger A ───────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-1")
 def test_claim_via_invite_link_keeps_the_coachs_data(app, client, world):
     from padel_app.models import Association_CoachPlayer, Player, PlayerInvitation, Presence, User
 
@@ -68,6 +69,7 @@ def test_claim_via_invite_link_keeps_the_coachs_data(app, client, world):
         assert (st.name, st.username) == ("Ana Silva", "ana")
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-7")
 def test_claim_via_invite_requires_a_student_account(app, client, world):
     token = _invite(app, world["ph_player"], world["coach"])
     res = client.post(f"/api/app/player-invitations/{token}/claim", headers=_auth(app, world["coach_user"]))
@@ -95,6 +97,7 @@ def _request(client, app, world, username="ana"):
                        headers=_auth(app, world["coach_user"]), json={"username": username})
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-3")
 def test_coach_request_is_accepted_by_the_student(app, client, world):
     from padel_app.models import Association_CoachPlayer, Player, PlayerClaimRequest
 
@@ -119,6 +122,7 @@ def test_coach_request_is_accepted_by_the_student(app, client, world):
         assert Player.query.get(world["ph_player"]) is None
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-4")
 def test_rejecting_changes_nothing(app, client, world):
     from padel_app.models import Player, PlayerClaimRequest, User
 
@@ -133,6 +137,7 @@ def test_rejecting_changes_nothing(app, client, world):
     assert client.post(f"/api/app/player-claim-requests/{rid}/accept", headers=_auth(app, world["st_user"])).status_code == 410
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-5")
 def test_only_the_target_decides(app, client, world):
     from padel_app.models import PlayerClaimRequest
 
@@ -144,6 +149,7 @@ def test_only_the_target_decides(app, client, world):
         assert PlayerClaimRequest.query.get(rid).status == "pending"
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-6")
 def test_activated_player_cannot_be_claimed(app, client, world):
     from padel_app.models import User
 

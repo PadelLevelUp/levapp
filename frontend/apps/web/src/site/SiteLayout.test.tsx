@@ -50,7 +50,7 @@ async function choose(audience: string) {
 const PAGE_WAIT = { timeout: 10_000 };
 
 describe("the site layout (PAD-656)", { timeout: 20_000 }, () => {
-  it("opens on coaches and writes ?para= when the audience changes, without a reload", async () => {
+  it("[AUTH-LANDING-PAGE-3] opens on coaches and writes ?para= when the audience changes, without a reload", async () => {
     renderSite("/?utm_source=x");
     // The audience pages are lazy chunks: wait for the one chosen.
     expect(await screen.findByTestId("site-page-coaches", {}, PAGE_WAIT)).toBeInTheDocument();
@@ -59,12 +59,12 @@ describe("the site layout (PAD-656)", { timeout: 20_000 }, () => {
     expect(screen.getByTestId("search").textContent).toBe("?utm_source=x&para=jogadores");
   });
 
-  it("reads the audience from the URL, the old ?audience= too", () => {
+  it("[AUTH-LANDING-PAGE-4] reads the audience from the URL, the old ?audience= too", () => {
     renderSite("/?audience=alunos");
     expect(screen.getByTestId("site-audience").getAttribute("data-audience")).toBe("players");
   });
 
-  it("shows the section links for coaches and players and hides them on Outros", async () => {
+  it("[AUTH-LANDING-PAGE-6] shows the section links for coaches and players and hides them on Outros", async () => {
     renderSite();
     const nav = screen.getByTestId("site-nav");
     expect(within(nav).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["#vantagens", "#como-funciona", "#resultados"]);
@@ -86,7 +86,7 @@ describe("the site layout (PAD-656)", { timeout: 20_000 }, () => {
     expect(screen.queryByTestId("site-menu")).toBeNull();
   });
 
-  it("the footer goes to /contacto, /privacy and /terms and offers the cookie preferences", () => {
+  it("[AUTH-LANDING-PAGE-11] the footer goes to /contacto, /privacy and /terms and offers the cookie preferences", () => {
     renderSite();
     expect(screen.getByTestId("site-footer-contact").getAttribute("href")).toBe("/contacto");
     expect(screen.getByTestId("site-footer-privacy").getAttribute("href")).toBe("/privacy");

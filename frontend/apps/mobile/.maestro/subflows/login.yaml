@@ -94,6 +94,8 @@ appId: com.padellevelup.app
       - inputText: ${PASSWORD}
       - tapOn:
           id: "login-submit"
+      # iOS's "Save Password?" sheet (B-728).
+      - runFlow: dismiss-save-password.yaml
       # players.join-token rule 8: a student with no coach lands on "Connect
       # with a coach" (e2e-student-3 in the seed). Its "Go to dashboard" is the
       # explicit way through; every other account never shows it.

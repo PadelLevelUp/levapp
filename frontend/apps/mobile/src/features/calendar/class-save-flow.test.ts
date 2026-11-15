@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import { commitClassEdit, createClassCreateFlow, hasClassEditChanges } from "./class-save-flow";
+import { classEditRefusal, commitClassEdit, createClassCreateFlow, hasClassEditChanges } from "./class-save-flow";
 
 /**
  * classes.create rule 10 and classes.edit rule 9 (PAD-474): the screens' save
@@ -42,7 +44,7 @@ function createHarness(over: Partial<{ conflict: boolean; ids: string[]; slot: b
 }
 
 describe("create: the save sequence (classes.create rule 10)", () => {
-  it("an unavailable chosen student is named, and nothing is saved until the coach confirms", async () => {
+  it("[CLASSES-CREATE-6] an unavailable chosen student is named, and nothing is saved until the coach confirms", async () => {
     const h = createHarness({ lookup: async () => [ANA] });
     await h.flow.start();
     expect(h.ui.askUnavailable).toHaveBeenCalledWith([ANA]);
@@ -110,7 +112,7 @@ function editHarness(draft: typeof base, ineligible: { playerId: string }[] = []
 }
 
 describe("edit: the save decision (classes.edit rule 9)", () => {
-  it("a participants-only edit is saved", async () => {
+  it("[CLASSES-EDIT-4] a participants-only edit is saved", async () => {
     const h = editHarness({ ...base, participants: [{ id: "1" }, { id: "2" }] });
     await h.run();
     expect(h.finalize).toHaveBeenCalledWith({ addPlayers: ["2"] });
@@ -126,7 +128,7 @@ describe("edit: the save decision (classes.edit rule 9)", () => {
     expect(hasClassEditChanges(base, structuredClone(base))).toBe(false);
   });
 
-  it("adding a student who fails the bar asks first, naming them, and does not save", async () => {
+  it("[CLASSES-EDIT-4] adding a student who fails the bar asks first, naming them, and does not save", async () => {
     const h = editHarness({ ...base, participants: [{ id: "1" }, { id: "2" }] }, [{ playerId: "2" }]);
     await h.run();
     expect(h.eligibility).toHaveBeenCalledWith(["2"]);
@@ -189,5 +191,33 @@ describe("edit: the court reaches the save in every scope (clubs.courts rule 9, 
       ui: { nothingToSave: vi.fn(), askEligibility: vi.fn() },
     });
     expect(finalize).toHaveBeenCalledWith({ courtId: null });
+  });
+});
+
+describe("a class bar rule with no value (eligibility.rules rule 13, eligibility.cascade)", () => {
+  const BLANK = { attribute: "attendance_rate", operation: "greater_than" };
+  const FILLED = { attribute: "attendance_rate", operation: "greater_than", value: 60 };
+  const loaded = { name: "Terça", eligibilityRules: null as unknown, participants: [] as { id: string }[] };
+  const SCREEN = readFileSync(resolve(__dirname, "../../..", "app/class/[id].tsx"), "utf8");
+
+  it("[ELIGIBILITY-RULES-21] a class bar rule with no value blocks the class save, only when sent", () => {
+    // The class's own bar, with a blank rule: refused, with the bar's reason.
+    expect(classEditRefusal(loaded, { ...loaded, eligibilityRules: [BLANK] })).toBe("settings.engine.blankRule.eligibility");
+    expect(classEditRefusal(loaded, { ...loaded, eligibilityRules: [FILLED] })).toBeNull();
+
+    // A stored blank bar that this edit does not send never blocks: a name-only edit saves.
+    const stored = { ...loaded, eligibilityRules: [BLANK] };
+    expect(classEditRefusal(stored, { ...stored, name: "Quarta" })).toBeNull();
+    // Switching to the standard bar (null) or to everyone ([]) after adding a blank row saves.
+    expect(classEditRefusal(loaded, { ...loaded, eligibilityRules: null })).toBeNull();
+    expect(classEditRefusal(stored, { ...stored, eligibilityRules: [] })).toBeNull();
+
+    // The screen asks it at the start of its Save, before the overlap and scope dialogs, and toasts the reason.
+    const save = SCREEN.slice(SCREEN.indexOf("const saveEdit = () => {"), SCREEN.indexOf("const proceedEdit = () => {"));
+    const refusal = save.indexOf("classEditRefusal(instance, draft)");
+    expect(refusal).toBeGreaterThan(-1);
+    expect(refusal).toBeLessThan(save.indexOf("findOverlappingEvent("));
+    expect(refusal).toBeLessThan(save.indexOf("proceedEdit()"));
+    expect(save).toMatch(/toast\.error\(t\(refusal\)\)/);
   });
 });

@@ -49,12 +49,12 @@ const cls = (extra: Partial<CalendarEvent> = {}): CalendarEvent =>
 const student = (el: React.ReactElement) => <CalendarViewerProvider viewer="student">{el}</CalendarViewerProvider>;
 
 describe("the day card (rule 19)", () => {
-  it("ticks a student's enrolled class with an accessible label", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] ticks a student's enrolled class with an accessible label", async () => {
     const n = await renderNative(student(<EventCard event={cls()} onPress={() => undefined} />));
     const mark = n.byTestId("calendar-enrolled-mark");
     expect(mark.props.accessibilityLabel).toBe("calendar.eventCard.enrolled");
   });
-  it("no tick on an open spot (chip instead), none for a coach", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] no tick on an open spot (chip instead), none for a coach", async () => {
     const open = await renderNative(student(<EventCard event={cls({ openSpot: true })} />));
     expect(open.queryByTestId("calendar-enrolled-mark")).toBeNull();
     expect(open.byTestId("calendar-open-spot-chip")).toBeTruthy();
@@ -75,7 +75,7 @@ describe("the ✓ sits beside the title, not across the card (PAD-580 QA)", () =
 });
 
 describe("the Semana grid block (rule 19)", () => {
-  it("ticks the enrolled class's block and not the open spot's", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] ticks the enrolled class's block and not the open spot's", async () => {
     const day = new Date(2026, 9, 19);
     const n = await renderNative(
       student(
@@ -109,7 +109,7 @@ describe("the label keys resolve on the phone (i18n static imports)", () => {
 
 // B-543 (calendar.mobile-views rule 13): past two classes at once, one "+N" selects the day.
 describe("the iOS grid on a busy hour (B-543)", () => {
-  it("three at 18:00: one block and a '+2' that selects the day", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-7] three at 18:00: one block and a '+2' that selects the day", async () => {
     const day = new Date(2026, 9, 28);
     const onSelectDay = vi.fn();
     const at6 = (id: string) => cls({ id, title: id, date: "2026-10-28", startTime: "18:00", endTime: "19:00" });

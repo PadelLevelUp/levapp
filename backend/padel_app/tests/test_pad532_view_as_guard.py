@@ -112,6 +112,7 @@ def test_no_product_get_shows_a_private_message_under_view_as(app, client, world
     assert leaks == [], f"private message text under view-as: {leaks}"
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-10")
 def test_a_write_outside_messaging_is_refused(app, client, world):
     from padel_app.models import TokenBlocklist
 
@@ -153,6 +154,7 @@ def test_staff_accounts_cannot_be_viewed_as(app, client, world, kind):
     assert r.status_code == 403 and r.get_json() == {"error": "VIEW_AS_TARGET_STAFF"}
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-10")
 def test_the_calendar_read_materialises_nothing(app, client, world):
     """The spec's case on the real calendar route: a week with a never-materialised occurrence of a
     recurring class. (No product GET materialises today; this pins it, and the commit-to-flush rule

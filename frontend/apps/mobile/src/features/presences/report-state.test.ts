@@ -4,6 +4,7 @@ import type {
 } from "@levelup/types";
 import { describe, expect, it } from "vitest";
 
+import { applyLoadedView, formatBalanceHours, formatMinutesAsHours, initialPresencesView } from "@levelup/config";
 import {
   DEFAULT_SORT,
   DEFAULT_VISIBLE_COLUMNS,
@@ -11,11 +12,13 @@ import {
   PRESENCE_COLUMNS,
   abbreviateName,
   activeFilterCount,
+  balanceTone,
   buildPresencesCsv,
   csvFileName,
   filterPlayers,
   nextSort,
   presenceRows,
+  rowChips,
   sortPlayerStats,
   splitPoints,
   toggleColumn,
@@ -48,6 +51,9 @@ function player(
     unjustified: 0,
     invitesReceived: 0,
     invitesJoined: 0,
+    presenceMinutes: 0,
+    justifiedMinutes: 0,
+    guestPresenceMinutes: 0,
     ...over,
   };
 }
@@ -85,7 +91,7 @@ describe("presences name search (PAD-665)", () => {
   const names = (query: string) =>
     filterPlayers(roster, { ...EMPTY_FILTERS, query }).map((p) => p.name);
 
-  it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André Nunes'", () => {
+  it("[PLAYERS-SEARCH-1] finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André Nunes'", () => {
     expect(names("rui basto")).toEqual(["Rui Pedro Basto"]);
     expect(names("andre")).toEqual(["André Nunes"]);
   });
@@ -102,7 +108,7 @@ describe("presences name search (PAD-665)", () => {
   });
 
   // Decision 2026-10-14 (a): the table always has a sort of its own, so a typed name only filters.
-  it("presenceRows: a typed name filters and the table's sort stands", () => {
+  it("[PLAYERS-SEARCH-2] presenceRows: a typed name filters and the table's sort stands", () => {
     const typed = { ...EMPTY_FILTERS, query: "rita" };
     expect(presenceRows(roster, typed, { key: "total", direction: "desc" }).map((p) => p.name)).toEqual([
       "Ana Rita",
@@ -146,7 +152,7 @@ describe("filterPlayers", () => {
     ).toEqual(["Ana Ribeiro", "Bruno Silva"]);
   });
 
-  it("treats maxUnjustified as an inclusive ceiling, and 0 as a real one", () => {
+  it("[ATTENDANCE-VALIDATION-20] treats maxUnjustified as an inclusive ceiling, and 0 as a real one", () => {
     // The bug this pins: coercing "" and "0" to the same number would make a
     // cleared field mean "nobody with any unjustified absence".
     expect(
@@ -249,7 +255,7 @@ describe("toggleColumn", () => {
     ]);
   });
 
-  it("refuses to hide the pinned player column", () => {
+  it("[ATTENDANCE-VALIDATION-21] refuses to hide the pinned player column", () => {
     // Without the name every row is anonymous numbers, and so is the CSV.
     expect(toggleColumn(DEFAULT_VISIBLE_COLUMNS, "name")).toEqual(
       DEFAULT_VISIBLE_COLUMNS
@@ -267,10 +273,27 @@ describe("toggleColumn", () => {
   });
 });
 
+describe("the shared column list (PAD-837)", () => {
+  it("[ATTENDANCE-VALIDATION-64] reads the shared column list", async () => {
+    const config = await import("@levelup/config");
+    // The same objects, not a copy: iOS cannot drift from web's columns.
+    expect(PRESENCE_COLUMNS).toBe(config.PRESENCE_COLUMNS);
+    expect(DEFAULT_VISIBLE_COLUMNS).toBe(config.DEFAULT_VISIBLE_COLUMNS);
+    expect(toggleColumn).toBe(config.toggleColumn);
+    // And no column list of its own anywhere in the presences feature.
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(__dirname);
+    for (const file of readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f))) {
+      expect(readFileSync(join(dir, file), "utf8"), file).not.toMatch(/key:\s*"invitesJoined"/);
+    }
+  });
+});
+
 describe("buildPresencesCsv", () => {
   const label = (key: PresenceColumnKey) => `L:${key}`;
 
-  it("exports the visible columns, in display order, for the given rows", () => {
+  it("[ATTENDANCE-VALIDATION-18] exports the visible columns, in display order, for the given rows", () => {
     const csv = buildPresencesCsv(
       [ANA, BRUNO],
       visibleColumns(["name", "total", "unjustified"]),
@@ -315,6 +338,10 @@ describe("buildPresencesCsv", () => {
 });
 
 describe("csvFileName", () => {
+  it("[ATTENDANCE-VALIDATION-47] names the file for the club's day: 23:30 UTC on a summer evening is the next day in Lisbon", () => {
+    expect(csvFileName(new Date("2026-07-14T23:30:00Z"))).toBe("presences-2026-07-15.csv");
+  });
+
   it("date-stamps the file so monthly exports do not collide", () => {
     expect(csvFileName(new Date("2026-09-06T22:30:00Z"))).toBe(
       "presences-2026-09-06.csv"
@@ -389,7 +416,7 @@ describe("presences: the coach's nickname (PAD-683)", () => {
     player("Ana Rita", { playerId: 2 }),
   ];
 
-  it("search finds the student by either name", () => {
+  it("[PLAYERS-NICKNAME-3] search finds the student by either name", () => {
     expect(filterPlayers(rows, { ...EMPTY_FILTERS, query: "tigre" }).map((p) => p.playerId)).toEqual([1]);
     expect(filterPlayers(rows, { ...EMPTY_FILTERS, query: "rui basto" }).map((p) => p.playerId)).toEqual([1]);
   });
@@ -397,5 +424,59 @@ describe("presences: the coach's nickname (PAD-683)", () => {
   it("sorts and labels by the display name", () => {
     expect(sortPlayerStats(rows, { key: "name", direction: "asc" }).map((p) => p.playerId)).toEqual([2, 1]);
     expect(topPlayerPoints([{ ...rows[0], total: 3 }])[0].fullLabel).toBe("Tigre");
+  });
+});
+
+describe("the saved columns on iOS (PAD-837b)", () => {
+  it("[ATTENDANCE-VALIDATION-66] restores the saved columns, in the list's order, and the CSV carries them", () => {
+    // Stored out of order, with an id the list no longer knows and no `name`: the list decides.
+    const state = applyLoadedView(initialPresencesView(), {
+      columns: ["invitesJoined", "retiredColumn", "total"],
+    });
+    expect(state.columns).toEqual(["name", "total", "invitesJoined"]);
+    const csv = buildPresencesCsv([], visibleColumns(state.columns), (key) => key);
+    expect(csv.split("\n")[0]).toBe('"name","total","invitesJoined"');
+  });
+});
+
+describe("the hours columns on iOS (PAD-837a)", () => {
+  // 90 and 60 presence minutes; guest 90 − justified 60 = +30, 60 − 90 = −30, 60 − 60 = 0.
+  const PLUS = player("Mais", { presenceMinutes: 90, guestPresenceMinutes: 90, justifiedMinutes: 60, balanceMinutes: 30 });
+  const MINUS = player("Menos", { presenceMinutes: 60, guestPresenceMinutes: 60, justifiedMinutes: 90, balanceMinutes: -30 });
+  const EVEN = player("Igual", { presenceMinutes: 600, guestPresenceMinutes: 60, justifiedMinutes: 60, balanceMinutes: 0 });
+  const HOURS = visibleColumns(["name", "presenceMinutes", "balanceMinutes"]);
+
+  it("[ATTENDANCE-VALIDATION-63] exports hours columns as the screen shows them", () => {
+    // The cell is the shared formatter's text for the same minutes, never a literal of this shell's.
+    const csv = buildPresencesCsv([PLUS, MINUS, EVEN], HOURS, (key) => key).split("\n");
+    expect(csv[1]).toBe(`"Mais","${formatMinutesAsHours(90)}","${formatBalanceHours(30)}"`);
+    expect(csv[2]).toBe(`"Menos","${formatMinutesAsHours(60)}","${formatBalanceHours(-30)}"`);
+    expect(csv[3]).toBe(`"Igual","${formatMinutesAsHours(600)}","${formatBalanceHours(0)}"`);
+    // And the row's chips carry the same text.
+    const chip = (p: PresencePlayerStats, key: PresenceColumnKey) => rowChips(p, HOURS).find((c) => c.key === key)?.text;
+    expect(chip(PLUS, "presenceMinutes")).toBe(formatMinutesAsHours(90));
+    expect(chip(PLUS, "balanceMinutes")).toBe(formatBalanceHours(30));
+    expect(chip(MINUS, "balanceMinutes")).toBe(formatBalanceHours(-30));
+  });
+
+  it("[ATTENDANCE-VALIDATION-63] sorts an hours column by minutes, not by its text", () => {
+    // "10h" would sort before "1h30" as text; 600 minutes come first as a number.
+    const desc = sortPlayerStats([PLUS, MINUS, EVEN], { key: "presenceMinutes", direction: "desc" });
+    expect(desc.map((p) => p.presenceMinutes)).toEqual([600, 90, 60]);
+    const asc = sortPlayerStats([PLUS, MINUS, EVEN], { key: "balanceMinutes", direction: "asc" });
+    expect(asc.map((p) => p.balanceMinutes)).toEqual([-30, 0, 30]);
+    // The sort chips offer every column of the list, the hours ones included.
+    expect(PRESENCE_COLUMNS.map((c) => c.key)).toEqual(expect.arrayContaining(["presenceMinutes", "balanceMinutes"]));
+  });
+
+  it("[ATTENDANCE-VALIDATION-62] the balance chip carries its sign in the text and a colour that only follows it", () => {
+    const tone = (p: PresencePlayerStats) => rowChips(p, HOURS).find((c) => c.key === "balanceMinutes")?.tone;
+    expect(tone(PLUS)).toBe("good");
+    expect(tone(MINUS)).toBe("bad");
+    expect(tone(EVEN)).toBeUndefined();
+    expect(balanceTone(0)).toBeUndefined();
+    // Zero hours of presence are not a chip; a zero balance is (it says "even").
+    const zero = player("Zero", { presenceMinutes: 0, balanceMinutes: 0 });
+    expect(rowChips(zero, HOURS).map((c) => c.key)).toEqual(["balanceMinutes"]);
   });
 });

@@ -79,7 +79,7 @@ describe("PlayerSelector (classes.create rule 10, classes.edit rule 9)", () => {
     expect(rendered(n)).toContain("calendar.playerSelector.noParticipantsSelected");
   });
 
-  it("PAD-518: picking a student from search results clears the search; unticking does not", async () => {
+  it("[CLASSES-CREATE-13] PAD-518: picking a student from search results clears the search; unticking does not", async () => {
     const n = await renderNative(createElement(Holder, { players: ROSTER }));
     await n.press("player-selector-tab-all");
     await n.changeText("player-selector-search", "Student 3");
@@ -114,11 +114,11 @@ describe("PlayerSelector shows every student's level (PAD-527)", () => {
     return { rui: read("1"), sara: read("2"), tome: read("3") };
   }
 
-  it("marks the class's level as same, another level or none as other", async () => {
+  it("[CLASSES-CREATE-2] marks the class's level as same, another level or none as other", async () => {
     expect(await chips("1")).toEqual({ rui: "level-same", sara: "level-other", tome: "level-other" });
   });
 
-  it("is neutral for a class with no level, and a student with no level shows no chip", async () => {
+  it("[CLASSES-CREATE-2] is neutral for a class with no level, and a student with no level shows no chip", async () => {
     expect(await chips(null)).toEqual({ rui: "level-none", sara: "level-none", tome: null });
   });
 });

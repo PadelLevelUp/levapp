@@ -19,10 +19,10 @@ vi.mock("@/api/events", () => ({
     return () => undefined;
   },
 }));
-const api = vi.hoisted(() => ({ getApprovalSuggestions: vi.fn(), getClassInstance: vi.fn() }));
+const api = vi.hoisted(() => ({ getApprovalState: vi.fn(), getClassInstance: vi.fn() }));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getApprovalSuggestions: api.getApprovalSuggestions,
+  getApprovalState: api.getApprovalState,
 }));
 vi.mock("@/api/classes", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -86,11 +86,11 @@ const cardIds = () =>
 beforeEach(() => {
   live.handler = null;
   api.getClassInstance.mockReset().mockImplementation(async () => cls());
-  api.getApprovalSuggestions.mockReset().mockImplementation(async () => server.answer);
+  api.getApprovalState.mockReset().mockImplementation(async () => server.answer);
 });
 
 describe("the class's approval cards follow the class (PAD-770)", () => {
-  it("a spot filled by a join drops its card when the presence moves, without reopening", async () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-21] a spot filled by a join drops its card when the presence moves, without reopening", async () => {
     server.answer = { state: "pending", bundles: [bundle("b-7", 7), bundle("b-8", 8)], semiAutomatic: true };
     renderSheet();
     await waitFor(() => expect(cardIds()).toEqual(["b-7", "b-8"]));
@@ -105,7 +105,7 @@ describe("the class's approval cards follow the class (PAD-770)", () => {
     await waitFor(() => expect(cardIds()).toEqual(["b-8"]));
   });
 
-  it("the last card goes when nothing is pending any more", async () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-21] the last card goes when nothing is pending any more", async () => {
     server.answer = { state: "pending", bundles: [bundle("b-7", 7)], semiAutomatic: true };
     renderSheet();
     await waitFor(() => expect(cardIds()).toEqual(["b-7"]));

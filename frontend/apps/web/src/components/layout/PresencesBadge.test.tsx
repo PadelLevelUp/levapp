@@ -17,7 +17,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 describe("PresencesBadge", () => {
-  it("shows 1 in the attention tier", () => {
+  it("[ATTENDANCE-VALIDATION-25] shows 1 in the attention tier", () => {
     render(<PresencesBadge count={1} />);
     const badge = screen.getByTestId("nav-presences-badge");
     expect(badge).toHaveAttribute("data-tier", "attention");
@@ -25,14 +25,14 @@ describe("PresencesBadge", () => {
     expect(badge.getAttribute("aria-label")).toContain('"count":1');
   });
 
-  it("shows 7 in the urgent tier", () => {
+  it("[ATTENDANCE-VALIDATION-25] shows 7 in the urgent tier", () => {
     render(<PresencesBadge count={7} />);
     const badge = screen.getByTestId("nav-presences-badge");
     expect(badge).toHaveAttribute("data-tier", "urgent");
     expect(badge).toHaveTextContent("7");
   });
 
-  it("renders nothing when there is nothing to validate", () => {
+  it("[ATTENDANCE-VALIDATION-25] renders nothing when there is nothing to validate", () => {
     render(<PresencesBadge count={0} />);
     expect(screen.queryByTestId("nav-presences-badge")).toBeNull();
   });
