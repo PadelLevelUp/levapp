@@ -27,6 +27,7 @@ import {
   PRESENCE_COLUMNS,
   applyLoadedView,
   chooseColumns,
+  HELPED_COLUMNS,
   initialPresencesView,
   presencesCsvFileName,
   presencesViewPayload,
@@ -249,18 +250,32 @@ export function PresencePlayersTable({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {COLUMNS.map((column) => (
-                <label
-                  key={column.key}
-                  className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm"
-                >
-                  <Checkbox
-                    checked={visible.includes(column.key)}
-                    // The player column is what every other cell is about.
-                    disabled={column.key === PINNED_COLUMN}
-                    onCheckedChange={() => chooseColumn(column.key)}
-                  />
-                  {t(`presences.column.${column.key}`)}
-                </label>
+                <div key={column.key} className="px-2 py-1.5 text-sm">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <Checkbox
+                      checked={visible.includes(column.key)}
+                      // The player column is what every other cell is about.
+                      disabled={column.key === PINNED_COLUMN}
+                      onCheckedChange={() => chooseColumn(column.key)}
+                      aria-describedby={
+                        HELPED_COLUMNS.includes(column.key)
+                          ? `presences-column-help-${column.key}`
+                          : undefined
+                      }
+                    />
+                    {t(`presences.column.${column.key}`)}
+                  </label>
+                  {/* PAD-837 (rule 17e): the guest columns say what they count. */}
+                  {HELPED_COLUMNS.includes(column.key) && (
+                    <p
+                      id={`presences-column-help-${column.key}`}
+                      data-testid={`presences-column-help-${column.key}`}
+                      className="ml-6 text-xs text-muted-foreground"
+                    >
+                      {t(`presences.columnHelp.${column.key}`)}
+                    </p>
+                  )}
+                </div>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -289,6 +304,11 @@ export function PresencePlayersTable({
                     <th
                       key={column.key}
                       scope="col"
+                      title={
+                        HELPED_COLUMNS.includes(column.key)
+                          ? t(`presences.columnHelp.${column.key}`)
+                          : undefined
+                      }
                       aria-sort={
                         active
                           ? sortDir === "asc"

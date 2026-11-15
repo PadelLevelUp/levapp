@@ -29,6 +29,13 @@ export const PRESENCE_COLUMNS = [
 export type PresenceColumn = (typeof PRESENCE_COLUMNS)[number];
 export type PresenceColumnKey = PresenceColumn["key"];
 
+/**
+ * The columns that carry a help line (attendance.validation rule 17e): the two guest columns, whose
+ * names alone do not say that the first counts every guest appearance, whatever the answer, and the
+ * second only those where the student was present. Each shell shows `presences.columnHelp.<id>`.
+ */
+export const HELPED_COLUMNS: PresenceColumnKey[] = ["invitesReceived", "invitesJoined"];
+
 /** The pinned column: every other cell is a statement *about* this one. */
 export const PINNED_COLUMN: PresenceColumnKey = "name";
 

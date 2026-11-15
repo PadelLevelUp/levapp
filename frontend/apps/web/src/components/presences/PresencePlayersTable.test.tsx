@@ -133,6 +133,41 @@ describe("PresencePlayersTable chooser and CSV (PAD-837)", () => {
   });
 });
 
+describe("PresencePlayersTable guest columns (PAD-837, rule 17e)", () => {
+  it("[ATTENDANCE-VALIDATION-65] explains the guest columns", async () => {
+    // A heading only renders for a shown column: show both guest columns first.
+    renderTable();
+    for (const key of GUEST_COLUMNS) await chooseColumn(key);
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: /presences\.table\.columns/ }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    for (const key of GUEST_COLUMNS) {
+      // In the chooser: a non-empty line, tied to the column's checkbox. Never the wording.
+      const help = await screen.findByTestId(`presences-column-help-${key}`);
+      expect(help.textContent?.trim()).toBeTruthy();
+      const box = screen.getByRole("checkbox", { name: `presences.column.${key}` });
+      expect(box.getAttribute("aria-describedby")).toBe(help.id);
+    }
+    // No other column carries one.
+    expect(screen.queryAllByTestId(/^presences-column-help-/)).toHaveLength(GUEST_COLUMNS.length);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+    // On the heading: the same line.
+    for (const key of GUEST_COLUMNS) {
+      const th = within(screen.getByRole("table"))
+        .getAllByRole("columnheader")
+        .find((h) => h.textContent?.trim() === `presences.column.${key}`);
+      expect(th?.getAttribute("title")).toBe(`presences.columnHelp.${key}`);
+    }
+  });
+});
+
+// Named here, not read from HELPED_COLUMNS: an emptied list must fail this test, not pass it.
+const GUEST_COLUMNS = ["invitesReceived", "invitesJoined"] as const;
+
 async function chooseColumn(key: string) {
   fireEvent.pointerDown(screen.getByRole("button", { name: /presences\.table\.columns/ }), {
     button: 0,

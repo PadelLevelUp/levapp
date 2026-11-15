@@ -103,6 +103,10 @@
       "invitesReceived": "Aulas como convidado",
       "invitesJoined": "Presenças como convidado"
     },
+    "columnHelp": {
+      "invitesReceived": "Aulas de outro grupo em que o jogador esteve, qualquer que fosse a resposta.",
+      "invitesJoined": "Aulas de outro grupo em que o jogador esteve presente."
+    },
     "table": {
       "title": "Jogadores",
       "count": "{{shown}} de {{total}} jogadores",

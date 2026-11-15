@@ -34,6 +34,7 @@ import type { ChartPoint } from "@/components/charts/chart-geometry";
 // re-exported so this module's callers and tests keep their imports.
 export {
   DEFAULT_VISIBLE_COLUMNS,
+  HELPED_COLUMNS,
   PINNED_COLUMN,
   PRESENCE_COLUMNS,
   toggleColumn,

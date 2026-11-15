@@ -103,6 +103,8 @@ const TEMPLATE_SUFFIXES: Record<string, string[]> = {
     "invitesReceived",
     "invitesJoined",
   ],
+  // PAD-837 (rule 17e): the guest columns' help lines, under the column's name in the sheet.
+  "presences.columnHelp.": ["invitesReceived", "invitesJoined"],
 };
 
 /** Literal and template `t()` keys in a source file, templates expanded. */

@@ -103,6 +103,10 @@
       "invitesReceived": "Guest appearances",
       "invitesJoined": "Attended as guest"
     },
+    "columnHelp": {
+      "invitesReceived": "Classes of another group the player was on, whatever they answered.",
+      "invitesJoined": "Classes of another group the player was present at."
+    },
     "table": {
       "title": "Players",
       "count": "{{shown}} of {{total}} players",
