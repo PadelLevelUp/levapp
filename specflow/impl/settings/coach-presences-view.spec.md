@@ -30,6 +30,11 @@ notifications one.
    not hold the column list: the list is the shells' (`@levelup/config`, rule 17c), and a second
    copy in Python would be one more place for the ids to drift. **Why:** a column added or retired
    in a later release must not make an older saved view unreadable or a newer one unsavable.
+   Beyond `columns`: a PUT body that is not an object, or has no `presencesView` key, is
+   `400 INVALID_PRESENCES_VIEW` too, so a malformed request never reads as "clear it"
+   (`{presencesView: null}` is the one way to clear). Keys beside `columns` are not checked and are
+   stored as sent, so a later field (a sort, a period) never needs a server change. An empty-string
+   id is accepted, as is an empty list: the server sets no minimum length.
 3. **The shells read the saved value against the column list.** An id the list does not know is
    ignored; `name` is shown whether or not it is stored (it is pinned, `attendance.validation`
    rule 17); the columns show in the list's order, whatever order was stored; a stored empty list
