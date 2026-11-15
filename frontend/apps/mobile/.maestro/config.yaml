@@ -429,6 +429,9 @@ executionOrder:
     - 319-new-engine-settings
     - 320-new-engine-invitee-outcome
     - 321-new-engine-invite-bubble
+    # 322 (PAD-838, mobile.android-runtime rule 15): types in Notificar's search and taps the first
+    # match with the keyboard up; guards the small screen (iPhone SE-class). Writes nothing.
+    - 322-notify-search-above-keyboard
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

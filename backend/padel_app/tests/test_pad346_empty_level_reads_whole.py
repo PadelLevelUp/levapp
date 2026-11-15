@@ -1,10 +1,12 @@
 """
 PAD-346 (B-098) — a class with no level must read whole, connector included.
 
-Every Portuguese default template puts ``{level}`` after the genitive "de";
+Every Portuguese default template put ``{level}`` after the genitive "de";
 rendering the empty level as an empty string left "aula de esta quarta-feira"
 and "aula de de quarta-feira" — the double space was already collapsed
-(PAD-38), the dangling noun phrase was not.
+(PAD-38), the dangling noun phrase was not. The defaults no longer carry
+``{level}`` (PAD-830, rule 20), but a coach who saved them still has those
+texts, so the tests below render them as a coach's own.
 
 Covered spec: notifications.message-templates rule 7.
 """
@@ -17,6 +19,22 @@ from padel_app.sql_db import db
 
 _LEVEL_TEMPLATES = ("invite", "reminder", "reminder_followup", "waiting_list_invite", "class_cancelled")
 
+# The pre-PAD-830 defaults, as a coach who saved the editor keeps them.
+_SAVED_PT = {
+    "invite": "Olá {name}, abriu uma vaga na aula de {level} na próxima {weekday} às {time}. Queres vir?",
+    "reminder": "Olá {name}, lembrete: tens a aula de {level} esta {weekday} às {time}. Vens?",
+    "reminder_followup": "Olá {name}, ainda não tive resposta — tens vaga para a aula de {level} esta {weekday} às {time}?",
+    "waiting_list_invite": "Olá {name}, estás na lista de espera da aula de {level} na {weekday} às {time}{side} e abriu uma vaga. És o primeiro a ser perguntado: queres vir?",
+    "class_cancelled": "Olá {name}, a tua aula de {level} de {weekday} às {time} foi cancelada. Pedimos desculpa pelo incómodo!",
+}
+_SAVED_EN = {
+    "invite": "Hey {name}, we have an opening in the {level} class next {weekday} at {time}. Do you want to come?",
+    "reminder": "Hey {name}, just a reminder that you have the {level} class this {weekday} at {time}. Are you coming?",
+    "reminder_followup": "Hey {name}, still haven't heard back — do you have a spot for the {level} class this {weekday} at {time}?",
+    "waiting_list_invite": "Hey {name}, you're on the waiting list for the {level} class on {weekday} at {time}{side}, and a spot just opened. You're asked first: do you want it?",
+    "class_cancelled": "Hi {name}, your {level} class on {weekday} at {time} has been cancelled. Sorry for the inconvenience!",
+}
+
 
 def _render(template):
     from padel_app.services.message_text import _format_template
@@ -26,8 +44,7 @@ def _render(template):
 @pytest.mark.parametrize("key", _LEVEL_TEMPLATES)
 @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_pt_defaults_drop_the_level_phrase_whole(key):
-    from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES_PT
-    text = _render(DEFAULT_MESSAGE_TEMPLATES_PT[key])
+    text = _render(_SAVED_PT[key])
     for artifact in ("de esta", "de na", "de de", "de quarta" if key != "class_cancelled" else "de de", "  ", "{level}"):
         assert artifact not in text, f"{key}: {artifact!r} in {text!r}"
     assert "aula" in text
@@ -45,8 +62,7 @@ def test_pt_reminder_exact_text():
 @pytest.mark.parametrize("key", _LEVEL_TEMPLATES)
 @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_en_defaults_still_read_whole(key):
-    from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES
-    text = _render(DEFAULT_MESSAGE_TEMPLATES[key])
+    text = _render(_SAVED_EN[key])
     assert "  " not in text and "{level}" not in text and " class" in text
 
 

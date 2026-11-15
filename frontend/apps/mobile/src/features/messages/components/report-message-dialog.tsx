@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import {
   Dialog,
   DialogContent,
@@ -123,41 +123,45 @@ export function ReportMessageDialog({
           <DialogTitle>{t("messages.report.dialogTitle")}</DialogTitle>
         </DialogHeader>
 
-        <View className="gap-2">
-          {REPORT_REASONS.map((r) => (
-            <Pressable
-              key={r}
-              testID={`report-reason-${r}`}
-              accessibilityLabel={t(`messages.report.reasons.${r}`)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: reason === r }}
-              role="radio"
-              onPress={() => setReason(r)}
-              className="flex-row items-center gap-2 py-1.5"
-            >
-              <Ionicons
-                name={reason === r ? "radio-button-on" : "radio-button-off"}
-                size={18}
-                color={
-                  reason === r ? lightTheme.primary : lightTheme.mutedForeground
-                }
-              />
-              <Text className={cn("text-sm", reason === r && "font-medium")}>
-                {t(`messages.report.reasons.${r}`)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        {/* PAD-838 (mobile.android-runtime rule 15): reasons and details scroll, so with the
+            keyboard up on a small iPhone they give way and the buttons stay above the keyboard. */}
+        <ScrollView testID="report-body" keyboardShouldPersistTaps="handled" contentContainerClassName="gap-4">
+          <View className="gap-2">
+            {REPORT_REASONS.map((r) => (
+              <Pressable
+                key={r}
+                testID={`report-reason-${r}`}
+                accessibilityLabel={t(`messages.report.reasons.${r}`)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: reason === r }}
+                role="radio"
+                onPress={() => setReason(r)}
+                className="flex-row items-center gap-2 py-1.5"
+              >
+                <Ionicons
+                  name={reason === r ? "radio-button-on" : "radio-button-off"}
+                  size={18}
+                  color={
+                    reason === r ? lightTheme.primary : lightTheme.mutedForeground
+                  }
+                />
+                <Text className={cn("text-sm", reason === r && "font-medium")}>
+                  {t(`messages.report.reasons.${r}`)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
-        <Textarea
-          testID="report-details-input"
-          accessibilityLabel={t("messages.report.detailsPlaceholder")}
-          placeholder={t("messages.report.detailsPlaceholder")}
-          value={details}
-          onChangeText={setDetails}
-          numberOfLines={3}
-          className="min-h-[80px]"
-        />
+          <Textarea
+            testID="report-details-input"
+            accessibilityLabel={t("messages.report.detailsPlaceholder")}
+            placeholder={t("messages.report.detailsPlaceholder")}
+            value={details}
+            onChangeText={setDetails}
+            numberOfLines={3}
+            className="min-h-[80px]"
+          />
+        </ScrollView>
 
         <DialogFooter>
           <Button

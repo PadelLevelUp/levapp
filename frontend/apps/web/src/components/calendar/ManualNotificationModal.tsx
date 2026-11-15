@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { CoachPlayer, StudentGroup } from "@/types";
 import { checkEligibility, sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
-import { coachDisplayName, runManualInviteFlow, searchRoster, splitBlockedByCause } from "@levelup/config";
+import { coachDisplayName, notificationGroupLabel, runManualInviteFlow, searchRoster, splitBlockedByCause } from "@levelup/config";
 import type { EligibilityCheckEntry } from "@/types";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { toast } from "sonner";
@@ -315,7 +315,7 @@ export function ManualNotificationModal({
                       checked={allSel ? true : partial ? "indeterminate" : false}
                       onCheckedChange={() => toggleGroup(group)}
                       className="shrink-0"
-                      aria-label={t("calendar.notify.selectAllIn", { group: group.label })}
+                      aria-label={t("calendar.notify.selectAllIn", { group: notificationGroupLabel(group, t) })}
                     />
                     <button
                       type="button"
@@ -323,7 +323,7 @@ export function ManualNotificationModal({
                       onClick={() => toggleExpanded(group.id)}
                       data-testid={`notify-group-${group.id}`}
                     >
-                      <span className="text-sm font-medium truncate">{group.label}</span>
+                      <span className="text-sm font-medium truncate">{notificationGroupLabel(group, t)}</span>
                       <span className="text-xs text-muted-foreground shrink-0">
                         ({group.players.length})
                       </span>

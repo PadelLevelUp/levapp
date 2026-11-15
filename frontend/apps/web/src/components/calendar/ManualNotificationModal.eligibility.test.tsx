@@ -62,7 +62,7 @@ async function openAndSelect(names: string[]) {
       existingPlayerIds={[]}
     />
   );
-  await screen.findByText("All students");
+  await screen.findByText("settings.notificationGroups.labels.allStudents");
   fireEvent.change(screen.getByPlaceholderText("calendar.notify.searchPlaceholder"), { target: { value: "R" } });
   for (const name of names) fireEvent.click(await screen.findByText(name, { exact: true }));
   fireEvent.click(screen.getByRole("button", { name: /calendar\.notify\.sendToCount|calendar\.notify\.send$/ }));

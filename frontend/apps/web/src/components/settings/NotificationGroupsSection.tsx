@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { GripVertical } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { notificationGroupLabel } from "@levelup/config";
 import type { NotificationGroup } from "@/types";
 
 const GROUP_DESCRIPTION_KEYS: Record<string, string> = {
@@ -8,13 +9,6 @@ const GROUP_DESCRIPTION_KEYS: Record<string, string> = {
   recent_absences: "settings.notificationGroups.recentAbsences",
   justified_absences: "settings.notificationGroups.justifiedAbsences",
   all_students: "settings.notificationGroups.allStudents",
-};
-
-const GROUP_LABEL_KEYS: Record<string, string> = {
-  same_level: "settings.notificationGroups.labels.sameLevel",
-  recent_absences: "settings.notificationGroups.labels.recentAbsences",
-  justified_absences: "settings.notificationGroups.labels.justifiedAbsences",
-  all_students: "settings.notificationGroups.labels.allStudents",
 };
 
 interface NotificationGroupsSectionProps {
@@ -47,7 +41,8 @@ export function NotificationGroupsSection({
           <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 opacity-40" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium">
-              {GROUP_LABEL_KEYS[group.id] ? t(GROUP_LABEL_KEYS[group.id]) : group.label}
+              {/* PAD-838 (notifications.groups rule 7): a default label in the coach's language. */}
+              {notificationGroupLabel(group, t)}
             </p>
             {GROUP_DESCRIPTION_KEYS[group.id] && (
               <p className="text-xs text-muted-foreground">
