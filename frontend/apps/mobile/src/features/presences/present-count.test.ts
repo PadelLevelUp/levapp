@@ -32,3 +32,16 @@ describe("the iOS validate sheet shows how many are present (PAD-538)", () => {
     }
   });
 });
+
+// PAD-924 (attendance.validation rule 29): the same source-reading check for the day and time range.
+describe("the iOS validate sheet shows each class's day and time range (PAD-924)", () => {
+  it("[ATTENDANCE-VALIDATION-53] renders the shared label under the shared test id on the card, the validated row and the drill-in", () => {
+    expect(SHEET).toMatch(/classWhenLabel\(klass, i18n\.language\)/);
+    expect(SHEET).toMatch(/testID="presences-class-when"/);
+    expect(SHEET.match(/<ClassWhen /g)?.length).toBe(3);
+  });
+
+  it("[ATTENDANCE-VALIDATION-53] sorts both lists oldest start first through the shared helper", () => {
+    expect(SHEET.match(/sortClassesByStart\(/g)?.length).toBe(2);
+  });
+});

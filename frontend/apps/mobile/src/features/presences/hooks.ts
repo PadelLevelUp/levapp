@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as playersApi from "@levelup/api/src/resources/players";
 import * as presencesApi from "@levelup/api/src/resources/presences";
 import { useTranslation } from "react-i18next";
+import type { PresencePeriod } from "@levelup/config";
+import { queryKeys } from "@levelup/hooks";
 import type { AbsenceJustification, PresenceStatus } from "@levelup/types";
 
 import {
@@ -30,23 +32,35 @@ export const presenceKeys = {
   roster: ["coach-players"] as const,
 };
 
-export function usePresenceStats() {
+/**
+ * PAD-837c (attendance.validation rule 17g, criterion 67): the tab's one period. Stats and
+ * trend send the same `from`/`to` and both keys carry them — built by `@levelup/hooks`'
+ * `queryKeys`, the same strings web uses — so the two reads can never be for different windows,
+ * and a new period refetches both (a new key each), never one. A write still invalidates by the
+ * `presence-stats` / `presence-trend` prefixes (`presence-invalidation.ts`), every period at once.
+ */
+export function usePresenceStats(period: PresencePeriod) {
   return useQuery({
-    queryKey: presenceKeys.stats,
-    queryFn: () => presencesApi.getPresenceStats(),
+    queryKey: queryKeys.presenceStats(period.from, period.to),
+    queryFn: () => presencesApi.getPresenceStats({ from: period.from, to: period.to }),
   });
 }
 
 /**
  * `playerIds` (PAD-192): the players the filter sheet left visible, so the
  * over-time chart follows the filters like the other two. `undefined` is the
- * whole roster.
+ * whole roster. `period`: the same bounds the stats were read for.
  */
-export function usePresenceTrend(playerIds?: number[]) {
+export function usePresenceTrend(playerIds: number[] | undefined, period: PresencePeriod) {
   const key = playerIds ? [...playerIds].sort((a, b) => a - b).join(",") : "all";
   return useQuery({
-    queryKey: [...presenceKeys.trend, key],
-    queryFn: () => presencesApi.getPresenceTrend(playerIds ? { playerIds } : {}),
+    queryKey: queryKeys.presenceTrend(key, period.from, period.to),
+    queryFn: () =>
+      presencesApi.getPresenceTrend({
+        from: period.from,
+        to: period.to,
+        ...(playerIds ? { playerIds } : {}),
+      }),
   });
 }
 

@@ -25,9 +25,10 @@ const iso = (d: Date) =>
 function seededMonday(): string {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  let until = (7 - ((d.getDay() + 6) % 7)) % 7;
-  if (until === 0) until = 7;
-  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + until));
+  // The Monday of NEXT week's grid. Weeks start on Sunday (calendar.view rule 5a, PAD-682), so on a
+  // Sunday "the next Monday" is tomorrow, in the week shown first: go to next Sunday, then one day on.
+  const untilSunday = (7 - d.getDay()) % 7 || 7;
+  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + untilSunday + 1));
 }
 
 async function token(request: APIRequestContext, username: string, password: string): Promise<string> {

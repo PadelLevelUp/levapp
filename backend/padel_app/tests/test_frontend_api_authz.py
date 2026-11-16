@@ -484,6 +484,9 @@ _DEBUG_ROUTES = [
     # PAD-786: the E2E stall switch (client.pull-to-refresh rule 6); its DELETE is in
     # test_pad786_e2e_stall.py.
     ("/api/app/debug/stall", {"path": "/api/app/coach_players_paginated", "seconds": 1}),
+    # PAD-829: the ended-classes fixture (attendance.validation rule 30); its DELETE is in
+    # test_pad829_e2e_ended_classes.py.
+    ("/api/app/debug/ended-classes", {"count": 2, "weeksAgo": 1}),
 ]
 
 
