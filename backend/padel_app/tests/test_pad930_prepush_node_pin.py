@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from padel_app.tests.git_env import git_env
+
 
 def _repo_root() -> Path:
     for parent in Path(__file__).resolve().parents:
@@ -26,7 +28,7 @@ GATE = Path(os.environ.get("GATE_SCRIPT") or _repo_root() / ".githooks" / "prepu
 def _git(cwd, *args):
     subprocess.run(
         ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *args],
-        cwd=cwd, check=True, capture_output=True,
+        cwd=cwd, check=True, capture_output=True, env=git_env(),
     )
 
 
