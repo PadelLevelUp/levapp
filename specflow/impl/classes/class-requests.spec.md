@@ -57,6 +57,21 @@ held on the coach's calendar while the request is open.
    with the student enrolled, through the same path as "Add class"; `decline` closes the
    request; `propose {date, startTime, endTime}` moves the slot and turns the request
    `countered`. A coach with no club cannot accept (409 `NO_CLUB`, the class needs one).
+4a. **An accept that would put someone in two classes at the same hour is refused (B-729;
+   `classes.instance-enrollment` rule 15; numbering unconfirmed).** Accepting creates a class with the
+   request's people on it, so rule 15's same-hour refusal applies to the coach's `accept` and to the
+   student's `accept-proposal` alike. Both answer `409 {code: "busy_same_hour", message, clashes}`, the
+   keys `/add_class` answers. Nothing changes: the request keeps its status and its hold, and no class
+   is created. Rule 13's slot check already refuses a clash present when the accept starts
+   (`slot_taken`). This refusal covers a clash that lands between that check and the class's creation:
+   another coach adds the student, or the engine places them, in that window. Before B-729 it escaped
+   both routes as a 500. Each request screen (web `ClassRequestsSection` and `MessageBubble`, iOS
+   `class-requests-section` and the conversation's request bubble) shows one line per clash from
+   `@levelup/config` `classRequestRefusalLines`, never the raw refusal key.
+   - **The coach:** rule 15's line, which ends "Remove-o dessa aula primeiro".
+   - **The student:** "{name} já está inscrito noutra aula à mesma hora ({title}, {date} {time})." /
+     "{name} is already in another class at the same time ({title}, {date} {time})." (proposed, for the
+     owner's approval). The clash can name an invitee, so the line names who.
 5. **The student answers a proposal**: `accept-proposal` behaves exactly like the coach's accept
    (the class is created at the proposed slot); `decline-proposal` closes the request as
    `declined` with `decided_by: student`; `counter-proposal` sends another time back to the
@@ -533,3 +548,24 @@ test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `te
 - **And** the other coach's student, the placeholder and the unknown name each answer `USERNAME_NOT_FOUND`, in the same shape
 - **And** the requester's own username answers `SELF_INVITE`, and a name given twice `DUPLICATE_INVITEE`
 test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `test_participants_resolve_one_at_a_time_without_an_oracle`
+#### CLASSES-CLASS-REQUESTS-39: An accept that clashes at the same hour answers 409 busy_same_hour and changes nothing (rule 4a, B-729)
+- **Given** a coach on the new engine with a pending request from Ana for 11:00, and Ana starts going to another coach's 11:00 class just after the accept's slot check
+- **When** the coach accepts, and, separately, when the coach has proposed 15:00, Ana starts going to another coach's 15:00 class just after the check, and Ana accepts the proposal
+- **Then** each answers `409` with `code` `busy_same_hour`, a `message`, and one clash naming Ana and the other class; the request keeps its status (`pending`, `countered`) and its hold, and no class is created
+test: `backend/padel_app/tests/test_b729_class_request_accept_same_hour.py` › `test_the_coachs_accept_that_clashes_at_the_same_hour_answers_409_and_changes_nothing` (+1 more)
+
+#### CLASSES-CLASS-REQUESTS-40: The refusal reads one line per clash, the coach's and the student's words, in Portuguese and English (rule 4a)
+- **Given** a `409 busy_same_hour` with one clash naming Ana, "Ana 11:00" and 2026-11-16 11:00
+- **Then** `classRequestRefusalLines` gives the coach rule 15's line and the student the line without "Remove-o dessa aula primeiro", each resolving to real words in `pt` and `en`; any other refusal gives no lines
+test: `frontend/packages/config/src/class-request-refusal.test.ts` › `reads one line per clash for the coach and for the student, in pt and en` (+1 more)
+
+#### CLASSES-CLASS-REQUESTS-41: The web request screens show the clash lines (rule 4a)
+- **Given** the coach's request list on web, and an accept that answers `409 busy_same_hour`
+- **Then** the failure toast shows the clash line, not `classRequests.refusal.busy_same_hour`; the chat bubble takes its text from the same helper
+test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.busySameHour.test.tsx` › `shows the clash line when the accept is refused busy_same_hour` (+1 more)
+
+#### CLASSES-CLASS-REQUESTS-42: The iOS request screens show the clash lines (rule 4a)
+- **Given** the iOS request list and the conversation's request bubble
+- **Then** both take a refused accept's text from `classRequestRefusalLines` before the refusal key
+test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wiring.test.ts` › `both iOS request screens read the clash lines first`
+
