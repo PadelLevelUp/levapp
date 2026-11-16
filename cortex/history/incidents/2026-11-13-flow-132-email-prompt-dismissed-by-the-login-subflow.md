@@ -1,10 +1,10 @@
 ---
-about: "Mobile, staging only: a coach with no email no longer sees the add-email banner on the coach home although /me qualifies and the home blocks render"
-permanence: changing
-verified: "2026-11-13 (observed)"
+about: "Android lane: flow 132 lost the add-email banner because the login subflow tapped Not Now for iOS Save Password and hit the app Agora nao (harness, fixed #986)"
+permanence: stable
+verified: "2026-11-15 (observed)"
 origin:
   - session:59287fd5-5f60-420e-a294-aac083814775
-  - report:docs/plans/ci-tools/m3/README.md
+  - commit:b6d320ae6
 need:
   - frontend/apps/mobile/app/(tabs)/dashboard.tsx
   - frontend/apps/mobile/src/features/dashboard/email-prompt-banner.tsx
@@ -13,10 +13,10 @@ need:
 aliases:
   - B-728
   - B-728-email-prompt-banner-missing-on-staging-coach-home
-status: open
+  - 2026-11-13-flow-132-email-prompt-dismissed-by-the-login-subflow
 ---
 
-# B-728: the add-email banner does not mount on the staging coach home
+# B-728: the add-email banner was dismissed by the login subflow, not missing (harness, fixed by #986)
 
 **Source:** ci-tools stream (lead and m3), 2026-11-13, from the Android lane. Runs: 43523452495 (the diagnostic dispatch on d56cc2020); 43505514297, 43313366996 and 43297928957 (flow 132 red on staging-based code); nightlies on main 22f44cc71 green 9 of 9. The leads stream notes (`docs/plans/ci-tools/`, local) hold the dispatch readings. Found while classifying the
 nightly reds for PAD-710; not a lane problem.
@@ -41,5 +41,13 @@ untested on staging for this; its twin spec is `apps/web/e2e/settings/pad482-ema
 **Repro:** `gh workflow run android-build.yaml --ref <staging-based branch> -f flows=flows/132-email-prompt.yaml`
 and read the Android lane check; or run flow 132 on a simulator against a staging-based backend.
 
-**Status:** open; routed by the orchestrator to the engine stream (2026-11-13). Flow 132 stays red on the
-lane on purpose (not tagged) until the fix lands. Promotion go/no-go item.
+**Correction (2026-11-15, #986):** not a product bug. The login subflow carried `tapOn text: "Not Now|Agora não"`
+for iOS's "Save Password?" sheet; on Android that text matched the app's own "Agora não" on the coach home and
+dismissed the email prompt for the session (`emailPromptSession`, in memory), so flow 132 found no banner.
+`main` never had that subflow line, which is why 132 was green there and red on every staging-based run. Fixed
+in #986 (merged 2026-11-15 21:40Z) with a dedicated `subflows/dismiss-save-password.yaml`; on `main` cbdb96cf7.
+The static diff of app code above was right (nothing product-side changed); what it did not cover was the
+flow's own predecessor steps. **Lesson:** before calling a lane red a product regression, diff the flow's
+subflows and predecessors between the two refs as well as the app code.
+
+**Status:** resolved by #986. Expected: flow 132 green in the first nightly on cbdb96cf7; a red there is new.
