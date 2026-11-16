@@ -436,6 +436,25 @@ appId: com.padellevelup.app
     file: ../subflows/board-show-toolbar.yaml
     env:
       TARGET: "board-tool-ball"
+# PAD-710 (Android lane): the tool row keeps the offset Wave 3 left it at (scrolled to the swatches),
+# so the first tools are off screen to the left and only board-add-players shows (run 43952334985).
+# Swipe the row back right until the ball tool shows.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - repeat:
+          times: 3
+          while:
+            notVisible:
+              id: "board-tool-ball"
+          commands:
+            - swipe:
+                from:
+                  id: "board-add-players"
+                direction: RIGHT
+                duration: 800
+            - waitForAnimationToEnd
 - tapOn:
     id: "board-tool-ball"
 - runFlow:
