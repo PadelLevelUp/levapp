@@ -78,7 +78,21 @@ Stated as observable records; storage is the engine package's (PAD-902).
     drops that unit's effects and the next run re-plans on fresh state. The store checks every
     placement this way when it applies it, whatever path made it, under the student's lock: a clash
     is `SameHourConflict`, a `UnitConflict`, so the student is never written into two overlapping
-    sessions. This is the safety rule; the run's efficiency rule, which does not invite a
+    sessions. **A request whose unit is refused is run again (B-730).** It is rolled back and run on the
+    committed state, up to three times in all, so it gets the answer it would have got had it arrived
+    just after the other unit:
+    - a Yes whose student was just placed elsewhere at that hour is not placed, and gets what such a Yes
+      gets without the race: `sorry`, or `closed_same_hour` once that placement has closed the invitation.
+      The race is the coach's add: its enrolment writes the presence without the student's lock, and
+      its `CoachAdded` closes the invitation only afterwards. An engine placement takes the student's
+      lock, so it waits for the Yes instead;
+    - a direct join is refused `busy_same_hour`;
+    - a request that lost only another student's automatic entry goes through without that placement,
+      which the student's own busy state now keeps out.
+    A `UnitConflict` that still escapes a request is answered by the app as
+    `409 {code: "busy_same_hour", message, clashes: []}` (`classes.instance-enrollment` rule 15's shape)
+    and logged, never as a 500. The background runs (`tick`, the re-plan of another session) keep
+    dropping a refused unit for the next run. This is the safety rule; the run's efficiency rule, which does not invite a
     student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
     PAD-913).** The kinds are const:KIND_SORRY, const:KIND_ADDED,
@@ -279,6 +293,19 @@ automatic-entry placement of the same student in the second, then it raises `Sam
 `UnitConflict`), no presence is written in the second session, and the second session's snapshot lists
 the student as busy at that time.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_placement_at_an_hour_the_student_is_going_elsewhere_rolls_back`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-33: A request that loses the same-hour race is run again and answers as if it came later, never 500 (rule 10, B-730)
+- **Given** Ana with an open invitation to the new-engine 19:00 class, and the coach's add of Ana to another 19:00 class committing its enrolment after her Yes's snapshot and before her placement is applied (its `CoachAdded` not yet run)
+- **When** Ana says Yes through `POST /api/app/notify/respond`
+- **Then** the answer is 200 with `action` `sorry`, as a Yes from a student going elsewhere at that hour gets without the race; Ana has one going presence (the other class's), and her request's unit ran twice
+- **And** when a coach's request on a session loses only another student's automatic entry the same way, the request goes through and that student is not placed there
+test: `backend/padel_app/tests/test_b730_same_hour_race.py` › `test_a_yes_that_loses_the_race_answers_as_without_it` (+1 more)
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-34: A refusal that still escapes a request is a 409 busy_same_hour, not a 500 (rule 10, B-730)
+- **Given** a request whose unit the store refuses on every attempt
+- **When** it runs through a route
+- **Then** the engine tries it three times, and the route answers `409` with `code` `busy_same_hour`, a `message` and `clashes` `[]`
+test: `backend/padel_app/tests/test_b730_same_hour_race.py` › `test_a_refusal_that_keeps_escaping_answers_409_busy_same_hour`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-23: The engine refuses joins with a code (rule 12; classes.join-requests NJ1)
 Given a session and students in each refusal case (already going, below the bar, no spot on their side,
