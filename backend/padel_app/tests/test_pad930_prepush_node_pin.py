@@ -86,9 +86,12 @@ def _stub_node(tmp_path, version):
 
 
 def _gate(repo, stub_dir, nvm_dir, dry=True):
+    # A clean environment: no git repository variables (B-173) and none of the outer gate's
+    # PREPUSH_* settings, which a pre-push hook exports while this very test runs under it.
+    base = {k: v for k, v in git_env().items() if not k.startswith("PREPUSH_")}
     env = {
-        **os.environ,
-        "PATH": f"{stub_dir}:{os.environ['PATH']}",
+        **base,
+        "PATH": f"{stub_dir}:{base['PATH']}",
         "NVM_DIR": str(nvm_dir),
         "PREPUSH_BASE": "HEAD~1",
     }
