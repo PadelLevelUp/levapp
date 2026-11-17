@@ -34,10 +34,12 @@ UPDATE users SET password = CASE WHEN :'pwhash' = '' THEN 'scrubbed-no-login' EL
 WHERE password IS NOT NULL;
 
 -- Rule 11 (PAD-922): two known tester logins on real-shaped data, picked so that they CAN log in.
--- The coach with the most students, not a rejected one; that coach's lowest-id student whose account
--- is claimed (no pending- placeholder) and not disabled. Both get the shared hash whether or not they
--- had a password (a social-only student has none), so neither tester login depends on how the
--- original account signed in. With no secret both get the unusable value, as every other account.
+-- The coach with the most students, not a rejected one; that coach's lowest-id non-disabled student,
+-- a claimed account first and, when the roster holds only never-claimed pending- placeholders (the
+-- 2026-11-16 staging deploy: no student matched, no staging-student existed, login 401), the lowest-id
+-- placeholder, which the scrub claims. Both get the shared hash whether or not they had a password
+-- (a social-only student has none) and status active, so neither tester login depends on how the
+-- original account was created. With no secret both get the unusable value, as every other account.
 CREATE TEMP TABLE staging_testers ON COMMIT DROP AS
 WITH coach AS (
     SELECT c.id AS coach_id, c.user_id
@@ -54,11 +56,12 @@ SELECT 'staging-student', (
     JOIN users pu ON pu.id = p.user_id
     JOIN coach_in_player cp ON cp.player_id = p.id
     WHERE cp.coach_id = (SELECT coach_id FROM coach)
-      AND pu.username NOT LIKE 'pending-%' AND pu.status IS DISTINCT FROM 'disabled'
-    ORDER BY p.id LIMIT 1
+      AND pu.status IS DISTINCT FROM 'disabled'
+    ORDER BY (pu.username LIKE 'pending-%'), p.id LIMIT 1
 );
 UPDATE users SET username = t.username, email = t.username || '@staging.invalid',
-       password = CASE WHEN :'pwhash' = '' THEN 'scrubbed-no-login' ELSE :'pwhash' END
+       password = CASE WHEN :'pwhash' = '' THEN 'scrubbed-no-login' ELSE :'pwhash' END,
+       status = 'active'
 FROM staging_testers t
 WHERE users.id = t.user_id;
 
