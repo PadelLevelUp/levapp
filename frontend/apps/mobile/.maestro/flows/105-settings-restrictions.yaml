@@ -49,7 +49,9 @@ onFlowComplete:
 # ── One press of + ──
 # PAD-710 (Android lane): on Android the plain UP scroll stops at a 10 px sliver under the header
 # (nightly 10 Nov, run 42802792484) or never counts + as fully visible (run 43517077504), so it is
-# iOS-only; Android brings the value row to the centre instead.
+# iOS-only; Android brings the value row down from under the header instead. A centred
+# scrollUntilVisible swipes from mid-screen, where the excluded-players search box sits, and in
+# #990's shard 3 (run 43957066246) 16 s of it never moved the page; swipe on the page's left margin.
 - runFlow:
     when:
       platform: iOS
@@ -62,12 +64,23 @@ onFlowComplete:
     when:
       platform: Android
     commands:
-      - scrollUntilVisible:
-          element:
-            id: "restriction-maxSimultaneous-value"
-          direction: UP
-          timeout: 15000
-          centerElement: true
+      - repeat:
+          times: 6
+          while:
+            notVisible:
+              id: "restriction-maxSimultaneous-value"
+          commands:
+            # Finger down on the left margin: the page scrolls up.
+            - swipe:
+                start: "4%, 40%"
+                end: "4%, 60%"
+                duration: 600
+      # One more short pull, so the row is not left as a sliver under the header.
+      - swipe:
+          start: "4%, 40%"
+          end: "4%, 50%"
+          duration: 600
+      - waitForAnimationToEnd
 - tapOn:
     id: "restriction-maxSimultaneous-inc"
 - assertVisible:
