@@ -12,13 +12,13 @@
 # Every check runs CI's own command (.github/workflows/*):
 #   always              one Alembic head, on the COMMIT's migrations (untracked parents don't count)
 #   *.json changed      each file parses
-#   frontend/ changed   tsc web (tsconfig.app.json) + tsc mobile + tsc admin + `npm test` (web, packages, mobile, admin)
+#   frontend/ changed   the pinned Node (.nvmrc; nvm use, else refuse) then tsc web (tsconfig.app.json) + tsc mobile + tsc admin + `npm test` (web, packages, mobile, admin)
 #   backend/ or cortex/ changed  pytest (SQLite): the changed test files, the tests that import a changed
 #                       module, and every source-scanning guard (ratchets, heads, registries…);
 #                       a changed route module (padel_app/modules/) adds test_frontend_api_authz.py;
 #                       --full, or a change to models/migrations, runs the whole suite
 #   cortex/             `cortex store validate` reports no error
-#   specflow/           `cortex validate` names none of the changed files
+#   specflow/           `cortex validate` names none of the changed files (INDEX.md excluded: generated)
 # Markdown files never trigger the frontend/backend checks, except cortex/ (B-240). Missing node_modules or backend/.venv
 # is reported as such, not as a compiler error.
 # Not covered locally (CI only): Postgres + `flask db check`, the Android/Maestro lane.
@@ -117,21 +117,47 @@ if [ -n "$JSONS" ]; then
   step "JSON parses" json_check
 fi
 
+# Node for the frontend checks (PAD-930): CI's version, read from .nvmrc. Node 25+ ships an
+# experimental global `localStorage` that is undefined without --localstorage-file, which breaks
+# jsdom tests (TypeErrors on localStorage.getItem/removeItem; the gate ran `npm test` on Node 26 on
+# 2026-11-12). The old check refused only Node < 22 and `nvm use 22` was a silent no-op.
+NODE_PIN=""; [ -r "$ROOT/.nvmrc" ] && NODE_PIN="$(tr -d '[:space:]v' < "$ROOT/.nvmrc")"
+NODE_PIN="${NODE_PIN:-24.15.0}"  # the fallback is CI's version; keep both in step
+NODE_MAJOR_PIN="${NODE_PIN%%.*}"
+use_pinned_node() { # puts the pinned Node first on PATH or says why it cannot; returns 1 on refusal
+  local cur; cur="$(node -v 2>/dev/null | sed 's/^v//')"
+  local nvm_sh="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
+  if [ "$cur" != "$NODE_PIN" ] && [ -s "$nvm_sh" ]; then
+    # nvm.sh reads unset variables; its output is noise. A missing version must stop the gate:
+    # `nvm use` returning non-zero is checked, never ignored.
+    set +u; . "$nvm_sh" >/dev/null 2>&1
+    if ! nvm use "$NODE_PIN" >/dev/null 2>&1; then
+      set -u
+      red "frontend/ changed but Node $NODE_PIN is not installed under nvm (active: $(node -v 2>/dev/null || echo none) at $(command -v node || echo -)). Run: nvm install $NODE_PIN"
+      return 1
+    fi
+    set -u
+    cur="$(node -v 2>/dev/null | sed 's/^v//')"
+  fi
+  if [ "$cur" = "$NODE_PIN" ]; then return 0; fi
+  local major="${cur%%.*}"
+  if [ -n "$cur" ] && [ "$major" = "$NODE_MAJOR_PIN" ]; then
+    echo "(note: Node v$cur is active; CI runs v$NODE_PIN)"; return 0
+  fi
+  red "frontend/ changed but Node v${cur:-(none)} ($(command -v node || echo 'not on PATH')) is active; the frontend checks need Node $NODE_PIN (CI's), and Node 25 or newer breaks the jsdom tests."
+  red "Fix: nvm install $NODE_PIN && nvm use $NODE_PIN   (or put ~/.nvm/versions/node/v$NODE_PIN/bin first on PATH)"
+  return 1
+}
+
 # 3. Frontend — CI's exact commands (checks-frontend.yaml).
 if [ -n "$TREE_ONLY" ]; then
   : # working-tree tiers skipped for a ref that is not checked out (the hook said so)
 elif changed '^frontend/' && [ ! -d frontend/node_modules ]; then
-  red "frontend/ changed but frontend/node_modules is missing: run 'npm ci' in frontend/ (Node 22) first."
+  red "frontend/ changed but frontend/node_modules is missing: run 'npm ci' in frontend/ (Node $NODE_PIN) first."
   FAILED+=("frontend dependencies")
 elif changed '^frontend/'; then
-  node_major() { node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/'; }
-  if [ "$(node_major || echo 0)" -lt 22 ] 2>/dev/null && [ -s "$HOME/.nvm/nvm.sh" ]; then
-    # shellcheck disable=SC1091
-    . "$HOME/.nvm/nvm.sh" >/dev/null && nvm use 22 >/dev/null 2>&1
-  fi
-  if [ "$(node_major || echo 0)" -lt 22 ] 2>/dev/null; then
-    red "frontend/ changed but Node $(node -v 2>/dev/null || echo '(none)') is active; the frontend checks need Node 22 (nvm install 22)."
-    FAILED+=("Node 22")
+  if ! use_pinned_node; then
+    FAILED+=("Node $NODE_PIN")
   else
     echo "(frontend checks on node $(node -v) — $(command -v node))"
     step "typecheck web"    bash -c 'cd frontend && npx tsc --noEmit -p apps/web/tsconfig.app.json'
@@ -192,9 +218,10 @@ if [ -z "$TREE_ONLY" ] && changed_any '^cortex/' && command -v cortex >/dev/null
     printf '%s\n' "$out" | grep '^error' | head -30; return 1; }
   step "cortex store validate" store_check
 fi
-if [ -z "$TREE_ONLY" ] && changed_any '^specflow/' && command -v cortex >/dev/null; then
+SPEC_FILES="$(printf '%s\n' "$CHANGED" | grep -E '^specflow/' | grep -vxF 'specflow/INDEX.md' || true)"
+if [ -z "$TREE_ONLY" ] && [ -n "$SPEC_FILES" ] && command -v cortex >/dev/null; then
   cortex_check() { local out; out="$(cortex validate 2>&1)"; local hit=0 f
-    for f in $(printf '%s\n' "$CHANGED" | grep -E '^specflow/'); do
+    for f in $SPEC_FILES; do
       if grep -qF -- "$f" <<<"$(grep -A3 '\[ERROR\]' <<<"$out")"; then echo "cortex validate names $f"; hit=1; fi
     done
     [ $hit -eq 0 ] || printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | head -30

@@ -38,6 +38,8 @@ echo "flows: $FLOWS"
 # stay out of the Android run until wave C brings FCM push.
 # PAD-314: flows tagged `open-defect-probe` probe a known-open defect (none today: 52 and 51 became guards when faces B and C were fixed) and
 # run on demand only; config.yaml excludes the same tag for iOS whole-suite runs.
+# PAD-710: flows tagged `android-open-defect` are red on Android for a known open product bug that
+# iOS does not have; only this lane excludes them (config.yaml does not), and each names its bug.
 # PAD-345 (Maestro 2.6.1, verified): such a flow runs only when it is the ONLY
 # entry in MAESTRO_FLOWS. Listed next to another flow it is silently dropped.
 # PAD-314 (B-089 face C): stream the WHOLE run's device log. Maestro keeps a
@@ -75,7 +77,7 @@ OUT_LOG="$HOME/.maestro/tests/maestro-stdout.txt"
 rm -f "$STOP_FILE"
 set +e
 maestro test --format junit --output "$ROOT/maestro-report.xml" \
-  --exclude-tags ios-only,open-defect-probe,hand-run-setup \
+  --exclude-tags ios-only,open-defect-probe,hand-run-setup,android-open-defect \
   -e "MAESTRO_COACH_NOCLUB_USERNAME=$NOCLUB_USER" -e "MAESTRO_COACH_NOCLUB_PASSWORD=$NOCLUB_PASS" \
   "${CONFIG[@]}" "${TARGET[@]}" > "$OUT_LOG" 2>&1 &
 MAESTRO_PID=$!

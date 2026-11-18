@@ -17,11 +17,13 @@ import { CalendarPlus, Clock } from "lucide-react";
 import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import {
   CLASS_REQUEST_DURATIONS,
+  classRequestRefusalLines,
   clubDateOfInstant,
   clubTodayISO,
   mergeClassRequestRows,
   proposalAfterStartChange,
   requestMinutes,
+  resolveText,
   slotOptions,
   splitClassRequestRows,
   type MergedClassRequestRow,
@@ -156,6 +158,9 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   }, [counteringId, proposingId]);
 
   const refusalText = (err: unknown, fallback: string) => {
+    // B-729 (rule 4a): a same-hour refusal names each clash, the coach's words or the student's.
+    const lines = classRequestRefusalLines(err, role, i18n.language);
+    if (lines) return lines.map((line) => resolveText(t, line)).join("\n");
     const refusal = classRequestRefusal(err);
     return refusal ? t(`classRequests.refusal.${refusal.code}`) : fallback;
   };

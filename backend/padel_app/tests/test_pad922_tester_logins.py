@@ -137,8 +137,63 @@ def test_on_postgres_the_testers_can_log_in_whatever_their_account_was(app):
         assert rows[ids["coach"]].username == "staging-coach" and rows[ids["coach"]].password == shared
         assert rows[ids["student"]].username == "staging-student", "the lowest-id claimed, active student"
         assert rows[ids["student"]].password == shared, "set although the account had no password"
+        status = {r.id: r.status for r in conn.execute(text("SELECT id, status FROM users")).all()}
+        assert status[ids["student"]] == "active" and status[ids["coach"]] == "active"
         assert rows[ids["placeholder"]].username == "pending-0123456789abcdef"
         assert rows[ids["placeholder"]].password is None
         assert rows[ids["disabled"]].username != "staging-student"
         assert rows[ids["later"]].username != "staging-student"
+        assert sum(r.username in ("staging-coach", "staging-student") for r in rows.values()) == 2
+
+
+@pytest.mark.skipif(
+    os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="the scrub is Postgres SQL",
+)
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-16")
+def test_on_postgres_a_roster_of_placeholders_still_yields_a_tester_student(app):
+    """The 2026-11-16 staging deploy: the biggest coach's students were all never-claimed placeholders,
+    the pick found nobody and staging-student answered 401. The lowest-id non-disabled placeholder
+    is claimed instead."""
+    from sqlalchemy import text
+
+    from padel_app.sql_db import db
+
+    shared = "pbkdf2:sha256:600000$shared$hash"
+    with app.app_context():
+        from padel_app.models import Association_CoachPlayer, Player, User
+        from padel_app.models.coaches import Coach
+
+        def user(name, **kw):
+            u = User(name=name, username=kw.pop("username", name.lower().replace(" ", ".") + "@gmail.com"),
+                     email=name.lower().replace(" ", ".") + "@gmail.com", birth_date=date(1990, 5, 5), **kw)
+            db.session.add(u)
+            db.session.flush()
+            return u
+
+        coach_user = user("Ana Ferreira", password="pbkdf2:sha256:1$a$b")
+        disabled = user("Rui Lopes", username="pending-00000000000000d1", status="disabled")
+        first = user("Rita Sousa", username="pending-0123456789abcdef")
+        second = user("Joao Martins", username="pending-fedcba9876543210")
+        coach = Coach(user_id=coach_user.id)
+        db.session.add(coach)
+        players = [Player(user_id=u.id) for u in (disabled, first, second)]
+        db.session.add_all(players)
+        db.session.flush()
+        for p in players:
+            db.session.add(Association_CoachPlayer(coach_id=coach.id, player_id=p.id))
+        db.session.commit()
+        ids = {"coach": coach_user.id, "disabled": disabled.id, "first": first.id, "second": second.id}
+
+        sql = SCRUB_SQL.read_text().replace(":'pwhash'", f"'{shared}'")
+        conn = db.session.connection()
+        conn.connection.dbapi_connection.cursor().execute(sql)
+        rows = {r.id: r for r in conn.execute(text("SELECT id, username, password, status FROM users")).all()}
+
+        assert rows[ids["coach"]].username == "staging-coach" and rows[ids["coach"]].password == shared
+        picked = rows[ids["first"]]
+        assert picked.username == "staging-student", "the lowest-id non-disabled placeholder is claimed"
+        assert picked.password == shared and picked.status == "active"
+        assert rows[ids["disabled"]].username.startswith("pending-") and rows[ids["disabled"]].password is None
+        assert rows[ids["second"]].username.startswith("pending-") and rows[ids["second"]].password is None
         assert sum(r.username in ("staging-coach", "staging-student") for r in rows.values()) == 2

@@ -35,6 +35,17 @@ appId: com.padellevelup.app
       id: "class-evaluations-open"
     direction: DOWN
     timeout: 20000
+# PAD-710 (Android lane): the scroll stops with the button as a clipped sliver at the nav-bar edge and the tap is lost (nightly 11 Nov, run 43004263346); centre it first.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "class-evaluations-open"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
 - assertNotVisible:
     id: "class-eval-unavailable"
 - tapOn:
@@ -125,6 +136,17 @@ appId: com.padellevelup.app
       id: "class-evaluations-open"
     direction: DOWN
     timeout: 20000
+# PAD-710 (Android lane): same edge-of-screen trap for yesterday's class (run 43004263346).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "class-evaluations-open"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
 - tapOn:
     id: "class-evaluations-open"
 - extendedWaitUntil:

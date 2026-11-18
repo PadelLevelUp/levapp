@@ -123,12 +123,16 @@ reload and a live copy stay available through `workflow_dispatch`.
    never leaves real hashes behind.
 11. **Known tester logins.** The scrub names two accounts so people can sign in to staging:
    `staging-coach` (the coach with the most students, whose account is not disabled and whose
-   approval is not rejected) and `staging-student` (that coach's student with the lowest id whose
-   account is claimed, not a `pending-…` placeholder, and not disabled). Both use the shared
-   password. Every other account is reachable as `user<id>`. *Why the hash is set regardless, not
-   the pick narrowed to students with a password:* the pick stays the real-shaped, most-connected
-   student the owner chose, and the login works whatever way that account first signed in; narrowing
-   the pick could leave no student at all.
+   approval is not rejected) and `staging-student` (that coach's non-disabled student with the
+   lowest id, a claimed account first; when every student of that coach with an account is a
+   never-claimed `pending-…` placeholder, the lowest-id placeholder, which the scrub claims). Both
+   use the shared password and are set `active`. Every other account is reachable as `user<id>`.
+   *Why the hash is set regardless, not the pick narrowed to students with a password:* the pick
+   stays the real-shaped, most-connected student the owner chose, and the login works whatever way
+   that account first signed in. *Why placeholders are a fallback, not excluded (2026-11-16):* the
+   first scrub that excluded them found no claimed student on the biggest coach's roster, so no
+   `staging-student` existed and the login answered 401; a roster of imported, never-claimed
+   players is the normal shape of a big coach.
 11a. **(PAD-922) A tester who cannot sign in fails the sync.** After a restore and a scrub, once
    staging is healthy again, the sync script signs in as `staging-coach` and `staging-student` with
    the shared password, from inside the staging container (the password never leaves it). Each must
@@ -238,10 +242,17 @@ test: `backend/padel_app/tests/test_pad589_staging_sync.py` › `test_a_stale_ba
 #### DELIVERY-STAGING-DATA-SYNC-15: Both tester logins work after a scrub, and the job fails when one does not (rules 10, 11, 11a)
 - **Given** a restored copy in which the coach's lowest-id student signed in only with Google (no password), a `pending-…` student with a lower id, and a disabled student with a lower id still
 - **When** the scrub runs with a password hash
-- **Then** `staging-student` is the lowest-id claimed, non-disabled student of the coach with the most students, and both `staging-coach` and `staging-student` hold exactly the shared hash
+- **Then** `staging-student` is the lowest-id claimed, non-disabled student of the coach with the most students, the placeholder below it is left alone, and both `staging-coach` and `staging-student` hold exactly the shared hash and are `active`
 - **And** when the sync script ends after a scrub and a tester login answers non-200 it logs `tester login <name>: <code>` and exits 5, with both answering 200 it exits 0, and with no secret it checks nothing
 - **And** the workflow's `sync-db` verdict fails the job on 5
 test: `backend/padel_app/tests/test_pad922_tester_logins.py`
+
+#### DELIVERY-STAGING-DATA-SYNC-16: A roster of placeholders still yields a tester student (rule 11)
+- **Given** a restored copy in which every student of the coach with the most students that has an account is a never-claimed `pending-…` placeholder (no password, status `inactive`), one of them disabled with a lower id
+- **When** the scrub runs with a password hash
+- **Then** `staging-student` is the lowest-id non-disabled placeholder of that coach, holds exactly the shared hash and is `active`, so the tester login answers 200
+- **And** the other placeholders keep their `pending-…` usernames and no password
+test: `backend/padel_app/tests/test_pad922_tester_logins.py` › `test_on_postgres_a_roster_of_placeholders_still_yields_a_tester_student`
 
 ### Notes
 - PAD-606 (2026-10-11, owner decision): everything personal is scrubbed, usernames included; the

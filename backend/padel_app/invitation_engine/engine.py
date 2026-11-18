@@ -30,6 +30,9 @@ from padel_app.invitation_engine.requests import (
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.store import SessionStore, UnitConflict
 
+#: How many times a request runs before a refused unit is the caller's (answers rule 10, B-730).
+REQUEST_ATTEMPTS = 3
+
 SettingsLookup = Callable[[str], EngineSettings]
 
 
@@ -64,7 +67,21 @@ class Engine:
         return out
 
     def handle(self, session: str, request: Request, now: datetime) -> list[Effect]:
-        """Apply one request, then run the planner (plan §6: after every answer or change)."""
+        """Apply one request, then run the planner (plan §6: after every answer or change).
+
+        A request whose unit the store refuses (``UnitConflict``: a student placed in an overlapping
+        session since the snapshot) is rolled back and run again on the committed state, so it answers
+        as if it had come just after the other unit (answers rule 10, B-730). After ``REQUEST_ATTEMPTS``
+        refusals the conflict is the caller's."""
+        for attempt in range(1, REQUEST_ATTEMPTS + 1):
+            try:
+                return self._handle_once(session, request, now)
+            except UnitConflict:
+                if attempt == REQUEST_ATTEMPTS:
+                    raise
+        raise AssertionError("unreachable")
+
+    def _handle_once(self, session: str, request: Request, now: datetime) -> list[Effect]:
         if isinstance(request, UpdateSettings):     # a lookup reads the app's stored config: replan only
             if isinstance(self.settings, EngineSettings):
                 self.settings = request.settings

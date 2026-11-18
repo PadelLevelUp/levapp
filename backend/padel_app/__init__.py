@@ -140,6 +140,17 @@ def create_app(test_config=None):
 
     modules.register_blueprints(app)
 
+    # B-730 (notifications.engine-answers rule 10): the engine runs a refused request again; a refusal
+    # that still escapes is the same-hour refusal's 409 (instance-enrollment rule 15), never a 500.
+    from padel_app.invitation_engine.store import UnitConflict
+
+    @app.errorhandler(UnitConflict)
+    def _engine_unit_refused(err):
+        from flask import jsonify
+
+        app.logger.warning("engine: a request's unit was refused on every attempt: %s", err)
+        return jsonify({"code": "busy_same_hour", "message": "busy same hour", "clashes": []}), 409
+
     # Assets
     assets = Environment(app)
     scss_bundle = Bundle(
