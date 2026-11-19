@@ -456,3 +456,24 @@ export function rowsWithEnd(
 export function scheduleDaysText(s: Schedule): string {
   return SCHEDULE_WEEK_ORDER.filter((d) => s.days[d]).map((d) => PT_DAY_SHORT[d]).join(", ");
 }
+
+/** Rule 9: tapping a name chip chooses it; tapping the chosen chip again clears it. */
+export function toggleName(s: Schedule, name: string): Schedule {
+  return { ...s, name: s.name === name ? null : name };
+}
+
+/**
+ * Criterion 31: a saved schedule's card text. "Igual": its days and hours ("seg, ter … · 09–11 ·
+ * 15–20"). "Varia": each day with hours ("seg 09–11 · 15–20; ter 09–20"). Never "Livre" for a day
+ * that has hours.
+ */
+export function scheduleCardText(s: Schedule, free = "Livre"): string {
+  if (s.mode === "same") {
+    const days = scheduleDaysText(s);
+    return days ? `${days} · ${weekRowText(s.shared, free)}` : weekRowText(s.shared, free);
+  }
+  const parts = SCHEDULE_WEEK_ORDER.filter((d) => anySlot(s.perDay[d])).map(
+    (d) => `${PT_DAY_SHORT[d]} ${weekRowText(s.perDay[d], free)}`
+  );
+  return parts.length ? parts.join("; ") : free;
+}

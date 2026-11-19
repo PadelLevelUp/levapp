@@ -156,3 +156,11 @@ describe("deviceStepState", () => {
     ]).toEqual(["ask", "open_settings", "done", "open_settings", "ask", "padlock", "done", "ask", "unsupported", "ios_browser"]);
   });
 });
+
+describe("an account the blockers list refuses", () => {
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-30] an account the blockers list refuses is not a student", () => {
+    const v = setupGuideState({ ...input({ blockers: undefined }), blockersForbidden: true });
+    expect(v.student).toBe(false);
+    expect([v.showSheet, v.showCard, v.showRing, v.showReady]).toEqual([false, false, false, false]);
+  });
+});

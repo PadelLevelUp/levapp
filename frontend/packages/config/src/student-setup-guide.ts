@@ -89,6 +89,11 @@ export interface SetupGuideInput {
   profileIncomplete: { coaches: unknown[] } | null | undefined;
   /** `undefined` while this device's permission is being read. */
   device: DeviceStepState | undefined;
+  /**
+   * Rule 3a: the blockers list answered 403 (an account with no player row). Such an account is not
+   * a student for the guide, which never shows to it (criterion 30).
+   */
+  blockersForbidden?: boolean;
   now?: Date;
 }
 
@@ -136,7 +141,7 @@ export function setupGuideState(input: SetupGuideInput): SetupGuideView {
   const now = input.now ?? new Date();
   const today = clubTodayISO(now);
   const guide = me?.setupGuide;
-  const student = me != null && !(me.roles ?? []).includes("coach");
+  const student = me != null && !(me.roles ?? []).includes("coach") && !input.blockersForbidden;
   const coachCount = me?.coaches?.length ?? 0;
 
   const of = (known: boolean, done: boolean): SetupStepState => (!known ? "unknown" : done ? "done" : "pending");

@@ -122,7 +122,9 @@ describe("the grid", () => {
     expect(labels(g.slots)).toEqual(["09:00–10:00", "11:00–15:00"]);
     g = gridTap(gridTap(g, 18), 18);
     expect(labels(g.slots)).toEqual(["09:00–10:00", "11:00–15:00", "18:00–19:00"]);
-    expect(labels(emptySlots())).toEqual([]);
+    // "Limpar" empties the day in view (the editor calls withSlotsInView(s, emptySlots())).
+    const cleared = withSlotsInView(withSlotsInView(setDays(emptySchedule(), [1]), g.slots), emptySlots());
+    expect(labels(slotsInView(cleared))).toEqual([]);
 
     let half: GridState = { slots: emptySlots(), anchor: null };
     half = gridTap(gridTap(half, 9), 13);
@@ -232,5 +234,37 @@ describe("ids, saved schedules and Prolongar rows", () => {
     );
     expect(rows).toEqual([{ title: "Trabalho", date: "2026-11-16", startTime: "09:00", endTime: "18:00",
       isRecurring: true, recurrenceRule: { frequency: "weekly", daysOfWeek: [1, 2, 3, 4, 5] }, endDate: "2027-05-19" }]);
+  });
+});
+
+describe("card text and name chips", () => {
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-31] a saved schedule's card text in either mode", async () => {
+    const { scheduleCardText } = await import("./availability-schedule");
+    const same = tap(setDays(emptySchedule(), [0, 1, 2, 3, 4, 5, 6]), 9, 11, 15, 20);
+    const sameBack = blockersToSchedule(
+      scheduleToBlockerInputs(same, DATES).map((r, i) => ({ id: i + 1, title: null, startTime: r.startTime,
+        endTime: r.endTime, recurrenceRule: r.recurrenceRule, recurrenceEnd: r.endDate }))
+    );
+    expect(scheduleCardText(sameBack)).toBe("seg, ter, qua, qui, sex, sáb, dom · 09–11 · 15–20");
+
+    const rows = [
+      { start: "09:00", end: "11:00", days: [1, 3, 4, 5] },
+      { start: "09:00", end: "20:00", days: [2] },
+      { start: "15:00", end: "20:00", days: [1, 4, 5] },
+    ].map((r, i) => ({ id: i + 1, title: null, startTime: r.start, endTime: r.end,
+      recurrenceRule: { daysOfWeek: r.days }, recurrenceEnd: "2027-02-16" }));
+    const varies = blockersToSchedule(rows);
+    expect(varies.mode).toBe("varies");
+    const text = scheduleCardText(varies);
+    expect(text).toBe("seg 09–11 · 15–20; ter 09–20; qua 09–11; qui 09–11 · 15–20; sex 09–11 · 15–20");
+    expect(text).not.toContain("Livre");
+  });
+
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-21] tapping a name chip chooses it, and tapping it again clears it", async () => {
+    const { toggleName } = await import("./availability-schedule");
+    const chosen = toggleName(emptySchedule(), "Ginásio");
+    expect(chosen.name).toBe("Ginásio");
+    expect(toggleName(chosen, "Escola").name).toBe("Escola");
+    expect(toggleName(chosen, "Ginásio").name).toBeNull();
   });
 });
