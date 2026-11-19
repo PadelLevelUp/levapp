@@ -128,7 +128,14 @@ def validate_file(data):
     if not isinstance(classes, list):
         problems.append("classes must be a list")
         classes = []
-    if not players and not classes:
+    if "history" in data:
+        # Rules 15, 16, 29: a history run. Its `classes` stays empty; its `players` may create students.
+        from padel_app.services import onboarding_history
+
+        problems.extend(onboarding_history.validate(data))
+        if classes:
+            problems.append("a history file has no classes (they are loaded by a roster run)")
+    elif not players and not classes:
         problems.append("the file has no players and no classes")
 
     seen_names, seen_emails = {}, {}

@@ -204,6 +204,8 @@ def _register_onboarding(app):
         problems = service.validate_file(data)
         if problems:
             _refuse(problems)
+        if "history" in data:
+            _refuse(["a history file is checked but not yet applied: the history apply is not built"])
         if not dry_run:
             _require_database(service, database)
 
