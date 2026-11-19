@@ -228,17 +228,65 @@ def test_the_new_engines_store_gives_the_same_number(app):
 
 
 @pytest.mark.criterion("ATTENDANCE-STATS-13")
-def test_a_new_engine_yes_is_a_makeup_taken_unless_it_was_withdrawn(app):
-    """[ATTENDANCE-STATS-13] One yes counts (even though the student missed that class), a withdrawn one does not."""
+def test_a_new_engine_yes_is_a_makeup_taken_unless_its_class_did_not_happen(app):
+    """[ATTENDANCE-STATS-13] Open and same_hour yeses count (even though the student missed the class);
+    withdrawn and class_removed do not."""
+    def record(ids, s):
+        for d in (40, 39, 38, 37):
+            _justified(ids, s, d)
+        for days_ago, reason in ((20, None), (19, "withdrawn"), (18, "class_removed"), (17, "same_hour")):
+            _engine_yes(ids, s, _past_class(ids, s, status="absent", justification="unjustified",
+                                            source="fill", days_ago=days_ago), closed_reason=reason)
+
+    assert _owed(app, record) == (2, True)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-14")
+def test_a_former_regulars_past_present_rows_are_not_makeups(app):
+    """[ATTENDANCE-STATS-14] Source roster, the student has since left the class (no roster place now)."""
     def record(ids, s):
         _justified(ids, s, 40)
         _justified(ids, s, 39)
-        _engine_yes(ids, s, _past_class(ids, s, status="absent", justification="unjustified",
-                                        source="fill", days_ago=20))
-        _engine_yes(ids, s, _past_class(ids, s, status="absent", justification="unjustified",
-                                        source="fill", days_ago=19), closed_reason="withdrawn")
+        for d in (30, 29, 28):
+            _past_class(ids, s, status="present", source="roster", days_ago=d)
 
-    assert _owed(app, record) == (1, True)
+    assert _owed(app, record) == (2, True)
+
+
+def _unknown_and_import(ids, s):
+    for d in (40, 39):
+        _justified(ids, s, d)
+    for d, source in ((30, "unknown"), (29, "import")):
+        _past_class(ids, s, status="present", source=source, days_ago=d)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-15")
+def test_fill_coach_and_walk_in_seats_are_guest_make_ups_even_after_the_student_joined_the_class(app):
+    """[ATTENDANCE-STATS-15] Judged at the class's time, not by today's roster."""
+    def record(ids, s):
+        for d in (40, 39, 38, 37, 36, 35):
+            _justified(ids, s, d)
+        for d, source in ((30, "fill"), (29, "coach"), (28, "walk_in")):
+            _past_class(ids, s, status="present", source=source, days_ago=d)
+        _enrol(ids, s)
+
+    assert _owed(app, record) == (3, True)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-15")
+def test_unknown_and_import_seats_are_make_ups_only_off_the_roster(app):
+    """[ATTENDANCE-STATS-15] Where the source cannot say, the student holds no place on the class."""
+    assert _owed(app, _unknown_and_import) == (0, False)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-15")
+def test_unknown_and_import_seats_of_a_regular_are_not_make_ups(app):
+    """[ATTENDANCE-STATS-15] The in-app import writes `import` for regulars too."""
+    def record(ids, s):
+        _unknown_and_import(ids, s)
+        _enrol(ids, s)
+
+    assert _owed(app, record) == (2, True)
 
 
 # ── the tiebreaker and the simulation ────────────────────────────────────────

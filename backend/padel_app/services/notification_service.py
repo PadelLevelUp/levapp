@@ -1103,10 +1103,11 @@ def makeups_owed_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[in
     coach's occurrences (PAD-381, PAD-382). A make-up taken is an accepted invitation OR a
     validated guest presence, counted once per ``(player, lesson_instance_id)``: an old-engine
     ``NotificationEvent`` with ``status == "confirmed"``, a new-engine ``EngineInvitation`` with
-    ``answer == "yes"`` not closed as withdrawn, or a ``present`` and validated presence on this
-    coach's occurrence whose player holds no place on its class. All time, even when the student
+    ``answer == "yes"`` not closed ``withdrawn`` or ``class_removed``, or a ``present`` and validated
+    presence on this coach's occurrence whose seat was a guest's (``enrolment_source`` fill, coach or
+    walk_in; for unknown or import, no place on the class's roster now). All time, even when the student
     then missed the class an invitation filled (owner decisions PAD-505 Q2; history import D2)."""
-    from sqlalchemy import func, or_
+    from sqlalchemy import and_, func, or_
 
     from padel_app.models import Association_PlayerLesson, EngineInvitation
     from padel_app.models.lesson_instances import LessonInstance
@@ -1136,7 +1137,11 @@ def makeups_owed_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[in
                        & (Association_PlayerLesson.player_id == Presence.player_id))
             .filter(Presence.player_id.in_(ids), Presence.lesson_instance_id.in_(instance_ids),
                     Presence.status == "present", Presence.validated.is_(True),
-                    Association_PlayerLesson.id.is_(None))
+                    # The seat's own source says guest or regular as the class was held; only where it
+                    # cannot ("unknown", "import") is today's roster asked (rule 3).
+                    or_(Presence.enrolment_source.in_(("fill", "coach", "walk_in")),
+                        and_(Presence.enrolment_source.in_(("unknown", "import")),
+                             Association_PlayerLesson.id.is_(None))))
         )
     taken.update(
         db.session.query(NotificationEvent.player_id, NotificationEvent.lesson_instance_id)
@@ -1147,7 +1152,8 @@ def makeups_owed_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[in
         db.session.query(EngineInvitation.player_id, EngineInvitation.lesson_instance_id)
         .filter(EngineInvitation.player_id.in_(ids), EngineInvitation.coach_id == coach_id,
                 EngineInvitation.answer == "yes",
-                or_(EngineInvitation.closed_reason.is_(None), EngineInvitation.closed_reason != "withdrawn"))
+                or_(EngineInvitation.closed_reason.is_(None),
+                    EngineInvitation.closed_reason.notin_(("withdrawn", "class_removed"))))
     )
     for pid, _iid in taken:
         balance[pid] -= 1
