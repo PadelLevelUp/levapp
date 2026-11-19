@@ -38,7 +38,7 @@ In semi-automatic mode (rule 4's last sentence; owner ruling D2), waiting-list i
 coach's approval like any invitation, and automatic entry from a list does not (`notifications.engine-planning`
 rule 14). A student is on one list of a session, never both (`notifications.engine-answers` rule 12).
 
-Kept unchanged for the new engine, the plan silent: rule 15b (the last standing credit withdraws the offers it paid for: a credit rule, not the engine's coverage) and rule 18a (the coach names the side a student waits for: the coach's decision, `notifications.engine-tiers` rule 6); and the list management of rules 2–3a, 5–11, 14–15a and 18–22.
+Kept unchanged for the new engine, the plan silent: rule 15b (the last standing credit withdraws the offers it paid for: a credit rule, not the engine's coverage) and rule 18a (the coach names the side a student waits for: the coach's decision, `notifications.engine-tiers` rule 6); and the list management of rules 2–3a, 5–11, 14–15a and 18–22. On a new-engine session the store spends the credit of rules 15 and 15a when it places a student from a standing row (`notifications.engine-store` rule 11), and adoption keeps the class's rows (`notifications.engine-store` rule 10); rule 15b is not yet done there (an open question in that spec).
 
 ### Entities
 - **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
