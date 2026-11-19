@@ -4,7 +4,13 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { queryKeys, useCoachLevels, useCoachPlayersPaginated } from "@levelup/hooks";
-import { PLAYER_SEARCH_DEBOUNCE_MS } from "@levelup/config";
+import {
+  PLAYER_SEARCH_DEBOUNCE_MS,
+  pendingAgeLabel,
+  rosterFilterFromParams,
+  rosterFilterQuery,
+  type RosterFilter,
+} from "@levelup/config";
 import { SIDE_LABEL_KEYS } from "@/types";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -21,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Copy, X } from "lucide-react";
+import { AlertTriangle, Copy, UserPlus, X } from "lucide-react";
 
 import { addPlayer } from "@/api/players";
 import { createIncompletePlayer } from "@/api/playerInvitations";
@@ -44,12 +50,13 @@ export default function PlayersPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState<SortOption>("name-asc");
-  // PAD-486: the dashboard's "See all" opens /players?missing_level=true (or missing_side).
-  const [searchParams] = useSearchParams();
-  const [missingLevelFilter, setMissingLevelFilter] = useState(searchParams.get("missing_level") === "true");
-  const [missingSideFilter, setMissingSideFilter] = useState(searchParams.get("missing_side") === "true");
-  // The dashboard's "see all" (#523): no level OR no side, the block's own definition.
-  const [incompleteFilter, setIncompleteFilter] = useState(searchParams.get("incomplete") === "true");
+  // players.list rule 5 (PAD-834): one filter at a time. The dashboard's "See all" opens
+  // /players?incomplete=true (or missing_level / missing_side); the two alerts set
+  // `incomplete` or `pending`. A URL with several keeps the first (rosterFilterFromParams).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [rosterFilter, setRosterFilter] = useState<RosterFilter | null>(() =>
+    rosterFilterFromParams((name) => searchParams.get(name)),
+  );
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -113,9 +120,7 @@ export default function PlayersPage() {
       search: debouncedSearch || undefined,
       sortBy,
       sortDir,
-      missingLevel: missingLevelFilter,
-      missingSide: missingSideFilter,
-      incomplete: incompleteFilter,
+      ...rosterFilterQuery(rosterFilter),
     },
     { placeholderData: keepPreviousData },
   );
@@ -123,7 +128,9 @@ export default function PlayersPage() {
   const coachPlayers = playersQuery.data?.items ?? [];
   const totalPages = playersQuery.data?.pagination.pages || 1;
   const totalItems = playersQuery.data?.pagination.total || 0;
-  const alertCounts = playersQuery.data?.alerts ?? { missingLevel: 0, missingSide: 0 };
+  // players.list rule 14 (PAD-834): an older server sends no `incomplete` / `pendingRegistration`.
+  const incompleteCount = playersQuery.data?.alerts?.incomplete ?? 0;
+  const pendingCount = playersQuery.data?.alerts?.pendingRegistration ?? 0;
 
   // Say why the list did not change (Session-E's review); the rows already on screen stay.
   // Read through refs, not dependencies: `t` changes identity when the language settles.
@@ -164,26 +171,25 @@ export default function PlayersPage() {
     setCurrentPage(1);
   };
 
-  const toggleMissingLevelFilter = () => {
-    setMissingLevelFilter((prev) => !prev);
-    setMissingSideFilter(false);
-    setIncompleteFilter(false);
+  // The URL carries the one filter on screen, so a reload or a shared link keeps it.
+  const applyRosterFilter = (next: RosterFilter | null) => {
+    setRosterFilter(next);
     setCurrentPage(1);
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        for (const name of ["pending", "incomplete", "missing_level", "missing_side"]) params.delete(name);
+        if (next) params.set(next, "true");
+        return params;
+      },
+      { replace: true },
+    );
   };
 
-  const toggleMissingSideFilter = () => {
-    setMissingSideFilter((prev) => !prev);
-    setMissingLevelFilter(false);
-    setIncompleteFilter(false);
-    setCurrentPage(1);
-  };
+  const toggleRosterFilter = (filter: RosterFilter) =>
+    applyRosterFilter(rosterFilter === filter ? null : filter);
 
-  const clearFilters = () => {
-    setMissingLevelFilter(false);
-    setMissingSideFilter(false);
-    setIncompleteFilter(false);
-    setCurrentPage(1);
-  };
+  const clearFilters = () => applyRosterFilter(null);
 
   const getInitials = (name: string) =>
     name
@@ -231,37 +237,70 @@ export default function PlayersPage() {
     }
   };
 
-  const hasActiveFilter = missingLevelFilter || missingSideFilter || incompleteFilter;
+  const hasActiveFilter = rosterFilter !== null;
 
-  const alertsSection = (alertCounts.missingLevel > 0 || alertCounts.missingSide > 0) && (
+  const filterActiveLabel: Record<RosterFilter, string> = {
+    pending: t("players.card.pendingFilterActive"),
+    incomplete: t("players.incompleteFilterActive"),
+    missing_level: t("players.missingLevelFilterActive"),
+    missing_side: t("players.missingSideFilterActive"),
+  };
+
+  // players.list rule 5 (PAD-834): two alerts, and they are the filters. "Por configurar" is
+  // amber; "registo pendente" a colour that is not amber.
+  const alertsSection = (incompleteCount > 0 || pendingCount > 0) && (
     <div className="flex flex-col gap-2">
-      {alertCounts.missingLevel > 0 && (
+      {incompleteCount > 0 && (
         <Alert
+          data-testid="players-alert-incomplete"
+          data-tone="warning"
+          data-active={rosterFilter === "incomplete" ? "true" : "false"}
+          role="button"
+          tabIndex={0}
+          aria-pressed={rosterFilter === "incomplete"}
           className={`cursor-pointer transition-colors ${
-            missingLevelFilter
+            rosterFilter === "incomplete"
               ? "border-warning/40 bg-warning/10 dark:bg-warning/10"
               : "hover:border-warning/40"
           }`}
-          onClick={toggleMissingLevelFilter}
+          onClick={() => toggleRosterFilter("incomplete")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              toggleRosterFilter("incomplete");
+            }
+          }}
         >
           <AlertTriangle className="h-4 w-4 text-warning" />
           <AlertDescription className="ml-2">
-            {t("players.missingLevelAlert", { count: alertCounts.missingLevel })}
+            {t("players.card.alertIncomplete", { count: incompleteCount })}
           </AlertDescription>
         </Alert>
       )}
-      {alertCounts.missingSide > 0 && (
+      {pendingCount > 0 && (
         <Alert
-          className={`cursor-pointer transition-colors ${
-            missingSideFilter
-              ? "border-warning/40 bg-warning/10 dark:bg-warning/10"
-              : "hover:border-warning/40"
+          data-testid="players-alert-pending"
+          data-tone="pending"
+          data-active={rosterFilter === "pending" ? "true" : "false"}
+          role="button"
+          tabIndex={0}
+          aria-pressed={rosterFilter === "pending"}
+          className={`cursor-pointer transition-colors border-violet-300 dark:border-violet-800 ${
+            rosterFilter === "pending"
+              ? "bg-violet-100 dark:bg-violet-950"
+              : "hover:bg-violet-50 dark:hover:bg-violet-950/50"
           }`}
-          onClick={toggleMissingSideFilter}
+          onClick={() => toggleRosterFilter("pending")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              toggleRosterFilter("pending");
+            }
+          }}
         >
-          <AlertTriangle className="h-4 w-4 text-warning" />
+          <UserPlus className="h-4 w-4 text-violet-600 dark:text-violet-400" />
           <AlertDescription className="ml-2">
-            {t("players.missingSideAlert", { count: alertCounts.missingSide })}
+            {t("players.card.alertPending", { count: pendingCount })}
           </AlertDescription>
         </Alert>
       )}
@@ -283,21 +322,18 @@ export default function PlayersPage() {
 
       {hasActiveFilter && (
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-sm">
-            {incompleteFilter
-              ? t("players.incompleteFilterActive")
-              : missingLevelFilter
-                ? t("players.missingLevelFilterActive")
-                : t("players.missingSideFilterActive")}
+          <Badge variant="secondary" className="text-sm" data-testid="players-filter-active">
+            {rosterFilter ? filterActiveLabel[rosterFilter] : null}
           </Badge>
           <Button
             variant="ghost"
             size="sm"
             onClick={clearFilters}
+            data-testid="players-filter-clear"
             aria-label={t("players.clearFilterAriaLabel")}
           >
             <X className="w-4 h-4 mr-1" />
-            {t("players.clearFilter")}
+            {t("players.card.seeAll")}
           </Button>
         </div>
       )}
@@ -313,11 +349,14 @@ export default function PlayersPage() {
           {coachPlayers.map((cs) => {
             const level = cs.level;
             const isSelected = playerId != null && String(cs.playerId) === String(playerId);
+            const pending = cs.pendingRegistration === true;
+            const age = pending ? pendingAgeLabel(cs.addedAt) : null;
             return (
               <Card
                 key={`coach-player-${cs.id}-${cs.playerId}`}
                 data-testid={`player-card-${cs.playerId}`}
-                data-validated={cs.validated ? "true" : "false"}
+                // players.list rule 15 (PAD-834): pending is the placeholder, not `!validated`.
+                data-pending={pending ? "true" : "false"}
                 data-selected={isSelected ? "true" : "false"}
                 aria-current={isSelected ? "true" : undefined}
                 // PAD-148 / R-026: the card is the only route to a player's
@@ -330,7 +369,7 @@ export default function PlayersPage() {
                 aria-label={t("players.openPlayerAria", { name: cs.displayName || cs.name })}
                 className={`cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isSelected ? "bg-accent" : "hover:bg-accent/50"
-                } ${cs.validated ? "" : "opacity-60"}`}
+                } ${pending ? "opacity-60" : ""}`}
                 onClick={() => navigate(`/players/${cs.playerId}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -342,8 +381,15 @@ export default function PlayersPage() {
               >
                 <CardContent className="p-3">
                   <div className="flex items-center gap-3">
-                    <Avatar className="w-10 h-10 shrink-0">
-                      <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
+                    <Avatar
+                      className={`w-10 h-10 shrink-0 ${pending ? "border-2 border-dashed border-violet-400" : ""}`}
+                      data-testid={pending ? "player-row-avatar-pending" : undefined}
+                    >
+                      <AvatarFallback
+                        className={`font-bold text-sm ${
+                          pending ? "bg-transparent text-muted-foreground" : "bg-primary text-primary-foreground"
+                        }`}
+                      >
                         {getInitials(cs.displayName || cs.name || "")}
                       </AvatarFallback>
                     </Avatar>
@@ -351,7 +397,7 @@ export default function PlayersPage() {
                       <p
                         data-testid={`player-card-name-${cs.playerId}`}
                         className={`font-medium truncate ${
-                          cs.validated ? "" : "text-muted-foreground"
+                          pending ? "text-muted-foreground" : ""
                         }`}
                       >
                         {cs.displayName || cs.name}
@@ -365,13 +411,24 @@ export default function PlayersPage() {
                         {cs.side && (
                           <Badge variant="secondary" className="text-xs" data-testid={`player-side-chip-${cs.playerId}`}>{t(SIDE_LABEL_KEYS[cs.side])}</Badge>
                         )}
-                        {!cs.validated && (
+                        {/* players.list rule 15 (PAD-834): the needs-configuring chips, amber. */}
+                        {!cs.levelId && (
+                          <Badge variant="outline" className="border-warning/40 text-warning-strong bg-warning/10 text-xs" data-testid="player-row-no-level">
+                            {t("players.card.noLevel")}
+                          </Badge>
+                        )}
+                        {!cs.side && (
+                          <Badge variant="outline" className="border-warning/40 text-warning-strong bg-warning/10 text-xs" data-testid="player-row-no-side">
+                            {t("players.card.noSide")}
+                          </Badge>
+                        )}
+                        {age && (
                           <Badge
                             variant="outline"
-                            className="border-warning/40 text-warning text-xs"
+                            className="border-violet-300 text-violet-700 dark:border-violet-800 dark:text-violet-300 text-xs"
                             data-testid="pending-registration-badge"
                           >
-                            {t("players.pendingRegistration")}
+                            {t(age.key, age.values)}
                           </Badge>
                         )}
                         {/* players.claim rule 4c (PAD-528): the server's duplicate flag on a claimable row; nothing re-sorts. */}

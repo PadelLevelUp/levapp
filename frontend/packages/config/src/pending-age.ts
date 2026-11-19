@@ -17,3 +17,14 @@ export function pendingAgeDays(addedAt: string | null | undefined, now: Date = n
   const days = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(ay, am - 1, ad)) / 86_400_000);
   return Math.max(0, days);
 }
+
+/** The i18n key and values of a pending row's age label, "Pendente · há X dias" (players.list rule 15). */
+export function pendingAgeLabel(
+  addedAt: string | null | undefined,
+  now: Date = new Date(),
+): { key: string; values?: { count: number } } {
+  const days = pendingAgeDays(addedAt, now);
+  if (days === null) return { key: "players.card.pendingUnknown" };
+  if (days === 0) return { key: "players.card.pendingToday" };
+  return { key: "players.card.pendingAge", values: { count: days } };
+}

@@ -71,67 +71,40 @@ test.describe("PAD-13: Sorting, filtering and data alerts on Players tab", () =>
     expect(firstPlayerName).not.toBe("Ghost Player");
   });
 
-  test("PAD-13-4: data quality alerts show correct counts", async ({
+  // players.list rule 5 (PAD-834): two alerts, "por configurar" (incomplete) and "registo
+  // pendente", replace "without level" / "without side"; they are the filters. By test id, never
+  // copy. Seed: "Ghost Player" is a placeholder (pending) with no level, so it is in both.
+  test("[PLAYERS-LIST-16] the two alerts filter, exclude each other, and \"Ver todos\" clears", async ({
     page,
   }) => {
-    // Should show alert for players without level
-    const levelAlert = page.getByText(/player.*without level/i);
-    await expect(levelAlert).toBeVisible({ timeout: 5000 });
+    const pendingAlert = page.getByTestId("players-alert-pending");
+    const incompleteAlert = page.getByTestId("players-alert-incomplete");
+    await expect(pendingAlert).toBeVisible({ timeout: 5000 });
+    await expect(incompleteAlert).toBeVisible();
+    const fullTotal = Number(await page.getByTestId("players-pagination").getAttribute("data-total"));
 
-    // Should show alert for players without playing side
-    const sideAlert = page.getByText(/player.*without.*side/i);
-    await expect(sideAlert).toBeVisible({ timeout: 5000 });
-  });
-
-  test("PAD-13-5: clicking alert filters to players missing that data", async ({
-    page,
-  }) => {
-    // Click the "without level" alert
-    const levelAlert = page.getByText(/player.*without level/i);
-    await levelAlert.click();
-
-    // Wait for filtered list
-    await page.waitForTimeout(500);
-    await expect(page.locator(".font-medium.truncate").first()).toBeVisible({
-      timeout: 5000,
-    });
-
-    const names = await page.locator(".font-medium.truncate").allTextContents();
-    expect(names.length).toBeGreaterThan(0);
-
-    // Ghost Player is the only one without a level in seed data
-    expect(names).toContain("Ghost Player");
-
-    // All fillers have levels, so list should be smaller than total
-    expect(names.length).toBeLessThan(30);
-  });
-
-  test("PAD-13-6: can clear filter and return to full view", async ({
-    page,
-  }) => {
-    // Apply a filter via alert click
-    const levelAlert = page.getByText(/player.*without level/i);
-    await levelAlert.click();
-    await page.waitForTimeout(500);
-
-    // Find and click clear/remove filter control
-    const clearFilter = page.getByRole("button", {
-      name: /clear|remove|reset|show all/i,
-    });
-    // Or click the alert again to toggle off
-    if (await clearFilter.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await clearFilter.click();
-    } else {
-      await levelAlert.click();
+    await pendingAlert.click();
+    await expect(page).toHaveURL(/pending=true/);
+    await expect(page.getByTestId("players-filter-clear")).toBeVisible();
+    const pendingCards = page.locator('[data-testid^="player-card-"][data-pending]');
+    await expect(pendingCards.first()).toBeVisible();
+    for (const card of await pendingCards.all()) {
+      await expect(card).toHaveAttribute("data-pending", "true");
+      await expect(card.getByTestId("pending-registration-badge")).toBeVisible();
     }
 
-    await page.waitForTimeout(500);
-    await expect(page.locator(".font-medium.truncate").first()).toBeVisible({
-      timeout: 5000,
-    });
+    await incompleteAlert.click();
+    await expect(page).toHaveURL(/incomplete=true/);
+    await expect(page).not.toHaveURL(/pending=true/);
+    const incompleteCards = page.locator('[data-testid^="player-card-"][data-pending]');
+    await expect(incompleteCards.first()).toBeVisible();
+    for (const card of await incompleteCards.all()) {
+      const chips = card.locator('[data-testid="player-row-no-level"], [data-testid="player-row-no-side"]');
+      expect(await chips.count()).toBeGreaterThan(0);
+    }
 
-    // Should show all players again (paginated, so at least PAGE_SIZE)
-    const names = await page.locator(".font-medium.truncate").allTextContents();
-    expect(names.length).toBeGreaterThanOrEqual(25);
+    await page.getByTestId("players-filter-clear").click();
+    await expect(page.getByTestId("players-filter-clear")).toHaveCount(0);
+    await expect(page.getByTestId("players-pagination")).toHaveAttribute("data-total", String(fullTotal));
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pendingAgeDays } from "./pending-age";
+import { pendingAgeDays, pendingAgeLabel } from "./pending-age";
 
 describe("pendingAgeDays", () => {
   it("[PLAYERS-LIST-18] whole club days, today, and unknown", () => {
@@ -16,5 +16,12 @@ describe("pendingAgeDays", () => {
 
   it("counts across a month and a year end", () => {
     expect(pendingAgeDays("2026-12-30T12:00:00+00:00", new Date("2027-01-02T12:00:00Z"))).toBe(3);
+  });
+
+  it("[PLAYERS-LIST-18] names the label: days, today, or no age", () => {
+    const now = new Date("2026-07-13T09:00:00Z");
+    expect(pendingAgeLabel("2026-07-09T23:30:00+00:00", now)).toEqual({ key: "players.card.pendingAge", values: { count: 3 } });
+    expect(pendingAgeLabel("2026-07-13T00:10:00+00:00", now)).toEqual({ key: "players.card.pendingToday" });
+    expect(pendingAgeLabel(null, now)).toEqual({ key: "players.card.pendingUnknown" });
   });
 });

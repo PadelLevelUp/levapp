@@ -463,6 +463,22 @@
       "warning": "Only you can see this. Avoid offensive nicknames: the student can request a copy of their data.",
       "asName": "Use the nickname as the main name",
       "tooLong": "A nickname has at most 60 characters."
+    },
+    "card": {
+      "alertIncomplete_zero": "{{count}} players to configure",
+      "alertIncomplete_one": "{{count}} player to configure",
+      "alertIncomplete_other": "{{count}} players to configure",
+      "alertPending_zero": "{{count}} players with pending registration",
+      "alertPending_one": "{{count}} player with pending registration",
+      "alertPending_other": "{{count}} players with pending registration",
+      "pendingFilterActive": "Pending registration filter active",
+      "seeAll": "See all",
+      "noLevel": "No level",
+      "noSide": "No side",
+      "pendingAge_one": "Pending · {{count}} day ago",
+      "pendingAge_other": "Pending · {{count}} days ago",
+      "pendingToday": "Pending · today",
+      "pendingUnknown": "Pending"
     }
   }
 }
