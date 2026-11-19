@@ -38,31 +38,48 @@ appId: com.padellevelup.app
       id: "player-detail"
     timeout: 15000
 # PAD-834 (players.profile rule 10): Evolução is read in the profile's Avaliações block, from the
-# second record on (the seed gives this player several).
+# second record on (the seed gives this player several). Each figure is scrolled to on its own:
+# on Android the scroll view starts below the fixed action row, and the section counts as "100%
+# visible" by its clipped bounds while its pill row is still above the viewport (PR #996's
+# Android lane: section at y 417-1122, action row ending at 395, pill absent from the screen).
+
+# ── The first competency with data is selected; the figures are the server's ──
 - scrollUntilVisible:
     element:
-      id: "evaluation-evolution"
+      id: "${output.evoPill}"
     direction: DOWN
     timeout: 30000
     centerElement: true
-
-# ── The first competency with data is selected; the figures are the server's ──
-- extendedWaitUntil:
-    visible:
-      id: "${output.evoPill}"
-    timeout: 15000
-- extendedWaitUntil:
-    visible:
-      id: "${output.evoChart}"
-    timeout: 15000
 - assertVisible:
-    id: "${output.evoM1}"
+    id: "${output.evoPill}"
+- scrollUntilVisible:
+    element:
+      id: "${output.evoChart}"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- scrollUntilVisible:
+    element:
+      id: "${output.evoM1}"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
 - assertVisible:
     id: "${output.evoM12}"
-- assertVisible:
-    id: "${output.evoDelta}"
+- scrollUntilVisible:
+    element:
+      id: "${output.evoDelta}"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
 
 # ── No hover on a phone: a point's value is one tap away ──
+- scrollUntilVisible:
+    element:
+      id: "evolution-point-0"
+    direction: UP
+    timeout: 15000
+    centerElement: true
 - tapOn:
     id: "evolution-point-0"
 - extendedWaitUntil:

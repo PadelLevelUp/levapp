@@ -61,6 +61,12 @@ describe("the Maestro proof flows follow the screen (PAD-834)", () => {
     expect(flow("34-player-removal.yaml")).toContain('id: "player-remove-mode-cancel-invite"');
   });
 
+  it("79 scrolls to the selected pill itself, not to the section (Android clips the section's bounds)", () => {
+    const f = flow("79-evaluation-evolution.yaml");
+    expect(f).toMatch(/scrollUntilVisible:\s*\n\s*element:\s*\n\s*id: "\$\{output\.evoPill\}"/);
+    expect(f).not.toMatch(/scrollUntilVisible:\s*\n\s*element:\s*\n\s*id: "evaluation-evolution"/);
+  });
+
   it("333-336 are PAD-834's, listed in config.yaml, and clean up the placeholder they create", () => {
     const config = fs.readFileSync(path.resolve(here, "../../../.maestro/config.yaml"), "utf8");
     for (const name of ["333-player-needs-configuring", "334-player-pending-registration",
