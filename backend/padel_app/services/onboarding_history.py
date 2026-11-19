@@ -267,6 +267,20 @@ class HistoryPlan:
         self.table = []
 
 
+def _coach_made():
+    """Rule 20: a row the coach made, or one validated by someone other than this import (rows from before
+    `recorded_by` existed carry NULL)."""
+    from sqlalchemy import or_
+
+    from padel_app.models import Presence
+
+    return (Presence.validated.is_(True)) & or_(Presence.recorded_by.is_(None), Presence.recorded_by != "import")
+
+
+def _is_coach_made(presence):
+    return bool(presence.validated) and presence.recorded_by != "import"
+
+
 def _instance_facts(coach_id):
     """(instance count, coach-made marks, {lesson id: date of its first coach-made mark})."""
     from sqlalchemy import func
@@ -278,12 +292,12 @@ def _instance_facts(coach_id):
     instances = LessonInstance.query.filter(LessonInstance.lesson_id.in_(lesson_ids))
     marks = (
         Presence.query.join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
-        .filter(LessonInstance.lesson_id.in_(lesson_ids), Presence.recorded_by == "coach")
+        .filter(LessonInstance.lesson_id.in_(lesson_ids), _coach_made())
     )
     firsts = dict(
         db.session.query(LessonInstance.lesson_id, func.min(LessonInstance.start_datetime))
         .join(Presence, Presence.lesson_instance_id == LessonInstance.id)
-        .filter(LessonInstance.lesson_id.in_(lesson_ids), Presence.recorded_by == "coach")
+        .filter(LessonInstance.lesson_id.in_(lesson_ids), _coach_made())
         .group_by(LessonInstance.lesson_id)
         .all()
     )
@@ -310,6 +324,19 @@ def target_problems(data, coach):
         meta = (json.loads(run.record_ids or "{}")).get("_onboarding") or {}
         if meta.get(HISTORY_FLAG):
             problems.append(f"the coach already has an active history run ({run.filename}, import #{run.id})")
+    if data["history"].get("season") is not None:
+        from padel_app.models import Association_CoachLesson, Lesson
+
+        following = [
+            lesson.title for lesson in
+            Lesson.query.join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+            .filter(Association_CoachLesson.coach_id == coach.id, Lesson.recurs_until_season_end.is_(True))
+        ]
+        if following:
+            problems.append(
+                "the file gives a season but the coach has classes that follow the season end ("
+                + ", ".join(following) + "): saving a season re-caps them and deletes future occurrences"
+            )
     if data["history"].get("season") is not None and coach.season is not None:
         problems.append(
             f"the coach already has a season ({coach.season.display_name}): a coach has one season, "
@@ -595,6 +622,41 @@ def apply(data, raw, coach, club, plan_):
     return db.session.get(BulkImport, run_id), lines
 
 
+def _find_instance(lesson_id, day):
+    """The occurrence of ``lesson_id`` on ``day``, found as ``get_or_materialize_instance`` finds it."""
+    from datetime import datetime, time
+    from sqlalchemy import and_, or_
+
+    from padel_app.models import LessonInstance
+
+    start = datetime.combine(day, time.min)
+    return (
+        LessonInstance.query.filter(LessonInstance.lesson_id == lesson_id)
+        .filter(or_(
+            LessonInstance.original_lesson_occurence_date == day,
+            and_(LessonInstance.original_lesson_occurence_date.is_(None),
+                 LessonInstance.start_datetime >= start, LessonInstance.start_datetime < start + timedelta(days=1)),
+        )).order_by(LessonInstance.id).first()
+    )
+
+
+def _materialise(run, record_ids, lesson, day):
+    """(instance, created): the occurrence, quietly. ``created`` comes from the materialising call itself, so an
+    occurrence someone else made is never recorded as the run's. The intent is saved first
+    (``pending_instance``): a failure between the commit inside the call and the recording of the id
+    is cleaned up by ``_undo`` (rule 26)."""
+    from padel_app.services import lesson_service
+
+    record_ids["pending_instance"] = {"lesson_id": lesson.id, "date": day.isoformat(),
+                                      "existed": _find_instance(lesson.id, day) is not None}
+    _record(run, record_ids)
+    instance = lesson_service.get_or_materialize_instance(lesson, day, quiet=True)
+    created = bool(getattr(instance, "_materialised_now", False))
+    record_ids.pop("pending_instance", None)
+    _record(run, record_ids, lesson_instances=[instance.id] if created else [])
+    return instance, created
+
+
 def _write_everything(data, run, record_ids, coach, club, plan_):
     import json
 
@@ -648,7 +710,8 @@ def _write_everything(data, run, record_ids, coach, club, plan_):
             continue
         lesson, old = c.lesson, c.lesson.start_datetime
         record_ids["series_starts"][str(lesson.id)] = {
-            "start": old.isoformat(), "end": lesson.end_datetime.isoformat(), "moved_to": c.new_start.isoformat()}
+            "start": old.isoformat(), "end": lesson.end_datetime.isoformat(), "moved_to": c.new_start.isoformat(),
+            "recurrence_rule": lesson.recurrence_rule}
         _record(run, record_ids)
         lesson_service.edit_lesson_helper(
             data={"date": c.new_start.isoformat(), "event_date": old.date()}, lesson=lesson)
@@ -675,12 +738,9 @@ def _write_everything(data, run, record_ids, coach, club, plan_):
 
     for c in plan_.classes:
         lesson = c.lesson
-        known = {i.id for i in LessonInstance.query.filter_by(lesson_id=lesson.id)}
         for day in c.occurrences(through):
-            instance = lesson_service.get_or_materialize_instance(lesson, day, quiet=True)
-            created_instance = instance.id not in known
+            instance, created_instance = _materialise(run, record_ids, lesson, day)
             if created_instance:
-                _record(run, record_ids, lesson_instances=[instance.id])
                 n_instances += 1
             existing = {p.id: p for p in Presence.query.filter_by(lesson_instance_id=instance.id)}
             before_ids = set(existing)
@@ -690,7 +750,7 @@ def _write_everything(data, run, record_ids, coach, club, plan_):
                 person = db.session.get(Player, presence.player_id)
                 row = marks.get(_key(person.user.name)) if person and person.user else None
                 if not created_instance:
-                    if presence.recorded_by == "coach":
+                    if _is_coach_made(presence):
                         raise OnboardingFailed(f"{c.title} {day}: a coach-made mark appeared under the cut-off")
                     record_ids["presence_before"][str(presence.id)] = {
                         "status": presence.status, "justification": presence.justification,
@@ -738,8 +798,7 @@ def _write_everything(data, run, record_ids, coach, club, plan_):
             db.session.commit()
             _record(run, record_ids, lessons=[created.id],
                     player_lessons=[r.id for r in Association_PlayerLesson.query.filter_by(lesson_id=created.id)])
-            instance = lesson_service.get_or_materialize_instance(created, day, quiet=True)
-            _record(run, record_ids, lesson_instances=[instance.id])
+            instance, _ = _materialise(run, record_ids, created, day)
             rows_ = list(Presence.query.filter_by(lesson_instance_id=instance.id))
             for presence in rows_:
                 mark(presence, "absent", "justified", None)
@@ -847,6 +906,8 @@ def _restore(run, record_ids):
         if lesson is not None:
             lesson.start_datetime = datetime.fromisoformat(before["start"])
             lesson.end_datetime = datetime.fromisoformat(before["end"])
+            if "recurrence_rule" in before:
+                lesson.recurrence_rule = before["recurrence_rule"]
     for season_id in record_ids.get("coach_seasons", []):
         season = db.session.get(CoachSeason, season_id)
         if season is not None:
@@ -866,6 +927,15 @@ def _undo(run_id, coach_id):
     run = db.session.get(BulkImport, run_id)
     record_ids = json.loads(run.record_ids or "{}")
     _restore(run, record_ids)
+    pending = record_ids.get("pending_instance")
+    if pending and not pending["existed"]:
+        # The call made the occurrence and the failure came before its id was recorded (rule 26).
+        orphan = _find_instance(pending["lesson_id"], date.fromisoformat(pending["date"]))
+        if orphan is not None and orphan.id not in record_ids.get("lesson_instances", []):
+            from padel_app.services.onboarding_service import _save
+
+            record_ids.setdefault("lesson_instances", []).append(orphan.id)
+            _save(run, record_ids)
     import_service.revert_import(run_id, db.session.get(Coach, coach_id))
     db.session.delete(db.session.get(BulkImport, run_id))
     db.session.commit()
@@ -889,6 +959,32 @@ def revert_problems(run):
         lesson = db.session.get(Lesson, int(lesson_id))
         if lesson is not None and lesson.start_datetime.date().isoformat() != before["moved_to"]:
             problems.append(f"class #{lesson_id} ({lesson.title}) no longer starts on {before['moved_to']}")
+    # Rows the run did not write, on what the run created: deleting the occurrence would delete them too.
+    written = set(record_ids.get("presences", []))
+    instance_ids = list(record_ids.get("lesson_instances", []))
+    lesson_ids = list(record_ids.get("lessons", []))
+    strangers = []
+    if instance_ids:
+        strangers += [p for p in Presence.query.filter(Presence.lesson_instance_id.in_(instance_ids))
+                      if p.id not in written]
+    if lesson_ids:
+        from padel_app.models import Association_PlayerLesson, LessonInstance
+
+        extra = [i.id for i in LessonInstance.query.filter(LessonInstance.lesson_id.in_(lesson_ids))
+                 if i.id not in set(instance_ids)]
+        if extra:
+            problems.append(f"an adjustment lesson holds occurrence(s) the run did not make (instance ids {sorted(extra)})")
+        known_enrolments = set(record_ids.get("player_lessons", []))
+        other = [r.id for r in Association_PlayerLesson.query.filter(Association_PlayerLesson.lesson_id.in_(lesson_ids))
+                 if r.id not in known_enrolments]
+        if other:
+            problems.append(f"an adjustment lesson has enrolments the run did not make (ids {sorted(other)})")
+    if strangers:
+        where = sorted({(p.lesson_instance_id, p.lesson_instance.start_datetime.date().isoformat()) for p in strangers})
+        problems.append(
+            f"{len(strangers)} rows on the run's occurrences were not written by the run (presence ids "
+            f"{sorted(p.id for p in strangers)}; occurrences {where}): deleting the occurrences would delete them"
+        )
     wanted = record_ids.get("coach_season_definition")
     for season_id in record_ids.get("coach_seasons", []):
         season = db.session.get(CoachSeason, season_id)

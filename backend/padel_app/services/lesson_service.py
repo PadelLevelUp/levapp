@@ -460,6 +460,7 @@ def get_or_materialize_instance(lesson: Lesson, date, *, quiet=False):
 
     instance = _lookup()
     if instance:
+        instance._materialised_now = False
         return instance
 
     # PAD-261 (classes.instances rule 8): materialisation is serialised per
@@ -472,6 +473,7 @@ def get_or_materialize_instance(lesson: Lesson, date, *, quiet=False):
     instance = _lookup()
     if instance:
         db.session.commit()  # release the lock
+        instance._materialised_now = False
         return instance
 
     instance = create_lesson_instance_helper(
@@ -480,6 +482,9 @@ def get_or_materialize_instance(lesson: Lesson, date, *, quiet=False):
 
     instance.add_to_session()
     instance.flush()
+    # Not a column: tells THIS caller its call made the occurrence (the history import records what it
+    # created, and a lookup that merely found one made by someone else is not its own).
+    instance._materialised_now = True
 
     # PAD-259 (classes.instance-enrollment rule 4): the roster is copied onto
     # the occurrence through the single writer; create_lesson_instance_helper
