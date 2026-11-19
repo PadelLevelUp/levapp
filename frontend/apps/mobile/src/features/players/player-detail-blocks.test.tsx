@@ -38,3 +38,26 @@ describe("the player screen (PAD-834)", () => {
     expect(at('testID="player-remove"')).toBeLessThan(at("ref={scrollRef}"));
   });
 });
+
+describe("the Maestro proof flows follow the screen (PAD-834)", () => {
+  const flow = (name: string) =>
+    fs.readFileSync(path.resolve(here, "../../../.maestro/flows", name), "utf8");
+
+  it("101 asserts the four header actions and the blocks, never the links that left the header", () => {
+    const f = flow("101-player-detail-action-row.yaml");
+    for (const id of ["player-add-to-classes", "player-waiting-list", "player-edit", "player-remove",
+      "player-info-card", "evaluation-card", "profile-attendance-block"]) {
+      expect(f).toContain(`id: "${id}"`);
+    }
+    expect(f).not.toMatch(/assertVisible:\s*\n\s*id: "player-(attendance-link|absences-link|evaluations-action)"/);
+  });
+
+  it("82 and 280 edit through Block 1, and 34 expects 'Cancel invite' on the placeholder", () => {
+    for (const name of ["82-clear-player-notes.yaml", "280-level-select-scrolls.yaml"]) {
+      const f = flow(name);
+      expect(f).toContain('id: "player-info-edit"');
+      expect(f).not.toContain('id: "player-edit"');
+    }
+    expect(flow("34-player-removal.yaml")).toContain('text: "Cancel invite"');
+  });
+});
