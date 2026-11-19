@@ -333,12 +333,27 @@ appId: com.padellevelup.app
             - waitForAnimationToEnd
 - tapOn:
     id: "board-color-red"
+# PAD-710 (Android lane): where the court sits here depends on where Wave 4 left the page: the
+# stroke landed with the tool row at y 432 (run 43952334985) and began above the court with it at
+# y 765 (run 44344064806). Maestro cannot swipe diagonally from an element (`swipe: from:` takes
+# only a direction, and a straight stroke has zero-height bounds Android never shows), so pin the
+# page to the tool row instead: pull the page up on its left margin until the row has just left
+# the top. The court then covers at least y 890 to 1790, around the stroke below.
 - runFlow:
     when:
       platform: Android
-    file: ../subflows/board-show-court.yaml
-    env:
-      TARGET: "court-surface"
+    commands:
+      - repeat:
+          times: 4
+          while:
+            visible:
+              id: "board-swatches"
+          commands:
+            - swipe:
+                start: "4%, 65%"
+                end: "4%, 45%"
+                duration: 500
+      - waitForAnimationToEnd
 - swipe:
     start: "40%, 45%"
     end: "60%, 55%"
