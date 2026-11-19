@@ -39,7 +39,7 @@ notifications one.
    ignored; `name` is shown whether or not it is stored (it is pinned, `attendance.validation`
    rule 17); the columns show in the list's order, whatever order was stored; a stored empty list
    shows `name` alone. A null value, or a load that fails, shows the list's defaults. The view's
-   `defaultPeriod` is one of `"thisWeek"`, `"thisMonth"`, `"lastMonth"`, `"season"`; anything else,
+   `defaultPeriod` is one of `"thisWeek"`, `"thisMonth"`, `"lastMonth"`, `"season"`, `"all"` (the all-history shortcut, `attendance.validation` rule 17i); anything else,
    or no value, reads as `"thisMonth"` (`attendance.validation` rule 17f).
 4. **What is saved, and when.** Which columns show, and the coach's default period
    (`defaultPeriod`, beside `columns`). Web saves the columns when the coach changes the chooser;
