@@ -17,7 +17,9 @@ club / Lisbon timezone so that "every Monday 18:00-20:00" tracks Lisbon wall
 clock, not UTC.
 """
 
-from datetime import timedelta, datetime, timezone
+import json
+import re
+from datetime import date, timedelta, datetime, timezone
 
 from padel_app.models import CalendarBlock
 from padel_app.tools.calendar_tools import expand_occurrences, ensure_utc
@@ -83,6 +85,121 @@ def update_student_blocker(block_id, user_id, data):
 def delete_student_blocker(block_id, user_id, occ_date=None, scope="all"):
     """Delete an availability blocker (scope-aware for recurring series)."""
     remove_block_service(block_id, user_id, occ_date, scope)
+
+
+# ---------------------------------------------------------------------------
+# Schedules (PAD-839, calendar.student-blockers rule 18): the rows one save of the
+# setup guide's schedule editor writes, sharing `schedule_id`, written and deleted whole.
+# ---------------------------------------------------------------------------
+
+_SCHEDULE_ID_RE = re.compile(r"^[0-9A-Za-z-]{1,36}$")
+_HHMM_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+
+
+class ScheduleError(Exception):
+    """A schedule write refused before anything is written (400 unless `status` says so)."""
+
+    def __init__(self, message, *, status=400, row=None, field=None):
+        super().__init__(message)
+        self.message, self.status, self.row, self.field = message, status, row, field
+
+
+def _schedule_rows(user_id, schedule_id):
+    return CalendarBlock.query.filter_by(user_id=user_id, schedule_id=schedule_id).all()
+
+
+def _check_schedule_id(schedule_id):
+    if not schedule_id or not _SCHEDULE_ID_RE.match(schedule_id):
+        raise ScheduleError("Invalid schedule id", field="scheduleId")
+
+
+def _schedule_row(user_id, schedule_id, title, row, i):
+    """One row checked like a single blocker create, plus what a schedule row must be: weekly,
+    with weekdays, a start before its end and an end date on or after its start date."""
+    def refuse(field, message):
+        raise ScheduleError(message, row=i, field=field)
+
+    if not isinstance(row, dict):
+        refuse("row", "Each blocker must be an object")
+    try:
+        day = date.fromisoformat(str(row.get("date") or ""))
+    except ValueError:
+        refuse("date", "date must be YYYY-MM-DD")
+    start, end = row.get("startTime"), row.get("endTime")
+    if not (isinstance(start, str) and _HHMM_RE.match(start)):
+        refuse("startTime", "startTime must be HH:MM")
+    if not (isinstance(end, str) and _HHMM_RE.match(end)):
+        refuse("endTime", "endTime must be HH:MM")
+    if end <= start:
+        refuse("endTime", "endTime must be after startTime")
+    if row.get("isRecurring") is not True:
+        refuse("isRecurring", "A schedule row is weekly")
+    rule = row.get("recurrenceRule") or {}
+    days = rule.get("daysOfWeek") if isinstance(rule, dict) else None
+    if (rule.get("frequency") if isinstance(rule, dict) else None) != "weekly" or not days or not all(
+        isinstance(d, int) and not isinstance(d, bool) and 0 <= d <= 6 for d in days
+    ):
+        refuse("recurrenceRule", "recurrenceRule must be weekly with daysOfWeek in 0..6")
+    try:
+        end_date = date.fromisoformat(str(row.get("endDate") or ""))
+    except ValueError:
+        refuse("endDate", "endDate must be YYYY-MM-DD")
+    if end_date < day:
+        refuse("endDate", "endDate must not be before date")
+
+    return CalendarBlock(
+        user_id=user_id,
+        type=BLOCKER_TYPE,
+        title=title,
+        start_datetime=datetime.fromisoformat(f"{day.isoformat()}T{start}"),
+        end_datetime=datetime.fromisoformat(f"{day.isoformat()}T{end}"),
+        is_recurring=True,
+        recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": sorted(set(days))}),
+        recurrence_end=end_date,
+        blocks_auto_invitations=True,
+        schedule_id=schedule_id,
+    )
+
+
+def put_student_schedule(user_id, schedule_id, data):
+    """Replace (or create) the student's schedule `schedule_id` in one unit of work: every row is
+    checked first, then the old rows are deleted and the new ones written, flag included, before
+    the one commit. A refused row writes nothing, old or new. Another user's id is 404."""
+    from padel_app.sql_db import db
+
+    _check_schedule_id(schedule_id)
+    if CalendarBlock.query.filter(
+        CalendarBlock.schedule_id == schedule_id, CalendarBlock.user_id != user_id
+    ).first() is not None:
+        raise ScheduleError("Schedule not found", status=404)
+    data = data if isinstance(data, dict) else {}
+    title = data.get("title")
+    if title is not None and not isinstance(title, str):
+        raise ScheduleError("title must be text or null", field="title")
+    title = (title or "").strip()[:255] or None
+    rows = data.get("blockers")
+    if not isinstance(rows, list) or not rows:
+        raise ScheduleError("blockers must be a non-empty list", field="blockers")
+
+    new_rows = [_schedule_row(user_id, schedule_id, title, row, i) for i, row in enumerate(rows)]
+    for old in _schedule_rows(user_id, schedule_id):
+        db.session.delete(old)
+    db.session.add_all(new_rows)
+    db.session.commit()
+    return new_rows
+
+
+def delete_student_schedule(user_id, schedule_id):
+    """Remove every row of the student's schedule; 404 when they have none under that id."""
+    from padel_app.sql_db import db
+
+    _check_schedule_id(schedule_id)
+    rows = _schedule_rows(user_id, schedule_id)
+    if not rows:
+        raise ScheduleError("Schedule not found", status=404)
+    for row in rows:
+        db.session.delete(row)
+    db.session.commit()
 
 
 # ---------------------------------------------------------------------------

@@ -43,9 +43,11 @@ def test_student_on_a_roster_sees_their_coaches_sorted_by_name(client, app):
     ids = _seed(app)
     res = client.get("/api/auth/me", headers=_header(app, ids["student"]))
     assert res.status_code == 200
+    # PAD-839 (settings.profile rule 12) added each coach's `level` and `side` for this student;
+    # this roster's links carry neither.
     assert res.get_json()["coaches"] == [
-        {"id": ids["coach2_id"], "name": "Abel Coach"},
-        {"id": ids["coach_id"], "name": "Zara Coach"},
+        {"id": ids["coach2_id"], "name": "Abel Coach", "level": None, "side": None},
+        {"id": ids["coach_id"], "name": "Zara Coach", "level": None, "side": None},
     ]
 
 
