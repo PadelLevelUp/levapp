@@ -568,6 +568,22 @@ appId: com.padellevelup.app
     id: "piece-a4"
 
 # ── Delete ──
+# PAD-710 (Android lane): scrollUntilVisible swipes from the centre, where the open board's court
+# takes the gesture, so the page never moved (run 44519853567); scroll by the page margin instead.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - repeat:
+          times: 8
+          while:
+            notVisible:
+              id: "exercise-delete"
+          commands:
+            - swipe:
+                start: "4%, 65%"
+                end: "4%, 45%"
+                duration: 500
 - scrollUntilVisible:
     element:
       id: "exercise-delete"
