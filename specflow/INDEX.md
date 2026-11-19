@@ -5442,6 +5442,7 @@ Untagged tests: 4252
     - test: `backend/padel_app/tests/test_old_client_shim.py` › test_an_old_builds_home_card_answers_a_new_engine_invitation
   - **NOTIFICATIONS-INVITATIONS-133** The class detail's new-engine rows and the withdrawal route serve old and current builds (new-engine section NB6)
     - test: `backend/padel_app/tests/test_old_client_shim.py` › test_the_class_detail_rows_and_the_withdrawal_route_serve_old_and_current_builds
+    - test: `backend/padel_app/tests/test_old_client_shim.py` › test_a_new_engine_withdrawal_never_touches_an_old_invitation_of_the_same_number
     - test: `frontend/packages/config/src/invitation-outcome.test.ts` › [NOTIFICATIONS-INVITATIONS-133] answers a new-engine row by invitationId, an older server's row by its id
 - spec **notifications.manual** (`specflow/impl/notifications/manual.spec.md`)
   - **NOTIFICATIONS-MANUAL-1** A student holding a live invitation is not invited twice (rule 9, PAD-620)
