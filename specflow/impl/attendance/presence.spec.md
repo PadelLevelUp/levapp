@@ -13,7 +13,7 @@ governed_by: []
 Track player attendance for each class instance, including invitation, confirmation, and validation status.
 
 ### Entities
-- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool), enrolment_source (roster|coach|fill|walk_in|import|unknown, PAD-259), response / responded_at / recorded_by (PAD-271 rule 7, held) — unique on (player_id, lesson_instance_id), indexed on lesson_instance_id (the unique pair leads with player_id, so it cannot serve a per-class lookup) Serialized rows also carry `cancelledByStudent` and `cancelledAt` (derived, PAD-288 — `attendance.confirm` rule 23).
+- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool), enrolment_source (roster|coach|fill|walk_in|import|unknown, PAD-259), response / responded_at / recorded_by (PAD-271 rule 7, held), note (rule 11, nullable text) — unique on (player_id, lesson_instance_id), indexed on lesson_instance_id (the unique pair leads with player_id, so it cannot serve a per-class lookup) Serialized rows also carry `cancelledByStudent` and `cancelledAt` (derived, PAD-288 — `attendance.confirm` rule 23).
 - Unique constraint: (player_id, lesson_instance_id)
 
 ### Rules
@@ -45,6 +45,8 @@ Track player attendance for each class instance, including invitation, confirmat
 10. **(PAD-591) A roster is read in a fixed number of statements.** `GET
     /lesson_instance/<id>/presences` loads each presence with its player and the player's user
     eagerly; adding participants adds no statements.
+
+11. **(History import, owner decision D4, 2026-11-19) A presence carries a private note per student.** `note` is nullable text on the row, `null` by default, stored as given after trimming (an empty or blank value is stored as `null`) and at most 1000 characters. It is written by the onboarding history import (`import.onboarding-runner`) from the coach's own observations column and by nothing else: no coach mark, student answer, validation, undo or clear (`attendance.validation` rule 26) reads or writes it. **It is not shown or used anywhere yet:** no payload serialises it (the class detail, the presences list and the Presences/validation rows), no filter, statistic, reminder or engine reads it, and neither shell draws it. It leaves with its row (the row's delete, or an import revert, takes it). A later ticket gives it a surface; that ticket owns the payload field and the editing rules.
 
 ### Acceptance Criteria
 
@@ -113,3 +115,15 @@ test: `backend/padel_app/tests/test_pad271_presence_response.py` › `test_a_rem
 - **When** the coach saves attendance for that date
 - **Then** the occurrence exists afterwards and the student's presence is recorded on it
 test: `backend/padel_app/tests/test_confirm_presences.py` › `test_confirm_presences_recurring_occurrence_materializes_and_records` (+1 more)
+
+#### ATTENDANCE-PRESENCE-8: A presence can hold a note that nothing shows yet (rule 11, D4)
+- **Given** a presence row written with the note "chegou atrasado"
+- **When** the row is read back from the database
+- **Then** `note` is "chegou atrasado"
+- **And** a row written without one has `note` null, and a blank note is stored as null
+
+#### ATTENDANCE-PRESENCE-9: No read or write path touches the note, and no payload carries it (rule 11, D4)
+- **Given** a presence with a stored note
+- **When** the coach marks the student present or absent, validates, undoes, and clears the mark (`attendance.validation` rule 26), and the student answers a reminder
+- **Then** the note is the same after each step
+- **And** `GET /lesson_instance/<id>/presences`, the class detail and the Presences/validation rows carry no `note` key
