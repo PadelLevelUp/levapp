@@ -539,3 +539,379 @@ def plan_lines(data, coach, club, plan_):
                if e["ex_just"] or e["ex_unj"] or e["ex_guest"] else "")
         )
     return lines
+
+
+# ---------------------------------------------------------------------------
+# rules 19 to 28 — the apply, its proof and its revert
+# ---------------------------------------------------------------------------
+
+def _record(run, record_ids, **kinds):
+    """Add ids to ``record_ids`` under their keys and save the row, so an interrupted run can be reverted."""
+    from padel_app.services.onboarding_service import _save
+
+    for kind, ids in kinds.items():
+        record_ids.setdefault(kind, [])
+        record_ids[kind].extend(i for i in ids if i not in record_ids[kind])
+    _save(run, record_ids)
+
+
+def _wall(day, clock):
+    from datetime import datetime
+
+    hours, minutes = map(int, clock.split(":"))
+    return datetime(day.year, day.month, day.day, hours, minutes)
+
+
+def apply(data, raw, coach, club, plan_):
+    """Rules 19 to 28: write the history. ``data`` passed the file check, ``target_problems`` and ``plan``.
+
+    Returns ``(run, lines)``: the ``BulkImport`` row and the table with the app's own numbers. Raises
+    ``OnboardingFailed`` after putting everything back."""
+    import hashlib
+    import json
+
+    from padel_app.models import BulkImport
+    from padel_app.services.onboarding_service import MARKER, OnboardingFailed
+    from padel_app.sql_db import db
+
+    record_ids = {"_onboarding": {"id": data["id"], "sha256": hashlib.sha256(raw).hexdigest(), HISTORY_FLAG: True}}
+    run = BulkImport(coach_id=coach.id, filename=MARKER + data["id"], status="active",
+                     summary=json.dumps({}), record_ids=json.dumps(record_ids))
+    db.session.add(run)
+    db.session.commit()
+    run_id, coach_id = run.id, coach.id
+    try:
+        lines = _write_everything(data, run, record_ids, coach, club, plan_)
+    except Exception as exc:  # noqa: BLE001 — whatever stopped the run, nothing may be left behind
+        try:
+            _undo(run_id, coach_id)
+        except Exception as undo_exc:  # noqa: BLE001
+            db.session.rollback()
+            raise OnboardingFailed(
+                f"{exc}. Cleaning up also failed ({undo_exc}): run "
+                f"`flask onboarding revert {data['id']}` to remove what was created"
+            )
+        raise OnboardingFailed(f"{exc}. Everything this run wrote was removed; the id is still unused")
+    return db.session.get(BulkImport, run_id), lines
+
+
+def _write_everything(data, run, record_ids, coach, club, plan_):
+    import json
+
+    from padel_app.models import Association_PlayerLesson, LessonInstance, Player, PlayerLevelHistory, Presence, User
+    from padel_app.models import Association_CoachPlayer
+    from padel_app.services import import_service, lesson_service, season_service
+    from padel_app.services.onboarding_service import DEFAULT_COLOR, OnboardingFailed
+    from padel_app.sql_db import db
+
+    history = data["history"]
+    through = date.fromisoformat(history["through"])
+    summary = {}
+
+    # Rule 28: the season.
+    if plan_.season_to_create:
+        season = plan_.season_to_create
+        start, end = date.fromisoformat(season["start_date"]), date.fromisoformat(season["end_date"])
+        definition = season_service.save_definition(coach, {
+            "startDay": start.day, "startMonth": start.month, "endDay": end.day, "endMonth": end.month,
+            "label": season.get("label"),
+        })
+        _record(run, record_ids, coach_seasons=[definition.id])
+        record_ids["coach_season_definition"] = [start.day, start.month, end.day, end.month, definition.label]
+        _record(run, record_ids)
+        summary["Seasons"] = 1
+
+    # Rule 30: the students the file creates, as rule 7 creates them, in no class.
+    rows = [{"name": p["name"], "email": p.get("email"), "phone": p.get("phone"), "side": p.get("side"),
+             "level_code": p.get("level_code")} for p in data.get("players", [])]
+    if rows:
+        result = import_service.bulk_create_players(rows, coach, club)
+        for kind, ids in (result.get("created_ids") or {}).items():
+            _record(run, record_ids, **{kind: ids})
+        levels = [r.id for r in PlayerLevelHistory.query.filter(
+            PlayerLevelHistory.coach_id == coach.id, PlayerLevelHistory.player_id.in_(record_ids.get("players", [])))]
+        _record(run, record_ids, player_level_history=levels)
+        if result.get("errors"):
+            raise OnboardingFailed(f"players: {result['errors']}")
+        summary["Players"] = len(rows)
+
+    players = {}
+    for link in Association_CoachPlayer.query.filter_by(coach_id=coach.id):
+        if link.player and link.player.user:
+            players[_key(link.player.user.name)] = link.player
+
+    # Rule 19: each series' start moves back to its first date on or after `from`.
+    record_ids.setdefault("series_starts", {})
+    moved = 0
+    for c in plan_.classes:
+        if not c.moves:
+            continue
+        lesson, old = c.lesson, c.lesson.start_datetime
+        record_ids["series_starts"][str(lesson.id)] = {
+            "start": old.isoformat(), "end": lesson.end_datetime.isoformat(), "moved_to": c.new_start.isoformat()}
+        _record(run, record_ids)
+        lesson_service.edit_lesson_helper(
+            data={"date": c.new_start.isoformat(), "event_date": old.date()}, lesson=lesson)
+        db.session.commit()
+        if lesson.start_datetime.date() != c.new_start or lesson.start_datetime.time() != old.time():
+            raise OnboardingFailed(f"{c.title}: the series start did not move to {c.new_start}")
+        moved += 1
+    if moved:
+        summary["Series moved"] = moved
+
+    # Rules 20, 21, 22: occurrences up to each class's cut-off, marked and validated.
+    absences, guests = {}, {}
+    for row in plan_.absences:
+        absences.setdefault((row["class"].lesson.id, date.fromisoformat(row["date"])), {})[_key(row["student"])] = row
+    for row in plan_.guests:
+        guests.setdefault((row["class"].lesson.id, date.fromisoformat(row["date"])), []).append(row)
+    record_ids.setdefault("presence_before", {})
+    n_instances = 0
+
+    def mark(presence, status, justification, note):
+        presence.status, presence.justification = status, justification
+        presence.validated, presence.recorded_by = True, "import"
+        presence.note = (note or "").strip() or None
+
+    for c in plan_.classes:
+        lesson = c.lesson
+        known = {i.id for i in LessonInstance.query.filter_by(lesson_id=lesson.id)}
+        for day in c.occurrences(through):
+            instance = lesson_service.get_or_materialize_instance(lesson, day, quiet=True)
+            created_instance = instance.id not in known
+            if created_instance:
+                _record(run, record_ids, lesson_instances=[instance.id])
+                n_instances += 1
+            existing = {p.id: p for p in Presence.query.filter_by(lesson_instance_id=instance.id)}
+            before_ids = set(existing)
+            marks = absences.get((lesson.id, day), {})
+            marked_students = set()
+            for presence in existing.values():
+                person = db.session.get(Player, presence.player_id)
+                row = marks.get(_key(person.user.name)) if person and person.user else None
+                if not created_instance:
+                    if presence.recorded_by == "coach":
+                        raise OnboardingFailed(f"{c.title} {day}: a coach-made mark appeared under the cut-off")
+                    record_ids["presence_before"][str(presence.id)] = {
+                        "status": presence.status, "justification": presence.justification,
+                        "validated": presence.validated, "recorded_by": presence.recorded_by, "note": presence.note}
+                if row is not None:
+                    marked_students.add(_key(person.user.name))
+                    mark(presence, "absent", "unjustified" if row["type"] == "unjustified" else "justified",
+                         row.get("note"))
+                else:
+                    mark(presence, "present", None, None)
+            # A student in no class has no row on the occurrence: the absence is theirs alone (rule 17a).
+            for student, row in marks.items():
+                if student in marked_students:
+                    continue
+                lesson_service.enrol(players[student].id, instance, "import", validated=True, new_engine=True)
+                presence = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=players[student].id).one()
+                mark(presence, "absent", "unjustified" if row["type"] == "unjustified" else "justified", row.get("note"))
+            for row in guests.get((lesson.id, day), []):
+                guest = players[_key(row["student"])]
+                lesson_service.enrol(guest.id, instance, "import", validated=True, new_engine=True)
+                presence = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=guest.id).one()
+                mark(presence, "present", None, None)
+            db.session.commit()
+            after = {p.id for p in Presence.query.filter_by(lesson_instance_id=instance.id)}
+            # A created occurrence's rows are all the run's; an existing one's are the run's only when new.
+            _record(run, record_ids, presences=sorted(after if created_instance else after - before_ids))
+
+    # Rule 23: the adjustments, one-off lessons of one student, one justified absence each.
+    n_lessons = 0
+    for adj in plan_.adjustments:
+        person = players[_key(adj["student"])]
+        day = date.fromisoformat(adj["date"])
+        clock = adj["start_time"]
+        for _ in range(adj["lessons"]):
+            hours, minutes = map(int, clock.split(":"))
+            end_total = hours * 60 + minutes + adj["lesson_minutes"]
+            if end_total > 24 * 60:
+                raise OnboardingFailed(f'adjustment of {adj["student"]}: the lessons run past midnight')
+            end = f"{end_total // 60 % 24:02d}:{end_total % 60:02d}"
+            created = lesson_service.add_class_service({
+                "name": "Ajuste manual (histórico)", "classType": "academy", "date": day.isoformat(),
+                "startTime": clock, "endTime": end, "maxPlayers": 1, "levelId": None, "color": DEFAULT_COLOR,
+                "playerIds": [person.id], "isRecurring": False, "notificationsEnabled": False,
+            }, coach, club, notify_students=False)
+            db.session.commit()
+            _record(run, record_ids, lessons=[created.id],
+                    player_lessons=[r.id for r in Association_PlayerLesson.query.filter_by(lesson_id=created.id)])
+            instance = lesson_service.get_or_materialize_instance(created, day, quiet=True)
+            _record(run, record_ids, lesson_instances=[instance.id])
+            rows_ = list(Presence.query.filter_by(lesson_instance_id=instance.id))
+            for presence in rows_:
+                mark(presence, "absent", "justified", None)
+            db.session.commit()
+            _record(run, record_ids, presences=[p.id for p in rows_])
+            n_lessons += 1
+            clock = end
+            n_instances += 1
+    if n_lessons:
+        summary["Lessons"] = n_lessons
+    summary["Instances"], summary["Presences"] = n_instances, len(record_ids.get("presences", []))
+
+    lines = _prove(data, plan_, record_ids, coach, club)
+    run.summary = json.dumps(summary)
+    db.session.commit()
+    return lines
+
+
+def app_numbers(coach_id, first, through):
+    """What the Presences tab and the engine say, per student name key (rule 26)."""
+    from datetime import datetime, time
+
+    from padel_app.services.notification_service import makeups_owed_for
+    from padel_app.services.presence_overview_service import build_presence_stats
+
+    stats = build_presence_stats(coach_id=coach_id, range_start=datetime.combine(first, time.min),
+                                 range_end=datetime.combine(through, time.max))
+    owed = makeups_owed_for([p["playerId"] for p in stats["players"]], coach_id)
+    return {_key(p["name"]): {**p, "owed": owed.get(p["playerId"], 0)} for p in stats["players"]}
+
+
+def _prove(data, plan_, record_ids, coach, club):
+    """Rule 26: ownership, nothing left to validate, and the app's numbers equal the file's loaded rows."""
+    from padel_app.models import Association_CoachLesson, Lesson, LessonInstance, Presence
+    from padel_app.services.onboarding_service import OnboardingFailed
+    from padel_app.sql_db import db
+
+    history = data["history"]
+    first, through = date.fromisoformat(history["from"]), date.fromisoformat(history["through"])
+    problems = []
+
+    coach_lessons = {r.lesson_id for r in Association_CoachLesson.query.filter_by(coach_id=coach.id)}
+    for lesson_id in record_ids.get("lessons", []):
+        lesson = db.session.get(Lesson, lesson_id)
+        if lesson is None or lesson.club_id != club.id or {r.coach_id for r in lesson.coaches_relations} != {coach.id}:
+            problems.append(f"lesson {lesson_id} is not the target coach's alone, in the target club")
+    for instance_id in record_ids.get("lesson_instances", []):
+        instance = db.session.get(LessonInstance, instance_id)
+        if instance is None or instance.lesson_id not in coach_lessons:
+            problems.append(f"instance {instance_id} is not on one of the target coach's classes")
+    for presence_id in record_ids.get("presences", []):
+        presence = db.session.get(Presence, presence_id)
+        if presence is None or presence.lesson_instance.lesson_id not in coach_lessons:
+            problems.append(f"presence {presence_id} is not on one of the target coach's classes")
+
+    for c in plan_.classes:
+        left = (
+            Presence.query.join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+            .filter(LessonInstance.lesson_id == c.lesson.id, Presence.validated.is_(False))
+            .filter(LessonInstance.start_datetime < _wall(c.cutoff(through) + timedelta(days=1), "00:00"))
+            .count()
+        )
+        if left:
+            problems.append(f"{c.title}: {left} rows are left to validate up to {c.cutoff(through)}")
+
+    numbers = app_numbers(coach.id, first, through)
+    lines = ["Expected vs app (file loaded rows / app; ✓ = equal):"]
+    for e in plan_.table:
+        app = numbers.get(_key(e["student"]))
+        if app is None:
+            problems.append(f"{e['student']}: not on the coach's roster after the run")
+            continue
+        pairs = (("justified", e["just_n"], app["justified"]), ("justified min", e["just_min"], app["justifiedMinutes"]),
+                 ("unjustified", e["unj_n"], app["unjustified"]), ("guest", e["guest_n"], app["invitesJoined"]),
+                 ("guest min", e["guest_min"], app["guestPresenceMinutes"]), ("balance", e["balance"], app["balanceMinutes"]),
+                 ("owed", e["owed"], app["owed"]))
+        cells = []
+        for label, expected, found in pairs:
+            cells.append(f"{label} {expected}/{found} " + ("✓" if expected == found else f"Δ{found - expected:+d}"))
+            if expected != found:
+                problems.append(f"{e['student']}: {label} is {found} in the app, the file's rows give {expected}")
+        lines.append(f"  {e['student']}: " + ", ".join(cells)
+                     + (f"; excluded just {e['ex_just']} unj {e['ex_unj']} guest {e['ex_guest']}"
+                        if e["ex_just"] or e["ex_unj"] or e["ex_guest"] else ""))
+    if problems:
+        raise OnboardingFailed("proof failed: " + "; ".join(problems))
+    return lines
+
+
+def _restore(run, record_ids):
+    """Put back what a history run changed and did not create: series starts, updated presences, the season."""
+    from datetime import datetime
+
+    from padel_app.models import Lesson, Presence
+    from padel_app.models.coach_seasons import CoachSeason
+    from padel_app.sql_db import db
+
+    for presence_id, before in (record_ids.get("presence_before") or {}).items():
+        presence = db.session.get(Presence, int(presence_id))
+        if presence is not None:
+            for field, value in before.items():
+                setattr(presence, field, value)
+    for lesson_id, before in (record_ids.get("series_starts") or {}).items():
+        lesson = db.session.get(Lesson, int(lesson_id))
+        if lesson is not None:
+            lesson.start_datetime = datetime.fromisoformat(before["start"])
+            lesson.end_datetime = datetime.fromisoformat(before["end"])
+    for season_id in record_ids.get("coach_seasons", []):
+        season = db.session.get(CoachSeason, season_id)
+        if season is not None:
+            db.session.delete(season)
+    db.session.commit()
+
+
+def _undo(run_id, coach_id):
+    """Rule 26: the run failed, so restore, delete what it created, and drop its row."""
+    import json
+
+    from padel_app.models import BulkImport, Coach
+    from padel_app.services import import_service
+    from padel_app.sql_db import db
+
+    db.session.rollback()
+    run = db.session.get(BulkImport, run_id)
+    record_ids = json.loads(run.record_ids or "{}")
+    _restore(run, record_ids)
+    import_service.revert_import(run_id, db.session.get(Coach, coach_id))
+    db.session.delete(db.session.get(BulkImport, run_id))
+    db.session.commit()
+
+
+def revert_problems(run):
+    """Rule 27: what the coach has since done that a revert would lose; empty when the revert is safe."""
+    import json
+
+    from padel_app.models import Lesson, Presence
+    from padel_app.models.coach_seasons import CoachSeason
+    from padel_app.sql_db import db
+
+    record_ids = json.loads(run.record_ids or "{}")
+    problems = []
+    marked = [pid for pid in list(record_ids.get("presences", [])) + [int(i) for i in record_ids.get("presence_before", {})]
+              if (p := db.session.get(Presence, pid)) is not None and p.recorded_by == "coach"]
+    if marked:
+        problems.append(f"the coach has since marked {len(marked)} rows the run wrote (presence ids {sorted(marked)})")
+    for lesson_id, before in (record_ids.get("series_starts") or {}).items():
+        lesson = db.session.get(Lesson, int(lesson_id))
+        if lesson is not None and lesson.start_datetime.date().isoformat() != before["moved_to"]:
+            problems.append(f"class #{lesson_id} ({lesson.title}) no longer starts on {before['moved_to']}")
+    wanted = record_ids.get("coach_season_definition")
+    for season_id in record_ids.get("coach_seasons", []):
+        season = db.session.get(CoachSeason, season_id)
+        if season is not None and wanted and [season.start_day, season.start_month, season.end_day,
+                                              season.end_month, season.label] != wanted:
+            problems.append(f"the coach changed the season #{season_id} the run created")
+    return problems
+
+
+def revert(run):
+    """Rule 27: restore, then ``import.revert`` the recorded rows. ``run`` passed ``revert_problems``."""
+    import json
+
+    from padel_app.services import import_service
+    from padel_app.sql_db import db
+
+    _restore(run, json.loads(run.record_ids or "{}"))
+    result = import_service.revert_import(run.id, run.coach)
+    db.session.commit()
+    return result
+
+
+def is_history_run(run):
+    import json
+
+    return bool(((json.loads(run.record_ids or "{}")).get("_onboarding") or {}).get(HISTORY_FLAG))

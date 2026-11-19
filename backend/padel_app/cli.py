@@ -219,9 +219,17 @@ def _register_onboarding(app):
                 click.echo(line)
             if problems + history_plan.problems:
                 _refuse(problems + history_plan.problems)
-            if not dry_run:
-                _refuse(["the history apply is not built yet: only --dry-run runs"])
-            click.echo("Dry run: nothing written.")
+            if dry_run:
+                click.echo("Dry run: nothing written.")
+                return
+            try:
+                run, lines = history.apply(data, raw, coach, club, history_plan)
+            except service.OnboardingFailed as exc:
+                _refuse([str(exc)], heading="Failed:")
+            for line in lines:
+                click.echo(line)
+            click.echo(f"Applied onboarding {data['id']} as import #{run.id}.")
+            click.echo(f"Undo with: flask onboarding revert {data['id']} --database {service.connected_database()}")
             return
         for line in service.plan_lines(data, coach, club):
             click.echo(line)

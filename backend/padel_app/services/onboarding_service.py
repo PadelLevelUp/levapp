@@ -586,6 +586,17 @@ def revert(onboarding_id):
         raise OnboardingRefused([f"no onboarding {onboarding_id} was applied"])
     if run.status == "reverted":
         raise OnboardingRefused([f"onboarding {onboarding_id} is already reverted (import #{run.id})"])
+    from padel_app.services import onboarding_history
+
+    if onboarding_history.is_history_run(run):
+        problems = onboarding_history.revert_problems(run)
+        if problems:
+            raise OnboardingRefused(problems)
+        return onboarding_history.revert(run)["deleted"]
+    # History rule 27: a roster run is reverted after the history run that stands on it.
+    for other in BulkImport.query.filter_by(coach_id=run.coach_id, status="active").all():
+        if other.id != run.id and (other.filename or "").startswith(MARKER) and onboarding_history.is_history_run(other):
+            raise OnboardingRefused([f"{other.filename} (import #{other.id}) is an active history run on this coach: revert it first"])
     result = import_service.revert_import(run.id, run.coach)
     if isinstance(result, tuple):
         raise OnboardingRefused([result[0].get("error", "revert refused")])
