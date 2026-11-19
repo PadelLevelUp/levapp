@@ -15,6 +15,7 @@ export const COACH_NAME_LIST: readonly CoachNameListEntry[] = [
   { file: "app/class/[id].tsx", max: 1, kind: "allowed", reason: "a court name (c is a Court), not a student" },
   { file: "app/player/[playerId].tsx", max: 2, kind: "allowed", reason: "the profile edit draft saves the real name (rule 2) and the real name is shown under the nickname on purpose (rule 3)" },
   { file: "src/features/auth/PlayerInviteScreen.tsx", max: 1, kind: "allowed", reason: "the invited student's own name on their invite screen" },
+  { file: "src/features/availability/ScheduleEditor.tsx", max: 1, kind: "allowed", reason: "PAD-839: s.name is the schedule's name chip (Trabalho, Escola…), not a person" },
   { file: "src/features/calendar/ParticipantGroups.tsx", max: 3, kind: "allowed", reason: "row.name is resolved in the participant-groups model (rule 3)" },
   { file: "src/features/calendar/ParticipantRow.tsx", max: 1, kind: "allowed", reason: "the fallback the row passes to displayName(; the student's own view keeps it" },
   { file: "src/features/calendar/ParticipantSheet.tsx", max: 3, kind: "allowed", reason: "row.name is resolved in the participant-groups model; realName is shown under it on purpose (rule 3)" },
@@ -24,5 +25,7 @@ export const COACH_NAME_LIST: readonly CoachNameListEntry[] = [
   { file: "src/features/presences/hooks.ts", max: 1, kind: "allowed", reason: "walk-in roster source keeps the real name as the fallback; the picker resolves it through displayName(" },
   { file: "src/features/presences/validate-state.ts", max: 2, kind: "allowed", reason: "makeWalkIn keeps the real name (`name` stays real, rule 2), and inClassOptions (PAD-787) keeps it as the search key beside the nickname; every render resolves it through displayName(" },
   { file: "src/features/settings/restrictions-section.tsx", max: 1, kind: "allowed", reason: "stores the real name as the fallback the chips resolve through displayName(" },
+  { file: "src/features/setup-guide/StepUnavailability.tsx", max: 1, kind: "allowed", reason: "PAD-839: s.name is the schedule's name in the step-3 preview, not a person" },
+  { file: "src/features/setup-guide/steps.tsx", max: 4, kind: "allowed", reason: "PAD-839: c.name is a coach's name shown to the student in the setup guide (steps 4 and 5), not a player" },
   { file: "src/features/training/exercises-tab.tsx", max: 2, kind: "allowed", reason: "an exercise name, not a student" },
 ] as const;
