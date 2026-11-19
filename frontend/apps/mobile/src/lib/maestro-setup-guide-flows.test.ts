@@ -52,5 +52,11 @@ describe("PAD-839 setup guide flows (337-340)", () => {
     }
     const login = readFileSync(join(MAESTRO, "subflows", "login-guide-student.yaml"), "utf8");
     expect(login).toMatch(/notifications:\s*unset/);
+    // With the permission unset, both platforms ask: Android's dialog has its own title (PR #996's
+    // Android lane stuck on it), so the subflow answers either, on either platform.
+    expect(login).toContain("send you notifications");
+    expect(login).toContain("Would Like to Send You Notifications");
+    expect(login).toContain("com.android.permissioncontroller:id/permission_deny_button");
+    expect(login).toMatch(/platform:\s*Android/);
   });
 });
