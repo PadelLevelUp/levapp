@@ -209,3 +209,33 @@ def _another_coach_user():
     db.session.add(Coach(user_id=user.id))
     db.session.commit()
     return user.id
+
+
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-133")
+def test_a_new_engine_withdrawal_never_touches_an_old_invitation_of_the_same_number(app, client, monkeypatch):
+    """The wrong-row bug on staging before NB6: the withdrawal route ignored ``?engine=new`` and ran the old
+    engine's withdrawal by that number, so web's withdrawal of new-engine invitation N (and an old iOS
+    build's, by the row id) withdrew the same coach's unrelated old invitation N instead."""
+    from padel_app.models import EngineInvitation, NotificationEvent
+
+    with app.app_context():
+        store, session, (first, second, _), ids, users, coach_user = _world(app, monkeypatch, players=4, capacity=4)
+        coach_id = store.coach_of(session)
+        for n in (ids[first], ids[second]):                                  # an old invitation of the same number
+            db.session.add(NotificationEvent(id=n, coach_id=coach_id, lesson_instance_id=int(session),
+                                             player_id=int(first), type="manual", round_number=1, status="sent"))
+        db.session.commit()
+
+    def old_and_engine(s):
+        db.session.expire_all()
+        old = db.session.get(NotificationEvent, ids[s])
+        return (old.status, old.withdrawn_by_coach_at), db.session.get(EngineInvitation, ids[s]).closed_reason
+
+    coach = _token(app, coach_user)
+    current = client.delete(f"/api/app/notify/invitations/{ids[first]}", query_string={"engine": "new"}, headers=coach)
+    with app.app_context():
+        assert old_and_engine(first) == (("sent", None), "withdrawn")        # the old one untouched, the engine's gone
+    old_build = client.delete(f"/api/app/notify/invitations/{-ids[second]}", headers=coach)
+    with app.app_context():
+        assert old_and_engine(second) == (("sent", None), "withdrawn")
+    assert (current.get_json(), old_build.get_json()) == ({"action": "withdrawn"}, {"action": "withdrawn"})
