@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
+import { isValidCustomRange } from "@levelup/config";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +57,7 @@ export function AttendanceRangeControls({
   }, [customRange]);
 
   const handleApply = () => {
-    if (!from || !to || from > to) {
+    if (!isValidCustomRange(from, to)) {
       setInvalid(true);
       return;
     }

@@ -450,6 +450,10 @@
           "moveUp": "Subir",
           "moveDown": "Descer"
         }
+      },
+      "blankRule": {
+        "eligibility": "Elegibilidade: há uma regra sem valor.",
+        "groups": "Grupos de convite: há uma regra sem valor."
       }
     },
     "reminders": {
@@ -509,7 +513,8 @@
         "special": "As vagas que outros alunos já deixaram contam também para o seu lado. Um jogador sem lado, ou que joga dos dois, não conta para nenhum e pode ser convidado de qualquer forma; uma aula já equilibrada mantém o lado de quem faltou."
       },
       "subscriptionActive": "Ativa",
-      "subscriptionInactive": "Inativa"
+      "subscriptionInactive": "Inativa",
+      "valueMissing": "Falta o valor desta regra."
     },
     "tiebreakers": {
       "fewestUnjustified": "Menos faltas injustificadas",
@@ -713,7 +718,8 @@
       },
       "openSpots": {
         "label": "Mostrar as vagas livres das aulas futuras aos alunos elegíveis (podem pedir para entrar)"
-      }
+      },
+      "valueMissing": "Falta o valor desta regra."
     },
     "connections": {
       "title": "As minhas ligações",

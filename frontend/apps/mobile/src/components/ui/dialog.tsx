@@ -4,7 +4,7 @@ import * as DialogPrimitive from "@rn-primitives/dialog";
 import { PortalHost } from "@rn-primitives/portal";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
@@ -32,8 +32,17 @@ function DialogOverlay({
   /** PAD-838: the keyboard's overlap; the dialog is centred in the space above it. */
   keyboardInset?: number;
 }) {
+  const { onOpenChange } = DialogPrimitive.useRootContext();
   return (
+    // PAD-829: the overlay is a plain View and the press-outside-to-close is a sibling Pressable
+    // BEHIND the panel, never an ancestor of it. The primitive's Overlay is a Pressable, and on
+    // Fabric a scroll view whose ancestor is the JS responder never starts its pan
+    // (`RCTScrollViewComponentView._shouldDisableScrollInteraction`): a drag that began on a
+    // non-pressable spot of a list inside the dialog bubbled up to that Pressable and the list
+    // stood still. `closeOnPress` is off because the backdrop below does the closing.
     <DialogPrimitive.Overlay
+      asChild
+      closeOnPress={false}
       style={[StyleSheet.absoluteFill, keyboardInset > 0 ? { paddingBottom: keyboardInset } : null]}
       className={cn(
         "z-50 items-center justify-center bg-black/80 p-2",
@@ -41,6 +50,13 @@ function DialogOverlay({
       )}
       {...props}
     >
+      <View>
+      <Pressable
+        testID="dialog-backdrop"
+        accessible={false}
+        style={StyleSheet.absoluteFill}
+        onPress={() => onOpenChange(false)}
+      />
       {/*
        * The overlay centers its child on both axes (items-center), which
        * overrides flexbox's default cross-axis "stretch" and makes this
@@ -67,6 +83,7 @@ function DialogOverlay({
         <>{children}</>
       </Animated.View>
       {after}
+      </View>
     </DialogPrimitive.Overlay>
   );
 }
@@ -119,6 +136,11 @@ function DialogContent({
             "z-50 w-full max-w-lg gap-4 rounded-lg border border-border bg-background p-6 shadow-lg shadow-black/20",
             className
           )}
+          // PAD-829: the primitive's Content claims every touch nothing deeper claims, which blocks
+          // a scroll view inside it the same way the overlay did (see DialogOverlay). It claimed
+          // them to keep taps inside the panel from closing the dialog; the backdrop sits behind
+          // the panel now, so the panel needs no claim.
+          onStartShouldSetResponder={() => false}
           {...props}
           style={[{ maxHeight }, props.style, keyboardBound]}
         >

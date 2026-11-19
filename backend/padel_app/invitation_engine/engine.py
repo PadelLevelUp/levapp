@@ -21,6 +21,7 @@ from padel_app.invitation_engine.requests import (
     ReopenGroup,
     CoachAdded,
     CoachExcludes,
+    CoachSetsSide,
     CoachInvites,
     CreateSession,
     Request,
@@ -28,6 +29,9 @@ from padel_app.invitation_engine.requests import (
 )
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.store import SessionStore, UnitConflict
+
+#: How many times a request runs before a refused unit is the caller's (answers rule 10, B-730).
+REQUEST_ATTEMPTS = 3
 
 SettingsLookup = Callable[[str], EngineSettings]
 
@@ -63,7 +67,21 @@ class Engine:
         return out
 
     def handle(self, session: str, request: Request, now: datetime) -> list[Effect]:
-        """Apply one request, then run the planner (plan §6: after every answer or change)."""
+        """Apply one request, then run the planner (plan §6: after every answer or change).
+
+        A request whose unit the store refuses (``UnitConflict``: a student placed in an overlapping
+        session since the snapshot) is rolled back and run again on the committed state, so it answers
+        as if it had come just after the other unit (answers rule 10, B-730). After ``REQUEST_ATTEMPTS``
+        refusals the conflict is the caller's."""
+        for attempt in range(1, REQUEST_ATTEMPTS + 1):
+            try:
+                return self._handle_once(session, request, now)
+            except UnitConflict:
+                if attempt == REQUEST_ATTEMPTS:
+                    raise
+        raise AssertionError("unreachable")
+
+    def _handle_once(self, session: str, request: Request, now: datetime) -> list[Effect]:
         if isinstance(request, UpdateSettings):     # a lookup reads the app's stored config: replan only
             if isinstance(self.settings, EngineSettings):
                 self.settings = request.settings
@@ -76,14 +94,18 @@ class Engine:
             return self._queue_answer(session, request, now)
         if isinstance(request, CoachInvites):
             return self._coach_invites(session, request, now)
-        if not isinstance(request, (CoachAdded, CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
+        if not isinstance(request, (CoachAdded, CoachSetsSide, CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
         # A student's request locks the student first (two of theirs never run at once, answers rule 10).
-        who = getattr(request, "student", None) if isinstance(request, (CoachAdded, *STUDENT_REQUESTS)) else None
+        who = getattr(request, "student", None) if isinstance(request, (CoachAdded, CoachSetsSide, *STUDENT_REQUESTS)) else None
         student = (who,) if who is not None else ()
         with self.store.unit((session,), student):
             if isinstance(request, CoachAdded):         # the coach's add: close the same-time invitations
                 out = self._commit(planner.close_same_hour(self.store.snapshot(session), request.student, now))
+                out += self._commit(answers.coach_added_side(self.store.snapshot(session), request, now))
+                out += self._plan(session, now)
+            elif isinstance(request, CoachSetsSide):    # the coach's side for the session (PAD-551)
+                out = self._commit(answers.coach_sets_side(self.store.snapshot(session), request, now))
                 out += self._plan(session, now)
             elif isinstance(request, CoachExcludes):
                 self.store.exclude(session, request.student)

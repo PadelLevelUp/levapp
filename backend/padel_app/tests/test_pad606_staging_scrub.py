@@ -43,6 +43,7 @@ NON_PERSONAL = {
     "coach_player_notes.type",
     "coach_seasons.label",
     "coaches.working_hours", "coaches.approval_status",
+    "coaches.presences_view",  # column ids only (PAD-837b)
     "conversations.participant_key",  # built from ids
     "courts.name",
     "deletion_audit.entity", "deletion_audit.action",

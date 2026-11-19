@@ -10,9 +10,9 @@ this rewrites the rows written before them.
   unique, case-sensitively) is left as it is.
 - A blank address (only spaces) is left as it is: normalising it would make it null, which is a
   different question from its form.
-- Reversible: each original value it changes is kept in ``pad781_email_originals`` (an operational
-  table no model declares; ``alembic_filters.EXTERNAL_TABLES`` keeps autogenerate off it). The
-  downgrade puts back every original whose row still holds the normalised form, then drops the table.
+- Each original value it changes is kept in ``pad781_email_originals`` (an operational table no
+  model declares). Revision f796ea7e680b (PAD-796) drops that table once the normalised rows were
+  verified on prod, so the downgrade is a no-op: the originals are gone and nothing is put back.
 - Pending recovery and verification codes stay valid: both are bound to the trimmed, lower-cased
   address (rule 11), which this does not change.
 
@@ -55,13 +55,6 @@ WHERE id IN (SELECT user_id FROM {ORIGINALS})
   AND email <> lower(trim(email))
 """
 
-_RESTORE = f"""
-UPDATE users SET email = (SELECT b.original_email FROM {ORIGINALS} b WHERE b.user_id = users.id)
-WHERE id IN (SELECT b.user_id FROM {ORIGINALS} b
-             WHERE users.email = lower(trim(b.original_email)))
-"""
-
-
 def normalise(bind):
     """The upgrade's work on `bind`; returns the number of rows it rewrote."""
     bind.execute(sa.text(_CREATE))
@@ -69,18 +62,10 @@ def normalise(bind):
     return bind.execute(sa.text(_NORMALISE)).rowcount
 
 
-def restore(bind):
-    """The downgrade's work on `bind`; returns the number of rows it put back."""
-    if ORIGINALS not in sa.inspect(bind).get_table_names():
-        return 0
-    restored = bind.execute(sa.text(_RESTORE)).rowcount
-    bind.execute(sa.text(f"DROP TABLE {ORIGINALS}"))
-    return restored
-
-
 def upgrade():
     normalise(op.get_bind())
 
 
 def downgrade():
-    restore(op.get_bind())
+    # No-op since PAD-796: revision f796ea7e680b dropped the originals, so there is nothing to put back.
+    pass

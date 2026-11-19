@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@levelup/hooks';
-import { comeBackFromAnswer, lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
+import { classRequestRefusalLines, comeBackFromAnswer, lisbonNowMs, resolveText, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
 import { classRequestBubbleState, isEngineApproval, isEngineInvite, joinRefusalKey, joinRequestBubbleState } from '@levelup/config';
 import { EngineInviteResponse } from './EngineInviteResponse';
 import { busySameHourDescription } from '@/components/calendar/busySameHourDescription';
@@ -151,8 +151,11 @@ export function MessageBubble({
       else await declineClassRequest(classRequestMeta.id);
       toast.success(t(accept ? "classRequests.accepted" : studentAnswers ? "classRequests.answered" : "classRequests.declined"));
     } catch (err) {
+      // B-729 (classes.class-requests rule 4a): a same-hour refusal names each clash.
+      const lines = classRequestRefusalLines(err, studentAnswers ? "student" : "coach", i18n.language);
       const refusal = classRequestRefusal(err);
-      toast.error(refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong"));
+      toast.error(lines ? lines.map((line) => resolveText(t, line)).join("\n")
+        : refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong"));
     } finally {
       setResponding(false);
       // classes.class-requests rule 19 (PAD-488): the calendar follows the answer.

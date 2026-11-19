@@ -227,6 +227,13 @@ test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a know
 - **Then** the weekday reads `Qua`, `Wed` and (for `2026-10-11`) `Dom`, with the day as `14/10` or `11/10`
 - **And** a value that is not a calendar day, such as `soon`, is shown as it is with no weekday
 
+#### SETTINGS-TUTORIALS-16: A rule the server does not know reads as one sentence, whatever its attribute (rules 5, 6; eligibility.rules rule 12)
+- **Given** an eligibility failure with reason `unknown_attribute`, or `unknown_operation` on an attribute other than level
+- **When** the shared formatter renders it
+- **Then** it reads "the bar uses a rule the server does not recognise, so no one passes it" (pt: "a fasquia usa uma regra que o servidor não reconhece, por isso ninguém a cumpre"), never an over-the-limit line with blank numbers
+- **And** an unknown level operation keeps its own sentence
+test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a rule the server does not know in one sentence, whatever its attribute`
+
 ### Notes
 - The Tutorials section is deliberately a registry so the next tutorial is one row and one
   screen, not a new Settings section.

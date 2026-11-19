@@ -432,6 +432,10 @@ executionOrder:
     # 322 (PAD-838, mobile.android-runtime rule 15): types in Notificar's search and taps the first
     # match with the keyboard up; guards the small screen (iPhone SE-class). Writes nothing.
     - 322-notify-search-above-keyboard
+    # 323 (PAD-829, attendance.validation rule 30): the validate sheet's list scrolls to its end and
+    # back before and after a confirm. Creates and validates its own ten ended classes through the
+    # debug route and deletes them in its teardown, so its position is not load bearing.
+    - 323-validate-sheet-scrolls-after-confirm
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

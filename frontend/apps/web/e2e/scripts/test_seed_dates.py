@@ -59,14 +59,33 @@ def test_future_fixtures_never_overlap_each_other(today):
 def test_past_fixtures_stay_in_earlier_weeks(today):
     """History and validation rows must never crowd the calendar's default week."""
     d = seed_dates(today)
-    this_monday = today - timedelta(days=today.weekday())
+    this_sunday = _app_week_start(today)
     for start in d.attended_starts:
-        assert start < this_monday
+        assert start < this_sunday
     for start, _ in d.missed_starts:
-        assert start < this_monday
+        assert start < this_sunday
     for start, _ in d.validation_starts:
-        assert start < this_monday
-        assert start >= this_monday - timedelta(days=7), "validation classes sit in LAST week"
+        assert start < this_sunday
+
+
+def _app_week_start(day):
+    """The Sunday that starts `day`'s week in the app (calendar.view rule 5a, `weekBounds`)."""
+    return day - timedelta(days=(day.weekday() + 1) % 7)
+
+
+@pytest.mark.parametrize("today", WEEK, ids=[d.strftime("%a") for d in WEEK])
+def test_validation_classes_sit_in_the_apps_last_week(today):
+    """The validate view's "Last week" is the Sunday-start week before today's. A Monday-based
+    previous week put the fixture two app weeks back on Sundays (PR #987's E2E subset)."""
+    d = seed_dates(today)
+    this_sunday = _app_week_start(today)
+    last_sunday = this_sunday - timedelta(days=7)
+    days = [start for start, _ in d.validation_starts] + [d.validation_lesson_start]
+    for start in days:
+        assert last_sunday <= start < last_sunday + timedelta(days=7), f"{start:%a %d} on {today:%A}"
+        assert start < this_sunday
+    assert [start.weekday() for start, _ in d.validation_starts] == [2, 3]  # Wednesday, Thursday
+    assert d.validation_lesson_start.date() == d.validation_starts[0][0].date()
 
 
 def test_today_can_be_pinned_for_reproduction():

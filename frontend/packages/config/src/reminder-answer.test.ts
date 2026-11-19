@@ -24,7 +24,7 @@ describe("canConfirmAttendance — PAD-570, the server's flag and nothing else",
     expect(canConfirmAttendance({ state: "planned", pendingConfirmation: false, classStarted: false })).toBe(false);
     expect(canConfirmAttendance({ state: "planned", pendingConfirmation: undefined, classStarted: false })).toBe(false);
   });
-  it("is closed on every other state, flag or no flag — not_coming is final (rule 28)", () => {
+  it("is closed on every other state, flag or no flag — 'Vou' is closed on a not_coming row; the way back is 'Afinal vou' (rule 28)", () => {
     for (const state of ["coming", "not_coming", "attended", "missed"] as const) {
       expect(canConfirmAttendance({ state, pendingConfirmation: true, classStarted: false })).toBe(false);
     }

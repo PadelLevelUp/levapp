@@ -120,8 +120,37 @@ appId: com.padellevelup.app
     id: "movement-a1"
 - assertNotVisible:
     id: "movement-a1-1"
-- tapOn:
-    point: "40%, 45%"
+# PAD-710 (Android lane): "40%, 45%" of the screen is only ~110 px inside the court's top edge, so
+# a small page offset puts the tap off the court and no piece is drawn (runs 43505514297,
+# 43523452495). On Android, bring the court on screen and tap a point of court-surface itself,
+# clear of the pieces (court bounds and pieces read from run 43517077504).
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          point: "40%, 45%"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "court-surface"
+          point: "30%, 12%"
+# PAD-710 (Android lane): give the new piece time to render before board-show-court checks it;
+# otherwise it swipes the court away from a leg that was about to appear (run 43505514297; the
+# diagnostic in 43517077504 saw movement-a1-1 right after the tap without any swipe).
+- extendedWaitUntil:
+    visible:
+      id: "movement-a1-1"
+    timeout: 5000
+    optional: true
 - runFlow:
     when:
       platform: Android
@@ -175,8 +204,37 @@ appId: com.padellevelup.app
       TARGET: "piece-cone-1"
 - tapOn:
     id: "piece-cone-1"
-- tapOn:
-    point: "40%, 45%"
+# PAD-710 (Android lane): "40%, 45%" of the screen is only ~110 px inside the court's top edge, so
+# a small page offset puts the tap off the court and no piece is drawn (runs 43505514297,
+# 43523452495). On Android, bring the court on screen and tap a point of court-surface itself,
+# clear of the pieces (court bounds and pieces read from run 43517077504).
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          point: "40%, 45%"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "court-surface"
+          point: "30%, 12%"
+# PAD-710 (Android lane): give the new piece time to render before board-show-court checks it;
+# otherwise it swipes the court away from a leg that was about to appear (run 43505514297; the
+# diagnostic in 43517077504 saw movement-a1-1 right after the tap without any swipe).
+- extendedWaitUntil:
+    visible:
+      id: "ball-number-0"
+    timeout: 5000
+    optional: true
 - runFlow:
     when:
       platform: Android

@@ -36,6 +36,7 @@ from __future__ import annotations
 import copy
 import functools
 import json
+import math
 import re
 from collections import Counter
 from contextlib import contextmanager
@@ -244,14 +245,16 @@ ELIGIBILITY_LEVEL_OPERATIONS = frozenset({
 })
 
 
-def unknown_eligibility_level_operations(rules) -> list:
-    """The level operations in an eligibility bar that rule 6 does not define.
+def unknown_eligibility_rules(rules) -> list:
+    """The rules in an eligibility bar the evaluator does not know: a level operation rule 6 does not
+    define, or an attribute or operation outside rule 12's lists; and a rule that needs a value and has
+    none (rule 14).
 
-    Saving refuses them (`eligibilityRules` → 400). Every operation a client can
-    post is in the set — including one it only round-trips unchanged — so a
-    client that does not know an operation can still save the list back.
+    Saving refuses them (`eligibilityRules` → 400; `edit_class` and the class create in their own
+    shapes). Every operation a client can post is in the sets — including one it only round-trips
+    unchanged — so a client that does not know an operation can still save the list back.
     """
-    return _level_operations_outside(rules, ELIGIBILITY_LEVEL_OPERATIONS)
+    return _rules_outside(rules, ELIGIBILITY_LEVEL_OPERATIONS)
 
 
 # An invitation group's level rule is anchored to the VACANCY (eligibility.rules
@@ -265,8 +268,10 @@ INVITATION_GROUP_LEVEL_OPERATIONS = frozenset({
 })
 
 
-def unknown_invitation_group_level_operations(groups) -> list:
-    """The level operations in invitation groups outside the five vacancy ones.
+def unknown_invitation_group_rules(groups) -> list:
+    """The rules in invitation groups the evaluator does not know: a level operation outside the five
+    vacancy ones, or an attribute or operation outside rule 12's lists; and a rule that needs a value
+    and has none (rule 14).
 
     Saving refuses them (`invitationGroups` → 400). Shapes the evaluator already
     tolerates (a non-list, a group without rules) are left to it.
@@ -277,20 +282,62 @@ def unknown_invitation_group_level_operations(groups) -> list:
         op
         for group in groups
         if isinstance(group, dict)
-        for op in _level_operations_outside(
+        for op in _rules_outside(
             group.get("rules"), INVITATION_GROUP_LEVEL_OPERATIONS)
     ]
 
 
-def _level_operations_outside(rules, known) -> list:
+#: eligibility.rules rule 12: the operations each attribute other than level may hold (level's are
+#: rule 6's). An attribute not here, or an operation outside its set, fails every student.
+COMPARISON_OPERATIONS = frozenset({
+    "less_than", "less_than_or_equal", "equals", "greater_than", "greater_than_or_equal",
+})
+RULE_OPERATIONS = {
+    "side": frozenset({"same_as_vacancy", "different_from_vacancy"}),
+    "has_makeups": frozenset({"is_true"}),
+    "unjustified_absences": COMPARISON_OPERATIONS,
+    "justified_absences": COMPARISON_OPERATIONS,
+    "attendance_rate": COMPARISON_OPERATIONS,
+    "subscription_status": frozenset({"equals"}),
+}
+
+
+#: eligibility.rules rule 14: the attributes whose rules always carry a value (level's carries one only
+#: with a ``within_n_*`` operation). Account status's value is text; the others' are numbers.
+VALUE_ATTRIBUTES = frozenset({"unjustified_absences", "justified_absences", "attendance_rate", "subscription_status"})
+WITHIN_N_OPERATIONS = frozenset({"within_n_of_class", "within_n_above_class", "within_n_below_class"})
+
+
+def _value_missing(rule: dict) -> bool:
+    """Rule 14 (rule 13's answer, server side): the rule needs a value and has none. Missing is absent,
+    ``None``, a blank string, or, for a number, anything not finite after ``float()``; 0 and "2" are values."""
+    attribute = rule.get("attribute")
+    if attribute not in VALUE_ATTRIBUTES and not (attribute == "level" and rule.get("operation") in WITHIN_N_OPERATIONS):
+        return False
+    value = rule.get("value")
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return True
+    if attribute == "subscription_status" or isinstance(value, bool):
+        return isinstance(value, bool)
+    try:
+        return not math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return True
+
+
+def _rules_outside(rules, level_operations) -> list:
+    """The one save validator (rules 12 and 14): each rule an unknown attribute, an unknown operation on a
+    known one, a level operation outside ``level_operations``, or a rule that needs a value and has none,
+    named as ``"attribute operation"``."""
     if not isinstance(rules, list):
         return []
     return [
-        rule.get("operation")
+        f"{rule.get('attribute')} {rule.get('operation')}"
         for rule in rules
         if isinstance(rule, dict)
-        and rule.get("attribute") == "level"
-        and rule.get("operation") not in known
+        and ((rule.get("operation") not in level_operations if rule.get("attribute") == "level"
+              else rule.get("operation") not in RULE_OPERATIONS.get(rule.get("attribute"), ()))
+             or _value_missing(rule))
     ]
 
 
@@ -437,11 +484,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         config.invitation_start_timing = data["invitationStartTiming"]
         timing_changed = True
     if "invitationGroups" in data:
-        unknown = unknown_invitation_group_level_operations(data["invitationGroups"])
+        unknown = unknown_invitation_group_rules(data["invitationGroups"])
         if unknown:
-            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
+            # eligibility.rules rules 6, 12: abort before save(), so nothing is stored.
             from flask import abort
-            abort(400, f"invitationGroups: unknown level operation {unknown[0]!r}")
+            abort(400, f"invitationGroups: invalid rule {unknown[0]!r}")
         config.invitation_groups = data["invitationGroups"]
     if "tiebreakers" in data:
         config.tiebreakers = data["tiebreakers"]
@@ -453,11 +500,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         if rules is not None and not isinstance(rules, list):
             from flask import abort
             abort(400, "eligibilityRules must be a list or null")
-        unknown = unknown_eligibility_level_operations(rules)
+        unknown = unknown_eligibility_rules(rules)
         if unknown:
-            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
+            # eligibility.rules rules 6, 12: abort before save(), so nothing is stored.
             from flask import abort
-            abort(400, f"eligibilityRules: unknown level operation {unknown[0]!r}")
+            abort(400, f"eligibilityRules: invalid rule {unknown[0]!r}")
         config.eligibility_rules = rules
     if "openSpotsVisible" in data:
         config.open_spots_visible = bool(data["openSpotsVisible"])
@@ -1282,6 +1329,10 @@ def _level_ids_one_below(vacancy_level, coach_id: int, *, ladder=None) -> set:
 
 
 def _compare(value, op: str, threshold) -> bool:
+    # eligibility.rules rule 12: an unknown operation fails, whatever the threshold; a threshold that
+    # is not a number still passes (the editors can store a blank one).
+    if op not in COMPARISON_OPERATIONS:
+        return False
     try:
         threshold = float(threshold)
     except (TypeError, ValueError):
@@ -1290,8 +1341,7 @@ def _compare(value, op: str, threshold) -> bool:
     if op == "less_than_or_equal":      return value <= threshold
     if op == "equals":                  return value == threshold
     if op == "greater_than":            return value > threshold
-    if op == "greater_than_or_equal":   return value >= threshold
-    return True
+    return value >= threshold
 
 
 def _ladder_distance(coach_id: int, level_id_a, level_id_b) -> int | None:
@@ -1380,6 +1430,18 @@ def _group_rule_failures(
         attr = rule.get("attribute")
         op = rule.get("operation")
         val = rule.get("value")
+
+        if attr != "level" and attr not in RULE_OPERATIONS:
+            # eligibility.rules rule 12: an attribute this evaluator does not know used to match no
+            # branch and pass everyone. Fail closed, and say why (B-257's precedent).
+            if fail(attr, op, threshold=val, reason="unknown_attribute"):
+                return failures
+            continue
+        if attr != "level" and op not in RULE_OPERATIONS[attr]:
+            # Rule 12: so did an operation outside the attribute's own (level's are B-257's, below).
+            if fail(attr, op, threshold=val, reason="unknown_operation"):
+                return failures
+            continue
 
         if attr == "level":
             class_code = getattr(vacancy_level, "code", None)
@@ -2407,6 +2469,11 @@ def _add_player_to_instance(player_id: int, instance: LessonInstance) -> None:
 
     enrol(player_id, instance, "fill", confirmed=True)
 
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        return  # join-requests NJ4: rules 10-12 run once the engine placed them (engine_entry.coach_added)
+
     # PAD-131 (classes.join-requests rule 10): first fill wins. Every fill path
     # — invitation "yes" (a waiting-list one included), accepted request — converges
     # here, so this is where the other pending requests learn the spot is gone.
@@ -3091,6 +3158,22 @@ def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
     return now - last.sent_at < timedelta(hours=hours) - tolerance
 
 
+def answered_for_reminders(presence, first_reminder, *, new_engine: bool = False) -> bool:
+    """Whether the reminder passes leave this presence alone because it has answered
+    (notifications.reminders rules 5 and 24). ``confirmed`` is set by every answer, and also, with no
+    answer recorded (``response`` ``none``), by accepting an invitation or a join request
+    (``_add_player_to_instance``). PAD-820: that acceptance is not an answer to the reminder, so such
+    a presence is still owed one when it was placed (``placed_at``, else ``created_at``) at or before
+    the class's first reminder time; placed after it, they have just said yes and are never asked.
+    A new-engine session's placements are the engine's to ask (``notifications.engine-timeline`` rule 2)."""
+    if not presence.confirmed:
+        return False
+    if new_engine or presence.response != "none" or first_reminder is None:
+        return True
+    placed = presence.placed_at or presence.created_at
+    return placed is None or placed > first_reminder
+
+
 def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None,
                          answered_pairs=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
@@ -3129,6 +3212,10 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
     blocked_ids = set(_blocked_by_id)
     reminder_count = config.get_reminder_count()
 
+    from padel_app.scheduler import _fire_time_utc
+    first_reminder = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
+    on_new_engine = None        # read only when an acceptance is on the class (the listing's query budget)
+
     due = []
     # PAD-259: the presence rows ARE the roster; nothing is created here.
     for existing_presence in list(instance.presences):
@@ -3140,7 +3227,12 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
 
         # Stop reminding a student as soon as they have responded.
         # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
-        if existing_presence.confirmed:
+        # PAD-820 (rule 24): an invitation's "yes" is enrolled ``confirmed`` with no answer recorded;
+        # it is asked like everyone going when placed by the first reminder time.
+        if on_new_engine is None and existing_presence.confirmed and existing_presence.response == "none":
+            from padel_app.services.engine_switch import engine_for
+            on_new_engine = engine_for(instance) == "new"
+        if answered_for_reminders(existing_presence, first_reminder, new_engine=bool(on_new_engine)):
             continue
         # PAD-546 (rule 23): the coach already marked them present or absent (justified or not).
         # `status` is the coach's record only (attendance.presence rule 7); read at send time, on
@@ -5992,13 +6084,13 @@ def respond_to_notification(
             _coach_only(coach_user_id),
         )
         _mark_answered_message_read(invite_msg, acting_user_id)
-        _tell_new_engine_placed(instance, event.player_id)  # PAD-932 (NM3)
+        _tell_new_engine_placed(instance, event.player_id, vacancy.side if vacancy else None)  # PAD-932 (NM3)
         return {"action": "confirmed"}
 
     return {"action": "unknown"}
 
 
-def _tell_new_engine_placed(instance, player_id: int) -> None:
+def _tell_new_engine_placed(instance, player_id: int, side: str | None = None) -> None:
     """PAD-932 (notifications.manual NM3): an old invitation's Yes placed the student in a session now on
     the new engine; the engine is told (``CoachAdded``), so their open invitations at that hour close and
     the session replans. After the enrolment's commit; nothing for an old-engine session."""
@@ -6007,7 +6099,8 @@ def _tell_new_engine_placed(instance, player_id: int) -> None:
     from padel_app.services.engine_entry import coach_added
 
     try:
-        coach_added(instance, [player_id])
+        # join-requests NJ4: rules 10-12 after the placement; engine-store rule 9: the vacancy's side.
+        coach_added(instance, [player_id], fill=True, offered_side=side)
     except Exception:  # noqa: BLE001 — the placement stands; the next tick replans the session
         db.session.rollback()
         current_app.logger.exception("PAD-932: telling the engine about lesson_instance %s failed", instance.id)
@@ -6101,7 +6194,7 @@ def coach_respond_to_notification(
         # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
         # settlement and the enrolment together and releases the lock; the two `save()` calls
         # that followed committed nothing and cost two round-trips.
-        _tell_new_engine_placed(instance, event.player_id)  # PAD-932 (NM3)
+        _tell_new_engine_placed(instance, event.player_id, vacancy.side if vacancy else None)  # PAD-932 (NM3)
 
         return {"action": "confirmed"}
 

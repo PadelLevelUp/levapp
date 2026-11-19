@@ -14,10 +14,7 @@ const student = {
   isCoach: false,
   isCanceled: false,
   isParticipant: true,
-  ownPresence: { status: "confirmed", justification: null } as {
-    status?: string | null;
-    justification?: string | null;
-  },
+  ownPresence: { attendanceState: "planned" } as { attendanceState?: string | null },
   date: "2026-09-10",
   startTime: "18:00",
 };
@@ -32,13 +29,20 @@ afterEach(() => {
 });
 
 describe("hasDeclined", () => {
-  it("is true only for a JUSTIFIED absence", () => {
-    expect(hasDeclined({ status: "absent", justification: "justified" })).toBe(true);
+  it("[ATTENDANCE-CONFIRM-41] is true when the server says not_coming, whatever the raw columns hold", () => {
+    expect(hasDeclined({ attendanceState: "not_coming" })).toBe(true);
+    expect(hasDeclined({ attendanceState: "not_coming", status: null, justification: null })).toBe(true);
   });
 
-  it("is false for an unjustified absence — that is a coach-marked no-show", () => {
-    expect(hasDeclined({ status: "absent", justification: "unjustified" })).toBe(false);
-    expect(hasDeclined({ status: "absent" })).toBe(false);
+  it("[ATTENDANCE-CONFIRM-41] is false for any other served state, even with an absent justified row", () => {
+    for (const attendanceState of ["planned", "coming", "attended", "missed"]) {
+      expect(hasDeclined({ attendanceState, status: "absent", justification: "justified" })).toBe(false);
+    }
+  });
+
+  it("derives not_coming from the columns for a payload with no attendanceState (an unvalidated absence)", () => {
+    expect(hasDeclined({ status: "absent", justification: "justified" })).toBe(true);
+    expect(hasDeclined({ status: "absent" })).toBe(true);
   });
 
   it("is false for a present or unanswered presence, and for none at all", () => {
@@ -78,13 +82,13 @@ describe("canCancelAttendance", () => {
     expect(canCancelAttendance(lateWindow)).toBe(true);
   });
 
-  it("is gone once the student is marked absent", () => {
+  it("[ATTENDANCE-CONFIRM-41] is gone once the server says not_coming, and only then", () => {
     expect(
-      canCancelAttendance({
-        ...student,
-        ownPresence: { status: "absent", justification: "justified" },
-      })
+      canCancelAttendance({ ...student, ownPresence: { attendanceState: "not_coming" } })
     ).toBe(false);
+    expect(
+      canCancelAttendance({ ...student, ownPresence: { attendanceState: "coming", status: "absent" } })
+    ).toBe(true);
   });
 
   it("is not offered to a coach, on a cancelled class, or to a non-participant", () => {

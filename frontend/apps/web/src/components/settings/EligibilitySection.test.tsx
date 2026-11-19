@@ -65,3 +65,27 @@ describe("direction of within N levels (PAD-481)", () => {
     expect(onChange).toHaveBeenCalledWith([rule("within_n_above_class")]);
   });
 });
+
+describe("a rule with no value (eligibility.rules rule 13)", () => {
+  it("[ELIGIBILITY-RULES-19] marks a rule with no value", () => {
+    const { rerender } = render(
+      <EligibilitySection
+        rules={[
+          { attribute: "unjustified_absences", operation: "less_than" },
+          { attribute: "level", operation: "within_n_of_class" },
+          { attribute: "level", operation: "same_as_class" },
+          { attribute: "attendance_rate", operation: "greater_than", value: 0 },
+          { attribute: "justified_absences", operation: "equals", value: "2" as unknown as number },
+        ]}
+        onChange={() => {}}
+      />,
+    );
+    const rows = screen.getAllByTestId("eligibility-rule-row");
+    const marked = rows.map((r) => r.querySelector('[data-testid="eligibility-value-missing"]')?.textContent ?? null);
+    expect(marked).toEqual(["settings.eligibility.valueMissing", "settings.eligibility.valueMissing", null, null, null]);
+    expect(rows[0].getAttribute("data-value-missing")).toBe("true");
+
+    rerender(<EligibilitySection rules={[{ attribute: "unjustified_absences", operation: "less_than", value: 1 }]} onChange={() => {}} />);
+    expect(screen.queryByTestId("eligibility-value-missing")).toBeNull();
+  });
+});

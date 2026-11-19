@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   changedFlows,
   checkShards,
+  EXCLUDED_TAGS,
   laneVerdict,
   readShardResults,
   setupError,
@@ -26,7 +27,20 @@ import {
  */
 
 const MAESTRO_DIR = path.resolve(__dirname, "../../.maestro");
-const TAGGED = ["47-push-tap-routing", "122-warm-push-tap-shows-the-message", "85-working-hours-invalid-day", "92-working-hours-minute-grid"];
+const TAGGED = [
+  "47-push-tap-routing",
+  "122-warm-push-tap-shows-the-message",
+  "85-working-hours-invalid-day",
+  "92-working-hours-minute-grid",
+  // PAD-920: tagged hand-run-setup (their setup is a hand-run backend step).
+  "319-new-engine-settings",
+  "320-new-engine-invitee-outcome",
+  "321-new-engine-invite-bubble",
+  // PAD-710: tagged android-open-defect (Android product bugs in the thread's landing/scroll).
+  "09-direct-messages",
+  "103-thread-lands-on-target-message",
+  "114-thread-opens-at-first-unread",
+];
 
 describe("the committed shard file (rule 3)", () => {
   const { shardFile, flows, suite } = readWorkspace(MAESTRO_DIR);
@@ -52,6 +66,33 @@ describe("the committed shard file (rule 3)", () => {
     for (const name of TAGGED) {
       expect(Object.keys(flows)).toContain(name);
       expect(shards.flat()).not.toContain(name);
+    }
+  });
+
+  // A tag Maestro skips but the planner keeps leaves its flows in a shard's config, and the shard
+  // then reports "N of N+k flows" (PR #961, run 43297928957: shard 4 "43 of 52", changed "2 of 5").
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-1] excludes exactly the tags ci-android-maestro.sh passes to Maestro", () => {
+    const script = fs.readFileSync(path.resolve(__dirname, "../../scripts/ci-android-maestro.sh"), "utf8");
+    const passed = script.match(/--exclude-tags (\S+)/)?.[1].split(",");
+    expect(passed?.sort()).toEqual([...EXCLUDED_TAGS].sort());
+  });
+});
+
+describe("diagnostic flows outside flows/ (rule 2)", () => {
+  // .maestro/evidence/ holds on-demand diagnostics (dispatch `-f flows=evidence/<dir>`); the suite
+  // is flowsOrder plus flows/*.yaml, so nothing there reaches the nightly or a `flows=.` run.
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-1] keeps a flow under evidence/ out of every shard and shard config", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lane-evidence-"));
+    fs.mkdirSync(path.join(dir, "flows"));
+    fs.mkdirSync(path.join(dir, "evidence", "m3"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "config.yaml"), "executionOrder:\n  flowsOrder:\n    - 01-login\n    - 02-b\n");
+    fs.writeFileSync(path.join(dir, "android-shards.json"), JSON.stringify({ warmup: "01-login", starts: ["01-login", "02-b"] }));
+    for (const n of ["01-login", "02-b"]) fs.writeFileSync(path.join(dir, "flows", `${n}.yaml`), "appId: x\n---\n");
+    fs.writeFileSync(path.join(dir, "evidence", "m3", "46-diag.yaml"), "appId: x\n---\n");
+    const { suite, shardFile } = readWorkspace(dir);
+    expect(suite).toEqual(["01-login", "02-b"]);
+    for (let k = 1; k <= shardFile.starts.length; k++) {
+      expect(shardConfig(shardFlows(suite, shardFile, k))).not.toContain("46-diag");
     }
   });
 });

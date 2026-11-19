@@ -745,7 +745,7 @@ with app.app_context(), unit_of_work():
     # block the queue is always empty and any spec over it is vacuous.
     #
     # Placement rules, so this cannot perturb other specs:
-    #   * both instances sit in the PREVIOUS Monday-Sunday week. They must be
+    #   * both instances sit in the PREVIOUS Sunday-Saturday (app) week. They must be
     #     past (`end_datetime <= now`) to be validatable, but putting them in
     #     the current week crowds the calendar's default view and flipped
     #     `participant-count-effective.spec.ts` into a compact card layout that

@@ -10,15 +10,18 @@
 # The export only happens if the archived bundle names that target and nothing
 # else, and declares the open-spots capability (PAD-352).
 #
-# Upload afterwards with scripts/testflight-upload.sh. The machine-level
+# Upload afterwards with scripts/testflight-upload.sh <version> <build>. The machine-level
 # traps (run it under Monitor, not detached; nothing else heavy at the same
 # time; the RN prebuilt tarballs) are in the memory notes on TestFlight and on
 # RN prebuilt artifacts.
 #
-# Env overrides: RELEASE_OUT (default <repo>/build), RN_PREBUILT_PODS (a Pods
-# directory holding ReactNativeCore-artifacts and ReactNativeDependencies-artifacts),
-# DEVELOPER_DIR (which Xcode; Xcode 27 is refused until PAD-467, see check-xcode.sh),
-# LEVAPP_ALLOW_XCODE_27=1 (build under Xcode 27 anyway; the app will crash at launch).
+# Env: RN_PREBUILT_PODS (required: a Pods directory holding ReactNativeCore-artifacts and
+# ReactNativeDependencies-artifacts with the release tarballs of the react-native version in
+# package.json; never under this app's ios/, which the prebuild cleans), RELEASE_OUT (default
+# ~/levapp-ios-archives/<version>-build<build>, outside the worktree), DEVELOPER_DIR (which
+# Xcode; Xcode 27 is refused until PAD-467, see check-xcode.sh), LEVAPP_ALLOW_XCODE_27=1 (build
+# under Xcode 27 anyway; the app will crash at launch), LEVAPP_RELEASE_PREFLIGHT_ONLY=1 (stop
+# with exit 0 once the checks before any change pass; rule 3c).
 set -euo pipefail
 
 TARGET="${1:-}"
@@ -27,6 +30,11 @@ BUILD="${3:-}"
 
 MOBILE="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="$(cd "$MOBILE/../../.." && pwd)"
+# Rule 3c: resolved from the caller's directory, before the cd below.
+PODS_CACHE="${RN_PREBUILT_PODS:-}"
+if [ -n "$PODS_CACHE" ] && [ -d "$PODS_CACHE" ]; then
+  PODS_CACHE="$(cd "$PODS_CACHE" && pwd -P)"
+fi
 cd "$MOBILE"
 
 if [ -z "$TARGET" ] || [ -z "$VERSION" ] || [ -z "$BUILD" ]; then
@@ -43,12 +51,39 @@ export EXPO_PUBLIC_API_URL="$API_URL"
 bash "$MOBILE/scripts/check-xcode.sh"
 echo "== $(date -u +%H:%MZ) target $TARGET -> $EXPO_PUBLIC_API_URL, version $VERSION build $BUILD"
 
+# Rule 3c: the prebuilt cache is named and complete, and outside the ios/ the prebuild cleans.
+if [ -z "$PODS_CACHE" ]; then
+  echo "RN_PREBUILT_PODS is not set: name the Pods directory that holds ReactNativeCore-artifacts and ReactNativeDependencies-artifacts" >&2
+  exit 2
+fi
+case "$PODS_CACHE/" in
+  "$MOBILE/ios/"*|"$(pwd -P)/ios/"*)
+    echo "RN_PREBUILT_PODS=$PODS_CACHE is inside this app's ios/, which prebuild --clean deletes; use a cache outside this checkout" >&2
+    exit 2
+    ;;
+esac
+RN_VERSION="$(node -p 'require("./package.json").dependencies["react-native"]')"
+case "$RN_VERSION" in
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *) echo "package.json pins react-native as \"$RN_VERSION\", not an exact version; the prebuilt tarballs need one" >&2; exit 2 ;;
+esac
+RN_CORE_TARBALL="$PODS_CACHE/ReactNativeCore-artifacts/reactnative-core-$RN_VERSION-release.tar.gz"
+RN_DEPS_TARBALL="$PODS_CACHE/ReactNativeDependencies-artifacts/reactnative-dependencies-$RN_VERSION-release.tar.gz"
+for tarball in "$RN_CORE_TARBALL" "$RN_DEPS_TARBALL"; do
+  test -f "$tarball" || { echo "RN_PREBUILT_PODS: missing $tarball" >&2; exit 2; }
+done
+
 KEY=79ZZ536G63
 ISS=2cb8a0f4-101b-4cf9-aefc-7ad083614427
 KP="$HOME/.appstoreconnect/private_keys/AuthKey_$KEY.p8"
-OUT="${RELEASE_OUT:-$REPO/build}"
+# Rule 3d: outside the worktree, which is removed after the release; testflight-upload.sh
+# resolves the same default from the same two arguments.
+OUT="${RELEASE_OUT:-$HOME/levapp-ios-archives/$VERSION-build$BUILD}"
 ARCHIVE="$OUT/LevApp-$BUILD.xcarchive"
-PODS_CACHE="${RN_PREBUILT_PODS:-$HOME/levapp-tf-wt/frontend/apps/mobile/ios/Pods}"
+if [ "${LEVAPP_RELEASE_PREFLIGHT_ONLY:-}" = "1" ]; then
+  echo "preflight ok: react-native $RN_VERSION from $PODS_CACHE; release-out $OUT"
+  exit 0
+fi
 mkdir -p "$OUT"
 
 # The version and build number are set for this build only. app.json is
@@ -69,8 +104,8 @@ npm run verify:splash
 
 echo "== $(date -u +%H:%MZ) pod install from cached prebuilt tarballs"
 export RCT_USE_PREBUILT_RNCORE=1 RCT_USE_RN_DEP=1
-export RCT_TESTONLY_RNCORE_TARBALL_PATH="$PODS_CACHE/ReactNativeCore-artifacts/reactnative-core-0.81.5-release.tar.gz"
-export RCT_USE_LOCAL_RN_DEP="$PODS_CACHE/ReactNativeDependencies-artifacts/reactnative-dependencies-0.81.5-release.tar.gz"
+export RCT_TESTONLY_RNCORE_TARBALL_PATH="$RN_CORE_TARBALL"
+export RCT_USE_LOCAL_RN_DEP="$RN_DEPS_TARBALL"
 (cd ios && pod install)
 grep -q "React-Core-prebuilt" ios/Podfile.lock || { echo "GUARD FAILED: React-Core-prebuilt missing"; exit 1; }
 if grep -q "^  - fmt (" ios/Podfile.lock; then echo "GUARD FAILED: fmt pod present (building RN from source)"; exit 1; fi

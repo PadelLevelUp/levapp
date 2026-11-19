@@ -41,6 +41,8 @@ import {
   presentCount,
   validationGroup,
   type PresenceMark,
+  classWhenLabel,
+  sortClassesByStart,
 } from "@levelup/config";
 
 // PAD-567: `null` is a cleared mark (undecided again); absent = no edit.
@@ -166,9 +168,13 @@ export function ValidateClassesDialog({
     return { ...klass, players: [...klass.players, ...added] };
   };
 
-  const pendingClasses = useMemo(() => pending.map(withExtras), [pending, extras]);
+  // Rule 29 (PAD-924): both lists run oldest start first, as on iOS; not left to the server's order.
+  const pendingClasses = useMemo(
+    () => sortClassesByStart(pending.map(withExtras)),
+    [pending, extras]
+  );
   const validatedClasses = useMemo(
-    () => validated.map(withExtras),
+    () => sortClassesByStart(validated.map(withExtras)),
     [validated, extras]
   );
 
@@ -465,8 +471,16 @@ export function ValidateClassesDialog({
                     >
                       <span className="flex min-w-0 items-center gap-2 text-sm">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                        <span className="truncate">{klass.title}</span>
-                        <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
+                        {/* PAD-924: wraps when narrow, so the day and time drop under the title instead of
+                            squeezing it to "…"; one line, as before, whenever everything fits. */}
+                        <span
+                          data-testid="presences-validated-row-text"
+                          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5"
+                        >
+                          <span className="min-w-0 max-w-full truncate">{klass.title}</span>
+                          <ClassWhen klass={klass} />
+                          <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
+                        </span>
                       </span>
                       <span className="flex shrink-0 gap-1">
                         <Button
@@ -600,6 +614,16 @@ function ClassList({
           </section>
         ))}
     </div>
+  );
+}
+
+/** attendance.validation rule 29 (PAD-924): the class's day and time range, the stored digits as they are. */
+function ClassWhen({ klass }: { klass: PendingValidationClass }) {
+  const { i18n } = useTranslation();
+  return (
+    <span data-testid="presences-class-when" className="shrink-0 text-xs text-muted-foreground">
+      {classWhenLabel(klass, i18n.language)}
+    </span>
   );
 }
 
@@ -747,18 +771,10 @@ function ClassCard({
   onOpen: () => void;
   onValidate: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   // PAD-660 rule 8: the attendance inbox is the coach's — their name for each student.
   const displayName = useCoachDisplayName();
   const [adding, setAdding] = useState(false);
-
-  // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
-  // time is the class's actual clock time (same rule as AttendanceHistoryList).
-  const timeFmt = new Intl.DateTimeFormat(i18n.language, {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
 
   const available = roster.filter(
     (r) => !klass.players.some((p) => p.playerId === r.id)
@@ -779,8 +795,9 @@ function ClassCard({
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="block truncate text-sm font-medium">
-              {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} · {klass.title}
+              {klass.title}
             </span>
+            <ClassWhen klass={klass} />
             <PresentCount players={klass.players} edits={edits} />
           </span>
           <span className="block text-xs text-muted-foreground">
@@ -899,16 +916,9 @@ function ClassDetail({
   onValidate: () => void;
   onUnvalidate: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   // PAD-660 rule 8: the attendance inbox is the coach's — their name for each student.
   const displayName = useCoachDisplayName();
-  // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
-  // time is the class's actual clock time (same rule as AttendanceHistoryList).
-  const timeFmt = new Intl.DateTimeFormat(i18n.language, {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
   const available = roster.filter(
     (r) => !klass.players.some((p) => p.playerId === r.id)
   );
@@ -926,8 +936,9 @@ function ClassDetail({
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="truncate">
-            {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} · {klass.title}
+            {klass.title}
           </span>
+          <ClassWhen klass={klass} />
           <PresentCount players={klass.players} edits={edits} />
         </DialogTitle>
         <DialogDescription>
