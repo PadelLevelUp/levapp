@@ -1,0 +1,73 @@
+# PAD-834 (players.profile rule 9): a player with no level and no side says what is missing; the
+# alert's one control opens Block 1, where the missing fields are set; the alert leaves on save.
+# Proof on iOS for PLAYERS-PROFILE-13 (the citable tests are vitest). By test id; the option labels
+# are the seed's level and side copy (English account).
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad834-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad834-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "${output.pendingName}"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-${output.pendingId}"
+    timeout: 20000
+- tapOn:
+    id: "player-card-${output.pendingId}"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- assertVisible:
+    id: "player-chip-no-level"
+- assertVisible:
+    id: "player-chip-no-side"
+- scrollUntilVisible:
+    element:
+      id: "player-needs-config-alert"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "player-needs-config-complete"
+- extendedWaitUntil:
+    visible:
+      id: "player-level-select"
+    timeout: 10000
+- tapOn:
+    id: "player-level-select"
+- tapOn:
+    text: "B1.*"
+- scrollUntilVisible:
+    element:
+      id: "player-side-select"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "player-side-select"
+- tapOn:
+    text: "Left"
+- scrollUntilVisible:
+    element:
+      id: "player-info-save"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+- tapOn:
+    id: "player-info-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "player-needs-config-alert"
+    timeout: 15000
+- assertNotVisible:
+    id: "player-chip-no-level"

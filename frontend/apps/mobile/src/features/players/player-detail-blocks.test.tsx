@@ -60,4 +60,18 @@ describe("the Maestro proof flows follow the screen (PAD-834)", () => {
     }
     expect(flow("34-player-removal.yaml")).toContain('text: "Cancel invite"');
   });
+
+  it("333-336 are PAD-834's, listed in config.yaml, and clean up the placeholder they create", () => {
+    const config = fs.readFileSync(path.resolve(here, "../../../.maestro/config.yaml"), "utf8");
+    for (const name of ["333-player-needs-configuring", "334-player-pending-registration",
+      "335-player-attendance-block", "336-players-list-pending-filter"]) {
+      expect(config).toContain(`- ${name}`);
+      const f = flow(`${name}.yaml`);
+      if (name.startsWith("335")) continue;
+      expect(f).toContain("pad834-setup.js");
+      expect(f).toContain("pad834-teardown.js");
+    }
+    expect(flow("334-player-pending-registration.yaml")).toContain('id: "player-copy-invite-link"');
+    expect(flow("336-players-list-pending-filter.yaml")).toContain('id: "players-alert-pending"');
+  });
 });
