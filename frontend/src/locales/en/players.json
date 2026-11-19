@@ -478,7 +478,29 @@
       "pendingAge_one": "Pending · {{count}} day ago",
       "pendingAge_other": "Pending · {{count}} days ago",
       "pendingToday": "Pending · today",
-      "pendingUnknown": "Pending"
+      "pendingUnknown": "Pending",
+      "notSet": "Not set",
+      "emailAtRegistration": "Filled in at registration",
+      "levelField": "Level",
+      "sideField": "Playing side",
+      "requiredMark": "required",
+      "needsConfigTitle": "Complete the player's profile",
+      "missingLevel": "Still to set: level",
+      "missingSide": "Still to set: playing side",
+      "missingBoth": "Still to set: level and playing side",
+      "completeInfo": "Complete information",
+      "pendingChip": "Pending registration",
+      "pendingTitle": "Waiting for the player to register",
+      "addedAgo_one": "Added {{count}} day ago.",
+      "addedAgo_other": "Added {{count}} days ago.",
+      "addedToday": "Added today.",
+      "pendingBody": "The player has not created an account yet: share the invite link again to finish the registration.",
+      "copyInviteLink": "Copy invite link",
+      "linkCopied": "Link copied",
+      "cancelInvite": "Cancel invite",
+      "cancelInviteConfirm": "Cancel {{name}}'s invite? The record is deleted, and the invite link stops working.",
+      "cancelInviteConfirmShared": "Cancel {{name}}'s invite? {{name}} leaves your roster but stays on the other coach's.",
+      "inviteCancelled": "Invite for {{name}} cancelled"
     }
   }
 }

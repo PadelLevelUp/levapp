@@ -5,6 +5,7 @@ import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editP
 import type { PlayerRemovalImpact } from "@levelup/types";
 import { getCoachLevels } from "@/api/coachLevel";
 import type { CoachPlayer, CoachLevel, PlayerProfile, PlayerSide } from "@/types";
+import type { InfoEditSession } from "@levelup/config";
 import { usePlayerEvaluations } from "@levelup/hooks";
 import { EvaluationSummaryCard } from "@/components/evaluations/EvaluationSummaryCard";
 import { PlayerEvaluationsDrawer } from "@/components/evaluations/PlayerEvaluationsDrawer";
@@ -14,7 +15,8 @@ import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
 // here and render `<PlayerEvaluations evaluations={profile?.evaluations ?? []} />` under the summary card
 // (`GET /player_profile` still serves that list — legacy categories only).
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
-import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
+import { PlayerInfoBlock } from "@/components/players/detail/PlayerInfoBlock";
+import { PlayerStateAlerts } from "@/components/players/detail/PlayerStateAlerts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, CalendarCheck, CalendarX, ClipboardList, CalendarPlus, ListX, Loader2, RefreshCw, Trash2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,11 +84,8 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   const [savingPlayer, setSavingPlayer] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
-  const [draftEmail, setDraftEmail] = useState("");
-  const [draftPhone, setDraftPhone] = useState("");
-  const [draftLevelId, setDraftLevelId] = useState("");
-  const [draftSide, setDraftSide] = useState<PlayerSide | "">("");
-  const [draftNotes, setDraftNotes] = useState("");
+  // players.profile rule 8 (PAD-834): Block 1 edits on its own; null in read mode.
+  const [infoSession, setInfoSession] = useState<InfoEditSession | null>(null);
   const [draftNickname, setDraftNickname] = useState("");
   const [draftNicknameAsName, setDraftNicknameAsName] = useState(false);
   const [nicknameError, setNicknameError] = useState(false);
@@ -100,6 +99,9 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   // delete the record (a placeholder); otherwise they can only disconnect.
   const canDelete = player?.deletable === true;
   const removalAction = removalImpact?.action ?? (canDelete ? "delete" : "disconnect");
+  // players.remove rules 7, 9 (PAD-834, assumption Q5): a pending player's removal is "Cancelar
+  // convite". The label follows `pendingRegistration`; the mode follows the removal impact.
+  const cancelsInvite = player?.pendingRegistration === true;
 
   const openRemove = () => {
     if (!player) return;
@@ -117,7 +119,13 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
     setDeleting(true);
     try {
       await removePlayer(authUser.coachId, player.playerId, removalAction);
-      toast.success(removalAction === "delete" ? t("players.deleted", { name }) : t("players.disconnected", { name }));
+      toast.success(
+        cancelsInvite
+          ? t("players.card.inviteCancelled", { name })
+          : removalAction === "delete"
+            ? t("players.deleted", { name })
+            : t("players.disconnected", { name }),
+      );
       onRemoved();
     } catch (err) {
       const code = removePlayerErrorCode(err);
@@ -174,11 +182,6 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   const handleEditStart = () => {
     if (!player) return;
     setDraftName(player.name ?? "");
-    setDraftEmail(player.email ?? "");
-    setDraftPhone(player.phone ?? "");
-    setDraftLevelId(player.levelId ?? "");
-    setDraftSide(player.side ?? "");
-    setDraftNotes(player.notes ?? "");
     setDraftNickname(player.nickname ?? "");
     setDraftNicknameAsName(player.nicknameAsName === true);
     setNicknameError(false);
@@ -189,9 +192,10 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
     setIsEditing(false);
   };
 
+  // players.profile rule 4 (PAD-834): the header's Editar edits what no block owns — the name
+  // and the nickname. Everything else is Block 1's.
   const handleEditSave = async () => {
     if (!player) return;
-    const level = draftLevelId ? levels.find((l) => l.id === draftLevelId) : undefined;
 
     // PAD-660 (players.nickname rule 6): only what changed is sent; a blank box clears it.
     const nickname = draftNickname.trim();
@@ -208,13 +212,6 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
       ...(asNameChanged ? { nicknameAsName: draftNicknameAsName } : {}),
       name: draftName.trim() || undefined,
       userId: player.userId,
-      // PAD-388: an emptied box is sent as null so the server CLEARS it (an
-      // omitted key still means keep). Level and side have no clear control.
-      email: player.validated ? undefined : draftEmail.trim() || null, // an account holder's e-mail is the student's own
-      phone: draftPhone.trim() || null,
-      levelId: draftLevelId || undefined,
-      side: (draftSide || undefined) as PlayerSide | undefined,
-      notes: draftNotes.trim() || null,
     };
 
     setSavingPlayer(true);
@@ -231,12 +228,6 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         nickname: savedNickname,
         nicknameAsName: savedAsName,
         displayName: savedAsName && savedNickname ? savedNickname : savedName,
-        email: updates.email,
-        phone: updates.phone,
-        levelId: updates.levelId,
-        side: updates.side,
-        notes: updates.notes,
-        level,
       };
 
       setPlayer(updated);
@@ -252,6 +243,29 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
       );
     } finally {
       setSavingPlayer(false);
+    }
+  };
+
+  // players.profile rule 8 (PAD-834): Block 1's Guardar — only the keys that changed.
+  const handleInfoSave = async (changes: Record<string, string | null>) => {
+    if (!player) return;
+    try {
+      await editPlayer(player, { userId: player.userId, ...changes });
+      const nextLevelId = "levelId" in changes ? (changes.levelId ?? undefined) : player.levelId;
+      const updated: CoachPlayer = {
+        ...player,
+        ...("email" in changes ? { email: changes.email ?? "" } : {}),
+        ...("phone" in changes ? { phone: changes.phone } : {}),
+        ...("notes" in changes ? { notes: changes.notes } : {}),
+        ...("side" in changes ? { side: (changes.side ?? undefined) as PlayerSide | undefined } : {}),
+        levelId: nextLevelId,
+        level: nextLevelId ? levels.find((l) => l.id === String(nextLevelId)) ?? player.level : undefined,
+      };
+      setPlayer(updated);
+      setInfoSession(null);
+      onUpdated();
+    } catch (err) {
+      toast.error(editPlayerInvalidFields(err) ? t("players.invalidFields") : t("players.saveChangesFailed"));
     }
   };
 
@@ -298,19 +312,22 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         isEditing={isEditing}
         saving={savingPlayer}
         draftName={draftName}
-        draftLevelId={draftLevelId}
-        draftSide={draftSide}
         draftNickname={draftNickname}
         draftNicknameAsName={draftNicknameAsName}
         nicknameError={nicknameError}
         onDraftNicknameChange={setDraftNickname}
         onDraftNicknameAsNameChange={setDraftNicknameAsName}
         onDraftNameChange={setDraftName}
-        onDraftLevelIdChange={setDraftLevelId}
-        onDraftSideChange={setDraftSide}
         onEdit={handleEditStart}
+        editDisabled={infoSession !== null}
         onSave={handleEditSave}
         onCancel={handleEditCancel}
+      />
+
+      <PlayerStateAlerts
+        player={player}
+        onComplete={() => setInfoSession("complete")}
+        completeDisabled={isEditing || infoSession !== null}
       />
 
       <PageActions
@@ -392,7 +409,9 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
             variant: "default" as const,
           },
           {
-            label: canDelete ? t("players.deletePlayer") : t("players.disconnectPlayer"),
+            label: cancelsInvite
+              ? t("players.card.cancelInvite")
+              : canDelete ? t("players.deletePlayer") : t("players.disconnectPlayer"),
             icon: canDelete ? <Trash2 className="mr-2 h-4 w-4" /> : <Unlink className="mr-2 h-4 w-4" />,
             onClick: openRemove,
             variant: "destructive" as const,
@@ -403,15 +422,14 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <EvaluationSummaryCard lastEvaluatedOn={evaluations.data?.lastEvaluatedOn} onOpen={() => setIsEvalOpen(true)} />
-        <PlayerInfoCard
+        <PlayerInfoBlock
           player={player}
-          isEditing={isEditing}
-          draftEmail={draftEmail}
-          draftPhone={draftPhone}
-          draftNotes={draftNotes}
-          onDraftEmailChange={setDraftEmail}
-          onDraftPhoneChange={setDraftPhone}
-          onDraftNotesChange={setDraftNotes}
+          levels={levels}
+          session={infoSession}
+          onEdit={() => setInfoSession("edit")}
+          onCancel={() => setInfoSession(null)}
+          onSave={handleInfoSave}
+          editDisabled={isEditing}
         />
       </div>
 
@@ -500,9 +518,13 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
           <AlertDialogHeader>
             <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {removalAction === "delete"
-                ? t("players.deletePlaceholderConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
-                : t("players.disconnectConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })}
+              {cancelsInvite
+                ? removalAction === "delete"
+                  ? t("players.card.cancelInviteConfirm", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
+                  : t("players.card.cancelInviteConfirmShared", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
+                : removalAction === "delete"
+                  ? t("players.deletePlaceholderConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
+                  : t("players.disconnectConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div data-testid="player-removal-impact" className="text-sm text-muted-foreground">
@@ -527,9 +549,11 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {removalAction === "delete"
-                ? deleting ? t("players.deleting") : t("common.delete")
-                : deleting ? t("players.disconnecting") : t("players.disconnect")}
+              {cancelsInvite
+                ? t("players.card.cancelInvite")
+                : removalAction === "delete"
+                  ? deleting ? t("players.deleting") : t("common.delete")
+                  : deleting ? t("players.disconnecting") : t("players.disconnect")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -77,13 +77,12 @@ async function openPlayerDetail(page: Page, name: string) {
   await page.waitForURL(/\/players\/\d+/, { timeout: 10_000 });
 }
 
-/** Set the level to Intermediate through the header's inline edit. */
+/** Set the level to Intermediate through Block 1, Informação (players.profile rule 8, PAD-834). */
 async function setLevelIntermediate(page: Page) {
-  await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
-  // PAD-410: counted inside the profile pane — the roster beside it has its own sort Select.
-  await page.getByTestId("player-detail-pane").locator('[role="combobox"]').nth(1).click();
+  await page.getByTestId("player-info-edit").click({ timeout: 5000 });
+  await page.getByTestId("player-level-select").click();
   await page.getByRole("option", { name: /Intermediate/i }).click();
-  await page.getByRole("button", { name: /^save$/i }).click();
+  await page.getByTestId("player-info-save").click();
   await expect(page.getByText(/I1\s*\|\s*Intermediate/).first()).toBeVisible({ timeout: 5000 });
 }
 

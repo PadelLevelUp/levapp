@@ -11,10 +11,19 @@ import { Text } from "@/components/ui/text";
  * players.noPhone. It used to print hard-coded "Email:" / "Phone:" with a "—" fallback, which
  * read as English on a Portuguese screen.
  */
-export function PlayerContactRows({ email, phone }: { email?: string | null; phone?: string | null }) {
+export function PlayerContactRows({
+  email,
+  phone,
+  emptyEmailKey = "players.noEmail",
+}: {
+  email?: string | null;
+  phone?: string | null;
+  /** PAD-834 (players.profile rule 8): a pending player's empty e-mail reads "Preenchido no registo". */
+  emptyEmailKey?: string;
+}) {
   const { t } = useTranslation();
   const rows = [
-    { id: "email", icon: "mail-outline" as const, value: email, empty: t("players.noEmail") },
+    { id: "email", icon: "mail-outline" as const, value: email, empty: t(emptyEmailKey) },
     { id: "phone", icon: "call-outline" as const, value: phone, empty: t("players.noPhone") },
   ];
   return (

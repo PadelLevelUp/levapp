@@ -77,12 +77,14 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     // be rendered to the coach.
     await expect(page.getByText(/pending-[0-9a-f]{4}/i)).toHaveCount(0);
 
-    // The player header "Edit" puts the detail page into inline edit mode.
-    // There must still be nothing username-shaped to type into.
-    await page.getByRole("button", { name: /^edit$/i }).first().click();
+    // The header's edit (name and nickname, PAD-834) has nothing username-shaped to type into.
+    await page.getByTestId("player-edit").click();
+    await expect(page.getByTestId("player-nickname")).toBeVisible({ timeout: 5000 });
+    await page.getByTestId("player-edit-cancel").click();
 
-    // Edit mode is live: the info card's other fields became inputs.
-    await expect(page.getByPlaceholder(/^email$/i)).toBeVisible({
+    // Neither has Block 1, Informação, whose e-mail box is the coach's while the player is pending.
+    await page.getByTestId("player-info-edit").click();
+    await expect(page.getByTestId("player-info-email-input")).toBeVisible({
       timeout: 5000,
     });
 

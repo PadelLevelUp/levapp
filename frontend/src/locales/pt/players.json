@@ -478,7 +478,29 @@
       "pendingAge_one": "Pendente · há {{count}} dia",
       "pendingAge_other": "Pendente · há {{count}} dias",
       "pendingToday": "Pendente · hoje",
-      "pendingUnknown": "Pendente"
+      "pendingUnknown": "Pendente",
+      "notSet": "Por definir",
+      "emailAtRegistration": "Preenchido no registo",
+      "levelField": "Nível",
+      "sideField": "Lado de jogo",
+      "requiredMark": "obrigatório",
+      "needsConfigTitle": "Complete o perfil do jogador",
+      "missingLevel": "Falta definir: nível",
+      "missingSide": "Falta definir: lado de jogo",
+      "missingBoth": "Falta definir: nível e lado de jogo",
+      "completeInfo": "Completar informação",
+      "pendingChip": "Registo pendente",
+      "pendingTitle": "À espera que o jogador se registe",
+      "addedAgo_one": "Adicionado há {{count}} dia.",
+      "addedAgo_other": "Adicionado há {{count}} dias.",
+      "addedToday": "Adicionado hoje.",
+      "pendingBody": "O jogador ainda não criou conta: partilhe de novo o link de convite para concluir o registo.",
+      "copyInviteLink": "Copiar link de convite",
+      "linkCopied": "Link copiado",
+      "cancelInvite": "Cancelar convite",
+      "cancelInviteConfirm": "Cancelar o convite de {{name}}? O registo é apagado e o link de convite deixa de funcionar.",
+      "cancelInviteConfirmShared": "Cancelar o convite de {{name}}? {{name}} sai da sua lista, mas continua na do outro treinador.",
+      "inviteCancelled": "Convite de {{name}} cancelado"
     }
   }
 }

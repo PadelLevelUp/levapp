@@ -15,17 +15,14 @@ test("PAD-15: coach sets player side to Both and it persists", async ({ page }) 
   await clickPlayerCard(page, STUDENT_USERNAME);
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
 
-  // Enter inline edit mode via the PlayerHeader "Edit" button
-  await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
-
-  // The Side Select is the first combobox in the header — pick the new "Both" option
-  // PAD-410: the first Select inside the profile pane — the roster beside it has its own sort Select.
-  const sideSelect = page.getByTestId("player-detail-pane").locator('[role="combobox"]').first();
+  // PAD-834 (players.profile rule 8): the side is edited in Block 1, Informação.
+  await page.getByTestId("player-info-edit").click({ timeout: 5000 });
+  const sideSelect = page.getByTestId("player-side-select");
   await sideSelect.click();
   await page.getByRole("option", { name: "Both", exact: true }).click();
 
   // Save
-  await page.getByRole("button", { name: /^save$/i }).click();
+  await page.getByTestId("player-info-save").click();
 
   // No error, and the side badge reflects "both" after save — asserted via
   // data-state (the same value that picks the rendered label), never the
