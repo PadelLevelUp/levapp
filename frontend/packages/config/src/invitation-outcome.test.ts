@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { InvitationOutcome } from "@levelup/types";
 import {
+  engineInvitationId,
   INVITATION_OUTCOME_KEY,
   inviteeActionsFor,
   inviteeNotes,
@@ -125,5 +126,12 @@ describe("PAD-920 the new engine's invitee outcomes (calendar.event-detail ND1â€
     expect(outcomeAfterResponse("spot_filled")).toBe("spot_filled");
     expect(outcomeAfterCoachAction("spot_filled")).toBe("spot_filled");
     expect(pendingInviteCount([row("pending"), row("spot_filled"), row("pending")])).toBe(2);
+  });
+});
+
+describe("engineInvitationId (invitations NB6)", () => {
+  it("[NOTIFICATIONS-INVITATIONS-133] answers a new-engine row by invitationId, an older server's row by its id", () => {
+    expect(engineInvitationId({ id: -7, invitationId: 7 })).toBe(7);
+    expect(engineInvitationId({ id: 7 })).toBe(7);
   });
 });

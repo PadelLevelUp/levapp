@@ -512,7 +512,14 @@ def respond():
         from padel_app.services.engine_entry import respond_to_invitation
 
         return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), user_id))
+    if data.get("notificationEventId") is None:
+        abort(400, "notificationEventId or invitationId is required")
     notification_event_id = int(data.get("notificationEventId"))
+    if notification_event_id < 0:
+        # invitations NB6: an App Store build 33-35 answering a new-engine invitation (-invitationId).
+        from padel_app.services.engine_entry import respond_as_old_client
+
+        return jsonify(respond_as_old_client(-notification_event_id, data.get("action"), user_id))
     action = data.get("action")  # "yes" | "no"
     result = respond_to_notification(notification_event_id, action, user_id)
     return jsonify(result)
@@ -655,17 +662,30 @@ def coach_respond():
 
         return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), int(get_jwt_identity()),
                                              coach_id=coach.id))
+    if data.get("notificationEventId") is None:
+        abort(400, "notificationEventId or invitationId is required")
     notification_event_id = int(data.get("notificationEventId"))
+    if notification_event_id < 0:
+        # invitations NB6: an old build's coach records a new-engine invitation's answer (-invitationId).
+        from padel_app.services.engine_entry import respond_as_old_client
+
+        return jsonify(respond_as_old_client(-notification_event_id, data.get("action"), int(get_jwt_identity()),
+                                             coach_id=coach.id))
     action = data.get("action")  # "yes" | "no"
     result = coach_respond_to_notification(notification_event_id, action, coach.id)
     return jsonify(result)
 
 
-@bp.delete("/invitations/<int:event_id>")
+@bp.delete("/invitations/<int(signed=True):event_id>")
 @jwt_required()
 def withdraw_invitation_route(event_id: int):
-    """PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation."""
+    """PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation. A new-engine one
+    by its id with ``?engine=new`` (NB5), or by ``-invitationId`` from an App Store build 33-35 (NB6)."""
     coach = _current_coach()
+    if event_id < 0 or request.args.get("engine") == "new":
+        from padel_app.services.engine_entry import withdraw_by_coach
+
+        return jsonify(withdraw_by_coach(abs(event_id), coach.id))
     return jsonify(withdraw_invitation(event_id, coach.id))
 
 

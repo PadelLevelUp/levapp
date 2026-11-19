@@ -138,6 +138,24 @@ def _going(p) -> bool:
     return p.status != "absent" or p.left_reason not in LEFT
 
 
+def _spend_standing_credit(iid: int, pid: int) -> None:
+    """Engine-store rule 11 (waiting-list rules 15, 15a): the student is placed from a row a standing
+    entry fanned out, so that entry spends one credit; the last one closes it and its class rows. Flushes
+    only: it runs inside the store's unit (``_deactivate_standing_entry`` commits per row)."""
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=iid, player_id=pid, is_active=True).first()
+    entry = db.session.get(StandingWaitingListEntry, row.standing_entry_id) if row and row.standing_entry_id else None
+    if entry is None or not entry.is_active:
+        return
+    entry.credits_used = (entry.credits_used or 0) + 1
+    if entry.credits_total is not None and entry.credits_used >= entry.credits_total:
+        entry.is_active = False
+        for linked in WaitingListEntry.query.filter_by(standing_entry_id=entry.id, is_active=True).all():
+            linked.is_active = False
+
+
 def _end_of(inst) -> datetime:
     """An occurrence's end, Lisbon wall clock: its own (start plus the lesson's duration), or an hour
     after its start when it has none (the engine's default length)."""
@@ -190,6 +208,12 @@ def _close_request_message(message_id: int | None, state: str) -> None:
     publish({"type": "message_edited", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
 
 
+#: invitations NB6: the ``response`` App Store builds 33-35 read when a state closes the buttons; an
+#: answer writes its own (``yes``/``no``).
+OLD_CLIENT_RESPONSE = {"sorry": "spot_filled", "closed_same_hour": "booked_same_day", "withdrawn": "withdrawn",
+                       "reopened": "reopened", "class_cancelled": "class_cancelled"}
+
+
 def _refresh_bubbles(row, state: str, **extra) -> None:
     """Write the invitation's new ``state`` (invitations NB1: ``answered`` with ``response``, ``sorry``,
     ``reopened``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on its
@@ -209,7 +233,10 @@ def _refresh_bubbles(row, state: str, **extra) -> None:
         meta = dict(msg.msg_metadata or {})
         meta.update({"engine": "new", "invitationId": row.id, "lessonInstanceId": row.lesson_instance_id,
                      "state": state, "startsAt": wall_to_utc_naive(start).isoformat() if start else None,
-                     "countsUntil": row.counts_until.isoformat() if row.counts_until else None, **extra})
+                     "countsUntil": row.counts_until.isoformat() if row.counts_until else None,
+                     # invitations NB6: old builds hide the buttons only on `responded`.
+                     "notificationEventId": -row.id, "responded": True,
+                     "response": extra.get("response") or OLD_CLIENT_RESPONSE.get(state, state), **extra})
         msg.msg_metadata = meta
         db.session.flush()
         # PAD-918 (INVITATIONS-124): once per reader, so the coach's copy keeps countsUntil live.
@@ -864,6 +891,8 @@ class TableStore:
                                                    response="yes", responded_at=e.at))
         elif isinstance(e, fx.Placed):
             self._guard_same_hour(e)
+            if e.how not in ("regular", "regular_returns"):
+                _spend_standing_credit(iid, int(e.student))
             inst = db.session.get(LessonInstance, iid)
             presence = ls.enrol(int(e.student), inst, ENROLMENT_SOURCE[e.how], confirmed=e.how != "regular",
                                 new_engine=True)

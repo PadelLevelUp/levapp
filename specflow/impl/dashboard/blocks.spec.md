@@ -29,8 +29,10 @@ drained, the old engine is deleted and the replaced items go with it.
 
 Readings:
 - `vacancy_invite` is an open invitation of the student's (counting or not; it stays answerable, D4):
-  one per class, carrying `invitationId` in place of `notificationEventId`, its id `invitation-<id>`, and
-  answered on `POST /api/app/notify/respond` with that id (`notifications.invitations` NB5) (R, PAD-918).
+  one per class, carrying `invitationId`, its id `invitation-<id>`, and answered on `POST
+  /api/app/notify/respond` with that id (`notifications.invitations` NB5) (R, PAD-918). It also carries
+  `notificationEventId` `-invitationId` for App Store builds 33–35, which answer only by that key
+  (`notifications.invitations` NB6); the current shells answer a card carrying `invitationId` by it.
   The home card (web `NeedsYouQueue`, iOS `blocks.tsx` `VacancyInviteCard`) answers a card carrying
   `invitationId` with `{invitationId, action: "yes"|"no"}` and reads the route's answer, one toast each,
   from one shared helper (proposed copy, for the owner): `confirmed` "Estás inscrito." / "You're in.";
@@ -823,7 +825,7 @@ test: `frontend/apps/mobile/src/features/messages/engine-alert-message.test.tsx`
 #### DASHBOARD-BLOCKS-54: A student's open new-engine invitation is their vacancy_invite (new-engine readings)
 - **Given** a student with an open new-engine invitation to tomorrow's class (one that still counts and one that stopped counting, to two classes)
 - **When** the student's home is read
-- **Then** each class has one `vacancy_invite`, its id `invitation-<invitationId>`, carrying `invitationId` and no `notificationEventId`, and its Yes goes to `/notify/respond` with that id
+- **Then** each class has one `vacancy_invite`, its id `invitation-<invitationId>`, carrying `invitationId` and `notificationEventId` `-invitationId` (NB6), and its Yes goes to `/notify/respond` with `invitationId`
 test: `backend/padel_app/tests/test_pad918_player_home.py` › `test_an_open_engine_invitation_is_the_students_vacancy_invite`
 
 #### DASHBOARD-BLOCKS-55: The coach's pending confirmations count and nudge open new-engine invitations (rules 6, 7; new-engine readings)
