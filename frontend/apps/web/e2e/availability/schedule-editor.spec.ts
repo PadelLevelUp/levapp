@@ -40,6 +40,7 @@ test("[DASHBOARD-STUDENT-SETUP-GUIDE-10] two periods every day", async ({ browse
   for (const r of rows) {
     expect([...(r.recurrenceRule?.daysOfWeek ?? [])].sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(r.blocksAutoInvitations).toBe(true);
+    expect(r.type).toBe("unavailable");
   }
   await student.context.close();
 });

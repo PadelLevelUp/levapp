@@ -61,6 +61,8 @@ test("[DASHBOARD-STUDENT-SETUP-GUIDE-5] hide holds on a second session and Confi
   await s.getByTestId("setup-guide-hide").click();
   expect((await hidden).status()).toBe(200);
   await expect(s.getByTestId("setup-guide-sheet")).toHaveCount(0);
+  // This device too: no card, ring or ready card after the hide (criterion 5).
+  await expectNoGuideSurface(s);
 
   // A second device: signed in as the same student, no sheet, no card, no ring.
   const second = await signInOnSecondDevice(browser, student.username);
