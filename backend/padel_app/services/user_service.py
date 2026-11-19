@@ -313,7 +313,8 @@ def update_own_profile_service(user_id, data, *, now=None):
 
     # settings.profile rule 12 (PAD-839): only a student writes the setup guide's keys, and the
     # refusal comes before anything is written, so a coach's request stores nothing at all.
-    if user.coach is not None and any(k in data for k in SETUP_GUIDE_FIELDS):
+    # An account with no player row (an admin) is not a student either.
+    if (user.coach is not None or user.player is None) and any(k in data for k in SETUP_GUIDE_FIELDS):
         raise ProfileValidationError("The setup guide is for students only", status=403)
 
     # settings.profile rule 10 (PAD-640): judged before anything is written, so an under-18 date

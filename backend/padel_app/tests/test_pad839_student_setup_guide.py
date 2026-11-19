@@ -95,6 +95,7 @@ def _rows(app, user_id, schedule_id=SCHEDULE_ID):
     from padel_app.models.calendar_blocks import CalendarBlock
 
     with app.app_context():
+        assert all(b.type == "unavailable" for b in CalendarBlock.query.filter_by(user_id=user_id, schedule_id=schedule_id))
         return sorted(
             ((b.start_datetime.strftime("%H:%M"), b.end_datetime.strftime("%H:%M"), b.blocks_auto_invitations,
               b.recurrence_end.isoformat() if b.recurrence_end else None)
@@ -363,6 +364,12 @@ def test_a_schedule_holds_back_the_reminder(client, app):
         result = send_class_reminders(inst.id, now=datetime(2026, 11, 16, 9, 0))
         assert result["sent"] == 0
         assert [b["playerId"] for b in result["blocked"]] == [player_id]
+        # No reminder Message reaches the student in any conversation they take part in.
+        from padel_app.models import Message
+        from padel_app.models.conversation_participants import ConversationParticipant
+
+        convs = [cp.conversation_id for cp in ConversationParticipant.query.filter_by(user_id=student_id).all()]
+        assert (Message.query.filter(Message.conversation_id.in_(convs)).count() if convs else 0) == 0
 
 
 @pytest.mark.criterion("DASHBOARD-STUDENT-SETUP-GUIDE-26")
@@ -403,3 +410,54 @@ def test_the_dashboard_payloads_hold_no_setup_guide_block(client, app):
     assert "profile_incomplete" in student_types
     assert student_types <= PLAYER_BLOCK_TYPES
     assert not any("setup" in t for t in student_types | coach_types)
+
+
+@pytest.mark.criterion("DASHBOARD-STUDENT-SETUP-GUIDE-3")
+def test_step_one_writes_alerts_and_their_confirmation_in_one_patch(client, app):
+    student_id, _ = _student(app)
+    res = client.patch("/api/auth/me", headers=_auth(app, student_id),
+                       json={"requestAlerts": True, "setupGuideAlertsConfirmed": True})
+    assert res.status_code == 200, res.data
+    body = res.get_json()
+    assert (body["requestAlerts"], body["setupGuide"]["alertsConfirmed"]) == (True, True)
+
+
+@pytest.mark.criterion("DASHBOARD-STUDENT-SETUP-GUIDE-19")
+def test_an_account_with_no_player_row_cannot_write_guide_keys(client, app):
+    from padel_app.models.users import User
+
+    with app.app_context():
+        u = _user("Admin 839", "pad839_admin")
+        db.session.commit()
+        uid = u.id
+    res = client.patch("/api/auth/me", headers=_auth(app, uid), json={"setupGuideHidden": True})
+    assert res.status_code == 403
+    with app.app_context():
+        assert db.session.get(User, uid).setup_guide_hidden_at is None
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-16")
+def test_a_split_schedule_row_keeps_its_schedule_and_a_one_off_clone_leaves_it(client, app):
+    from padel_app.models.calendar_blocks import CalendarBlock
+
+    student_id, _ = _student(app)
+    # One weekly Monday row, 2026-11-16 → 2027-02-15 (JS weekday 1).
+    row = _put(client, app, student_id, [_row("09:00", "11:00", [1], until="2027-02-15")]).get_json()[0]
+    res = client.delete(f"/api/app/availability_blockers/{row['id']}", headers=_auth(app, student_id),
+                        json={"scope": "single", "occDate": "2026-11-23"})
+    assert res.status_code == 204, res.data
+    with app.app_context():
+        rows = CalendarBlock.query.filter_by(user_id=student_id).order_by(CalendarBlock.id).all()
+        assert len(rows) == 2
+        assert all(r.schedule_id == SCHEDULE_ID and r.is_recurring for r in rows)
+        continuation = rows[-1].id
+
+    moved = client.post(f"/api/app/reschedule_block/{continuation}", headers=_auth(app, student_id),
+                        json={"occDate": "2026-12-07", "newDate": "2026-12-08", "newStartTime": "09:00",
+                              "newEndTime": "11:00", "scope": "single"})
+    assert moved.status_code == 204, moved.data
+    with app.app_context():
+        one_offs = CalendarBlock.query.filter_by(user_id=student_id, is_recurring=False).all()
+        assert len(one_offs) == 1 and one_offs[0].schedule_id is None
+        assert all(r.schedule_id == SCHEDULE_ID
+                   for r in CalendarBlock.query.filter_by(user_id=student_id, is_recurring=True).all())
