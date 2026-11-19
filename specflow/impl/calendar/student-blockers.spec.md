@@ -200,3 +200,9 @@ test: `backend/padel_app/tests/test_b727_split_blocker_keeps_suppression.py` ›
 - **When** they GET `/api/app/availability_blockers`, then edit one schedule row on the tab to a one-off
 - **Then** the schedule rows carry the same `scheduleId` and the hand-made block `scheduleId: null`; after the edit, the edited row's `scheduleId` is null and the other keeps it
 test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_the_blockers_list_carries_schedule_id_and_a_one_off_edit_clears_it`
+
+#### CALENDAR-STUDENT-BLOCKERS-16: Splitting a schedule row keeps the continuation in the schedule (rule 18)
+- **Given** a student's schedule row, weekly on Mondays, and the clock pinned
+- **When** the student deletes one Monday's occurrence (`scope: "single"`), and separately moves one occurrence to the Tuesday (`/reschedule_block`, scope single)
+- **Then** the continuation row of the series keeps the row's `schedule_id`, and the moved one-off clone has none
+test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_a_split_schedule_row_keeps_its_schedule_and_a_one_off_clone_leaves_it`

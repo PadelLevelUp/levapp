@@ -194,7 +194,7 @@ test: `backend/padel_app/tests/test_settings_role_authz.py` › `test_student_ca
 - **When** each opens the Profile section
 - **Then** the student sees the `settings-setup-guide` row and the coach does not, and both see the same section lists as before (SETTINGS-ROLE-SCOPE-1 unchanged)
 test: `frontend/apps/web/src/pages/SettingsPage.setup-guide.test.tsx` › `only a student sees Configurar conta inside Profile`
-test: `frontend/apps/mobile/src/features/settings/settings-sections.test.ts` › `only a student sees Configurar conta inside Profile`
+test: `frontend/apps/mobile/src/features/settings/profile-section.test.tsx` › `only a student sees Configurar conta inside Profile`
 
 ### Notes
 - **Admin section leaving (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10

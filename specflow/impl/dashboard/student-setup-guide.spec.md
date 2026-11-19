@@ -48,8 +48,15 @@ behaviour, the spec holds. The design holds on look.
    *Why:* every done signal already exists on the client. Step 2 can only be read on the device, so
    a server block could not compute it anyway. Builds already in the App Store never see a new
    block type, so no capability token is needed (`dashboard.profile-completeness` rule 5 shows what
-   such a token costs). The cost is one more `GET /availability_blockers` when the student
-   dashboard mounts, on both shells.
+   such a token costs).
+   - **Cost:** the guide reads the blockers list and the dashboard payload wherever it is mounted
+     (the dashboard, the avatar ring) only while it is open (not hidden, not ready-closed). The
+     guide's own screens (rule 5) read them always.
+   - **One dashboard window on both shells:** the dashboard payload is read from the device's local
+     midnight to 30 days on (`useDashboardWindow` on web, `use-dashboard-window` on iOS), so the
+     dashboard, the card and the ring share one cache entry per day (criterion 29). *Decision:*
+     the device's midnight, as web already did before PAD-839; the window only names the payload,
+     and a student is almost always in Lisbon's time zone.
 2. **Percent.** `percent = doneCount × const:SETUP_GUIDE_STEP_WEIGHT`, and the text reads
    "N de 5 passos · X%". The 5-part bar is green for a done step, blue for the current step (the
    first pending one, in order) and grey for the rest.
@@ -98,8 +105,7 @@ behaviour, the spec holds. The design holds on look.
      student who leaves a step halfway gets the sheet again on every dashboard open.
    - **The compact card** (`setup-guide-card`) shows "CONFIGURAR CONTA · N DE 5", the percent, the
      bar, "A seguir: {next step}", "Continuar" (`setup-guide-continue`) and "Ver os 5 passos"
-     (`setup-guide-all`, which opens the sheet's list and writes nothing until the student
-     closes it, under the rule above). It sits at the top of the student dashboard, before the
+     (`setup-guide-all`, which opens the guide's overview of rule 5 and writes nothing). It sits at the top of the student dashboard, before the
      `profile_incomplete` card, whenever `percent < 100` and the guide is not hidden. "Continuar",
      or a tap on the card, opens the next pending step.
    - **"Não mostrar mais"**: `PATCH /api/auth/me {setupGuideHidden: true}`. The sheet, the card, the
@@ -125,6 +131,11 @@ behaviour, the spec holds. The design holds on look.
    or skipping a step, goes to the next pending step after it, in order. Done steps are skipped,
    and past the last one the guide returns to the dashboard. Skipping never marks a step done and
    writes nothing.
+   - **The overview** (`setup-guide-overview`; web `/setup`, iOS `/setup-guide`) lists the five
+     steps with the bar and "Continuar" (the next pending step). Each step screen has a back arrow
+     to it. Perfil › Configurar conta and "Ver os 5 passos" open the overview.
+   - **Only a student** reaches the step screens: web routes them for the player role only, and the
+     iOS screen sends a coach back to the dashboard.
 6. **Step 1, "Ativar notificações na LevApp".** The screen lists what the student will get: slot
    invitations, reminders before class, presence confirmations, and the coach's answers to their
    requests. "Ativar notificações" (`setup-alerts-enable`) sends `PATCH /api/auth/me
@@ -274,7 +285,8 @@ behaviour, the spec holds. The design holds on look.
       that would hide a structural key inside a free-text field.
     - **Start date** is the club local today. **End date** follows `calendar.student-blockers`
       rule 16: start + 3 months (Q7 (a), lead 2026-11-19). Rule 18 shows that end and offers
-      "Prolongar".
+      "Prolongar". Saving an edit of a saved schedule keeps its end when that end is today or
+      later, and otherwise gives it start + 3 months.
     - The 30-minute − / + needs no model change: rows hold `HH:MM` times.
 11. **The Disponibilidade tab is unchanged.** Rows a schedule wrote are listed there one by one, like
     any other block, and can be edited or deleted there one by one (`calendar.student-blockers`
@@ -305,6 +317,7 @@ behaviour, the spec holds. The design holds on look.
     - **Line under the button:** "O {coach} recebe-o na LevApp." *(OQ-E assumption, in place of "…
       na LevApp e por email".)* No notice and no email are added.
     - The student can never mark this step done. Step 5 has no "Saltar".
+    - **With no coach**, the screen says so and has a button to step 4 (`setup-profile-to-coach`).
 14. **The `/auth/me` contract** (additive keys only; `settings.profile` rule 12).
     - **`GET` returns** `setupGuide: {snoozedAt: ISO-8601 UTC|null, hidden: bool, readyClosed:
       bool, alwaysAvailable: bool, alertsConfirmed: bool}` for every account
@@ -438,7 +451,8 @@ test: `frontend/packages/config/src/student-setup-guide.test.ts` › `percent is
 - **When** they land on the dashboard for the first time
 - **Then** the sheet is open and reads "1 de 5 passos · 20%", step 4 reads "Feito", and step 1 is the current step
 test: `frontend/apps/web/e2e/dashboard/student-setup-guide.spec.ts` › `[DASHBOARD-STUDENT-SETUP-GUIDE-2] a student who joined by link opens the guide at 20%`
-test: `frontend/apps/mobile/.maestro/flows/<next>-setup-guide-first-login.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-2`)
+test: `frontend/apps/mobile/.maestro/flows/337-setup-guide-first-login.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-2`)
+test: `frontend/apps/mobile/src/features/setup-guide/setup-guide-card.test.tsx` › `a student who joined by link opens at 20% with the coach step done`
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-3: Step 1 is done only once confirmed, and Settings agrees (rules 3.1, 6) *(OQ-8)*
 - **Given** a new student at 20% (coach step done), whose `requestAlerts` is ON by default and not confirmed; and a second student at 20% who switched `requestAlerts` off in Settings
@@ -461,7 +475,7 @@ test: `frontend/packages/config/src/student-setup-guide.test.ts` › `the sheet 
 - **When** they press "Não mostrar mais" on one device, then sign in on a second device
 - **Then** neither device shows the sheet, the card, the avatar ring or "Conta pronta", `GET /api/auth/me` returns `setupGuide.hidden: true`, and Perfil › Configurar conta (`settings-setup-guide`) opens the guide at 40%
 test: `frontend/apps/web/e2e/dashboard/student-setup-guide.spec.ts` › `[DASHBOARD-STUDENT-SETUP-GUIDE-5] hide holds on a second session and Configurar conta still opens it`
-test: `frontend/apps/mobile/.maestro/flows/<next>-setup-guide-hide.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-5`)
+test: `frontend/apps/mobile/.maestro/flows/338-setup-guide-hide.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-5`)
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-6: The compact card opens the next pending step, and steps skip what is done (rules 4, 5)
 - **Given** a student with steps 1 and 4 done who snoozed the sheet
@@ -499,7 +513,7 @@ test: `frontend/apps/web/src/utils/pushNotifications.test.ts` › `isIosBrowserW
 - **And** the summary reads "Não recebes convites nem lembretes todos os dias, das 09:00 às 11:00 e das 15:00 às 20:00."
 test: `frontend/packages/config/src/availability-schedule.test.ts` › `same every day with two periods makes two rows on the chosen days`
 test: `frontend/apps/web/e2e/availability/schedule-editor.spec.ts` › `[DASHBOARD-STUDENT-SETUP-GUIDE-10] two periods every day`
-test: `frontend/apps/mobile/.maestro/flows/<next>-schedule-editor-same.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-10`)
+test: `frontend/apps/mobile/.maestro/flows/339-schedule-editor-same.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-10`)
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-11: Hours that vary per day are saved as one row per distinct interval (rules 9, 10)
 - **Given** the editor in "Igual" with Seg–Sex chosen ("Dias úteis") and 09 › 11 and 15 › 20, switched to "Varia por dia" (each weekday now holds both periods, Seg open)
@@ -508,7 +522,7 @@ test: `frontend/apps/mobile/.maestro/flows/<next>-schedule-editor-same.yaml` (ta
 - **And** "A tua semana" reads "09–11 · 15–20" for Mon, Thu and Fri, "09–20" for Tue, "09–11" for Wed and "Livre" for Sat and Sun
 - **And** `blockersToSchedule` of those rows reopens the same week, in "Varia"
 test: `frontend/packages/config/src/availability-schedule.test.ts` › `varies per day coalesces equal intervals and round-trips`
-test: `frontend/apps/mobile/.maestro/flows/<next>-schedule-editor-varies.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-11`)
+test: `frontend/apps/mobile/.maestro/flows/340-schedule-editor-varies.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-11`)
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-12: The grid's taps make, merge, free and fill one hour, exactly as rule 9 says (rule 9)
 - **Given** an empty day
@@ -547,7 +561,7 @@ test: `frontend/packages/config/src/student-setup-guide.test.ts` › `step 3 nee
 test: `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx` › `always available saves and moves on`
 test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx` › `always available saves and moves on`
 
-#### DASHBOARD-STUDENT-SETUP-GUIDE-16: A preset saves its rows in one tap (rule 8)
+#### DASHBOARD-STUDENT-SETUP-GUIDE-16: A preset saves its rows in one save (rule 8)
 - **Given** step 3 with "Trabalho em dias úteis" selected
 - **When** the student presses "Guardar e continuar"
 - **Then** one row, weekly Mon–Fri 09:00–18:00 and titled "Trabalho" (`const:SCHEDULE_PRESETS`), is saved under a new `scheduleId`, step 3 is done, and the next pending step after it opens (rule 5: step 5 for a student already linked to a coach)
@@ -647,6 +661,25 @@ test: `frontend/packages/config/src/availability-schedule.test.ts` › `schedule
 test: `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx` › `shows the end and Prolongar extends every row`
 test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx` › `shows the end and Prolongar extends every row`
 
+#### DASHBOARD-STUDENT-SETUP-GUIDE-29: The dashboard and the guide read one dashboard window per day (rule 1)
+- **Given** a student on the same day at 09:00 and at 21:30 (device time), and the next day at 00:10
+- **When** each shell computes the dashboard window
+- **Then** it is the device's local midnight of that day to 30 days later, the same at 09:00 and 21:30, and the next day's at 00:10
+test: `frontend/apps/web/src/hooks/useDashboardWindow.test.ts` › `one window per local day, from midnight to 30 days on`
+test: `frontend/apps/mobile/src/features/dashboard/use-dashboard-window.test.ts` › `one window per local day, from midnight to 30 days on`
+
+#### DASHBOARD-STUDENT-SETUP-GUIDE-30: An account the blockers list refuses is not a student for the guide (rule 3a)
+- **Given** a non-coach account whose `GET /availability_blockers` answers 403 (no player row)
+- **When** `setupGuideState` runs with that refusal
+- **Then** `student` is false and no surface shows (no sheet, card, skeleton, ring or ready card)
+test: `frontend/packages/config/src/student-setup-guide.test.ts` › `an account the blockers list refuses is not a student`
+
+#### DASHBOARD-STUDENT-SETUP-GUIDE-31: A saved schedule's card says its hours, whichever mode it was saved in (rules 8, 10)
+- **Given** the saved rows of criterion 10 ("Igual") and of criterion 11 ("Varia")
+- **When** step 3 shows each saved schedule
+- **Then** the first reads its days and "09–11 · 15–20", and the second lists each day with hours ("seg 09–11 · 15–20", "ter 09–20", …), never "Livre" for a day that has hours
+test: `frontend/packages/config/src/availability-schedule.test.ts` › `a saved schedule's card text in either mode`
+
 ### Waves
 1. **Migration and server** (4, 14 backend, 15 backend, 17 backend, 19, 20 backend, 26, 27, and
    CALENDAR-STUDENT-BLOCKERS-15):
@@ -678,6 +711,7 @@ test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.ts
 4. **Editor and step 3 on web and iOS.** Presets, the schedule editor and always-available: 6
    (needs step 3), 10, 11, 13 (render), 14, 15 (UI), 16.
 5. **End date and Prolongar (Q7 (a)), and step 2's prompt path (OQ-C (a)):** 8, 28.
+6. **Review fixes (2026-11-19):** 29, 30, 31.
 
 ### Open questions
 - **Decision (lead, 2026-11-19): Q7 → (a).** Guide-made recurring schedules end as today,
@@ -773,6 +807,9 @@ test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.ts
   - The editor widens odd minutes (rule 9).
   - A tab edit to one-off leaves the schedule (rule 11).
   - No Android lane (rule 16).
+  - The summary sentence, the day names in it and the name chips stay Portuguese in both locales
+    for now (rule 9; the design's wording). An English student sees them in Portuguese inside an
+    otherwise English guide. Translating them is a follow-up (review 2026-11-19).
 - Every quoted ask in PAD-839 maps to a criterion above or to one of these questions. The ticket's
   acceptance line "blocks have a real effect: no invitations or reminders, and those hours left
   out of booking" maps to criterion 26. The ticket's seven tests map as follows:
