@@ -499,6 +499,9 @@ Paths: `P/` = `frontend/packages`. Waves are ordered so no wave asserts what a l
     stay in the database, unseen.
   - (b) Keep them: a fourth block after Assiduidade, or a section of Informação; no amendment.
   - Until answered, rule 4 keeps the card after Block 3, as today.
+  - **Decision (lead, 2026-11-19):** no owner answer came, so PAD-834 is built without it. The
+    strengths-and-weaknesses card stays where it is, unchanged, after Block 3, on web and iOS, and
+    wave 7 waits for the owner. Q5 and Q6 are built as the assumptions above.
 - **Q5 (owner, unanswered; assumption written).** "Cancelar convite" — assumed (a): reuse the
   placeholder delete of `players.remove` (rules 7 and 9 there); depends: `players.remove` rules 7
   and 9, PLAYERS-REMOVE-10, the label in this spec's rules 4 and 11; wave 6. Option (b),
