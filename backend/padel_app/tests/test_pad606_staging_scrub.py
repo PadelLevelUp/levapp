@@ -30,6 +30,7 @@ NON_PERSONAL = {
     "app_settings.key", "app_settings.value",
     "bulk_imports.status", "bulk_imports.summary", "bulk_imports.record_ids",  # counts and ids
     "calendar_blocks.type", "calendar_blocks.recurrence_rule",
+    "calendar_blocks.schedule_id",  # PAD-839: a random id grouping one schedule's rows, not personal
     "class_join_requests.status",
     "class_requests.invitee_player_ids", "class_requests.recurrence", "class_requests.status",
     "class_requests.decided_by",
