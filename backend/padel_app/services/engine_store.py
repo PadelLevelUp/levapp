@@ -247,7 +247,18 @@ class TableStore:
                 self._lock_student(pid)
             for sid in sorted(int(s) for s in sessions):
                 db.session.query(LessonInstance.id).filter(LessonInstance.id == sid).with_for_update().one_or_none()
+                self._coach_sides(sid)
             yield
+
+    @staticmethod
+    def _coach_sides(iid: int) -> None:
+        """Rule 9: a going presence whose side for the session (the coach's, PAD-551) is set and is not the
+        side the engine holds takes it, so a ``CoachSetsSide`` that failed after its commit heals here."""
+        from padel_app.models.presences import Presence
+
+        for p in Presence.query.filter_by(lesson_instance_id=iid).all():
+            if _going(p) and p.side in ("left", "right") and p.assigned_side != p.side:
+                p.assigned_side = p.side
 
     # --- reading -------------------------------------------------------------------------
 
@@ -556,7 +567,10 @@ class TableStore:
     @staticmethod
     def _placement(p) -> Placement:
         how = p.placed_how or ("regular" if p.enrolment_source == "roster" else "invitation")
-        return Placement(str(p.player_id), SIDE_FROM_APP.get(p.assigned_side), how, p.placed_at or p.created_at)
+        side = SIDE_FROM_APP.get(p.assigned_side)
+        # engine-store rule 9: firm when the coach's side for the session is the one held.
+        firm = side is not None and SIDE_FROM_APP.get(p.side) == side
+        return Placement(str(p.player_id), side, how, p.placed_at or p.created_at, firm=firm)
 
     @staticmethod
     def _invitation(r) -> Invitation:
@@ -856,12 +870,16 @@ class TableStore:
             presence.status, presence.justification, presence.left_reason = None, None, None
             presence.placed_how, presence.placed_at = e.how, e.at
             presence.assigned_side = SIDE_TO_APP[e.side]
+            if presence.side in ("left", "right") and presence.side != presence.assigned_side:
+                presence.side = None            # rule 9: a side the coach chose for an earlier stay, not this one
         elif isinstance(e, fx.SideAssigned):
             presence = self._presence(e)
             before = SIDE_FROM_APP.get(presence.assigned_side)
             if before is not None and before != e.side:            # a first side is not a move
                 presence.side_moved_at = e.at
             presence.assigned_side = SIDE_TO_APP[e.side]
+            if e.firm:                                             # rule 9: readers agree with the engine
+                presence.side = SIDE_TO_APP[e.side]
         elif isinstance(e, fx.Left):
             presence = self._presence(e)
             if presence is not None:

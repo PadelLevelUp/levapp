@@ -1,6 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as playersApi from "@levelup/api/src/resources/players";
 import * as presencesApi from "@levelup/api/src/resources/presences";
+import * as presencesViewApi from "@levelup/api/src/resources/presencesView";
+import type { CoachPresencesView } from "@levelup/types";
 import { queryKeys } from "./queryKeys";
 import type { QueryOverrides } from "./queries";
 
@@ -19,25 +21,37 @@ export function useCoachRoster(options?: { enabled?: boolean }) {
   });
 }
 
-export function usePresenceStats() {
+/** The tab's one period (attendance.validation rule 17g): bare inclusive `YYYY-MM-DD` bounds. */
+export interface PresencePeriodBounds {
+  from: string;
+  to: string;
+}
+
+/** `period`: the tab's period, sent as `from`/`to`; `undefined` is the server's default window. */
+export function usePresenceStats(period?: PresencePeriodBounds) {
   return useQuery({
-    queryKey: queryKeys.presenceStats,
-    queryFn: () => presencesApi.getPresenceStats(),
+    queryKey: queryKeys.presenceStats(period?.from, period?.to),
+    queryFn: () => presencesApi.getPresenceStats(period ? { from: period.from, to: period.to } : {}),
   });
 }
 
 /**
  * `playerIds`: the players the filter left visible, so the over-time chart follows the filters.
- * `undefined` is the whole roster.
+ * `undefined` is the whole roster. `period`: the same bounds the stats read (rule 17g).
  */
 export function usePresenceTrend(
   playerIds?: number[],
+  period?: PresencePeriodBounds,
   options?: QueryOverrides<Awaited<ReturnType<typeof presencesApi.getPresenceTrend>>>
 ) {
   const key = playerIds ? [...playerIds].sort((a, b) => a - b).join(",") : "all";
   return useQuery({
-    queryKey: queryKeys.presenceTrend(key),
-    queryFn: () => presencesApi.getPresenceTrend(playerIds ? { playerIds } : {}),
+    queryKey: queryKeys.presenceTrend(key, period?.from, period?.to),
+    queryFn: () =>
+      presencesApi.getPresenceTrend({
+        ...(period ? { from: period.from, to: period.to } : {}),
+        ...(playerIds ? { playerIds } : {}),
+      }),
     ...options,
   });
 }
@@ -65,8 +79,34 @@ export function useInvalidatePresences() {
   const queryClient = useQueryClient();
   return () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.presenceStats }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.presenceStatsPrefix }),
       queryClient.invalidateQueries({ queryKey: queryKeys.presenceTrendPrefix }),
       queryClient.invalidateQueries({ queryKey: queryKeys.presencePendingPrefix }),
     ]);
+}
+
+/**
+ * settings.coach-presences-view rule 5 (PAD-837b): the coach's saved columns, read once per mount.
+ * No refocus or reconnect refetch (a late answer must never move columns the coach is looking at;
+ * the screens also ignore one that lands after a choice); a failed load is not retried into the
+ * screen: it shows the column list's defaults.
+ */
+export function useCoachPresencesView() {
+  return useQuery({
+    queryKey: queryKeys.coachPresencesView,
+    queryFn: () => presencesViewApi.getCoachPresencesView(),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+}
+
+/** Saves the whole view (rule 4); the cache takes the server's answer so a re-open reads it back. */
+export function useSaveCoachPresencesView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (view: CoachPresencesView) => presencesViewApi.putCoachPresencesView(view),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.coachPresencesView, saved);
+    },
+  });
 }

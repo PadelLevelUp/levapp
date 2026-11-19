@@ -37,3 +37,10 @@ describe("the class screen renders the server's comeBack (PAD-684 rule 28)", () 
     expect(SCREEN).toContain('testID="class-declined-hint"');
   });
 });
+
+describe("the join block's status line (calendar.event-detail rule 26, PAD-842)", () => {
+  it("[CALENDAR-EVENT-DETAIL-39] takes it from the shared joinRequestStatusKey, never the raw status", () => {
+    expect(SCREEN).toMatch(/joinRequestStatusKey\(instance\?\.myJoinRequest\)[\s\S]{0,200}testID="class-join-request-status"/);
+    expect(SCREEN).not.toContain("t(`calendar.joinRequest.${instance.myJoinRequest.status}`)");
+  });
+});

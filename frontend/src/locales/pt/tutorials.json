@@ -140,6 +140,7 @@
       "studentHasNoLevel": "o aluno não tem nível atribuído",
       "levelNotInLadder": "o nível do aluno não está na tua escada de níveis",
       "unknownOperation": "a fasquia usa uma regra de nível que o servidor não reconhece, por isso ninguém a cumpre",
+      "unknownRule": "a fasquia usa uma regra que o servidor não reconhece, por isso ninguém a cumpre",
       "absencesOver": "acima do limite de faltas injustificadas ({{actual}}, limite {{threshold}})",
       "justifiedAbsences": "faltas justificadas fora do limite ({{actual}}, limite {{threshold}})",
       "attendanceUnder": "assiduidade fora do limite ({{actual}}%, limite {{threshold}}%)",

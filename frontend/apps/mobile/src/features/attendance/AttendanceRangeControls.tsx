@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { isValidCustomRange, lightTheme } from "@levelup/config";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Text } from "@/components/ui/text";
 import {
-  isValidCustomRange,
   type AttendanceRange,
   type AttendanceRangePreset,
 } from "./date-ranges";

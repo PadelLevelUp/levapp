@@ -19,13 +19,23 @@ import { useToast } from "@/hooks/use-toast";
 import { PresenceCharts } from "@/components/presences/PresenceCharts";
 import { PresencePlayersTable } from "@/components/presences/PresencePlayersTable";
 import {
+  PresencePeriodControl,
+  type PresencePeriodChoice,
+} from "@/components/presences/PresencePeriodControl";
+import { usePresencesView } from "@/components/presences/usePresencesView";
+import {
   ValidateClassesDialog,
   type RosterOption,
 } from "@/components/presences/ValidateClassesDialog";
 import { unvalidateClass, validateClassPresences } from "@/api/presences";
 import { toIsoDate, weekBounds } from "@/components/attendance/dateRanges";
 import type { PresencePlayerStats } from "@/types";
-import { chartScope, narrowedTotals } from "@levelup/config";
+import {
+  chartScope,
+  narrowedTotals,
+  presencePeriod,
+  presencePeriodShortcuts,
+} from "@levelup/config";
 
 
 /**
@@ -92,9 +102,25 @@ export default function PresencesPage() {
 
   const week = useMemo(() => weekBounds(weekOffset), [weekOffset]);
 
+  // PAD-837 (attendance.validation rules 17f, 17g): the coach's saved view holds the columns and
+  // the default period; the tab opens on that default, and a period picked here lasts this visit.
+  // The validation week above is its own state and never follows the period (rule 17a, Q4).
+  const view = usePresencesView();
+  const [picked, setPicked] = useState<PresencePeriodChoice | null>(null);
+  const choice: PresencePeriodChoice = picked ?? { shortcut: view.defaultPeriod };
+  const choiceKey = "shortcut" in choice ? choice.shortcut : `${choice.from}/${choice.to}`;
+  // "Esta época" stays out of this release (Q5): no season lookup here yet.
+  const shortcuts = presencePeriodShortcuts(null);
+  const period = useMemo(
+    () => ("shortcut" in choice ? presencePeriod(choice.shortcut) : choice) ?? undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [choiceKey]
+  );
+
   // client.query-cache rule 6: the page reads through the shared hooks; the cache is what makes a
-  // return inside the stale window instant, and a write invalidates the keys it changes.
-  const statsQuery = usePresenceStats();
+  // return inside the stale window instant, and a write invalidates the keys it changes. Stats
+  // and trend read the same period, keyed by it (rule 17g).
+  const statsQuery = usePresenceStats(period);
   const stats = statsQuery.data ?? null;
   const loadingStats = statsQuery.isPending;
 
@@ -115,7 +141,7 @@ export default function PresencesPage() {
     return () => window.clearTimeout(handle);
   }, [filteredIdsKey]);
   // The previous series stays on screen while the next one arrives (rule 5).
-  const trendQuery = usePresenceTrend(trendPlayerIds, { placeholderData: keepPreviousData });
+  const trendQuery = usePresenceTrend(trendPlayerIds, period, { placeholderData: keepPreviousData });
   const trend = trendQuery.data ?? null;
 
   useEffect(() => {
@@ -254,6 +280,15 @@ export default function PresencesPage() {
           />
         </div>
 
+        <PresencePeriodControl
+          shortcuts={shortcuts}
+          choice={choice}
+          echoed={stats ? { from: stats.from, to: stats.to } : null}
+          defaultPeriod={view.defaultPeriod}
+          onChoose={setPicked}
+          onMakeDefault={view.makeDefault}
+        />
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile
             icon={CalendarCheck}
@@ -298,6 +333,8 @@ export default function PresencesPage() {
           players={stats?.players ?? []}
           loading={loadingStats}
           onFilteredChange={setFilteredPlayers}
+          columns={view.columns}
+          onChooseColumn={view.chooseColumn}
         />
       </div>
     </AppLayout>

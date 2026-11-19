@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_REQUEST_DURATIONS,
+  classRequestRefusalLines,
   clubDateOfInstant,
   clubTodayISO,
   lightTheme,
@@ -100,6 +101,9 @@ export function ClassRequestsSection({
   }, [proposeFor, role, requests.data]);
 
   const refusalText = (err: unknown, fallback: string) => {
+    // B-729 (rule 4a): a same-hour refusal names each clash, the coach's words or the student's.
+    const lines = classRequestRefusalLines(err, role, i18n.language);
+    if (lines) return lines.map((line) => t(line.key, line.params)).join("\n");
     const refusal = classRequestsApi.classRequestRefusal(err);
     return refusal ? t(`classRequests.refusal.${refusal.code}`) : fallback;
   };

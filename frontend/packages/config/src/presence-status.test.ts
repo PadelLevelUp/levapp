@@ -9,7 +9,6 @@ import {
   prefillMark,
   toMark,
   undecidedCount,
-  presentCount,
   presenceMarkTone,
   validationGroup,
 } from "./presence-status";

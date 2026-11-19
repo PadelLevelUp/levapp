@@ -182,6 +182,17 @@ three separate fields on it. Decision record:
     - Clients (PAD-672 S2/S3 UI; numbering unconfirmed): web and iOS participant rows, the
       participant pop-up/sheet and the student's own row read "Ambos → esquerda" / "Ambos → direita"
       for a `both` player with an `assignedSide`; null keeps today's label.
+    - **A one-sided player placed on the other side (PAD-819).** The coach's participant rows and the
+      participant pop-up/sheet, on web and iOS, also read "<side> → <assigned>" ("Esq → Dir" /
+      "Esquerda → direita", "Left → Right" / "Left → right") for a `left` or `right` player whose
+      served `assignedSide` is the other side. The side compared is the player's side in this
+      occurrence (rule 13's override, else the profile). An `assignedSide` equal to that side keeps
+      today's label. The student's own row stays `both`-only: the invitation already named the side
+      (`notifications.engine-settings` rule 4, D11). The server already serves a stored
+      `assigned_side` for anyone; a one-sided player has one only on a new-engine session, where the
+      engine's placement stores the side of the spot it filled (`notifications.engine-store`). On an
+      old-engine class `assigned_side` is stored only at the class's start and only for `both`
+      players, so a one-sided player there reads as before.
 14. **On a new-engine session, enrolment writes only the presence (PAD-916; swap decision 1).** When the
     new engine's store places a student (`enrol(..., new_engine=True)`, a session on the new engine by
     `notifications.config` rule 18), `enrol()` writes the presence row and, for a return (rule 10),
@@ -387,7 +398,7 @@ test: `backend/padel_app/tests/test_pad672_both_players_side_when_full.py` › `
 - **Given** a `both` player whose `assignedSide` for the class is `left`
 - **When** the participant list, the participant sheet or the student's own class view shows them
 - **Then** the side reads "Ambos → esquerda" in Portuguese and "Both → left" in English
-- **And** a player who is not `both`, or a class that still has a place, reads as before and the student's own line is not shown
+- **And** a `both` player in a class that still has a place reads as before, and a one-sided player's own line is not shown; a one-sided player's row follows CLASSES-INSTANCE-ENROLLMENT-42
 test: `frontend/apps/mobile/src/features/calendar/class-s23-render.test.ts` › `the labels read Ambos → esquerda / direita in pt and Both → left / right in en` (+6 more)
 
 #### CLASSES-INSTANCE-ENROLLMENT-26: A coach's re-add into a class that has since filled is not refused (rule 10)
@@ -484,6 +495,14 @@ test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_the_
 - **Then** the edit answers 200, the presence is gone, and the failure is logged
 test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_a_failed_removal_notice_never_fails_the_edit`
 
+#### CLASSES-INSTANCE-ENROLLMENT-42: A one-sided player placed on the other side reads "side → other side" in the coach's list (rule 13a, PAD-819)
+- **Given** a `left` player whose served `assignedSide` is `right` (a new-engine session placed them on a right spot), and a `left` player whose `assignedSide` is `left`
+- **When** the coach's participant list or the participant pop-up/sheet shows them, on web and on iOS
+- **Then** the first reads "Esq → Dir" on the chip and "Esquerda → direita" in the long form in Portuguese, "Left → Right" and "Left → right" in English, and a `right` player on the left reads "Dir → Esq" / "Direita → esquerda"
+- **And** the second reads "Esq" / "Esquerda" as before
+- **And** a player whose side for this class was set to `right` by the coach (rule 13) with `assignedSide` `right` reads "Dir" as before
+test: `frontend/packages/config/src/participant-groups.test.ts` › `[CLASSES-INSTANCE-ENROLLMENT-42] a one-sided player on the other side reads side → other side` (+2 more)
+
 ### Today (PAD-928)
 - Coach removal from one date: `backend/padel_app/services/lesson_service.py` `_edit_class_service` (`payload["remove_player_ids"]`
   about line 1789; scope `single` → `edit_lesson_instance_helper` or, for a virtual occurrence, `create_lesson_instance_helper`
@@ -508,6 +527,9 @@ test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_a_fa
 - Rule numbers assigned by Session H on 2026-09-11, unconfirmed by the coordinator.
 
 ### Open questions
+- **The student's own row stays `both`-only for a one-sided player placed on the other side (PAD-819, agent 3,
+  engine stream; the lead can reverse it).** The ticket asks for the coach's list. The student was told the side
+  in the invitation (D11), and their own row has no side line today for a one-sided player.
 - **A student already `absent` on that date gets no removal notice (PAD-928, messages-m3; the lead can reverse it).**
   They gave the date up themselves; the ticket's "only when the coach removes" is about who acts, and a notice for a
   date the student already declined is noise.

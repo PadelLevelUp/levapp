@@ -30,6 +30,23 @@ appId: com.padellevelup.app
       id: "dashboard-week-pulse"
     direction: DOWN
     timeout: 20000
+# PAD-710 (Android lane): the container scroll stops at a 43 px sliver and the cards are not in the hierarchy (nightly 13 Nov, run 43411226793); scroll to the cards themselves.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "dashboard-pulse-seats-filled"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
+      - scrollUntilVisible:
+          element:
+            id: "dashboard-pulse-active-players"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
 - assertVisible:
     id: "dashboard-pulse-seats-filled"
     text: "Seats filled: [0-9]+%"

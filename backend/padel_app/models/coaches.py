@@ -36,6 +36,10 @@ class Coach(db.Model, model.Model):
     # set (classes.availability falls back to 08:00-22:00 everywhere).
     working_hours = Column(JSON, nullable=True)
 
+    # settings.coach-presences-view (PAD-837b): the columns the coach shows on the Presences tab,
+    # `{"columns": ["total", ...]}`; NULL = not set (the shells show the list's defaults).
+    presences_view = Column(JSON, nullable=True)
+
     approval_status = Column(
         Enum("pending", "approved", "rejected", name="coach_approval_status"),
         nullable=False,

@@ -15,6 +15,7 @@ The settings domain.
   "Understand invites" (data from `notifications.invite-simulation`)
 - `settings.unsaved-edits` — implemented (PAD-394 / B-157: leaving a section with unsaved edits asks "Descartar alterações?"; warn, not hold)
 - `settings.explicit-save` — implementing (PAD-506: nothing in Settings is saved until the tab's one "Guardar alterações"; leaving with unsaved edits asks. Replaced PAD-473's save-on-change, whose spec was retired)
+- `settings.coach-presences-view` — draft (PAD-837b: the coach's Presences-tab columns, kept on their account; serves `P-ATTENDANCE-1`)
 
 ## Why it's grouped this way
 

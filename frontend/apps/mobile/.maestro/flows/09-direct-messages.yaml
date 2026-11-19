@@ -9,6 +9,10 @@
 # (seed.py creates exactly one conversation). Opening it marks it read, so
 # the unread-badge assertion happens first.
 appId: com.padellevelup.app
+# PAD-710: Android product bug, messaging.conversation-detail rule 10 (thread landing/scroll): after sending, the thread stays at its first-unread landing and the coach's own message is not scrolled into view (seen 6-13 Nov, 13 Nov nightly 43411226793 shard 1).
+# Android only; PAD-710 does not close while tagged. Ticket id to follow from the messages stream.
+tags:
+  - android-open-defect
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

@@ -339,6 +339,16 @@ approval.**
     or "Faltou".
    - Code to follow: make `classEnded` a required prop of web `AttendanceRow.tsx` and iOS `ParticipantRow`,
      and pass it from every caller.
+26. **The accepted-request line shows only while the student holds a place (PAD-842; numbering
+    unconfirmed).** The student's join block (the request button, PAD-131) shows only while the
+    student holds no place in the occurrence. Its status line names the student's latest request
+    (`myJoinRequest`). An accepted request stays `accepted` after the place it gave is gone: the
+    student cancelled, or the coach removed them. Read there, "Está marcado! Estás inscrito/a nesta
+    aula." (`classes.join-requests` rule 19) then sits beside "Pedir para entrar" and says the
+    opposite. So the join block never shows the accepted line; the student's own state section says
+    they are booked while they are. A pending request keeps its line, a refused or superseded one
+    keeps its own, and a withdrawn one shows none, as before. One helper in `@levelup/config`
+    (`joinRequestStatusKey`) decides it for web and iOS.
 
 ### Acceptance Criteria
 
@@ -611,6 +621,19 @@ test: `frontend/apps/mobile/src/features/calendar/class-detail-new-engine.test.t
 - **When** the coach reads each class
 - **Then** the old-engine invitee has no `tierSource` key at all, and the manual one has `tierSource` null; the shared helper shows "convite manual" only for the second
 test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_an_old_engine_invitee_carries_no_tier_source`
+
+#### CALENDAR-EVENT-DETAIL-38: An accepted request whose place is gone shows no "Está marcado!" beside the request button, on web (rule 26, PAD-842)
+- **Given** a student with no place in an occurrence that has an open spot, whose latest request for it is `accepted`
+- **When** she opens the class on web
+- **Then** the join block shows "Pedir para entrar" and no "Está marcado!" line
+- **And** with her latest request `pending`, the block shows the pending line; with it `rejected`, the refused line
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.tsx` › `shows no accepted line beside the request button once the place is gone`
+
+#### CALENDAR-EVENT-DETAIL-39: The same on iOS, from the same helper (rule 26, PAD-842)
+- **Given** the shared helper `joinRequestStatusKey`
+- **Then** it gives no key for `accepted` and `withdrawn` (or no request), and `calendar.joinRequest.<status>` for `pending`, `rejected` and `superseded`
+- **And** the iOS class screen's join block takes its status line from that helper
+test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no line for an accepted or withdrawn request` (+1 more)
 
 ### Open questions
 - "N pending" on a new-engine session — decision (S, owner away, PAD-913; the owner can reverse it): it counts counting invitations only, because an invitation that no longer counts holds no spot; the row still shows it as "not counting".

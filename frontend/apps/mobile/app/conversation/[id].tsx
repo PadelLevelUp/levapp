@@ -7,7 +7,7 @@ import {
   messagesApi,
   notificationEngineApi,
 } from "@levelup/api";
-import { groupByDay, isEngineInvite, lightTheme, messageDayLabel } from "@levelup/config";
+import { classRequestRefusalLines, groupByDay, isEngineInvite, lightTheme, messageDayLabel } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
@@ -1162,10 +1162,12 @@ export default function ConversationScreen() {
       toast.success(t(accept ? "classRequests.accepted" : studentAnswers ? "classRequests.answered" : "classRequests.declined"));
     } catch (err) {
       // A stale bubble (the request moved on) gets the server's 409 code and
-      // re-reads — never an error screen.
+      // re-reads — never an error screen. B-729 (rule 4a): a same-hour refusal names each clash.
+      const lines = classRequestRefusalLines(err, studentAnswers ? "student" : "coach", i18n.language);
       const refusal = classRequestsApi.classRequestRefusal(err);
       toast.error(
-        refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong")
+        lines ? lines.map((line) => t(line.key, line.params)).join("\n")
+          : refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong")
       );
     } finally {
       setRespondingClassRequestId(null);

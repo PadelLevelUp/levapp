@@ -99,5 +99,16 @@ onFlowComplete:
       id: "tutorial-round-1"
     direction: DOWN
     timeout: 30000
+# PAD-710 (Android lane): the first-batch badge sits in a later round, below a clipped round-1 card, so the round-1 scroll above does not reach it (nightlies 6-13 Nov, run 42203817602); scroll to the badge itself.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "tutorial-send-status-first_batch"
+          direction: DOWN
+          timeout: 30000
+          centerElement: true
 - assertVisible:
     id: "tutorial-send-status-first_batch"

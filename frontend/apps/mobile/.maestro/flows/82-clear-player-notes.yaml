@@ -47,8 +47,22 @@ onFlowComplete:
       id: "player-notes"
     direction: DOWN
     timeout: 30000
-- tapOn:
-    id: "player-notes"
+# PAD-710 (Android lane): a tap in the middle of the box puts the cursor mid-text, and eraseText
+# only deletes what is before it: step 2 left "\ned" and the server saved "ed" (run 43947141933).
+# On Android, tap the box's bottom-right corner, which puts the cursor after the last character.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: "player-notes"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "player-notes"
+          point: "95%, 85%"
 # The box holds the SEEDED note: erase it first, or inputText appends (Session-D, first run).
 - eraseText: 60
 - inputText: "Maestro note to be deleted"
@@ -82,8 +96,22 @@ onFlowComplete:
       id: "player-notes"
     direction: DOWN
     timeout: 30000
-- tapOn:
-    id: "player-notes"
+# PAD-710 (Android lane): a tap in the middle of the box puts the cursor mid-text, and eraseText
+# only deletes what is before it: step 2 left "\ned" and the server saved "ed" (run 43947141933).
+# On Android, tap the box's bottom-right corner, which puts the cursor after the last character.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: "player-notes"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "player-notes"
+          point: "95%, 85%"
 - eraseText: 60
 - pressKey: Enter
 - scrollUntilVisible:
