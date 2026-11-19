@@ -11,10 +11,12 @@ appId: com.padellevelup.app
     permissions:
       notifications: unset
 # The notifications alert (see below) can also come up at launch, over the login screen.
+# 90 s, not 30: the first launch after clearState on CI's Android emulator sat on the splash past
+# 30 s (PR #996, run 44555742257, flow 337), while the later flows pass the same subflow warm.
 - extendedWaitUntil:
     visible:
       id: "login-username"
-    timeout: 30000
+    timeout: 90000
     optional: true
 # Both platforms: iOS titles it "... Would Like to Send You Notifications", Android 13+ "Allow LevApp
 # to send you notifications?" (CI grants POST_NOTIFICATIONS, but launchApp's `unset` takes it away);
