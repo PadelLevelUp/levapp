@@ -7210,6 +7210,7 @@ Untagged tests: 4256
   - **SETTINGS-ROLE-SCOPE-12** The menu still asks before dropping an unsaved edit (PAD-447) · unverified
   - **SETTINGS-ROLE-SCOPE-13** The routes a student needs stay open to a student (rule 9) · unverified
   - **SETTINGS-ROLE-SCOPE-14** Only a student sees "Configurar conta", inside Profile (rule 10)
+    - test: `frontend/apps/mobile/src/features/settings/settings-sections.test.ts` › [SETTINGS-ROLE-SCOPE-14] only a student sees Configurar conta inside Profile
     - test: `frontend/apps/web/src/pages/SettingsPage.setup-guide.test.tsx` › [SETTINGS-ROLE-SCOPE-14] only a student sees Configurar conta inside Profile
 - spec **settings.unsaved-edits** (`specflow/impl/settings/unsaved-edits.spec.md`)
   - **SETTINGS-UNSAVED-EDITS-1** Switching tab with an unsaved edit asks first (web)

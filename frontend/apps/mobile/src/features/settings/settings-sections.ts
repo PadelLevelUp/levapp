@@ -155,6 +155,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
  * `isCoach` is the only role signal this app has, so the two audiences are
  * exhaustive: a caller is either a coach or a student.
  */
+/**
+ * settings.role-scope rule 10 (PAD-839): "Configurar conta" is a row inside Profile, shown to a
+ * student only; the section list above does not change.
+ */
+export function showsSetupGuideEntry(isCoach: boolean): boolean {
+  return !isCoach;
+}
+
 export function visibleSections(isCoach: boolean): readonly SettingsSectionDef[] {
   return SETTINGS_SECTIONS.filter(
     (s) =>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SETTINGS_SECTIONS,
+  showsSetupGuideEntry,
   visibleSections,
   type SettingsSectionId,
 } from "./settings-sections";
@@ -114,5 +115,15 @@ describe("the two audiences together", () => {
       // total, unlike two independent booleans.
       expect(coach.has(section.id) || student.has(section.id)).toBe(true);
     }
+  });
+});
+
+describe("Configurar conta (settings.role-scope rule 10, PAD-839)", () => {
+  it("[SETTINGS-ROLE-SCOPE-14] only a student sees Configurar conta inside Profile", () => {
+    expect(showsSetupGuideEntry(false)).toBe(true);
+    expect(showsSetupGuideEntry(true)).toBe(false);
+    // A row inside Profile, not a section: the two section lists are unchanged.
+    expect(visibleSections(false).map((s) => s.id)).not.toContain("setupGuide");
+    expect(visibleSections(true).map((s) => s.id)).not.toContain("setupGuide");
   });
 });
