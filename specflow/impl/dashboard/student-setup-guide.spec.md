@@ -136,12 +136,14 @@ behaviour, the spec holds. The design holds on look.
    Every other guide PATCH (rules 4, 8) updates the session the same way.
 7. **Step 2, "Permitir notificações no telemóvel".** `deviceStepState(platform, permission,
    subscribed)` in `@levelup/config` gives one state per case:
-   - iOS / Android: `undetermined` → `ask` ("Permitir notificações", asks the system: **OQ-C**);
+   - iOS / Android: `undetermined` → `ask` ("Permitir notificações", which asks the system through
+     the Messages banner's own tap, see below);
      `denied` → `open_settings` ("Abrir Definições", `Linking.openSettings()` as
      `notifications-blocked-banner` does, with "Abre Definições › LevApp › Notificações e liga
      Permitir notificações." on iOS, or "Abre Definições › Apps › LevApp › Notificações e liga as
      notificações." on Android); `granted` → `done`.
-   - Web on a computer (`usePushNotifications`): `default` → `ask` (**OQ-C**); `denied` →
+   - Web on a computer (`usePushNotifications`): `default` → `ask` (the subscribe path, see
+     below); `denied` →
      `padlock` ("Clica no cadeado ao lado do endereço e muda Notificações para Permitir." with "Já
      mudei, verificar", which reads the permission again); `granted` and subscribed → `done`;
      `granted` but not subscribed → `ask`, which subscribes without a prompt; no Push API
@@ -154,9 +156,19 @@ behaviour, the spec holds. The design holds on look.
      Mac with touch, and neither `navigator.standalone` nor `display-mode: standalone`).
    - Titles: "Permite notificações no iPhone" / "… no Android" / "Permite notificações no
      navegador".
-   - **Blocked by OQ-C:** the `ask` state's prompt contradicts `messaging.push-notifications`
-     rule 15 and `auth.push-subscription` rule 4. Criterion 8 waits for the owner. Every other
-     state does not prompt, so it does not wait.
+   - **Where the prompt comes from (OQ-C (a), lead 2026-11-19).** The prompt sites stay exactly as
+     `messaging.push-notifications` rule 15 and `auth.push-subscription` rule 4 say. Step 2 adds
+     none:
+     - The step explains first: what arrives and why, on every platform.
+     - On iOS and Android, the step's button IS the Messages banner: step 2 renders the existing
+       `NotificationsBlockedBanner` (`features/notifications/notifications-blocked-banner.tsx`).
+       Its tap is rule 15's "banner's tap". It asks the system only while the permission is
+       undetermined, opens Settings when denied, and re-registers when registration failed.
+     - On web, the button calls `usePushNotifications().subscribe()`, the same user-gesture
+       subscribe path the Messages page's enable prompt uses (`auth.push-subscription` rule 4's
+       B-678 paragraph).
+     - Opening step 2 never prompts on any platform. Since login and restore already prompt on
+       iOS (rule 15), the iOS `ask` state is rare.
 8. **Step 3, "Definir indisponibilidade".** The screen offers the presets in
    `const:SCHEDULE_PRESETS`, picked with one tap (`setup-preset-<key>`). A preview reads "VAI FICAR
    GUARDADO · {name} · Recorrente · {days} · {hours}". The screen also has:
@@ -261,8 +273,8 @@ behaviour, the spec holds. The design holds on look.
     - *Why not group by title:* the name is optional and not unique. *Why not the description:*
       that would hide a structural key inside a free-text field.
     - **Start date** is the club local today. **End date** follows `calendar.student-blockers`
-      rule 16 (today: start + 3 months). **Blocked by Q7**, see Open questions. No criterion here
-      depends on the outcome.
+      rule 16: start + 3 months (Q7 (a), lead 2026-11-19). Rule 18 shows that end and offers
+      "Prolongar".
     - The 30-minute − / + needs no model change: rows hold `HH:MM` times.
 11. **The Disponibilidade tab is unchanged.** Rows a schedule wrote are listed there one by one, like
     any other block, and can be edited or deleted there one by one (`calendar.student-blockers`
@@ -328,6 +340,19 @@ behaviour, the spec holds. The design holds on look.
     and 11 apply to them unchanged. In those hours, no automatic invitation, manual invitation,
     reminder or waiting-list offer reaches the student. `classes.availability` takes those hours
     out of the student's booking options. No suppression code changes.
+18. **A schedule's end and "Prolongar" (Q7 (a)).** A guide-made schedule ends like any recurring
+    blocker (`calendar.student-blockers` rule 16: 3 months after its start).
+    - **Step 3 states the end.** Wherever step 3 shows a saved schedule, it shows its end: the
+      latest `recurrenceEnd` of its rows, as "Termina a {data}" while it is today or later, and
+      "Terminou a {data}" after.
+    - **"Prolongar"** (`setup-schedule-extend`) sets every row of that schedule to one new end:
+      the later of today (club local) and the current end, plus the same 3 months. It goes
+      through the schedule PUT (rule 10), with the rows unchanged except `endDate`.
+    - **After the end** the schedule no longer counts for step 3 (rule 3.3), so the step turns
+      pending again. The saved schedule stays shown, with "Terminou a {data}" and "Prolongar".
+    - **The default length** is the one `blockerDraftToInput` already uses (3 months), exported
+      once from `@levelup/config` `blocker-draft.ts` as `BLOCKER_DEFAULT_MONTHS` and read by the
+      editor and by "Prolongar".
 
 ### Not this spec
 - A server-side "push enabled" flag. Step 2 is per device (OQ-9).
@@ -452,11 +477,12 @@ test: `frontend/apps/mobile/src/features/setup-guide/setup-guide-card.test.tsx` 
 test: `frontend/apps/web/src/components/layout/AppLayout.setup-ring.test.tsx` › `the avatar ring shows the percent for a student until 100`
 test: `frontend/apps/mobile/src/features/setup-guide/avatar-ring.test.tsx` › `the avatar ring shows the percent for a student until 100`
 
-#### DASHBOARD-STUDENT-SETUP-GUIDE-8: Step 2 prompts only after the explanation (rule 7) — BLOCKED by OQ-C
-- **Given** an iPhone whose permission is undetermined
-- **When** the student opens step 2
-- **Then** no system prompt has been shown yet, and pressing "Permitir notificações" shows it once
-test: `frontend/apps/mobile/.maestro/flows/<next>-setup-guide-device-push.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-8`), to be written after OQ-C
+#### DASHBOARD-STUDENT-SETUP-GUIDE-8: Step 2 explains first and prompts only through an existing prompt site (rule 7)
+- **Given** an iPhone whose permission is undetermined, and a desktop browser whose permission is `default`
+- **When** the student opens step 2 on each, and then presses its button
+- **Then** opening the step prompts nothing on either; on iOS the step renders the Messages banner (`NotificationsBlockedBanner`), whose tap asks the system once and registers on a grant; on web the button calls `usePushNotifications().subscribe()` once
+test: `frontend/apps/mobile/src/features/setup-guide/step-device-push.test.tsx` › `opening step 2 prompts nothing, and the button is the Messages banner`
+test: `frontend/apps/web/src/components/setup-guide/StepDevicePush.test.tsx` › `opening step 2 prompts nothing, and the button subscribes`
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-9: `deviceStepState` gives one state per platform and permission (rule 7)
 - **Given** (ios, undetermined), (ios, denied), (ios, granted), (android, denied), (web, default), (web, denied), (web, granted, subscribed), (web, granted, not subscribed), (web, unsupported) and (web on iPhone Safari, any)
@@ -612,6 +638,15 @@ test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_one
 test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_put_with_an_unknown_id_creates_the_schedule`
 test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_another_students_schedule_is_404_and_a_coach_is_403`
 
+#### DASHBOARD-STUDENT-SETUP-GUIDE-28: Step 3 shows a schedule's end, and "Prolongar" moves it (rule 18)
+- **Given** the clock pinned to 2026-11-19 (Lisbon), a guide-made schedule of two rows ending 2027-02-19, and a second one that ended 2026-11-10
+- **When** step 3 renders each, and the student presses "Prolongar" on both
+- **Then** the first reads "Termina a 19/02/2027" and the second "Terminou a 10/11/2026", and step 3 counts only the first
+- **And** "Prolongar" PUTs each schedule with every row's `endDate` set to 2027-05-19 (the later of the end and today, plus 3 months), the rows otherwise unchanged
+test: `frontend/packages/config/src/availability-schedule.test.ts` › `schedule end and Prolongar's new end`
+test: `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx` › `shows the end and Prolongar extends every row`
+test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx` › `shows the end and Prolongar extends every row`
+
 ### Waves
 1. **Migration and server** (4, 14 backend, 15 backend, 17 backend, 19, 20 backend, 26, 27, and
    CALENDAR-STUDENT-BLOCKERS-15):
@@ -642,9 +677,17 @@ test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_ano
    Perfil › Configurar conta: 2, 3, 5, 7, 17, 18, 20 (UI), 22 (UI), 23, 24, 25.
 4. **Editor and step 3 on web and iOS.** Presets, the schedule editor and always-available: 6
    (needs step 3), 10, 11, 13 (render), 14, 15 (UI), 16.
-5. **After OQ-C:** 8.
+5. **End date and Prolongar (Q7 (a)), and step 2's prompt path (OQ-C (a)):** 8, 28.
 
 ### Open questions
+- **Decision (lead, 2026-11-19): Q7 → (a).** Guide-made recurring schedules end as today,
+  following `calendar.student-blockers` rules 16 and 17 (the 3-month default). Step 3 states the
+  end and offers "Prolongar" (rule 18, criterion 28). Option (b) stays a follow-up if the owner
+  later chooses it.
+- **Decision (lead, 2026-11-19): OQ-C → (a).** The prompt sites stay as
+  `messaging.push-notifications` rule 15 and `auth.push-subscription` rule 4 say. Step 2 explains
+  first, and its button prompts only through those sites: the Messages banner component on iOS,
+  and the web subscribe path (rule 7, criterion 8). Option (b) stays a follow-up.
 - **Q7 (STOP, owner): do guide-made recurring blocks end?** Today every recurring blocker the
   clients make ends 3 months after its start (`calendar.student-blockers` rule 16; the edit path
   refuses a null end, rule 17). The promise P-CALENDAR-4 says "recurring on chosen weekdays
