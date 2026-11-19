@@ -33,6 +33,8 @@ export * from "./calendar-grid";
 export * from "./calendar-month";
 export * from "./notify-blocked";
 export * from "./blocker-draft";
+export * from "./availability-schedule";
+export * from "./student-setup-guide";
 export * from "./season-coverage";
 export * from "./court-diagram";
 export * from "./board-history";
