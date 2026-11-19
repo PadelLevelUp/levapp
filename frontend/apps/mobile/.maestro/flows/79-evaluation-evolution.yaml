@@ -76,6 +76,8 @@ appId: com.padellevelup.app
       id: "player-evaluations-open"
     direction: UP
     timeout: 20000
+    # Centred: scrolled up only until "visible", the button sits under the header and the tap lands there.
+    centerElement: true
 - tapOn:
     id: "player-evaluations-open"
 - extendedWaitUntil:

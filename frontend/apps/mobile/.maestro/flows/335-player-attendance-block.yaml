@@ -40,12 +40,29 @@ appId: com.padellevelup.app
     direction: DOWN
     timeout: 10000
     centerElement: true
-- tapOn:
-    id: "profile-attendance-toggle"
+# The toggle is disabled while the period's history loads; wait until it is enabled.
 - extendedWaitUntil:
     visible:
-      id: "profile-attendance-history-item"
+      id: "profile-attendance-toggle"
+      enabled: true
     timeout: 15000
+# The screen's header and action row sit above the scroll view. At the end of the page the toggle is
+# left at y≈160-190, under the action row (bottom at y≈189), where a tap lands on the action row and
+# no scroll can centre it. Pull the content down by a third of the screen first.
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 75%"
+    duration: 600
+- waitForAnimationToEnd
+- tapOn:
+    id: "profile-attendance-toggle"
+# The list opens under the toggle, below the fold on a phone: scroll to its first row.
+- scrollUntilVisible:
+    element:
+      id: "profile-attendance-history-item"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
 - scrollUntilVisible:
     element:
       id: "profile-attendance-full"
@@ -70,12 +87,26 @@ appId: com.padellevelup.app
     direction: DOWN
     timeout: 20000
     centerElement: true
-- tapOn:
-    id: "profile-absences-toggle"
 - extendedWaitUntil:
     visible:
-      id: "absences-justification-.*"
+      id: "profile-absences-toggle"
+      enabled: true
     timeout: 15000
+# The chart's load reflows the block; centre the toggle again so the tap is not under the header.
+- scrollUntilVisible:
+    element:
+      id: "profile-absences-toggle"
+    direction: DOWN
+    timeout: 10000
+    centerElement: true
+- tapOn:
+    id: "profile-absences-toggle"
+- scrollUntilVisible:
+    element:
+      id: "absences-justification-.*"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
 - scrollUntilVisible:
     element:
       id: "profile-absences-full"

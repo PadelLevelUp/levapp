@@ -63,13 +63,13 @@ appId: com.padellevelup.app
     timeout: 15000
 - assertVisible:
     id: "player-evaluations-open"
+# The block is taller than the screen, so it is never 100% visible: scroll to its period chips.
 - scrollUntilVisible:
     element:
-      id: "profile-attendance-block"
+      id: "profile-period-1m"
     direction: DOWN
     timeout: 15000
-- assertVisible:
-    id: "profile-period-1m"
+    centerElement: true
 - scrollUntilVisible:
     element:
       id: "strengths-weaknesses-card"

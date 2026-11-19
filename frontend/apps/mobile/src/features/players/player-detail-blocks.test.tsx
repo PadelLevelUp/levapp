@@ -46,7 +46,7 @@ describe("the Maestro proof flows follow the screen (PAD-834)", () => {
   it("101 asserts the four header actions and the blocks, never the links that left the header", () => {
     const f = flow("101-player-detail-action-row.yaml");
     for (const id of ["player-add-to-classes", "player-waiting-list", "player-edit", "player-remove",
-      "player-info-card", "evaluation-card", "profile-attendance-block"]) {
+      "player-info-card", "evaluation-card", "profile-period-1m"]) {
       expect(f).toContain(`id: "${id}"`);
     }
     expect(f).not.toMatch(/assertVisible:\s*\n\s*id: "player-(attendance-link|absences-link|evaluations-action)"/);
