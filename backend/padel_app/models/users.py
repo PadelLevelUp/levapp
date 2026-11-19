@@ -139,6 +139,18 @@ class User(db.Model, model.Model):
     notif_sound = Column(
         Boolean, nullable=False, server_default="1", default=True,
     )
+    #: PAD-839 (dashboard.student-setup-guide rule 4, 14): the student setup guide's choices,
+    #: kept on the account so they hold on every device. NULL = not chosen.
+    #: The instant of the last close of the first-login sheet; clients compare Lisbon dates.
+    setup_guide_snoozed_at = Column(DateTime, nullable=True)
+    #: "Não mostrar mais": the guide leaves the dashboard for good.
+    setup_guide_hidden_at = Column(DateTime, nullable=True)
+    #: "Conta pronta" closed: no guide surface shows again.
+    setup_guide_ready_closed_at = Column(DateTime, nullable=True)
+    #: "Estou sempre disponível": step 3 done with no blocker.
+    setup_always_available_at = Column(DateTime, nullable=True)
+    #: Step 1 confirmed in the guide (OQ-8 (b)): request alerts ON alone does not count.
+    setup_alerts_confirmed_at = Column(DateTime, nullable=True)
 
     @property
     def notifications_blocked(self):
