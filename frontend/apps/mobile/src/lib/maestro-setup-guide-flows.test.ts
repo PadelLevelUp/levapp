@@ -58,5 +58,7 @@ describe("PAD-839 setup guide flows (337-340)", () => {
     expect(login).toContain("Would Like to Send You Notifications");
     expect(login).toContain("com.android.permissioncontroller:id/permission_deny_button");
     expect(login).toMatch(/platform:\s*Android/);
+    // The first wait is the cold-start budget: 30 s left flow 337 on the splash on CI (PR #996).
+    expect(login).toMatch(/timeout:\s*90000\n\s*optional:\s*true/);
   });
 });
