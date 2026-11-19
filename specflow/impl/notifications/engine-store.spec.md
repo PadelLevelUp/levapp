@@ -17,6 +17,8 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
   account's status, to build the snapshot.
 - **WRITES:** `EngineEffect` (one row per effect applied), `EngineInvitation`, the app's presences and
   messages through the outbox (`padel_app/services/engine_store.py`, `dispatch`).
+- **WRITES at adoption and on a placement:** the adopted occurrence's presences (rule 10); a standing
+  waiting-list entry's credits and its class rows (`StandingWaitingListEntry`, `WaitingListEntry`, rule 11).
 
 ### Rules
 1. **An effect is written once.** Each effect has a content key; applying the same effect again, as a
@@ -91,6 +93,30 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    `assigned_side` and `presences.side`, so `sides_in_occurrence` and every other reader agree with the
    engine; any `SideAssigned` writes `assigned_side`. The snapshot's placement is firm when the
    presence's `side` is `left` or `right` and is the side it holds.
+10. **Adoption takes the occurrence's people as the old engine left them (`notifications.config` rule 18;
+    owner, 2026-11-19: what was on the old engine is kept at the switch).** When the store adds a session
+    the old engine knew, nobody is enrolled again and nobody's answer is reset:
+    - a going roster presence is a regular, placed on their side (as before);
+    - an absent roster presence (the regular's own No, or the coach marking them absent, before the class)
+      is the regular's absence as rule 4 reads it: the store writes `left_reason` `regular_no` and keeps
+      its `status`, `response`, `responded_at`, `justification` and the coach's validation as they are.
+      The regular stays a regular, their seat is free, and the engine plans it like any regular's No;
+    - an absent presence that is not the roster's (a student placed for that one class who cancelled) is a
+      cancellation: `left_reason` `cancel`, not going, the seat free;
+    - the class's waiting-list rows (standing or not) and its pending join requests stay as they are; the
+      engine reads the active rows as its lists.
+    The old engine's unstarted vacancies close (`notifications.config` rule 18); the spot one stood for is
+    the free seat above, now the engine's.
+11. **A placement from a standing row spends its credit (`notifications.waiting-list` rules 15 and 15a on a
+    new-engine session).** When the store writes a `Placed` that is not a regular's (`invitation`, `direct`
+    or `auto_from_waiting_list`) for a student whose active row on the session's waiting list was fanned out
+    by a standing entry (`standing_entry_id`), that entry spends one credit in the same unit. When its
+    credits are used up (`credits_total` not NULL) the entry closes, and so do its other active class rows.
+    A NULL limit never runs out and never closes. An effect applied again spends nothing (rule 1). The
+    coach accepting a join request spends on its own path (`classes.join-requests` rule 8) and reaches the
+    engine as `CoachAdded`, which writes no `Placed`, so that credit is spent once. Waiting-list rule 15b
+    (the last credit withdraws the student's other open offers) is not done on the new engine; see Open
+    questions.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -195,6 +221,42 @@ cancelled, when the engine places them on the right (a direct join), then their 
 `assigned_side` is right, the placement is not firm, and a later unit leaves them on the right.
 test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_an_engine_placement_on_another_side_clears_a_stale_session_side`
 
+#### NOTIFICATIONS-ENGINE-STORE-15: A regular's early No survives the switch and its seat is the engine's (rule 10)
+Given a coach on the old engine and a future class whose invitations have not started, whose regular said No
+(absent, not validated, response kept) and whose old vacancy is open and never sent, when the coach is
+switched, then the class is on the new engine, the regular's presence is still absent with the same response
+and justification and `left_reason` `regular_no`, the vacancy is expired, the engine's snapshot counts the
+regular absent and not going, and the engine's first run once the window opens invites another student for
+that seat.
+test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_a_regulars_early_no_survives_the_switch`
+
+#### NOTIFICATIONS-ENGINE-STORE-16: The coach's recorded absence is kept as recorded at the switch (rule 10)
+Given a future class whose regular the coach marked absent before the class (validated, with a
+justification), when the coach is switched, then the presence keeps `status` absent, `validated` true and
+its justification, reads as the regular's absence (`left_reason` `regular_no`), and the regular is not going.
+test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_the_coachs_recorded_absence_is_kept_at_the_switch`
+
+#### NOTIFICATIONS-ENGINE-STORE-17: A one-off student's cancellation and the class's lists survive the switch (rule 10)
+Given a future class with a student placed for that class only who cancelled (absent, not on the roster), a
+standing entry's row and a student's own row on its waiting list, and a pending join request, when the coach
+is switched, then the cancelled student reads `left_reason` `cancel` and is not going, both waiting-list rows
+are active and in the engine's snapshot, and the join request is pending.
+test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_a_cancellation_and_the_classs_lists_survive_the_switch`
+
+#### NOTIFICATIONS-ENGINE-STORE-18: A Yes from a standing row spends its credit; the last one closes the entry (rule 11)
+Given a new-engine session with a student on its waiting list through a standing entry with one credit left
+and an active row in another class, when the engine invites them and they say Yes, then they are going, the
+entry has spent the credit and is closed, and its row in the other class is closed; and applying the same
+`Placed` again spends nothing more.
+test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_a_yes_from_a_standing_row_spends_its_credit`
+
+#### NOTIFICATIONS-ENGINE-STORE-19: Automatic entry spends a credit, a NULL limit never runs out, a coach's accept spends once (rule 11)
+Given new-engine sessions, when automatic entry places a student from a standing row with two credits, then
+one is spent and the entry stays open; when a student whose standing entry has no limit is placed from its
+row, then `credits_used` grows and the entry stays open; and when the coach accepts the join request of a
+student holding a standing row with two credits, then exactly one credit is spent.
+test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_entry_no_limit_and_a_coachs_accept_spend_as_rule_11_says`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -202,9 +264,16 @@ test: `backend/padel_app/tests/test_pad808_coach_add_side.py` › `test_an_engin
 3. (PAD-808) STORE-11 to STORE-14 — `services/engine_entry.py` (`coach_added`, `coach_sets_side`), `services/engine_store.py`
    (`SideAssigned.firm`, the placement's firmness), `presence_side_service.py`, NM3's `_tell_new_engine_placed`; with
    engine-answers ANSWERS-32.
+4. (switch keeps lists, 2026-11-19) STORE-15 to STORE-17 — `services/engine_switch.py` (`_adopt`) and
+   `services/engine_store.py` (`add_session`); STORE-18, STORE-19 — `services/engine_store.py` (`Placed`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
   by an accepted request for a side, cancelled, and is placed again by the engine on that same side reads
   firm, so `last_invite_at` never moves them. Rare, and clearing `presences.side` on every engine
   placement is a wider change than PAD-808.
+- Waiting-list rule 15b on the new engine (rule 11) — out of the switch fix (lead, 2026-11-19), for the
+  owner, who confirmed 15b on 2026-10-21: when a Yes spends a standing entry's last credit, should the
+  student's other open engine invitations paid by that entry be withdrawn? The engine never revokes (D4),
+  and a withdrawal needs its own bubble state and copy. Until then a second Yes from that entry places the
+  student without a credit.
