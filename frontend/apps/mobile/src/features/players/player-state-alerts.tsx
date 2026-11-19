@@ -91,7 +91,9 @@ export function PlayerStateAlerts({
             onPress={() => void handleCopy()}
           >
             <Ionicons name={copied ? "checkmark" : "copy-outline"} size={16} color={lightTheme.foreground} />
-            <Text>{copied ? t("players.card.linkCopied") : t("players.card.copyInviteLink")}</Text>
+            <Text testID={copied ? "player-copy-invite-link-done" : undefined}>
+              {copied ? t("players.card.linkCopied") : t("players.card.copyInviteLink")}
+            </Text>
           </Button>
           {claimAction}
         </View>

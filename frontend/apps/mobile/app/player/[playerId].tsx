@@ -441,7 +441,7 @@ export default function PlayerDetailScreen() {
           {/* PAD-320: the mode in the id, so a flow proves "delete" vs
               "disconnect" without reading the rendered word. */}
           <Text
-            testID={`player-remove-mode-${canDelete ? "delete" : "disconnect"}`}
+            testID={`player-remove-mode-${cancelsInvite ? "cancel-invite" : canDelete ? "delete" : "disconnect"}`}
             className="text-destructive-foreground"
           >
             {cancelsInvite ? t("players.card.cancelInvite") : canDelete ? t("common.delete") : t("players.disconnect")}

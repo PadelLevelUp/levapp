@@ -86,22 +86,21 @@ test.describe("PAD-13: Sorting, filtering and data alerts on Players tab", () =>
     await pendingAlert.click();
     await expect(page).toHaveURL(/pending=true/);
     await expect(page.getByTestId("players-filter-clear")).toBeVisible();
-    const pendingCards = page.locator('[data-testid^="player-card-"][data-pending]');
+    // Wait for the filtered list itself, not a snapshot of the rows that were on screen before it.
+    await expect(page.locator('[data-testid^="player-card-"][data-pending="false"]')).toHaveCount(0, { timeout: 10_000 });
+    const pendingCards = page.locator('[data-testid^="player-card-"][data-pending="true"]');
     await expect(pendingCards.first()).toBeVisible();
-    for (const card of await pendingCards.all()) {
-      await expect(card).toHaveAttribute("data-pending", "true");
-      await expect(card.getByTestId("pending-registration-badge")).toBeVisible();
-    }
+    await expect(pendingCards.first().getByTestId("pending-registration-badge")).toBeVisible();
 
     await incompleteAlert.click();
     await expect(page).toHaveURL(/incomplete=true/);
     await expect(page).not.toHaveURL(/pending=true/);
-    const incompleteCards = page.locator('[data-testid^="player-card-"][data-pending]');
-    await expect(incompleteCards.first()).toBeVisible();
-    for (const card of await incompleteCards.all()) {
-      const chips = card.locator('[data-testid="player-row-no-level"], [data-testid="player-row-no-side"]');
-      expect(await chips.count()).toBeGreaterThan(0);
-    }
+    const configured = page.locator(
+      // [data-pending] picks the card itself, not its `player-card-name-<id>` line.
+      '[data-testid^="player-card-"][data-pending]:not(:has([data-testid="player-row-no-level"])):not(:has([data-testid="player-row-no-side"]))',
+    );
+    await expect(configured).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.locator('[data-testid^="player-card-"][data-pending]').first()).toBeVisible();
 
     await page.getByTestId("players-filter-clear").click();
     await expect(page.getByTestId("players-filter-clear")).toHaveCount(0);

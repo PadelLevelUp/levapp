@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
+import { copyInviteLink } from "../helpers/inviteLink";
 import { openPlayers } from "../helpers/navigation";
 
 /**
@@ -116,11 +117,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     await page.getByText(name).click();
     await page.waitForURL(/\/players\/\d+/, { timeout: 8000 });
 
-    // The detail page surfaces the shareable registration link in a readonly box.
-    const registerLink = await page
-      .locator("input[readonly]")
-      .first()
-      .inputValue();
+    // The detail page's pending alert copies the registration link (PAD-834).
+    const registerLink = await copyInviteLink(page);
     expect(registerLink).toContain("/register/");
     // auth.activate rule 2 (PAD-254): the link carries the account's secret;
     // the student opens exactly what the coach shared, path and `?t=` alike.

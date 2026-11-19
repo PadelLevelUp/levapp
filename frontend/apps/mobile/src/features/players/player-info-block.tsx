@@ -155,7 +155,7 @@ export function PlayerInfoBlock({
                   </SelectTrigger>
                   <SelectContent>
                     {levels.map((lvl) => (
-                      <SelectItem key={lvl.id} value={lvl.id} label={levelOptionLabel(lvl.code, lvl.label)} />
+                      <SelectItem key={lvl.id} testID={`player-level-option-${lvl.id}`} value={lvl.id} label={levelOptionLabel(lvl.code, lvl.label)} />
                     ))}
                   </SelectContent>
                 </Select>
@@ -171,7 +171,7 @@ export function PlayerInfoBlock({
                 </SelectTrigger>
                 <SelectContent>
                   {SIDES.map((s) => (
-                    <SelectItem key={s} value={s} label={t(SIDE_LABEL_KEYS[s])} />
+                    <SelectItem key={s} testID={`player-side-option-${s}`} value={s} label={t(SIDE_LABEL_KEYS[s])} />
                   ))}
                 </SelectContent>
               </Select>

@@ -52,13 +52,13 @@ describe("the Maestro proof flows follow the screen (PAD-834)", () => {
     expect(f).not.toMatch(/assertVisible:\s*\n\s*id: "player-(attendance-link|absences-link|evaluations-action)"/);
   });
 
-  it("82 and 280 edit through Block 1, and 34 expects 'Cancel invite' on the placeholder", () => {
+  it("82 and 280 edit through Block 1, and 34 expects the cancel-invite mode on the placeholder", () => {
     for (const name of ["82-clear-player-notes.yaml", "280-level-select-scrolls.yaml"]) {
       const f = flow(name);
       expect(f).toContain('id: "player-info-edit"');
       expect(f).not.toContain('id: "player-edit"');
     }
-    expect(flow("34-player-removal.yaml")).toContain('text: "Cancel invite"');
+    expect(flow("34-player-removal.yaml")).toContain('id: "player-remove-mode-cancel-invite"');
   });
 
   it("333-336 are PAD-834's, listed in config.yaml, and clean up the placeholder they create", () => {

@@ -65,9 +65,11 @@ test("[PLAYERS-PROFILE-17] PAD-375: 'Evolução' shows the seeded competency on 
   // Every value is reachable without hover: the table of the series is in the page.
   await expect(page.getByTestId("evolution-table").locator("tbody tr")).toHaveCount(evolution.series.length);
 
-  // The history lists what the server lists, and offers "edit" exactly where the server says `editable`
+  // The history (behind "Histórico (N)", PAD-834) lists what the server lists, and offers "edit" exactly where the server says `editable`
   // (the seeded evaluations are all past-dated). Compared with the read, not with a fixed number, so a
   // spec that rates this player earlier in the same shard cannot turn this one red (R-040).
+  await page.getByTestId("player-evaluations-open").click();
+  await expect(page.getByTestId("player-evaluations-drawer")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId(/^evaluation-history-card-\d+$/)).toHaveCount(history.records.length);
   const editable = history.records.filter((r: { editable: boolean }) => r.editable).length;
   await expect(page.getByTestId(/^evaluation-history-edit-\d+$/)).toHaveCount(editable);
