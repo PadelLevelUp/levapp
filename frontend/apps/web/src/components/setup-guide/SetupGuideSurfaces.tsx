@@ -91,7 +91,7 @@ export function SetupGuideCard({ guide }: { guide: SetupGuide }) {
 
   const open = () => navigate(setupStepPath(view.next));
   return (
-    <ActionCard accent="accent" testId="setup-guide-card">
+    <ActionCard accent="accent" testId="setup-guide-card" onClick={open}>
       <div className="flex flex-col gap-3" data-state="ready" data-percent={view.percent}>
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-xs font-semibold tracking-wide text-muted-foreground">
@@ -109,10 +109,18 @@ export function SetupGuideCard({ guide }: { guide: SetupGuide }) {
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={open} data-testid="setup-guide-continue">
+          <Button size="sm" onClick={(e) => { e.stopPropagation(); open(); }} data-testid="setup-guide-continue">
             {t("setupGuide.card.continue")}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => navigate("/setup")} data-testid="setup-guide-all">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate("/setup");
+            }}
+            data-testid="setup-guide-all"
+          >
             {t("setupGuide.card.all")}
           </Button>
         </div>

@@ -9,6 +9,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Check } from "lucide-react";
 import { dashboardApi } from "@levelup/api";
 import {
+  APP_STORE_URL,
   SETUP_GUIDE_STEPS,
   nextPendingStepAfter,
   type SetupGuideStep,
@@ -28,7 +29,8 @@ export default function SetupGuidePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const guide = useSetupGuide();
+  // Rule 1: the guide's own screens always read their sources, even with the guide hidden.
+  const guide = useSetupGuide({ always: true });
   const raw = params.get("step");
   const step = isStep(raw) ? raw : null;
 
@@ -214,7 +216,7 @@ export function StepDevicePush({
           <span className="text-sm font-medium">{t("setupGuide.device.iosBrowserTitle")}</span>
           <span className="text-sm text-muted-foreground">{t("setupGuide.device.iosBrowserBody")}</span>
           <Button asChild variant="outline" data-testid="setup-device-app-store">
-            <a href="https://apps.apple.com/app/levapp" target="_blank" rel="noreferrer">
+            <a href={APP_STORE_URL} target="_blank" rel="noreferrer">
               {t("setupGuide.device.appStore")}
             </a>
           </Button>
@@ -291,7 +293,15 @@ export function StepProfile({ guide, onLeave }: { guide: SetupGuide; onLeave: ()
     <div className="flex flex-col gap-4">
       <h1 className="font-display text-2xl font-bold">{t("setupGuide.profile.title")}</h1>
       <p className="text-sm text-muted-foreground">{t("setupGuide.profile.body")}</p>
-      {coaches.length === 0 && <p className="text-sm">{t("setupGuide.profile.noCoach")}</p>}
+      {coaches.length === 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm">{t("setupGuide.profile.noCoach")}</p>
+          {/* Rule 13: with no coach, step 5 sends the student to step 4. */}
+          <Button asChild variant="outline" data-testid="setup-profile-to-coach">
+            <Link to={setupStepPath("coach_link")}>{t("setupGuide.coach.connect")}</Link>
+          </Button>
+        </div>
+      )}
       {guide.view.steps.profile === "done" && <p className="text-sm text-success">{t("setupGuide.profile.allSet")}</p>}
       {coaches.map((c) => {
         const entry = incomplete.get(c.id);

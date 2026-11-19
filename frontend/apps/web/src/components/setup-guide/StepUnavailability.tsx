@@ -23,7 +23,7 @@ import {
   scheduleEndState,
   scheduleToBlockerInputs,
   slotLabel,
-  weekRowText,
+  scheduleCardText,
   type Schedule,
   type SchedulePreset,
 } from "@levelup/config";
@@ -145,7 +145,7 @@ export function StepUnavailability({
         >
           <span className="text-sm font-medium">{saved.rows[0]?.title ?? t("setupGuide.editor.titleNew")}</span>
           <span className="text-xs text-muted-foreground">
-            {weekRowText(blockersToSchedule(saved.rows).shared, t("setupGuide.editor.weekFree"))}
+            {scheduleCardText(blockersToSchedule(saved.rows), t("setupGuide.editor.weekFree"))}
           </span>
           {end && (
             <span className="text-xs" data-testid="setup-schedule-end" data-state={scheduleEndState(end, today)}>
@@ -213,8 +213,13 @@ export function StepUnavailability({
         variant="ghost"
         data-testid="setup-always-available"
         onClick={async () => {
-          await guide.write({ alwaysAvailable: true });
-          onDone();
+          setFailed(false);
+          try {
+            await guide.write({ alwaysAvailable: true });
+            onDone();
+          } catch {
+            setFailed(true);
+          }
         }}
       >
         {t("setupGuide.unavailability.alwaysAvailable")}

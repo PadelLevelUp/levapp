@@ -69,6 +69,12 @@ describe("setup guide card", () => {
     expect(screen.getByTestId("where").textContent).toBe("/setup?step=device_push");
     first.unmount();
 
+    // A tap on the card itself opens the next pending step too (rule 4).
+    const second = render(wrap(<SetupGuideCard guide={guide} />));
+    await user.click(screen.getByTestId("setup-guide-card"));
+    expect(screen.getByTestId("where").textContent).toBe("/setup?step=device_push");
+    second.unmount();
+
     // The page: Saltar on step 2 opens step 3; Agora não on step 3 returns to the dashboard.
     render(
       <QueryClientProvider client={new QueryClient()}>

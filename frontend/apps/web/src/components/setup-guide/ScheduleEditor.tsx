@@ -25,6 +25,7 @@ import {
   toSame,
   toVaries,
   toggleDay,
+  toggleName,
   weekRowText,
   weekSlots,
   withSlotsInView,
@@ -291,7 +292,7 @@ export function ScheduleEditor({
               {SCHEDULE_NAME_SUGGESTIONS.map((n) => (
                 <button key={n} type="button" aria-pressed={s.name === n} data-testid={`schedule-name-${n}`}
                   className={`rounded-full px-3 py-1 text-sm ${s.name === n ? "bg-foreground text-background" : "bg-muted"}`}
-                  onClick={() => setS({ ...s, name: s.name === n ? null : n })}>
+                  onClick={() => setS(toggleName(s, n))}>
                   {n}
                 </button>
               ))}

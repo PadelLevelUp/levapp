@@ -108,3 +108,30 @@ describe("StepUnavailability", () => {
     expect(vi.mocked(availabilityApi.putSchedule).mock.calls[0][1].blockers[0].endDate).toBe("2027-02-19");
   });
 });
+
+describe("saved schedule card text", () => {
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-31] a Varia schedule's card says each day's hours, never Livre", async () => {
+    renderStep([
+      row(1, { startTime: "09:00", endTime: "11:00", recurrenceRule: { frequency: "weekly", daysOfWeek: [1, 3] } }),
+      row(2, { startTime: "09:00", endTime: "20:00", recurrenceRule: { frequency: "weekly", daysOfWeek: [2] } }),
+    ]);
+    const card = await screen.findByTestId("setup-saved-schedule");
+    expect(card.textContent).toContain("seg 09–11; ter 09–20; qua 09–11");
+    expect(card.textContent).not.toContain("setupGuide.editor.weekFree");
+  });
+
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-15] a failed always-available save stays on the step and says so", async () => {
+    vi.mocked(availabilityApi.listBlockers).mockResolvedValue([]);
+    const guide = makeGuide();
+    vi.mocked(guide.write).mockRejectedValueOnce(new Error("down"));
+    const onDone = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <StepUnavailability guide={guide} onDone={onDone} onLeave={() => {}} />
+      </QueryClientProvider>
+    );
+    await userEvent.setup().click(screen.getByTestId("setup-always-available"));
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(onDone).not.toHaveBeenCalled();
+  });
+});

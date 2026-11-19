@@ -1,4 +1,5 @@
 /** dashboard.student-setup-guide rule 7 (PAD-839): step 2 on web. */
+import { APP_STORE_URL } from "@levelup/config";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
@@ -48,7 +49,7 @@ describe("StepDevicePush", () => {
     render(<StepDevicePush guide={ios} onDone={iosDone} onLeave={() => {}} />);
     const link = screen.getByTestId("setup-device-app-store");
     expect(link.tagName).toBe("A");
-    expect(link.getAttribute("href")).toMatch(/^https:\/\/apps\.apple\.com\//);
+    expect(link.getAttribute("href")).toBe(APP_STORE_URL);
     expect(screen.queryByTestId("setup-device-allow")).toBeNull();
     expect(screen.queryByTestId("setup-device-recheck")).toBeNull();
     expect(ios.subscribe).not.toHaveBeenCalled();
