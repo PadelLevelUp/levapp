@@ -16,7 +16,7 @@ governed_by: [R-002, R-003, R-005, R-023, R-024, R-036]
 One operator command loads a new coach's students, weekly classes and enrolments from a data file,
 onto that coach only, exactly once, with a rehearsal mode, a full undo and a history row.
 
-A second use of the same command (rules 15 to 28, owner decisions of 2026-11-19, stream
+A second use of the same command (rules 15 to 29, owner decisions of 2026-11-19, stream
 `history-import`): a **history run** loads what a coach recorded outside the app before using it,
 the absences, guest attendances and manual adjustments of a past period, onto classes the coach
 already has. It is a file with a `history` section, applied once, with a rehearsal, a full undo and
@@ -136,9 +136,11 @@ a history row, like a roster run.
     `{from, through, season?, absences, guests, adjustments, sheet_totals?}`:
     - `from`, `through`: dates (`YYYY-MM-DD`), the first and the last day covered, inclusive.
     - `season`: optional, `{start_date, end_date, label?}`, the coach's season (rule 28).
-    - `absences`: `{date, student, type, minutes, note?}`, `type` one of `justified`,
+    - `excluded`: optional, `{source_row, student, kind, type?, minutes, reason}`, rows of the
+      source the operator chose not to load (rule 29). `kind` is `absence` or `guest`.
+    - `absences`: `{date, student, type, minutes, note?, source_row?, sheet_date?}`, `type` one of `justified`,
       `unjustified`, `coach`. `minutes` is the length the source gives and is a check (rule 17a).
-    - `guests`: `{date, start_time, student, minutes}`, a student who attended a class they are not
+    - `guests`: `{date, start_time, student, minutes, source_row?, sheet_date?}`, a student who attended a class they are not
       enrolled in.
     - `adjustments`: `{student, minutes, date, start_time?, lesson_minutes?}`, a manual credit.
     - `sheet_totals`: optional, `{student, justified_minutes, unjustified_minutes, guest_minutes}`
@@ -248,6 +250,19 @@ a history row, like a roster run.
     is written: the database holds one season per coach, so an overlapping one cannot be added and
     the coach's own is never replaced. The run creates no class that follows the season. Revert
     deletes the season only when it is the recorded one and still has the definition the run set.
+
+29. **Rows the operator left out stay visible (owner and lead, 2026-11-19).** A source row that
+    rule 17 would refuse, and that the operator decides not to load, is listed in `history.excluded`
+    instead of being deleted from the file. An excluded row is never written and never resolved
+    (rule 17 does not look at it). The dry run lists every excluded row (its `source_row`, student,
+    kind, type, minutes and reason), and the table of rule 18 shows, per student, the excluded
+    justified, unjustified and guest minutes beside `sheet_totals`, so the gap between the source's
+    totals and the loaded rows is read, never hidden. Rule 26's proof compares the app with the
+    **loaded** rows only; the final table prints the excluded ones again. A loaded row may carry
+    `sheet_date`, the date the source wrote when the operator moved the row to another day: `date`
+    is the day the run uses, and `sheet_date` is only printed beside it in the dry run. The
+    file's check (rule 16) refuses an excluded row with no reason, student, kind or minutes, and a
+    `source_row` that is both loaded and excluded, or given twice in either list.
 
 ### Acceptance Criteria
 
@@ -517,6 +532,26 @@ the roster in no class. No instance exists. History file `2026_11_19_rui_history
   revert is refused naming it, exit code 1, nothing changed
 - **And** a history file with no `season` leaves the coach's season (or lack of one) as it is, in
   apply and in revert
+
+#### IMPORT-ONBOARDING-RUNNER-36: An excluded row is shown, never written, and the proof ignores it (rules 26, 29)
+- **Given** the fixture and the valid file of criterion 23, plus in `excluded`: `{source_row: 40,
+  student: "Ana Exemplo", kind: "absence", type: "justified", minutes: 60, reason: "no class that
+  weekday"}`, and `sheet_totals` for Ana Exemplo of 3 justified absences (180 minutes)
+- **When** the operator runs `--dry-run`, then applies the file
+- **Then** the dry run lists the excluded row with its reason, and Ana Exemplo's line shows justified
+  120 minutes loaded, 60 excluded and the sheet's 180, so the gap of 0 is explained
+- **And** after the apply no presence exists for that row, the Presences tab shows Ana Exemplo with
+  2 justified absences, rule 26's proof passes, and the final table prints the excluded row again
+- **And** a file that lists source row 40 both as loaded and as excluded, or an excluded row with no
+  reason, is refused by the file's check, exit code 1, the coach never looked up
+
+#### IMPORT-ONBOARDING-RUNNER-37: A row moved by the operator prints both dates (rule 29)
+- **Given** the fixture and a valid file whose absence for Teo Imaginario has `date` 2026-09-10 and
+  `sheet_date` 2026-09-09 (a Thursday written as a Wednesday)
+- **When** the operator runs `--dry-run`, then applies the file
+- **Then** the dry run prints the row with both dates, and the absence is written on
+  2026-09-10, in the Thursday class
+- **And** a `sheet_date` that is not a real date is refused by the file's check, exit code 1
 
 ### Notes
 - Reused, not reimplemented: player creation is `import.confirm`'s, class creation is
