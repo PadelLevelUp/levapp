@@ -1126,6 +1126,7 @@ def coach_players_paginated():
     missing_level = request.args.get("missing_level", default="", type=str) == "true"
     missing_side = request.args.get("missing_side", default="", type=str) == "true"
     incomplete = request.args.get("incomplete", default="", type=str) == "true"
+    pending = request.args.get("pending", default="", type=str) == "true"
 
     page = max(1, page or 1)
     per_page = max(1, min(100, per_page or 25))
@@ -1140,6 +1141,7 @@ def coach_players_paginated():
         coach, page=page, per_page=per_page, search=search,
         sort_by=sort_by, sort_dir=sort_dir,
         missing_level=missing_level, missing_side=missing_side, incomplete=incomplete,
+        pending=pending,
     )
     return jsonify(result)
 

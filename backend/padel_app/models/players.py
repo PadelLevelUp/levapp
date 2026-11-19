@@ -23,6 +23,22 @@ def _is_placeholder_user(user):
     return bool(user is not None and user.password is None and user.status == "inactive")
 
 
+def roster_state_payload(rel, user):
+    """players.list rule 13 (PAD-834): the two roster-row keys both serializers carry.
+
+    `pendingRegistration` is `const:PENDING_REGISTRATION`, the placeholder of
+    players.remove rule 5 — never `validated` alone: a Google/Apple sign-up is active
+    with no password and has an account. `addedAt` is the link's creation instant
+    (null for a link that has none).
+    """
+    from padel_app.utils.dates import to_utc_iso
+
+    return {
+        "pendingRegistration": _is_placeholder_user(user),
+        "addedAt": to_utc_iso(rel.created_at) if rel is not None else None,
+    }
+
+
 def _is_deletable_by_coach(player):
     """players.remove rule 5: a placeholder that no other coach has. The coach
     count is read only for placeholders, so listing a roster adds no query per
@@ -208,4 +224,6 @@ class Player(db.Model, model.Model):
             # players.claim rule 4c (PAD-528): the roster serializer's key, so an edit's
             # response never drops the flag.
             "possibleDuplicateOf": duplicates.get(rel.id) if rel is not None else None,
+            # players.list rule 13 (PAD-834): the roster serializer's keys.
+            **roster_state_payload(rel, self.user),
         }
