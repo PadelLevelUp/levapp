@@ -1,6 +1,7 @@
 /**
  * PAD-839 (dashboard.student-setup-guide rules 1, 3a, 4, 6, 7): the iOS/Android shell's student
- * setup guide, the twin of web's `components/setup-guide/useSetupGuide.ts`.
+ * setup guide, the twin of web's `components/setup-guide/useSetupGuide.ts`. A blockers list that
+ * answers 403 (no player row) makes the account no student for the guide (rule 3a).
  *
  * It reads what the app already fetches — the session's `/auth/me`, the blockers list, the
  * dashboard's `profile_incomplete` block (the SAME cache entry the dashboard screen reads, through
@@ -80,12 +81,24 @@ function useDevicePermission(): DevicePermission | undefined {
   return permission;
 }
 
-export function useSetupGuide(): SetupGuide {
+/** HTTP 403 from the blockers list: an account with no player row (rule 3a). */
+function isForbidden(error: unknown): boolean {
+  return (error as { response?: { status?: number } } | null)?.response?.status === 403;
+}
+
+/**
+ * `always`: read the blockers list and the dashboard payload even while the guide is hidden or
+ * ready-closed. Only the guide's own screen passes it (rule 1, cost); the dashboard's card and
+ * sheet and the header avatar's ring read them only while the guide is open.
+ */
+export function useSetupGuide(options: { always?: boolean } = {}): SetupGuide {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const student = user != null && !(user.roles ?? []).includes("coach");
-  const blockers = useAvailabilityBlockers({ enabled: student });
-  const dashboard = useDashboard(useDashboardWindow(), { enabled: student });
+  const open = student && user?.setupGuide?.hidden !== true && user?.setupGuide?.readyClosed !== true;
+  const reads = student && (options.always === true || open);
+  const blockers = useAvailabilityBlockers({ enabled: reads });
+  const dashboard = useDashboard(useDashboardWindow(), { enabled: reads });
   const permission = useDevicePermission();
 
   const device = React.useMemo<DeviceStepState | undefined>(
@@ -106,6 +119,7 @@ export function useSetupGuide(): SetupGuide {
         : null
       : undefined,
     device,
+    blockersForbidden: blockers.isError && isForbidden(blockers.error),
   });
 
   const write = React.useCallback(

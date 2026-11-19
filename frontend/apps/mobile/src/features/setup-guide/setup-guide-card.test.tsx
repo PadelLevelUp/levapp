@@ -47,6 +47,43 @@ function allDone(over: Parameters<typeof makeMe>[0] = {}) {
 }
 
 describe("the setup guide card (iOS)", () => {
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-2] a student who joined by link opens at 20% with the coach step done", async () => {
+    // Joined by a coach's link: one coach (who has not set level or side yet), request alerts at
+    // their default (ON, not confirmed), no blockers, and this device not asked yet ("ask").
+    notifications.permission = { status: "undetermined", canAskAgain: true };
+    api.listBlockers.mockResolvedValue([]);
+    api.getDashboard.mockResolvedValue(dashboardPayload([{ coachId: 7, coachName: "Ana", missing: ["level", "side"] }]));
+    setUser(makeMe({ coaches: [{ id: 7, name: "Ana", level: null, side: null }], requestAlerts: true }));
+
+    const n = await mount(createElement(SetupGuideOnDashboard));
+    expect(n.queryByTestId("setup-guide-sheet")).not.toBeNull();
+    expect(n.byTestId("setup-guide-card").props.accessibilityValue).toMatchObject({ text: "ready", now: 20 });
+    expect(textOf(n.byTestId("setup-guide-percent"))).toBe("20%");
+    expect(n.byTestId("setup-guide-step-coach_link").props.accessibilityValue).toEqual({ text: "done" });
+    for (const s of ["request_alerts", "device_push", "unavailability", "profile"]) {
+      expect(n.byTestId(`setup-guide-step-${s}`).props.accessibilityValue, s).toEqual({ text: "pending" });
+    }
+    // Step 1 is the current step: "Começar" opens it.
+    await n.press("setup-guide-start");
+    expect(nav.push).toHaveBeenLastCalledWith("/setup-guide?step=request_alerts");
+  });
+
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-30] a 403 blockers answer mounts no guide surface", async () => {
+    // A non-coach account with no player row: the blockers list refuses it.
+    api.listBlockers.mockRejectedValue(Object.assign(new Error("Request failed with status code 403"), { response: { status: 403 } }));
+    const n = await mount(createElement(SetupGuideOnDashboard));
+    await settle(n);
+    expect(api.listBlockers).toHaveBeenCalled();
+    expect(n.queryByTestId("setup-guide-sheet")).toBeNull();
+    expect(n.queryByTestId("setup-guide-card")).toBeNull();
+    expect(n.queryByTestId("setup-guide-ready")).toBeNull();
+
+    // Any other failure keeps the student a student: the skeleton card, step 3 unknown (rule 3a).
+    api.listBlockers.mockRejectedValue(Object.assign(new Error("Request failed with status code 500"), { response: { status: 500 } }));
+    const failed = await mount(createElement(SetupGuideOnDashboard));
+    expect(failed.byTestId("setup-guide-card").props.accessibilityValue).toEqual({ text: "loading" });
+  });
+
   it("[DASHBOARD-STUDENT-SETUP-GUIDE-6] opens the next pending step and skip and leave write nothing", async () => {
     // Steps 1 and 4 done, the sheet snoozed today: 2 of 5, next is step 2.
     notifications.permission = { status: "undetermined", canAskAgain: true };
@@ -122,6 +159,12 @@ describe("the setup guide card (iOS)", () => {
     expect(api.listBlockers).not.toHaveBeenCalled();
     expect(api.getDashboard).not.toHaveBeenCalled();
     expect(api.updateMe).not.toHaveBeenCalled();
+
+    // The guide's own screen, opened by its link, sends a coach to the dashboard.
+    const screen = await mount(createElement(SetupGuideScreen, { step: null }));
+    expect(screen.queryByTestId("setup-guide-overview")).toBeNull();
+    expect(nav.replace).toHaveBeenLastCalledWith("/(tabs)/dashboard");
+    expect(api.listBlockers).not.toHaveBeenCalled();
   });
 
   it("[DASHBOARD-STUDENT-SETUP-GUIDE-22] no ready card while the dashboard is loading", async () => {

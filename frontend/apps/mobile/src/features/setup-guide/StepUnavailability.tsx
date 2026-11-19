@@ -18,12 +18,12 @@ import {
   prolongedEnd,
   rowsWithEnd,
   savedSchedules,
+  scheduleCardText,
   scheduleDaysText,
   scheduleEnd,
   scheduleEndState,
   scheduleToBlockerInputs,
   slotLabel,
-  weekRowText,
   type Schedule,
   type SchedulePreset,
 } from "@levelup/config";
@@ -157,8 +157,9 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
           }}
         >
           <Text className="text-sm font-medium">{saved.rows[0]?.title ?? t("setupGuide.editor.titleNew")}</Text>
-          <Text className="text-xs text-muted-foreground">
-            {weekRowText(blockersToSchedule(saved.rows).shared, t("setupGuide.editor.weekFree"))}
+          {/* Criterion 31: its hours in either mode ("Varia" lists each day), never "Livre" for a day with hours. */}
+          <Text className="text-xs text-muted-foreground" testID="setup-saved-schedule-text">
+            {scheduleCardText(blockersToSchedule(saved.rows), t("setupGuide.editor.weekFree"))}
           </Text>
           {end && endState ? (
             <Text className="text-xs" testID="setup-schedule-end" accessibilityValue={{ text: endState }}>

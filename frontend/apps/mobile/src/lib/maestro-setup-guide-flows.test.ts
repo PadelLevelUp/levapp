@@ -26,7 +26,7 @@ function flowsOrder(): string[] {
 }
 
 describe("PAD-839 setup guide flows (337-340)", () => {
-  it("[DASHBOARD-STUDENT-SETUP-GUIDE-2] pins flows 337-340 in flowsOrder, before 28-password-recovery, each naming its criterion", () => {
+  it("pins flows 337-340 in flowsOrder, before 28-password-recovery, each naming its criterion", () => {
     const order = flowsOrder();
     const last = order.indexOf("28-password-recovery");
     for (const [flow, criterion] of Object.entries(FLOWS)) {

@@ -17,6 +17,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { useAuth } from "@/auth/AuthContext";
 import { SetupGuideBar, SetupGuideStepList, setupStepPath } from "./setup-guide-surfaces";
 import { StepUnavailability } from "./StepUnavailability";
 import { StepCoachLink, StepDevicePush, StepProfile, StepRequestAlerts } from "./steps";
@@ -42,8 +43,18 @@ function HeaderButton({ testID, label, onPress, icon }: { testID: string; label:
 
 export function SetupGuideScreen({ step }: { step: SetupGuideStep | null }) {
   const { t } = useTranslation();
-  const guide = useSetupGuide();
+  const { user } = useAuth();
+  const coach = (user?.roles ?? []).includes("coach");
+  // Rule 1 (cost): the guide's own screen reads its sources even when the guide is hidden (rule 4's
+  // Perfil › Configurar conta opens it then).
+  const guide = useSetupGuide({ always: true });
   const { view } = guide;
+
+  // Rule 4: the guide is a student's. A coach who opens levelup://setup-guide goes to the dashboard.
+  React.useEffect(() => {
+    if (coach) router.replace("/(tabs)/dashboard");
+  }, [coach]);
+  if (coach) return null;
 
   if (!step) {
     return (

@@ -119,7 +119,7 @@ describe("the two audiences together", () => {
 });
 
 describe("Configurar conta (settings.role-scope rule 10, PAD-839)", () => {
-  it("[SETTINGS-ROLE-SCOPE-14] only a student sees Configurar conta inside Profile", () => {
+  it("the Configurar conta predicate is true for a student only, and adds no section", () => {
     expect(showsSetupGuideEntry(false)).toBe(true);
     expect(showsSetupGuideEntry(true)).toBe(false);
     // A row inside Profile, not a section: the two section lists are unchanged.

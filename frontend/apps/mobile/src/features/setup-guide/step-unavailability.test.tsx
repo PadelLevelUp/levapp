@@ -83,6 +83,19 @@ describe("step 3, unavailability (iOS)", () => {
     expect(nav.replace).toHaveBeenLastCalledWith("/setup-guide?step=coach_link");
   });
 
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-31] a saved Varia schedule's card lists each day with its hours", async () => {
+    // Criterion 11's rows: one schedule whose days differ, so it reopens in "Varia".
+    api.listBlockers.mockResolvedValue([
+      blockerRow({ id: 20, scheduleId: "v", startTime: "09:00", endTime: "11:00", recurrenceRule: { frequency: "weekly", daysOfWeek: [1, 3, 4, 5] }, recurrenceEnd: "2099-01-01" }),
+      blockerRow({ id: 21, scheduleId: "v", startTime: "09:00", endTime: "20:00", recurrenceRule: { frequency: "weekly", daysOfWeek: [2] }, recurrenceEnd: "2099-01-01" }),
+      blockerRow({ id: 22, scheduleId: "v", startTime: "15:00", endTime: "20:00", recurrenceRule: { frequency: "weekly", daysOfWeek: [1, 4, 5] }, recurrenceEnd: "2099-01-01" }),
+    ]);
+    const n = await openStep3();
+    const text = textOf(n.byTestId("setup-saved-schedule-text"));
+    expect(text).toBe("seg 09–11 · 15–20; ter 09–20; qua 09–11; qui 09–11 · 15–20; sex 09–11 · 15–20");
+    expect(text).not.toContain("setupGuide.editor.weekFree");
+  });
+
   it("[DASHBOARD-STUDENT-SETUP-GUIDE-28] shows the end and Prolongar extends every row", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-19T12:00:00Z"));

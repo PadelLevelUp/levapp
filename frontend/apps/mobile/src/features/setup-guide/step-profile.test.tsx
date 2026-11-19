@@ -31,7 +31,7 @@ vi.mock("@levelup/api/src/resources/dashboard", async (orig) => {
   return { ...(await orig<object>()), getDashboard: f.api.getDashboard, sendProfileReminder: f.api.sendProfileReminder };
 });
 
-import { api, dashboardPayload, makeMe, mount, resetGuideFixtures, setUser, settle, textOf } from "@/test/setup-guide-fixtures";
+import { api, dashboardPayload, makeMe, mount, nav, resetGuideFixtures, setUser, settle, textOf } from "@/test/setup-guide-fixtures";
 import { SetupGuideScreen } from "./SetupGuideScreen";
 
 beforeEach(async () => {
@@ -81,5 +81,14 @@ describe("step 5, the profile (iOS)", () => {
     const done = await mount(createElement(SetupGuideScreen, { step: "profile" }));
     expect(done.queryByTestId("setup-profile-all-set")).not.toBeNull();
     expect(done.queryByTestId("setup-remind-8")).toBeNull();
+  });
+
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-17] with no coach, step 5 sends the student to step 4", async () => {
+    setUser(makeMe({ coaches: [] }));
+    const n = await mount(createElement(SetupGuideScreen, { step: "profile" }));
+    expect(n.queryByTestId("setup-profile-no-coach")).not.toBeNull();
+    await n.press("setup-profile-to-coach");
+    expect(nav.replace).toHaveBeenLastCalledWith("/setup-guide?step=coach_link");
+    expect(api.updateMe).not.toHaveBeenCalled();
   });
 });

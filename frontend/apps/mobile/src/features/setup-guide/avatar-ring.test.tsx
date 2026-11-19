@@ -86,4 +86,23 @@ describe("the avatar ring (iOS)", () => {
     expect(layout).toMatch(/<SetupGuideAvatar>\s*<Pressable\s+testID="header-account"/);
     expect(layout).toMatch(/headerRight: \(\) => <AccountAvatar \/>/);
   });
+
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-5] a hidden or ready-closed guide puts no ring on the avatar and reads nothing", async () => {
+    // 60% as above, but the student pressed "Não mostrar mais".
+    notifications.permission = { status: "granted" };
+    api.getDashboard.mockResolvedValue(dashboardPayload([{ coachId: 7, coachName: "Ana", missing: ["side"] }]));
+    setUser(makeMe({ setupGuide: { alertsConfirmed: true, hidden: true } }));
+    const hidden = await mount(avatar());
+    expect(hidden.queryByTestId("setup-guide-ring")).toBeNull();
+    expect(hidden.queryByTestId("header-account")).not.toBeNull();
+    // Rule 1 (cost): the ring reads the blockers and the dashboard only while the guide is open.
+    expect(api.listBlockers).not.toHaveBeenCalled();
+    expect(api.getDashboard).not.toHaveBeenCalled();
+
+    await act(async () => setUser(makeMe({ setupGuide: { alertsConfirmed: true, readyClosed: true } })));
+    const closed = await mount(avatar());
+    expect(closed.queryByTestId("setup-guide-ring")).toBeNull();
+    expect(api.listBlockers).not.toHaveBeenCalled();
+    expect(api.getDashboard).not.toHaveBeenCalled();
+  });
 });

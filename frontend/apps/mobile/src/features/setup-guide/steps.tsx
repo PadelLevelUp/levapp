@@ -14,6 +14,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
+import { setupStepPath } from "./setup-guide-surfaces";
 import type { SetupGuide } from "./useSetupGuide";
 
 export function LeaveButton({ onLeave, label, variant = "ghost" }: { onLeave: () => void; label: string; variant?: "ghost" | "default" }) {
@@ -128,9 +129,13 @@ export function StepDevicePush({ guide, onDone, onLeave }: { guide: SetupGuide; 
         </Text>
       ) : null}
       {/* The step's button: the Messages banner itself (rule 7; messaging.push-notifications rule 15). */}
-      <View className="overflow-hidden rounded-lg border border-border">
-        <NotificationsBlockedBanner />
-      </View>
+      {/* Only while the step is not done: a granted permission renders no banner, and an empty
+          bordered box would be left behind. */}
+      {state !== "done" ? (
+        <View className="overflow-hidden rounded-lg border border-border">
+          <NotificationsBlockedBanner />
+        </View>
+      ) : null}
       <LeaveButton onLeave={onLeave} label={t("setupGuide.step.later")} />
     </View>
   );
@@ -195,9 +200,15 @@ export function StepProfile({ guide, onLeave }: { guide: SetupGuide; onLeave: ()
       <Text className="font-display text-2xl">{t("setupGuide.profile.title")}</Text>
       <Text className="text-sm text-muted-foreground">{t("setupGuide.profile.body")}</Text>
       {coaches.length === 0 ? (
-        <Text className="text-sm" testID="setup-profile-no-coach">
-          {t("setupGuide.profile.noCoach")}
-        </Text>
+        <View className="gap-2">
+          <Text className="text-sm" testID="setup-profile-no-coach">
+            {t("setupGuide.profile.noCoach")}
+          </Text>
+          {/* Rule 13: with no coach, step 5 sends the student to step 4. */}
+          <Button variant="outline" testID="setup-profile-to-coach" onPress={() => router.replace(setupStepPath("coach_link") as never)}>
+            <Text>{t("setupGuide.coach.connect")}</Text>
+          </Button>
+        </View>
       ) : null}
       {guide.view.steps.profile === "done" ? (
         <Text className="text-sm text-success" testID="setup-profile-all-set">

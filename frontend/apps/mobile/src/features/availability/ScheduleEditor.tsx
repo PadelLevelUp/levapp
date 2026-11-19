@@ -35,6 +35,7 @@ import {
   toSame,
   toVaries,
   toggleDay,
+  toggleName,
   weekRowText,
   weekSlots,
   withSlotsInView,
@@ -437,7 +438,7 @@ export function ScheduleEditor({
                   role="button"
                   accessibilityState={{ selected: on }}
                   testID={`schedule-name-${n}`}
-                  onPress={() => setS({ ...s, name: on ? null : n })}
+                  onPress={() => setS(toggleName(s, n))}
                   style={{
                     borderRadius: 999,
                     paddingHorizontal: 12,
