@@ -121,6 +121,15 @@ vi.mock("@/api/playerInvitations", () => ({
   createIncompletePlayer: vi.fn(),
 }));
 
+// PAD-834: the detail pane's Assiduidade block reads both histories and the coach's season.
+vi.mock("@/api/attendance", () => ({
+  getAttendanceHistory: vi.fn(async () => ({ total: 0, granularity: "day", buckets: [], sessions: [] })),
+}));
+vi.mock("@/api/absences", () => ({
+  getAbsenceHistory: vi.fn(async () => ({ total: 0, granularity: "day", buckets: [], sessions: [] })),
+}));
+vi.mock("@/api/seasons", () => ({ getSeason: vi.fn(async () => null) }));
+
 vi.mock("@/api/notificationEngine", () => ({
   getStandingWaitingList: vi.fn(async () => []),
   removeFromStandingWaitingList: vi.fn(),

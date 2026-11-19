@@ -16,8 +16,9 @@ import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoBlock } from "@/components/players/detail/PlayerInfoBlock";
 import { PlayerStateAlerts } from "@/components/players/detail/PlayerStateAlerts";
+import { PlayerAttendanceBlock } from "@/components/players/detail/PlayerAttendanceBlock";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CalendarCheck, CalendarX, ClipboardList, CalendarPlus, ListX, Loader2, RefreshCw, Trash2, Unlink } from "lucide-react";
+import { ArrowLeft, CalendarPlus, ListX, Loader2, Pencil, RefreshCw, Trash2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
@@ -323,8 +324,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         onDraftNicknameChange={setDraftNickname}
         onDraftNicknameAsNameChange={setDraftNicknameAsName}
         onDraftNameChange={setDraftName}
-        onEdit={handleEditStart}
-        editDisabled={infoSession !== null}
+
         onSave={handleEditSave}
         onCancel={handleEditCancel}
       />
@@ -337,27 +337,6 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
 
       <PageActions
         actions={[
-          // PAD-114: the coach-side entry point into the shared "Presenças"
-          // page. The student reaches the same page from their dashboard's
-          // "Attended" KPI; both land on one component backed by one
-          // server-authorized endpoint.
-          {
-            label: t("attendance.playerLink"),
-            icon: <CalendarCheck className="mr-2 h-4 w-4" />,
-            onClick: () => navigate(`/players/${playerId}/attendance`),
-            testId: "player-attendance-link",
-          },
-          // PAD-141: the same entry point for "Faltas". Kept immediately
-          // beside its counterpart so the pair reads as one idea.
-          // `PageActions` already wraps (PAD-114 widened it after a 5th
-          // action pushed "Delete Player" off a 1280px viewport), so this
-          // 6th action does not reintroduce that overflow.
-          {
-            label: t("absences.playerLink"),
-            icon: <CalendarX className="mr-2 h-4 w-4" />,
-            onClick: () => navigate(`/players/${playerId}/absences`),
-            testId: "player-absences-link",
-          },
           {
             label: t("players.addToClasses"),
             icon: <CalendarPlus className="mr-2 h-4 w-4" />,
@@ -405,13 +384,14 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
                 },
               ]
             : []),
+          // players.profile rule 4 (PAD-834): Editar is a header action; it edits what no block owns
+          // (the name and the nickname). Presences, absences and evaluations live in the blocks.
           {
-            // evaluations.history rule 3: "Avaliações" is a primary action on the profile.
-            label: t("players.evaluationHistory.open"),
-            icon: <ClipboardList className="mr-2 h-4 w-4" />,
-            onClick: () => openEvaluations(null),
-            testId: "player-evaluations-action",
-            variant: "default" as const,
+            label: t("common.edit"),
+            icon: <Pencil className="mr-2 h-4 w-4" />,
+            onClick: handleEditStart,
+            disabled: isEditing || infoSession !== null,
+            testId: "player-edit",
           },
           {
             label: cancelsInvite
@@ -447,6 +427,10 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         held={isEvalOpen && evalFormOpen}
       />
 
+      {/* players.profile rule 12 (PAD-834): Block 3, Assiduidade. */}
+      <PlayerAttendanceBlock playerId={player.playerId} />
+
+      {/* Owner question Q4 (open): the strengths-and-weaknesses card stays, unchanged, after Block 3. */}
       <PlayerStrengthsWeaknesses
         strengths={profile?.strengths ?? []}
         weaknesses={profile?.weaknesses ?? []}

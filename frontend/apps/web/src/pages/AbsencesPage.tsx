@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttendanceChart } from "@/components/attendance/AttendanceChart";
 import { AttendanceHistoryList } from "@/components/attendance/AttendanceHistoryList";
+import { AbsenceJustificationBadge } from "@/components/attendance/AbsenceJustificationBadge";
 import { AttendanceRangeControls } from "@/components/attendance/AttendanceRangeControls";
 import {
   presetRange,
@@ -18,8 +19,7 @@ import {
 import { getAbsenceHistory } from "@/api/absences";
 import { getSeason } from "@/api/seasons";
 import type { SeasonOccurrence } from "@/types";
-import type { AbsenceHistory, AbsenceSession, AttendanceSession } from "@/types";
-import { presenceMarkTone } from "@levelup/config";
+import type { AbsenceHistory, AttendanceSession } from "@/types";
 
 /**
  * PAD-141 — "Faltas", the absence-history page (spec `attendance.absences`).
@@ -105,33 +105,7 @@ export default function AbsencesPage() {
   const displayName = useCoachDisplayName({ enabled: coachView });
   const subjectName = displayName(history?.playerId ?? playerId, history?.playerName ?? "");
 
-  /**
-   * Justified / unjustified, per row. Presentational only — it never filters
-   * the list, because the dashboard "Missed" KPI counts both and the page must
-   * agree with the card that links to it (spec rule 3).
-   */
-  const renderJustification = (session: AttendanceSession) => {
-    const justification = (session as AbsenceSession).justification;
-    if (!justification) return null;
-    const justified = justification === "justified";
-    return (
-      <span
-        data-testid="absences-justification"
-        data-justification={justification}
-        // PAD-441 (attendance.absences rule 14): the attendance colours, amber and red.
-        data-tone={presenceMarkTone(justified ? "justified" : "unjustified")}
-        className={
-          justified
-            ? "shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning-strong"
-            : "shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-xs text-destructive"
-        }
-      >
-        {justified
-          ? t("absences.justified")
-          : t("absences.unjustified")}
-      </span>
-    );
-  };
+  const renderJustification = (session: AttendanceSession) => <AbsenceJustificationBadge session={session} />;
 
   return (
     <AppLayout>

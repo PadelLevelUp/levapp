@@ -37,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { AttendanceBlock } from "@/features/attendance/attendance-block";
 import { EvaluationsBlock } from "@/features/evaluations/evaluations-block";
 import { AddToClassesDialog } from "@/features/players/add-to-classes-dialog";
 import { ClaimLinkAction } from "@/features/players/claim-link-dialog";
@@ -333,59 +334,10 @@ export default function PlayerDetailScreen() {
   return (
     <Screen edges={["top"]} testID="player-detail">
       {header}
-      {/* PAD-410: the action row wraps (flexWrap) rather than scrolling
-          horizontally, so every action is visible without hiding any of
-          them off-screen, per the master-detail mock. Order mirrors the
-          mock exactly: presences, absences, add-to-classes, waiting list,
-          Avaliações (primary), Desassociar (destructive, last). */}
+      {/* PAD-410: the action row wraps (flexWrap) rather than scrolling horizontally. PAD-834
+          (players.profile rule 4): add-to-classes, waiting list, Editar, Desassociar (destructive,
+          last); presences, absences and evaluations live in the blocks below. */}
       <View className="flex-row flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-        {/* PAD-162: the coach-side entry into the shared attendance-history
-            screen, first in the action row exactly as web puts it first in
-            PlayerDetailPage's PageActions. The student reaches the same screen
-            from their dashboard "Attended" KPI; both land on one screen backed
-            by one server-authorized endpoint. */}
-        <Button
-          variant="outline"
-          size="sm"
-          testID="player-attendance-link"
-          accessibilityLabel={t("attendance.playerLink")}
-          onPress={() =>
-            router.push({
-              pathname: "/attendance",
-              params: { playerId: String(player.playerId) },
-            })
-          }
-        >
-          <Ionicons
-            name="checkmark-circle-outline"
-            size={16}
-            color={lightTheme.foreground}
-          />
-          <Text>{t("attendance.playerLink")}</Text>
-        </Button>
-        {/* PAD-163: the same entry point for "Faltas", kept immediately beside
-            its attendance counterpart (web mirrors this in PlayerDetailPage's
-            PageActions) so the pair reads as one idea. The student reaches the
-            same screen from their dashboard "Missed" KPI. */}
-        <Button
-          variant="outline"
-          size="sm"
-          testID="player-absences-link"
-          accessibilityLabel={t("absences.playerLink")}
-          onPress={() =>
-            router.push({
-              pathname: "/absences",
-              params: { playerId: String(player.playerId) },
-            })
-          }
-        >
-          <Ionicons
-            name="close-circle-outline"
-            size={16}
-            color={lightTheme.foreground}
-          />
-          <Text>{t("absences.playerLink")}</Text>
-        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -452,19 +404,18 @@ export default function PlayerDetailScreen() {
             <Text>{t("players.waitingList")}</Text>
           </Button>
         )}
-        {/* evaluations.history rule 3: "Avaliações" is a primary action; it pushes a screen. */}
+        {/* players.profile rule 4 (PAD-834): Editar is a header action; it edits what no block owns
+            (the name and the nickname). Presences, absences and evaluations live in the blocks. */}
         <Button
+          variant="outline"
           size="sm"
-          testID="player-evaluations-action"
-          accessibilityLabel={t("players.evaluationHistory.open")}
-          onPress={() => openEvaluations()}
+          testID="player-edit"
+          accessibilityLabel={t("players.editPlayer")}
+          disabled={isEditing || infoSession !== null}
+          onPress={() => setIsEditing(true)}
         >
-          <Ionicons
-            name="clipboard-outline"
-            size={16}
-            color={lightTheme.primaryForeground}
-          />
-          <Text>{t("players.evaluationHistory.open")}</Text>
+          <Ionicons name="create-outline" size={16} color={lightTheme.foreground} />
+          <Text>{t("common.edit")}</Text>
         </Button>
         {/* PAD-410: Desassociar/delete moved into the action row (last, destructive)
             from its old spot paired with Editar in the profile card — Editar is now
@@ -619,16 +570,6 @@ export default function PlayerDetailScreen() {
                     </View>
                   </View>
                 </View>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  testID="player-edit"
-                  accessibilityLabel={t("players.editPlayer")}
-                  disabled={infoSession !== null}
-                  onPress={() => setIsEditing(true)}
-                >
-                  <Text>{t("common.edit")}</Text>
-                </Button>
               </View>
 
             </CardContent>
@@ -711,6 +652,19 @@ export default function PlayerDetailScreen() {
           onNew={() => openEvaluations("new")}
           onEdit={(record) => openEvaluations(String(record.id))}
         />
+
+        {/* players.profile rule 12 (PAD-834): Block 3, Assiduidade. */}
+        <AttendanceBlock
+          playerId={String(player.playerId)}
+          onOpenFull={(kind) =>
+            router.push({
+              pathname: kind === "attendance" ? "/attendance" : "/absences",
+              params: { playerId: String(player.playerId) },
+            })
+          }
+        />
+
+        {/* Owner question Q4 (open): the strengths-and-weaknesses card stays, unchanged, after Block 3. */}
 
         <StrengthsWeaknesses
           playerId={String(player.playerId)}

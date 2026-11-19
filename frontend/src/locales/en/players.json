@@ -506,7 +506,11 @@
       "lastEvaluation": "Last evaluation",
       "by": "by {{name}}",
       "evolutionGate": "The evolution appears from the second evaluation.",
-      "firstEvaluation": "Do the first evaluation"
+      "firstEvaluation": "Do the first evaluation",
+      "attendanceTitle": "Attendance",
+      "hideList": "Hide",
+      "fullPage": "See full page",
+      "periodAria": "Period for presences and absences"
     }
   }
 }

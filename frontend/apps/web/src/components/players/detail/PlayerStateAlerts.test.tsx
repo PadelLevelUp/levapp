@@ -40,7 +40,7 @@ const header = (p: CoachPlayer) =>
     <PlayerHeader
       player={p} levels={[]} isEditing={false} draftName="" draftNickname="" draftNicknameAsName={false}
       onDraftNicknameChange={() => {}} onDraftNicknameAsNameChange={() => {}} onDraftNameChange={() => {}}
-      onEdit={() => {}} onSave={() => {}} onCancel={() => {}}
+      onSave={() => {}} onCancel={() => {}}
     />,
   );
 

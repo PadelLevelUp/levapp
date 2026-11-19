@@ -74,7 +74,7 @@ describe("PlayerInfoBlock on iOS (PAD-834)", () => {
     // The screen disables the header edit while Block 1 edits, and Block 1's Editar while the header form is open.
     const here = path.dirname(fileURLToPath(import.meta.url));
     const screen = fs.readFileSync(path.resolve(here, "../../../app/player/[playerId].tsx"), "utf8");
-    expect(screen).toMatch(/testID="player-edit"[\s\S]{0,200}disabled=\{infoSession !== null\}/);
+    expect(screen).toMatch(/testID="player-edit"[\s\S]{0,200}disabled=\{[^}]*infoSession !== null\}/);
     expect(screen).toMatch(/<PlayerInfoBlock[\s\S]{0,400}editDisabled=\{isEditing\}/);
     expect(screen).toContain("identityOnly");
   });

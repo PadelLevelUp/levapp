@@ -16,6 +16,7 @@
  * endpoint wide open.
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { openProfileList } from "../helpers/profileAttendance";
 import {
   COACH_USERNAME,
   COACH_PASSWORD,
@@ -310,7 +311,9 @@ test.describe("PAD-114 student attendance page", () => {
 // ───────────────────────────────────────────────────────────────────────────
 
 test.describe("PAD-114 coach viewing a roster player", () => {
-  test("coach reaches a roster player's attendance from the player profile", async ({
+  // PAD-834 (attendance.history rule 17): the profile lists the presences in place; its "Ver página
+  // completa" opens this page.
+  test("[ATTENDANCE-HISTORY-4] the coach reaches the player's attendance page from the profile's open list", async ({
     page,
   }) => {
     await loginAsCoach(page);
@@ -320,8 +323,9 @@ test.describe("PAD-114 coach viewing a roster player", () => {
     await page.waitForURL(/\/players\/\d+$/, { timeout: 15_000 });
     const playerId = new URL(page.url()).pathname.split("/").pop();
 
+    await openProfileList(page, "attendance");
     const payload = await waitForHistory(page, async () => {
-      await page.getByTestId("player-attendance-link").click();
+      await page.getByTestId("profile-attendance-full").click();
     });
 
     await page.waitForURL(`**/players/${playerId}/attendance`, {
@@ -489,8 +493,9 @@ test.describe("PAD-82 season preset", () => {
       await page.goto("/players");
       await clickPlayerCard(page, STUDENT_USERNAME);
       await page.waitForURL(/\/players\/\d+$/, { timeout: 15_000 });
+      await openProfileList(page, "attendance");
       await waitForHistory(page, async () => {
-        await page.getByTestId("player-attendance-link").click();
+        await page.getByTestId("profile-attendance-full").click();
       });
 
       const seasonal = await waitForHistory(page, async () => {

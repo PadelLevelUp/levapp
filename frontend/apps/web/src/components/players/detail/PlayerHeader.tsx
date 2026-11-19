@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { NICKNAME_MAX, nicknameShown } from "@levelup/config";
-import { BellOff, Check, Loader2, Pencil, X } from "lucide-react";
+import { BellOff, Check, Loader2, X } from "lucide-react";
 import { LevelLabel } from "@/components/LevelLabel";
 
 interface PlayerHeaderProps {
@@ -23,9 +23,6 @@ interface PlayerHeaderProps {
   onDraftNicknameChange: (v: string) => void;
   onDraftNicknameAsNameChange: (v: boolean) => void;
   onDraftNameChange: (v: string) => void;
-  onEdit: () => void;
-  /** players.profile rule 8 (PAD-834): disabled while Block 1 is in edit mode. */
-  editDisabled?: boolean;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -42,8 +39,6 @@ export function PlayerHeader({
   onDraftNicknameChange,
   onDraftNicknameAsNameChange,
   onDraftNameChange,
-  onEdit,
-  editDisabled = false,
   onSave,
   onCancel,
 }: PlayerHeaderProps) {
@@ -191,11 +186,6 @@ export function PlayerHeader({
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onEdit} disabled={editDisabled} data-testid="player-edit">
-              <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
-            </Button>
-          </div>
         </div>
       )}
 
