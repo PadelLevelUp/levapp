@@ -5,7 +5,7 @@ import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { lightTheme, nicknameShown, standingEndLabel, type InfoEditSession } from "@levelup/config";
-import { useCoachLevels, usePlayerEvaluations, usePlayerProfile } from "@levelup/hooks";
+import { useCoachLevels, useEvaluationCompetencies, usePlayerEvaluations, usePlayerProfile } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthContext";
@@ -37,7 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
-import { formatEvaluationDate } from "@/features/evaluations/format-date";
+import { EvaluationsBlock } from "@/features/evaluations/evaluations-block";
 import { AddToClassesDialog } from "@/features/players/add-to-classes-dialog";
 import { ClaimLinkAction } from "@/features/players/claim-link-dialog";
 import {
@@ -84,9 +84,19 @@ export default function PlayerDetailScreen() {
   const { data: levels } = useCoachLevels();
   const { data: profile } = usePlayerProfile(playerId);
   // evaluations.history rule 2: the card's date is the server's `lastEvaluatedOn`.
-  const { data: evaluationHistory } = usePlayerEvaluations(playerId);
-  const openEvaluations = () =>
-    router.push({ pathname: "/player-evaluations/[playerId]", params: { playerId: String(playerId), name: player?.displayName ?? player?.name ?? "" } });
+  const evaluationHistory = usePlayerEvaluations(playerId);
+  const competencySet = useEvaluationCompetencies();
+  // players.profile rule 10 (PAD-834): the history screen, optionally opened on the form
+  // ("new") or on a record (the last evaluation's Editar).
+  const openEvaluations = (form?: string) =>
+    router.push({
+      pathname: "/player-evaluations/[playerId]",
+      params: {
+        playerId: String(playerId),
+        name: player?.displayName ?? player?.name ?? "",
+        ...(form ? { form } : {}),
+      },
+    });
   const { data: standingList } = useStandingWaitingList();
 
   const editPlayer = useEditPlayer();
@@ -447,7 +457,7 @@ export default function PlayerDetailScreen() {
           size="sm"
           testID="player-evaluations-action"
           accessibilityLabel={t("players.evaluationHistory.open")}
-          onPress={openEvaluations}
+          onPress={() => openEvaluations()}
         >
           <Ionicons
             name="clipboard-outline"
@@ -638,30 +648,6 @@ export default function PlayerDetailScreen() {
           claimAction={<ClaimLinkAction player={player} />}
         />
 
-        {/* The profile card "Avaliação" (evaluations.history rule 2). Owner question Q7 is open: the
-            at-a-glance list of latest scores this replaces left the profile, following the canvas.
-            To restore it, render `profile?.evaluations` here again (`GET /player_profile` still
-            serves it, legacy categories only) — the removed block is in this file's history (PAD-374). */}
-        <Card testID="evaluation-card">
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>{t("players.evaluationHistory.cardTitle")}</CardTitle>
-            <Button size="sm" testID="player-evaluations-open" onPress={openEvaluations}>
-              <Text>{t("players.evaluationHistory.open")}</Text>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <Text className="text-sm text-muted-foreground" testID="evaluation-card-last">
-              {evaluationHistory === undefined
-                ? " "
-                : evaluationHistory.lastEvaluatedOn === null
-                  ? t("players.evaluationHistory.none")
-                  : t("players.evaluationHistory.lastEvaluated", {
-                      date: formatEvaluationDate(evaluationHistory.lastEvaluatedOn, i18n.language),
-                    })}
-            </Text>
-          </CardContent>
-        </Card>
-
         {/* players.profile rule 8 (PAD-834): Block 1, Informação — its own edit. */}
         <View onLayout={(e) => { infoBlockY.current = e.nativeEvent.layout.y; }}>
           <PlayerInfoBlock
@@ -710,6 +696,21 @@ export default function PlayerDetailScreen() {
                 ) : null}
           </PlayerInfoBlock>
         </View>
+
+        {/* players.profile rule 10 (PAD-834): Block 2, Avaliações. */}
+        <EvaluationsBlock
+          playerId={String(player.playerId)}
+          authorName={user?.name ?? ""}
+          records={evaluationHistory.data?.records ?? []}
+          lastEvaluatedOn={evaluationHistory.data?.lastEvaluatedOn}
+          competencies={competencySet.data?.competencies ?? []}
+          competenciesWithData={evaluationHistory.data?.competenciesWithData ?? []}
+          loading={evaluationHistory.isLoading}
+          ready={Boolean(evaluationHistory.data && competencySet.data)}
+          onOpenHistory={() => openEvaluations()}
+          onNew={() => openEvaluations("new")}
+          onEdit={(record) => openEvaluations(String(record.id))}
+        />
 
         <StrengthsWeaknesses
           playerId={String(player.playerId)}

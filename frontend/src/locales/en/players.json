@@ -500,7 +500,13 @@
       "cancelInvite": "Cancel invite",
       "cancelInviteConfirm": "Cancel {{name}}'s invite? The record is deleted, and the invite link stops working.",
       "cancelInviteConfirmShared": "Cancel {{name}}'s invite? {{name}} leaves your roster but stays on the other coach's.",
-      "inviteCancelled": "Invite for {{name}} cancelled"
+      "inviteCancelled": "Invite for {{name}} cancelled",
+      "evaluationsTitle": "Evaluations",
+      "historyCount": "History ({{count}})",
+      "lastEvaluation": "Last evaluation",
+      "by": "by {{name}}",
+      "evolutionGate": "The evolution appears from the second evaluation.",
+      "firstEvaluation": "Do the first evaluation"
     }
   }
 }

@@ -104,3 +104,6 @@ export function infoChanges(original: InfoSource, draft: InfoDraft): Record<stri
   if (draft.side && draft.side !== before.side) out.side = draft.side;
   return out;
 }
+
+/** players.profile rule 10 (PAD-834): the profile's Evolução column shows from this many records. */
+export const EVOLUTION_MIN_RECORDS = 2;

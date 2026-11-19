@@ -32,7 +32,6 @@ import { toast } from "@/components/ui/toast";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 import { EvaluationForm } from "./evaluation-form";
-import { EvolutionSection } from "./evolution-section";
 import { formatEvaluationDate } from "./format-date";
 import { HistoryCard } from "./history-card";
 import { openCompetencyManager } from "./open-competency-manager";
@@ -43,16 +42,20 @@ type FormTarget = "new" | EvaluationRecord | null;
 interface PlayerEvaluationsScreenProps {
   playerId: string;
   playerName: string;
+  /**
+   * PAD-834 (players.profile rule 10): what the screen opens on — the history (absent), the form on
+   * today's class-less record ("new"), or the form on a record id (the last evaluation's Editar).
+   */
+  initialForm?: string;
 }
 
 /**
  * "Avaliações — {nome}" on iOS (evaluations.history rule 3): a PUSHED screen, not
- * a native Modal sheet. Two sections — "Evolução" (`EvolutionSection`, PAD-375) and
- * "Histórico" — with the form inline above the cards, exactly as web's drawer. The
- * screen is a route, so its state dies with it (rule 10): another player gets a
- * fresh screen.
+ * a native Modal sheet. "Histórico" with the form inline above the cards, exactly as web's
+ * drawer; PAD-834 moved "Evolução" into the profile's Avaliações block (players.profile rule 10).
+ * The screen is a route, so its state dies with it (rule 10): another player gets a fresh screen.
  */
-export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluationsScreenProps) {
+export function PlayerEvaluationsScreen({ playerId, playerName, initialForm }: PlayerEvaluationsScreenProps) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   // PAD-660: the title names the student as the coach does; the share flow below keeps the real name (it is sent).
@@ -67,6 +70,16 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
 
   const records = history.data?.records ?? [];
   const competencies = competencySet.data?.competencies ?? [];
+
+  // PAD-834: opened from the profile's "Nova avaliação" or the last evaluation's Editar — once both
+  // reads are in (the same guard as the "Nova avaliação" button), and only once.
+  const openedForm = React.useRef(false);
+  React.useEffect(() => {
+    if (openedForm.current || !initialForm || !history.data || !competencySet.data) return;
+    openedForm.current = true;
+    if (initialForm === "new") setTarget("new");
+    else setTarget(history.data.records.find((r) => String(r.id) === initialForm) ?? null);
+  }, [initialForm, history.data, competencySet.data]);
 
   const formRecord = target === "new" ? todaysClasslessRecord(records) : target;
   const classRef =
@@ -102,18 +115,6 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
 
       <KeyboardAvoidingView behavior={keyboardAvoidingBehavior()} className="flex-1">
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-8 p-4 pb-12">
-          <View className="gap-3" testID="evaluation-evolution">
-            <Text className="text-xs font-semibold uppercase text-muted-foreground">
-              {t("players.evaluationHistory.evolution")}
-            </Text>
-            <EvolutionSection
-              playerId={playerId}
-              competencies={competencies}
-              competenciesWithData={history.data?.competenciesWithData ?? []}
-              held={target !== null}
-            />
-          </View>
-
           <View className="gap-3" testID="evaluation-history">
             <View className="flex-row items-center justify-between">
               <Text className="text-xs font-semibold uppercase text-muted-foreground">

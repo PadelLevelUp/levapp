@@ -6,9 +6,8 @@ import type { PlayerRemovalImpact } from "@levelup/types";
 import { getCoachLevels } from "@/api/coachLevel";
 import type { CoachPlayer, CoachLevel, PlayerProfile, PlayerSide } from "@/types";
 import type { InfoEditSession } from "@levelup/config";
-import { usePlayerEvaluations } from "@levelup/hooks";
-import { EvaluationSummaryCard } from "@/components/evaluations/EvaluationSummaryCard";
-import { PlayerEvaluationsDrawer } from "@/components/evaluations/PlayerEvaluationsDrawer";
+import { PlayerEvaluationsBlock } from "@/components/evaluations/PlayerEvaluationsBlock";
+import { PlayerEvaluationsDrawer, type FormTarget } from "@/components/evaluations/PlayerEvaluationsDrawer";
 import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
 // Owner question Q7 (open): does the at-a-glance list of latest scores leave the profile? The build
 // default follows the canvas — it does. `PlayerEvaluations` is kept, unmounted: to restore it, import it
@@ -70,8 +69,14 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEvalOpen, setIsEvalOpen] = useState(false);
-  // evaluations.history rule 2: the card's date is the server's `lastEvaluatedOn`; the drawer shares this query.
-  const evaluations = usePlayerEvaluations(player?.playerId ?? null);
+  // players.profile rule 10 (PAD-834): what the drawer opens on, and whether its form is open
+  // (the block's Evolução holds its shape while it is).
+  const [evalTarget, setEvalTarget] = useState<FormTarget>(null);
+  const [evalFormOpen, setEvalFormOpen] = useState(false);
+  const openEvaluations = (target: FormTarget) => {
+    setEvalTarget(target);
+    setIsEvalOpen(true);
+  };
   const [isClassesOpen, setIsClassesOpen] = useState(false);
 
   // Inline edit state
@@ -404,7 +409,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
             // evaluations.history rule 3: "Avaliações" is a primary action on the profile.
             label: t("players.evaluationHistory.open"),
             icon: <ClipboardList className="mr-2 h-4 w-4" />,
-            onClick: () => setIsEvalOpen(true),
+            onClick: () => openEvaluations(null),
             testId: "player-evaluations-action",
             variant: "default" as const,
           },
@@ -420,8 +425,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         ] satisfies PageAction[]}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <EvaluationSummaryCard lastEvaluatedOn={evaluations.data?.lastEvaluatedOn} onOpen={() => setIsEvalOpen(true)} />
+      <div>
         <PlayerInfoBlock
           player={player}
           levels={levels}
@@ -432,6 +436,16 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
           editDisabled={isEditing}
         />
       </div>
+
+      {/* players.profile rule 10 (PAD-834): Block 2, Avaliações. */}
+      <PlayerEvaluationsBlock
+        playerId={player.playerId}
+        authorName={authUser?.name ?? ""}
+        onOpenHistory={() => openEvaluations(null)}
+        onNew={() => openEvaluations("new")}
+        onEdit={(record) => openEvaluations(record)}
+        held={isEvalOpen && evalFormOpen}
+      />
 
       <PlayerStrengthsWeaknesses
         strengths={profile?.strengths ?? []}
@@ -480,6 +494,8 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         playerId={player.playerId}
         playerName={player.displayName || player.name}
         onClose={() => setIsEvalOpen(false)}
+        initialTarget={evalTarget}
+        onFormOpenChange={setEvalFormOpen}
       />
 
       <AddToClassesDialog

@@ -500,7 +500,13 @@
       "cancelInvite": "Cancelar convite",
       "cancelInviteConfirm": "Cancelar o convite de {{name}}? O registo é apagado e o link de convite deixa de funcionar.",
       "cancelInviteConfirmShared": "Cancelar o convite de {{name}}? {{name}} sai da sua lista, mas continua na do outro treinador.",
-      "inviteCancelled": "Convite de {{name}} cancelado"
+      "inviteCancelled": "Convite de {{name}} cancelado",
+      "evaluationsTitle": "Avaliações",
+      "historyCount": "Histórico ({{count}})",
+      "lastEvaluation": "Última avaliação",
+      "by": "por {{name}}",
+      "evolutionGate": "A evolução aparece a partir da 2.ª avaliação.",
+      "firstEvaluation": "Fazer primeira avaliação"
     }
   }
 }

@@ -20,7 +20,9 @@ async function coachToken(request: APIRequestContext): Promise<string> {
 
 const oneDecimal = (value: number | null) => (value === null ? "—" : value.toFixed(1));
 
-test("PAD-375: 'Evolução' shows the seeded competency on its own scale, with the server's figures", async ({ page, request }) => {
+// PAD-834 (players.profile rule 10): "Evolução" is read in the profile's Avaliações block now, shown
+// from the second record; the drawer has history and the form only.
+test("[PLAYERS-PROFILE-17] PAD-375: 'Evolução' shows the seeded competency on its own scale, with the server's figures", async ({ page, request }) => {
   const token = await coachToken(request);
   const roster = await (await request.get(`${API_APP}/coach_players`, { headers: bearer(token) })).json();
   const players: { playerId: number | string; name: string }[] = Array.isArray(roster) ? roster : roster.items;
@@ -30,6 +32,7 @@ test("PAD-375: 'Evolução' shows the seeded competency on its own scale, with t
 
   const history = await (await request.get(`${API_APP}/player/${playerId}/evaluations`, { headers: bearer(token) })).json();
   expect(history.competenciesWithData.length, "the seed filed past-dated evaluations in records").toBeGreaterThan(0);
+  expect(history.records.length, "two records or more, so the profile shows Evolução").toBeGreaterThanOrEqual(2);
   const categoryId: number = history.competenciesWithData[0];
   const evolution = await (
     await request.get(`${API_APP}/player/${playerId}/evaluations/evolution?categoryId=${categoryId}`, { headers: bearer(token) })
@@ -39,8 +42,9 @@ test("PAD-375: 'Evolução' shows the seeded competency on its own scale, with t
   await loginAsCoach(page);
   await page.goto(`/players/${playerId}`);
   await expect(page.getByTestId("evaluation-card-last")).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId("player-evaluations-open").click();
-  await expect(page.getByTestId("player-evaluations-drawer")).toBeVisible({ timeout: 10_000 });
+  const block = page.getByTestId("evaluation-card");
+  await expect(block.getByTestId("evaluation-evolution")).toBeVisible({ timeout: 10_000 });
+  await expect(block.getByTestId("profile-evolution-gate")).toHaveCount(0);
 
   // The first competency with data opens selected — never a hard-coded one.
   await expect(page.getByTestId(`evolution-pill-${categoryId}`)).toHaveAttribute("aria-pressed", "true");
