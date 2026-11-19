@@ -7,7 +7,7 @@ from padel_app import model
 
 DEFAULT_PRIORITY_CRITERIA = [
     {"id": "level", "label": "Level", "enabled": True},
-    {"id": "justified_misses", "label": "Justified Misses", "enabled": True},
+    {"id": "justified_misses", "label": "Aulas por repor", "enabled": True},
     {"id": "attendance", "label": "Attendance", "enabled": True},
     {"id": "playing_side", "label": "Playing Side", "enabled": False},
     # PAD-132: reads users.status (account activation) — the id is a stored
