@@ -476,6 +476,8 @@ test: `frontend/packages/config/src/student-setup-guide.test.ts` › `the sheet 
 - **Then** neither device shows the sheet, the card, the avatar ring or "Conta pronta", `GET /api/auth/me` returns `setupGuide.hidden: true`, and Perfil › Configurar conta (`settings-setup-guide`) opens the guide at 40%
 test: `frontend/apps/web/e2e/dashboard/student-setup-guide.spec.ts` › `[DASHBOARD-STUDENT-SETUP-GUIDE-5] hide holds on a second session and Configurar conta still opens it`
 test: `frontend/apps/mobile/.maestro/flows/338-setup-guide-hide.yaml` (tag `DASHBOARD-STUDENT-SETUP-GUIDE-5`)
+test: `frontend/apps/mobile/src/features/setup-guide/avatar-ring.test.tsx` › `a hidden or ready-closed guide puts no ring on the avatar and reads nothing`
+test: `frontend/apps/web/src/components/setup-guide/useSetupGuide.test.tsx` › `a hidden guide reads nothing on the dashboard, and its own screens still read`
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-6: The compact card opens the next pending step, and steps skip what is done (rules 4, 5)
 - **Given** a student with steps 1 and 4 done who snoozed the sheet
@@ -673,12 +675,16 @@ test: `frontend/apps/mobile/src/features/dashboard/use-dashboard-window.test.ts`
 - **When** `setupGuideState` runs with that refusal
 - **Then** `student` is false and no surface shows (no sheet, card, skeleton, ring or ready card)
 test: `frontend/packages/config/src/student-setup-guide.test.ts` › `an account the blockers list refuses is not a student`
+test: `frontend/apps/web/src/components/setup-guide/useSetupGuide.test.tsx` › `a 403 from the blockers list means not a student`
+test: `frontend/apps/mobile/src/features/setup-guide/setup-guide-card.test.tsx` › `a 403 blockers answer mounts no guide surface`
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-31: A saved schedule's card says its hours, whichever mode it was saved in (rules 8, 10)
 - **Given** the saved rows of criterion 10 ("Igual") and of criterion 11 ("Varia")
 - **When** step 3 shows each saved schedule
 - **Then** the first reads its days and "09–11 · 15–20", and the second lists each day with hours ("seg 09–11 · 15–20", "ter 09–20", …), never "Livre" for a day that has hours
 test: `frontend/packages/config/src/availability-schedule.test.ts` › `a saved schedule's card text in either mode`
+test: `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx` › `a Varia schedule's card says each day's hours, never Livre`
+test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx` › `a saved Varia schedule's card lists each day with its hours`
 
 ### Waves
 1. **Migration and server** (4, 14 backend, 15 backend, 17 backend, 19, 20 backend, 26, 27, and
