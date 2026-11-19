@@ -66,14 +66,14 @@ beforeEach(() => {
     id: 7, date: "2099-10-19", startTime: "09:00", endTime: "10:30", status: "scheduled",
     presences: [], participants: [], maxPlayers: 2,
     invitations: [
-      { id: 1, playerId: "1", playerName: "P1", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "coach_list", groupNumber: null },
-      { id: 2, playerId: "2", playerName: "P2", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 2 },
-      { id: 3, playerId: "3", playerName: "P3", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "students_list", groupNumber: null, reopenedAt: "2099-10-18T10:00:00" },
-      { id: 4, playerId: "4", playerName: "P4", status: "sent", outcome: "not_counting", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
-      { id: 5, playerId: "5", playerName: "P5", status: "sent", outcome: "not_counting", answer: null, answeredBy: null, tierSource: null, groupNumber: null },
-      { id: 6, playerId: "6", playerName: "P6", status: "expired", outcome: "sorry", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
-      { id: 7, playerId: "7", playerName: "P7", status: "expired", outcome: "closed_same_hour", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
-      { id: 8, playerId: "8", playerName: "P8", status: "expired", outcome: "cancelled", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 }
+      { id: -1, invitationId: 1, playerId: "1", playerName: "P1", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "coach_list", groupNumber: null },
+      { id: -2, invitationId: 2, playerId: "2", playerName: "P2", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 2 },
+      { id: -3, invitationId: 3, playerId: "3", playerName: "P3", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "students_list", groupNumber: null, reopenedAt: "2099-10-18T10:00:00" },
+      { id: -4, invitationId: 4, playerId: "4", playerName: "P4", status: "sent", outcome: "not_counting", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
+      { id: -5, invitationId: 5, playerId: "5", playerName: "P5", status: "sent", outcome: "not_counting", answer: null, answeredBy: null, tierSource: null, groupNumber: null },
+      { id: -6, invitationId: 6, playerId: "6", playerName: "P6", status: "expired", outcome: "sorry", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
+      { id: -7, invitationId: 7, playerId: "7", playerName: "P7", status: "expired", outcome: "closed_same_hour", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
+      { id: -8, invitationId: 8, playerId: "8", playerName: "P8", status: "expired", outcome: "cancelled", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 }
     ],
   });
 });
@@ -146,6 +146,7 @@ describe("PAD-920 the new engine's invitees on web", () => {
     expect(api.coachRespondToNotification).not.toHaveBeenCalled();
   });
 
+  // NB6: a new-engine row's `id` is -invitationId (the old iOS builds' key); web answers by `invitationId`.
   it("[NOTIFICATIONS-INVITATIONS-122] withdraws a new-engine invitation through the engine's route", async () => {
     api.withdrawEngineInvitation.mockResolvedValue({ action: "withdrawn" });
     await openSheet();

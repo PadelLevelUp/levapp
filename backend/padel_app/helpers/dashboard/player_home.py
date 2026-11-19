@@ -361,7 +361,9 @@ def _engine_invite_items(*, player_id: int, now: datetime, skip: set) -> List[Di
         if instance.id in skip:
             continue
         item = _class_item(instance, now=now)
-        item.update({"kind": "vacancy_invite", "id": f"invitation-{row.id}", "invitationId": int(row.id)})
+        # invitations NB6: App Store builds 33-35 answer the card only by notificationEventId.
+        item.update({"kind": "vacancy_invite", "id": f"invitation-{row.id}", "invitationId": int(row.id),
+                     "notificationEventId": -int(row.id)})
         out.append(item)
     return out
 

@@ -82,6 +82,60 @@ def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now:
     return {**out, "action": _answer_state(row, placed())}
 
 
+# --- old clients (invitations NB6) -----------------------------------------------------------------
+
+#: The engine's answer in the old engine's words: App Store builds 33-35 act only on these.
+OLD_CLIENT_ACTION = {"confirmed": "confirmed", "declined": "declined", "sorry": "spot_filled",
+                     "closed_same_hour": "spot_filled", "class_started": "expired"}
+
+
+def respond_as_old_client(invitation_id: int, action: str, user_id: int, *, coach_id: int | None = None) -> dict:
+    """invitations NB6: an old build's answer to a new-engine invitation (its negative
+    ``notificationEventId``), answered by the engine as NB5's body would be and said in the old engine's
+    words; the class-cancelled refusal is ``expired`` to them."""
+    from werkzeug.exceptions import HTTPException
+
+    try:
+        result = respond_to_invitation(invitation_id, action, user_id, coach_id=coach_id)
+    except HTTPException as exc:
+        status = exc.response.status_code if exc.response is not None else exc.code
+        body = exc.response.get_json(silent=True) if exc.response is not None else None
+        if status == 409 and (body or {}).get("code") == "class_cancelled":
+            return {"action": "expired"}
+        raise
+    return {"action": OLD_CLIENT_ACTION.get(result.get("action"), "unknown")}
+
+
+def withdraw_by_coach(invitation_id: int, coach_id: int, now: datetime | None = None) -> dict:
+    """invitations rule 19 for a new-engine invitation (NB5, NB6): the coach withdraws it through the store;
+    one already ended says how, in the old engine's words. 404 for an unknown id, 403 when the session is
+    not the coach's."""
+    from werkzeug.exceptions import Forbidden, NotFound
+
+    from padel_app.models import EngineInvitation
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.engine_store import TableStore
+    from padel_app.services.lesson_service import coaches_for
+
+    now = now or utcnow_naive()
+    row = db.session.get(EngineInvitation, int(invitation_id))
+    if row is None:
+        raise NotFound("unknown invitation")
+    instance = db.session.get(LessonInstance, row.lesson_instance_id)
+    if coach_id not in {c.id for c in coaches_for(instance)}:
+        raise Forbidden("not your session")
+    store = TableStore(clock=lambda: now)
+    with store.unit((str(row.lesson_instance_id),)):
+        withdrawn = store.withdraw(row.id, now)
+    db.session.expire_all()
+    if withdrawn:
+        return {"action": "withdrawn"}
+    row = db.session.get(EngineInvitation, int(invitation_id))
+    if row.answer == "yes" and row.sorry_at is None and row.closed_at is None:
+        return {"action": "confirmed"}
+    return {"action": "declined"} if row.answer == "no" else {"action": "spot_filled"}
+
+
 # --- shared ----------------------------------------------------------------------------------------
 
 #: The app's side words and the engine's.

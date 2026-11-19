@@ -533,7 +533,10 @@ export type InvitationOutcome =
   | 'cancelled';
 
 export interface ClassInvitation {
+  /** A new-engine row's is `-invitationId` (invitations NB6: old iOS builds answer by it). */
   id: number;
+  /** New-engine rows only: the invitation's id, the engine routes' key (NB5, NB6). */
+  invitationId?: number;
   playerId: string;
   playerName: string;
   status: 'sent' | 'confirmed' | 'expired' | 'queued';

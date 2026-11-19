@@ -160,6 +160,7 @@ def _invitation(row, kind: str | None = None) -> None:
     side = _side_phrase(inv.side_named, ctx.locale) if kind == "waiting_list_invite" else ""
     msg = ctx.to_student(int(student), kind, "notification_invite", {
         "engine": "new", "invitationId": inv.id, "lessonInstanceId": int(ctx.session), "kind": kind,
+        "notificationEventId": -inv.id,               # invitations NB6: App Store builds 33-35 answer by it
         "state": "open", "startsAt": ctx.starts_at(),
         "countsUntil": inv.counts_until.isoformat() if inv.counts_until else None,
     }, **({"side": side} if side else {}))

@@ -202,7 +202,8 @@ def test_a_manual_invitation_reopens_one_that_stopped_counting(app, client):
         assert _bubbles(p)[-1].msg_metadata["invitationId"] == row.id
     from padel_app.models import Message
     meta = db.session.get(Message, answered).msg_metadata
-    assert meta["state"] == "reopened" and "response" not in meta and "answeredBy" not in meta
+    # The earlier answer is dropped; `response` is now invitations NB6's word for the old builds, never "no".
+    assert meta["state"] == "reopened" and meta.get("response") == "reopened" and "answeredBy" not in meta
 
 
 def _old_bubble(store, session, student, row, **answer):

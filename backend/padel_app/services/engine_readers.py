@@ -72,7 +72,10 @@ def engine_invitees(instance, now: datetime | None = None) -> list[dict]:
         source, group = labels.get(row.tier, (None, None)) if row.tier is not None and not row.manual else (None, None)
         outcome = invitee_outcome(row, presences.get(row.player_id), started, now)
         out.append({
-            "id": row.id,
+            # invitations NB6: the iOS class detail (every build) answers and withdraws a row by its id as a
+            # notificationEventId; negative, it reaches the engine, never an old event of the same number.
+            "id": -row.id,
+            "invitationId": row.id,
             "playerId": str(row.player_id),
             "playerName": player.user.name if player is not None and player.user is not None else "Unknown",
             "status": "open" if outcome in ("pending", "not_counting") else outcome,
