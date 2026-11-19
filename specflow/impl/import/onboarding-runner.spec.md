@@ -197,7 +197,9 @@ a history row, like a roster run.
     moved class is recorded (rule 24). No instance that exists is touched by the move.
 20. **Occurrences are materialised up to a cut-off.** For each weekly class, every occurrence from
     its start to the cut-off, the earlier of `through` and the day before the class's first
-    coach-made mark (a presence of one of its instances with `recorded_by = "coach"`, D11), is
+    coach-made mark (a presence of one of its instances that the coach made: `recorded_by = "coach"`, or
+    validated by someone other than this import, `validated` with `recorded_by` not `"import"`, which
+    covers rows validated before `recorded_by` existed; D11), is
     created if it does not exist, through the same path as the coach's calendar (the roster is
     enrolled on it), skipping excluded dates. An occurrence that is not over at the run (its end
     is not before now, club time) is never created: `through` must be before the club's local today.
@@ -234,11 +236,12 @@ a history row, like a roster run.
     goes.
 25. **The starting state is pinned and one history run at a time.** A history file's `expects`
     also has `instances` (the number of lesson instances the coach has) and `coach_marks` (the
-    number of presences with `recorded_by = "coach"`); a different count refuses the run, naming
-    both (as rule 4b). A coach with an active history run is refused another.
+    number of presences the coach made, counted as rule 20 counts them); a different count refuses the
+    run, naming both (as rule 4b). A coach with an active history run is refused another.
 26. **All or nothing, then proof.** A failure at any step undoes the run as rule 11 does, and also
-    puts back every series' start and every presence the run updated, and removes the season the run
-    created. Before the run is declared
+    puts back every series' start and every presence the run updated, removes the season the run
+    created, and removes any occurrence the run materialised even if its id was not yet recorded
+    when the failure came. Before the run is declared
     done: every created lesson and instance belongs to the target coach (rule 12's check); no
     instance of the coach between each class's start and its cut-off has a row left unvalidated;
     and, for each student with a row, the app's own presence statistics over `from`..`through` (the
@@ -247,10 +250,12 @@ a history row, like a roster run.
     (`attendance.stats` rule 3). Any difference fails the run as rule 11. The table of rule 18 is
     printed again with the app's numbers.
 27. **Revert of a history run** is `import.revert` on its row (the instances, presences, lessons
-    and enrolments in `record_ids`) and then restores each series' start and each updated
-    presence's previous values, and deletes the season the run created (rule 28). It is refused, nothing changed, exit code 1, when a presence it
-    wrote has since been marked by the coach, or a series start is no longer the one the run
-    set, naming each. The coach's own marks are never touched. Reverting the earlier roster run
+    and enrolments in `record_ids`) and then restores each series' start (and its recurrence rule text) and each updated
+    presence's previous values, and deletes the season the run created (rule 28). It is refused,
+    nothing changed, exit code 1, when a presence it wrote has since been marked by the coach, when
+    an occurrence or adjustment lesson the run created now holds a row the run did not write (a
+    walk-in the coach added, say: deleting the occurrence would delete it), or when a series start is
+    no longer the one the run set, naming each. The coach's own marks are never touched. Reverting the earlier roster run
     of a coach who has an active history run is refused naming it: the history run is reverted
     first.
 
@@ -261,7 +266,10 @@ a history row, like a roster run.
     (2026-08-31 and 2027-07-31 are 31 August to 31 July) with the file's `label`, and records its id
     (rule 24). A coach who already has a season, whatever its dates, refuses the run before anything
     is written: the database holds one season per coach, so an overlapping one cannot be added and
-    the coach's own is never replaced. The run creates no class that follows the season. Revert
+    the coach's own is never replaced. A coach who has a class that follows the season end
+    (`recurs_until_season_end`) also refuses it: saving a season re-caps those classes and deletes
+    their future occurrences, which a revert cannot put back. The run creates no class that follows
+    the season. Revert
     deletes the season only when it is the recorded one and still has the definition the run set.
 
 29. **Rows the operator left out stay visible (owner and lead, 2026-11-19).** A source row that
@@ -601,6 +609,36 @@ the roster in no class. No instance exists. History file `2026_11_19_rui_history
 - **And** with `start_time` "21:00" it resolves to "Quinta 21:00"; with `start_time` "20:00" it is
   refused (no class starts then)
 - **And** an absence of 90 minutes on a day when the only class is 60 minutes is refused for its length
+
+#### IMPORT-ONBOARDING-RUNNER-40: A revert that would delete a row the run did not write is refused (rule 27)
+- **Given** the history run applied, and then the coach adds a walk-in to the run's occurrence of
+  Monday 2026-09-14 (a new presence, `recorded_by` `coach`)
+- **When** the operator reverts the run
+- **Then** the revert is refused naming that occurrence and the row, exit code 1, nothing changed
+- **And** the same holds for a row the coach added to one of the run's adjustment lessons, and a
+  row added by anyone, whatever its `recorded_by`
+
+#### IMPORT-ONBOARDING-RUNNER-41: A coach with a class that follows the season end refuses a season (rule 28)
+- **Given** the fixture's coach has a class with `recurs_until_season_end` and no season, and the valid
+  file has `season`
+- **When** the operator applies it, or runs it with `--dry-run`
+- **Then** the run is refused naming that class, exit code 1, nothing written
+- **And** the same file with no `season` is accepted
+
+#### IMPORT-ONBOARDING-RUNNER-42: A row validated before `recorded_by` existed is the coach's (rules 20, 25)
+- **Given** the fixture, and a presence on Monday 2026-11-09 that is `validated` with no `recorded_by`
+  (a row from before the column), `expects.coach_marks` 1
+- **When** the file is applied
+- **Then** that Monday is the class's cut-off (no run occurrence on or after it) and the row is as it
+  was
+- **And** with `expects.coach_marks` 0 the run is refused naming both counts
+
+#### IMPORT-ONBOARDING-RUNNER-43: A failure removes an occurrence whose id was not yet recorded, and a revert restores the recurrence rule (rules 26, 27)
+- **Given** the fixture, and the apply failing after an occurrence was materialised and before its id was
+  recorded
+- **Then** no occurrence of that run remains, the history row is gone, and the same file applies afterwards
+- **And** after a completed run is reverted, each moved class has its start, end and recurrence rule
+  text as before the run
 
 ### Notes
 - Reused, not reimplemented: player creation is `import.confirm`'s, class creation is
