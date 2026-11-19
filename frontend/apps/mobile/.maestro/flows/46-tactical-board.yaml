@@ -445,15 +445,17 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "piece-a4"
 # Bola in basket mode: one tap on the court draws the feed from the feeder.
+# PAD-710 (Android lane): the tool row keeps the offset Wave 3 left it at (scrolled to the swatches),
+# so the first tools are off screen to the left and only board-add-players shows (run 43952334985).
+# Bring the row on screen by that button: no page scroll can show board-tool-ball while the row
+# hides it, and looking for it left the row off screen (run 44514879948). Then swipe the row back
+# right until the ball tool shows.
 - runFlow:
     when:
       platform: Android
     file: ../subflows/board-show-toolbar.yaml
     env:
-      TARGET: "board-tool-ball"
-# PAD-710 (Android lane): the tool row keeps the offset Wave 3 left it at (scrolled to the swatches),
-# so the first tools are off screen to the left and only board-add-players shows (run 43952334985).
-# Swipe the row back right until the ball tool shows.
+      TARGET: "board-add-players"
 - runFlow:
     when:
       platform: Android
