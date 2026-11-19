@@ -24,7 +24,7 @@ from padel_app.sql_db import db
 from padel_app.tests.test_pad128_eligibility import _add_student, _seed, utcnow_naive
 
 
-def _past_class(ids, player_id, *, status, justification=None, source="roster", days_ago):
+def _past_class(ids, player_id, *, status, justification=None, source="roster", days_ago, validated=True):
     """One past class of this coach with the player's presence row on it; returns the instance id."""
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.lesson_instances import LessonInstance
@@ -37,7 +37,7 @@ def _past_class(ids, player_id, *, status, justification=None, source="roster", 
     db.session.flush()
     db.session.add(Association_CoachLessonInstance(coach_id=ids["coach_id"], lesson_instance_id=inst.id))
     db.session.add(Presence(lesson_instance_id=inst.id, player_id=player_id, status=status,
-                            justification=justification, validated=True, enrolment_source=source))
+                            justification=justification, validated=validated, enrolment_source=source))
     db.session.flush()
     return inst.id
 
@@ -47,6 +47,23 @@ def _accepted_invitation(ids, player_id, instance_id):
 
     db.session.add(NotificationEvent(coach_id=ids["coach_id"], lesson_instance_id=instance_id,
                                      player_id=player_id, type="auto", status="confirmed"))
+    db.session.flush()
+
+
+def _enrol(ids, player_id):
+    from padel_app.models import Association_PlayerLesson
+
+    db.session.add(Association_PlayerLesson(player_id=player_id, lesson_id=ids["lesson_id"]))
+    db.session.flush()
+
+
+def _engine_yes(ids, player_id, instance_id, *, closed_reason=None):
+    from padel_app.models import EngineInvitation
+
+    db.session.add(EngineInvitation(
+        lesson_instance_id=instance_id, player_id=player_id, coach_id=ids["coach_id"], offer=[[None, None]],
+        sent_at=utcnow_naive(), answer="yes", answered_by="student", closed_reason=closed_reason,
+        closed_at=utcnow_naive() if closed_reason else None))
     db.session.flush()
 
 
@@ -94,14 +111,31 @@ def test_an_accepted_invitation_the_student_then_missed_still_counts_as_a_makeup
     assert _owed(app, record) == (0, False)
 
 
-@pytest.mark.criterion("ATTENDANCE-STATS-3")
-def test_a_class_attended_without_an_accepted_invitation_is_not_a_makeup_taken(app):
-    """A fill reached through the student's own join request leaves no invitation."""
+def _guest_class(*, status="present", validated=True, justification=None):
     def record(ids, s):
         _justified(ids, s, 40)
-        _past_class(ids, s, status="present", source="fill", days_ago=20)
+        _past_class(ids, s, status=status, justification=justification, source="fill", days_ago=20,
+                    validated=validated)
+    return record
 
-    assert _owed(app, record) == (1, True)
+
+@pytest.mark.criterion("ATTENDANCE-STATS-3")
+def test_a_guest_class_without_an_invitation_is_a_makeup_once_the_coach_validates_it(app):
+    """[ATTENDANCE-STATS-3] History import D2: the student's own join request leaves no invitation,
+    and the validated guest presence is the make-up."""
+    assert _owed(app, _guest_class()) == (0, False)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-3")
+def test_a_guest_class_not_yet_validated_is_not_a_makeup(app):
+    """[ATTENDANCE-STATS-3] Not validated: still owed."""
+    assert _owed(app, _guest_class(validated=False)) == (1, True)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-3")
+def test_a_guest_class_the_student_missed_is_not_a_makeup(app):
+    """[ATTENDANCE-STATS-3] Marked absent: still owed."""
+    assert _owed(app, _guest_class(status="absent", justification="unjustified")) == (1, True)
 
 
 @pytest.mark.criterion("ATTENDANCE-STATS-4")
@@ -136,6 +170,77 @@ def test_another_coachs_invitation_does_not_pay_this_coachs_debt(app):
     assert _owed(app, record) == (1, True)
 
 
+@pytest.mark.criterion("ATTENDANCE-STATS-9")
+def test_a_validated_guest_presence_is_a_makeup_taken(app):
+    """[ATTENDANCE-STATS-9] 2 justified absences, 1 validated guest class, no invitation: 1 owed."""
+    def record(ids, s):
+        _justified(ids, s, 40)
+        _justified(ids, s, 39)
+        _past_class(ids, s, status="present", source="fill", days_ago=20)
+
+    assert _owed(app, record) == (1, True)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-10")
+def test_attending_a_class_they_belong_to_is_not_a_makeup(app):
+    """[ATTENDANCE-STATS-10] A validated present row on a class the student is enrolled in pays nothing."""
+    def record(ids, s):
+        _justified(ids, s, 40)
+        _enrol(ids, s)
+        _past_class(ids, s, status="present", days_ago=20)
+
+    assert _owed(app, record) == (1, True)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-11")
+def test_one_occurrence_pays_once_whichever_way_it_was_filled(app):
+    """[ATTENDANCE-STATS-11] Accepted invitation (both stores) plus the guest presence it left: one make-up."""
+    def record(ids, s):
+        _justified(ids, s, 40)
+        _justified(ids, s, 39)
+        inst = _past_class(ids, s, status="present", source="fill", days_ago=20)
+        _accepted_invitation(ids, s, inst)
+        _engine_yes(ids, s, inst)
+
+    assert _owed(app, record) == (1, True)
+
+
+def _two_justified_one_missed_fill(store):
+    def record(ids, s):
+        _justified(ids, s, 40)
+        _justified(ids, s, 39)
+        inst = _past_class(ids, s, status="absent", justification="unjustified", source="fill", days_ago=20)
+        store(ids, s, inst)
+    return record
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-12")
+def test_the_old_engines_store_gives_one_owed(app):
+    """[ATTENDANCE-STATS-12] Old engine: a confirmed NotificationEvent."""
+    assert _owed(app, _two_justified_one_missed_fill(lambda ids, s, i: _accepted_invitation(ids, s, i))) == (1, True)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-12")
+def test_the_new_engines_store_gives_the_same_number(app):
+    """[ATTENDANCE-STATS-12] New engine: an EngineInvitation answered yes. One count feeds `has_makeups`,
+    `justified_misses` and the engine's Student (engine_store._students reads makeups_owed_for)."""
+    assert _owed(app, _two_justified_one_missed_fill(lambda ids, s, i: _engine_yes(ids, s, i))) == (1, True)
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-13")
+def test_a_new_engine_yes_is_a_makeup_taken_unless_it_was_withdrawn(app):
+    """[ATTENDANCE-STATS-13] One yes counts (even though the student missed that class), a withdrawn one does not."""
+    def record(ids, s):
+        _justified(ids, s, 40)
+        _justified(ids, s, 39)
+        _engine_yes(ids, s, _past_class(ids, s, status="absent", justification="unjustified",
+                                        source="fill", days_ago=20))
+        _engine_yes(ids, s, _past_class(ids, s, status="absent", justification="unjustified",
+                                        source="fill", days_ago=19), closed_reason="withdrawn")
+
+    assert _owed(app, record) == (1, True)
+
+
 # ── the tiebreaker and the simulation ────────────────────────────────────────
 
 @pytest.mark.criterion("ATTENDANCE-STATS-7")
@@ -154,6 +259,8 @@ def test_the_justified_misses_tiebreaker_ranks_by_classes_owed_and_the_simulatio
         ana = _add_student(ids["coach_id"], "ana", ids["level_ids"]["5"])
         bruno = _add_student(ids["coach_id"], "bruno", ids["level_ids"]["5"])
         departing = _add_student(ids["coach_id"], "departing", ids["level_ids"]["5"])
+        _enrol(ids, ana)      # regulars: their present rows are not guest make-ups (rule 3, D2)
+        _enrol(ids, bruno)
         _justified(ids, ana, 60)
         _justified(ids, ana, 59)
         for d in range(50, 42, -1):
