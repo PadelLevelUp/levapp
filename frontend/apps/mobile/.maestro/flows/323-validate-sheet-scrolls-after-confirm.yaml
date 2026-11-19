@@ -117,10 +117,18 @@ onFlowComplete:
           duration: 400
 - tapOn:
     id: "presences-undo-${output.lastId}"
-- extendedWaitUntil:
-    visible:
-      id: "presences-select-${output.lastId}"
-    timeout: 20000
+# PAD-710 (Android lane): the undone class goes back to the "ready" group, which sits above the
+# validated rows, and the list is a little way down after the undo, so the row is off screen above
+# and Android does not list it (runs 43852171201 and 43957066246; the sheet said "1 in the week
+# shown"). iOS lists it anyway. On Android wait for it only after dragging back to the top.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "presences-select-${output.lastId}"
+          timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000
 - repeat:
@@ -130,6 +138,14 @@ onFlowComplete:
           start: "50%, 40%"
           end: "50%, 78%"
           duration: 400
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "presences-select-${output.lastId}"
+          timeout: 20000
 - tapOn:
     id: "presences-select-${output.lastId}"
 - extendedWaitUntil:
