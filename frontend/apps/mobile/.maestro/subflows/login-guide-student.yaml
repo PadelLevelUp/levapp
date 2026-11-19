@@ -11,13 +11,31 @@ appId: com.padellevelup.app
     permissions:
       notifications: unset
 # The notifications alert (see below) can also come up at launch, over the login screen.
-# 90 s, not 30: the first launch after clearState on CI's Android emulator sat on the splash past
-# 30 s (PR #996, run 44555742257, flow 337), while the later flows pass the same subflow warm.
 - extendedWaitUntil:
     visible:
       id: "login-username"
-    timeout: 90000
+    timeout: 30000
     optional: true
+# Android's clear-data race (PR #996 runs 44555742257 and 44627907193, flow 337 both times, the
+# first flow after a coach session): clearState kills the old process, the new one starts, and
+# about a second later the old task's "Destroy timeout of remove-task" kills the NEW process too
+# ("Killing ...: remove task" in logcat), so the screen stays dark however long the wait. A
+# longer wait never helps; a second launch does: the state is already clear and no task is left
+# to destroy. 338-340 launch the same way after a dead process and are fine.
+- runFlow:
+    when:
+      notVisible:
+        id: "login-username"
+    commands:
+      - launchApp:
+          appId: com.padellevelup.app
+          permissions:
+            notifications: unset
+      - extendedWaitUntil:
+          visible:
+            id: "login-username"
+          timeout: 30000
+          optional: true
 # Both platforms: iOS titles it "... Would Like to Send You Notifications", Android 13+ "Allow LevApp
 # to send you notifications?" (CI grants POST_NOTIFICATIONS, but launchApp's `unset` takes it away);
 # Android's button reads DON'T ALLOW (caps, curly apostrophe), so it is tapped by its id; iOS's

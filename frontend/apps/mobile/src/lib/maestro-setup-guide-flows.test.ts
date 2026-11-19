@@ -58,7 +58,12 @@ describe("PAD-839 setup guide flows (337-340)", () => {
     expect(login).toContain("Would Like to Send You Notifications");
     expect(login).toContain("com.android.permissioncontroller:id/permission_deny_button");
     expect(login).toMatch(/platform:\s*Android/);
-    // The first wait is the cold-start budget: 30 s left flow 337 on the splash on CI (PR #996).
-    expect(login).toMatch(/timeout:\s*90000\n\s*optional:\s*true/);
+    // Android's clear-data race killed the freshly launched process in flow 337 twice on PR #996:
+    // when the login screen is not up after the clearState launch, the subflow launches once more,
+    // without clearState and still with notifications unset.
+    expect(login).toMatch(/notVisible:\s*\n\s*id:\s*"login-username"/);
+    expect(login.match(/- launchApp:/g)).toHaveLength(2);
+    expect(login.match(/clearState:\s*true/g)).toHaveLength(1);
+    expect(login.match(/notifications:\s*unset/g)).toHaveLength(2);
   });
 });
