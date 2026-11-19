@@ -100,7 +100,8 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     - an absent roster presence (the regular's own No, or the coach marking them absent, before the class)
       is the regular's absence as rule 4 reads it: the store writes `left_reason` `regular_no` and keeps
       its `status`, `response`, `responded_at`, `justification` and the coach's validation as they are.
-      The regular stays a regular, their seat is free, and the engine plans it like any regular's No;
+      The regular stays a regular, their seat is free, and the engine plans it like any regular's No:
+      being absent, they are not going, so the engine's attendance requests never ask them again;
     - an absent presence that is not the roster's (a student placed for that one class who cancelled) is a
       cancellation: `left_reason` `cancel`, not going, the seat free;
     - the class's waiting-list rows (standing or not) and its pending join requests stay as they are; the
@@ -226,8 +227,9 @@ Given a coach on the old engine and a future class whose invitations have not st
 (absent, not validated, response kept) and whose old vacancy is open and never sent, when the coach is
 switched, then the class is on the new engine, the regular's presence is still absent with the same response
 and justification and `left_reason` `regular_no`, the vacancy is expired, the engine's snapshot counts the
-regular absent and not going, and the engine's first run once the window opens invites another student for
-that seat.
+regular absent and not going, the engine's first run once the window opens invites another student for
+that seat, and none of the engine's runs up to the class sends the regular an attendance request (no
+`AttendanceRequested` effect and no attendance-request row for them).
 test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_a_regulars_early_no_survives_the_switch`
 
 #### NOTIFICATIONS-ENGINE-STORE-16: The coach's recorded absence is kept as recorded at the switch (rule 10)
