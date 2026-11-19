@@ -550,7 +550,7 @@ test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.ts
 #### DASHBOARD-STUDENT-SETUP-GUIDE-16: A preset saves its rows in one tap (rule 8)
 - **Given** step 3 with "Trabalho em dias úteis" selected
 - **When** the student presses "Guardar e continuar"
-- **Then** one row, weekly Mon–Fri 09:00–18:00 and titled "Trabalho" (`const:SCHEDULE_PRESETS`), is saved under a new `scheduleId`, step 3 is done and step 4 opens
+- **Then** one row, weekly Mon–Fri 09:00–18:00 and titled "Trabalho" (`const:SCHEDULE_PRESETS`), is saved under a new `scheduleId`, step 3 is done, and the next pending step after it opens (rule 5: step 5 for a student already linked to a coach)
 test: `frontend/apps/web/e2e/dashboard/student-setup-guide.spec.ts` › `[DASHBOARD-STUDENT-SETUP-GUIDE-16] a preset saves and moves on`
 test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx` › `a preset saves one schedule and moves on`
 
@@ -610,7 +610,7 @@ test: `frontend/apps/web/src/components/setup-guide/StepDevicePush.test.tsx` ›
 
 #### DASHBOARD-STUDENT-SETUP-GUIDE-24: Every way of closing the sheet except "Não mostrar mais" snoozes it (rule 4)
 - **Given** the open sheet, four times
-- **When** the student closes it with "Agora não", with "Começar", with a swipe down, and with a tap on the backdrop
+- **When** the student closes it with "Agora não", with "Começar", with a tap on the backdrop, and with the platform's own dismissal (Escape on web, the back button on Android; the iOS sheet has no swipe gesture)
 - **Then** each sends `PATCH /api/auth/me {setupGuideSnooze: true}` once, and "Começar" also opens the next pending step; "Ver os 5 passos" on the card opens the list without sending anything until it is closed
 test: `frontend/apps/web/src/components/setup-guide/SetupGuideSheet.test.tsx` › `every close but hide snoozes`
 test: `frontend/apps/mobile/src/features/setup-guide/setup-guide-sheet.test.tsx` › `every close but hide snoozes`
@@ -642,7 +642,7 @@ test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_ano
 - **Given** the clock pinned to 2026-11-19 (Lisbon), a guide-made schedule of two rows ending 2027-02-19, and a second one that ended 2026-11-10
 - **When** step 3 renders each, and the student presses "Prolongar" on both
 - **Then** the first reads "Termina a 19/02/2027" and the second "Terminou a 10/11/2026", and step 3 counts only the first
-- **And** "Prolongar" PUTs each schedule with every row's `endDate` set to 2027-05-19 (the later of the end and today, plus 3 months), the rows otherwise unchanged
+- **And** "Prolongar" PUTs each schedule with every row's `endDate` set to the later of its end and today, plus 3 months: 2027-05-19 for the first, 2027-02-19 for the ended one, the rows otherwise unchanged
 test: `frontend/packages/config/src/availability-schedule.test.ts` › `schedule end and Prolongar's new end`
 test: `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx` › `shows the end and Prolongar extends every row`
 test: `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx` › `shows the end and Prolongar extends every row`
