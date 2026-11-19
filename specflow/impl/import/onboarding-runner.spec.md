@@ -132,14 +132,17 @@ a history row, like a roster run.
 
 #### History runs (owner decisions of 2026-11-19: D4 to D11)
 15. **A history run is a file with a `history` section.** The file keeps rule 2's shape; its
-    `players` and `classes` are empty lists. The section is
+    `classes` is an empty list, and its `players` is empty or lists students the run creates on the
+    coach's roster, in no class (rule 30). The section is
     `{from, through, season?, absences, guests, adjustments, sheet_totals?}`:
     - `from`, `through`: dates (`YYYY-MM-DD`), the first and the last day covered, inclusive.
     - `season`: optional, `{start_date, end_date, label?}`, the coach's season (rule 28).
     - `excluded`: optional, `{source_row, student, kind, type?, minutes, reason}`, rows of the
       source the operator chose not to load (rule 29). `kind` is `absence` or `guest`.
-    - `absences`: `{date, student, type, minutes, note?, source_row?, sheet_date?}`, `type` one of `justified`,
-      `unjustified`, `coach`. `minutes` is the length the source gives and is a check (rule 17a).
+    - `absences`: `{date, student, type, minutes, note?, start_time?, source_row?, sheet_date?}`,
+      `type` one of `justified`, `unjustified`, `coach`. `minutes` is the length the source gives
+      and is a check (rule 17a). `start_time` (`HH:MM`) names the class, by its weekday and start,
+      for a student who is in no class.
     - `guests`: `{date, start_time, student, minutes, source_row?, sheet_date?}`, a student who attended a class they are not
       enrolled in.
     - `adjustments`: `{student, minutes, date, start_time?, lesson_minutes?}`, a manual credit.
@@ -160,13 +163,18 @@ a history row, like a roster run.
     so today's roster stands for the whole period). Any row that cannot be resolved is reported,
     with its position in the file and why, and refuses the run:
     a. an **absence** belongs to the one weekly class of the coach that the student is enrolled in
-       and that falls on the row's weekday. Refused when the student is not on the coach's roster,
-       is in no class that weekday, is in two or more (so the class cannot be told), or the class's
-       length differs from `minutes`.
+       and that falls on the row's weekday. A student in no class at all (on the roster with no
+       class, or created by the run, rule 30) has no class of their own: the absence belongs to the
+       coach's weekly class that starts at the row's `start_time` on that weekday, or, with no
+       `start_time`, to the one weekly class of the coach on that weekday whose length is
+       `minutes`. Refused when the student is not on the coach's roster (nor among the file's
+       `players`), is in other classes but none that weekday, is in two or more that weekday (so
+       the class cannot be told), is in no class and the coach has no such class or more than one,
+       or the class's length differs from `minutes`.
     b. a **guest** row belongs to the weekly class of the coach that starts at `start_time` on the
        row's weekday. Refused when there is no such class, the student is on that class's roster
-       (not a guest by today's roster), the student is not on the coach's roster, or the class's
-       length differs from `minutes`.
+       (not a guest by today's roster), the student is neither on the coach's roster nor among the
+       file's `players`, or the class's length differs from `minutes`.
     c. an **adjustment**'s student is on the coach's roster, and `minutes` divides by the
        lesson length (rule 23), which is given when the student is in no class.
     d. the occurrence the row names exists in the class's series once its start is moved (rule 19):
@@ -263,6 +271,17 @@ a history row, like a roster run.
     is the day the run uses, and `sheet_date` is only printed beside it in the dry run. The
     file's check (rule 16) refuses an excluded row with no reason, student, kind or minutes, and a
     `source_row` that is both loaded and excluded, or given twice in either list.
+
+30. **A history file may create students who are not on the roster (owner, 2026-11-19).** The
+    names in `players` (shape and checks as rules 2 and 3b, 3h; each name unused on the coach's
+    roster, rule 4f, so a student already there is written to, never duplicated) are created as
+    rule 7 creates them: a user with no email and a placeholder username, a roster player of the
+    coach, in **no** weekly class. They are created before any row is resolved, so rules 17a and 17b
+    find them. Their ids go in `record_ids` under `users`, `players`, `coach_players` and
+    `player_level_history` as rule 10 keeps them, and in `summary` as `Players`. The dry run
+    prints the players to be created and gives each a line in the table of rule 18. Revert removes
+    them (rule 27), after the presences that name them. A history file with `players` still needs
+    `expects.players` to be the coach's count before the run (rule 4b).
 
 ### Acceptance Criteria
 
@@ -413,7 +432,8 @@ the roster in no class. No instance exists. History file `2026_11_19_rui_history
 2026-08-31, `through` 2026-11-13, `expects` `{players: 5, classes: 2, instances: 0, coach_marks: 0}`.
 
 #### IMPORT-ONBOARDING-RUNNER-21: Every row is resolved and every problem is listed (rules 16, 17)
-- **Given** the fixture and a history file with: an absence for "Eva Teste" (in no class); an absence
+- **Given** the fixture and a history file with: an absence for "Eva Teste" (in no class) on a
+  Tuesday, when the coach has no Tuesday class; an absence
   for Lia Inventada on a Monday; an absence for Ana Exemplo of 90 minutes; a guest row at Monday
   17:00 (no such class); a guest row for Rui Ficticio at Monday 18:00 (enrolled there); an absence
   dated 2026-12-01 (after `through`); a note of 1001 characters (the presence note holds 1000, `attendance.presence` rule 11)
@@ -552,6 +572,30 @@ the roster in no class. No instance exists. History file `2026_11_19_rui_history
 - **Then** the dry run prints the row with both dates, and the absence is written on
   2026-09-10, in the Thursday class
 - **And** a `sheet_date` that is not a real date is refused by the file's check, exit code 1
+
+#### IMPORT-ONBOARDING-RUNNER-38: A student the run creates is in no class and their rows land on the coach's classes (rules 17, 30)
+- **Given** the fixture and a history file whose `players` lists "Gil Novo" and "Ines Nova", with
+  `expects.players` 5, and rows: a guest for Gil at Monday 18:00 (60 minutes), a guest for Gil at
+  Thursday 19:00 (90), an absence for Ines on a Thursday of 90 minutes (the coach's only Thursday class
+  of that length is "Quinta 19:00"), an absence for Ines of 60 minutes on a Monday
+- **When** the operator runs `--dry-run`, then applies the file
+- **Then** the dry run prints "2 players to be created" and a line for each in the table
+- **And** after the apply the coach has 7 players, Gil and Ines each a new user with no email and a
+  `pending-…` username, on no class's roster
+- **And** Gil's guest rows are present rows on the Monday and Thursday occurrences, Ines's
+  Thursday absence is an absent row, with the justification of its type, on "Quinta 19:00", and her
+  Monday absence one on "Segunda 18:00"
+- **And** the BulkImport row records their user, player and coach-player ids and `summary.Players` is 2
+- **And** a name of the file's `players` already on the coach's roster is refused naming it, exit code 1
+
+#### IMPORT-ONBOARDING-RUNNER-39: An absence of a student in no class names its class, or is refused (rule 17a)
+- **Given** the fixture, Eva Teste on the roster in no class, and two Thursday classes of 90 minutes
+  ("Quinta 19:00" and "Quinta 21:00")
+- **When** an absence for Eva on a Thursday of 90 minutes with no `start_time` is dry-run
+- **Then** the row is refused as ambiguous, naming both classes, exit code 1
+- **And** with `start_time` "21:00" it resolves to "Quinta 21:00"; with `start_time` "20:00" it is
+  refused (no class starts then)
+- **And** an absence of 90 minutes on a day when the only class is 60 minutes is refused for its length
 
 ### Notes
 - Reused, not reimplemented: player creation is `import.confirm`'s, class creation is
