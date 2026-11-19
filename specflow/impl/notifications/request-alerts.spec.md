@@ -76,6 +76,12 @@ with a per-user opt-out (PAD-232).
      *"opens Settings → Club and approves"*, which iOS has never been able to satisfy, because
      the push could not open Settings → Club at all.
 
+8. **(PAD-839) The setup guide's step 1 writes the switch directly.** "Ativar notificações" sends
+   `PATCH /api/auth/me {requestAlerts: true, setupGuideAlertsConfirmed: true}`, outside Settings'
+   explicit save (`dashboard.student-setup-guide` rule 6). Each shell then refreshes its own copy
+   of `/auth/me` (web `refreshUser`; iOS `writeAuthMe` and `refreshUser`), so Settings shows the
+   switch on without a reload. Rules 3 and 6 are unchanged.
+
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-REQUEST-ALERTS-1: A club member hears about a join request; the requester hears the decision

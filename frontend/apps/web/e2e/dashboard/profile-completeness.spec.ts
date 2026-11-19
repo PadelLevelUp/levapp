@@ -3,6 +3,7 @@ import { loginAsCoach } from "../helpers/auth";
 import { completeEmailVerification } from "../helpers/emailVerification";
 import { openDashboard, openPlayers } from "../helpers/navigation";
 import { ui } from "../helpers/i18n";
+import { dismissSetupGuide } from "../helpers/setupGuide";
 
 /**
  * dashboard.profile-completeness (PAD-486, PAD-490).
@@ -61,6 +62,8 @@ test("PAD-486/490: a student who joined by link is told why, reminds the coach o
 
   // ── the student (PAD-490) ──
   await openDashboard(student);
+  // PAD-839: a fresh student meets the setup guide's first-login sheet; this spec is about the card.
+  await dismissSetupGuide(student);
   await expect(student.getByTestId("dashboard-profile-incomplete")).toBeVisible({ timeout: 10_000 });
   const remind = student.locator('[data-testid^="profile-incomplete-remind-"]').first();
   await expect(remind).toHaveAttribute("data-reminded", "false");

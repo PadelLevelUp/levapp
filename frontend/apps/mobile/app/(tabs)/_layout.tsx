@@ -12,6 +12,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { CountryPrompt } from "@/features/auth/country-prompt";
+import { SetupGuideAvatar } from "@/features/setup-guide/setup-guide-ring";
 import { Text } from "@/components/ui/text";
 import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
 import { useAppBadgeSync } from "@/hooks/useAppBadgeSync";
@@ -47,17 +48,22 @@ function AccountAvatar() {
   const initials = parts.length
     ? ((parts[0][0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase()
     : "?";
+  // PAD-839 (dashboard.student-setup-guide rule 4): a student's avatar carries the setup guide's
+  // ring while the guide is open; this header rides on every tab, so the ring does too.
   return (
-    <Pressable
-      testID="header-account"
-      accessibilityLabel={t("nav.settings")}
-      role="button"
-      onPress={() => router.push("/settings")}
-      style={{ marginRight: 16 }}
-      className="h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent active:opacity-70"
-    >
-      <Text className="text-xs font-sans-bold text-sidebar-accent-foreground">{initials}</Text>
-    </Pressable>
+    <View style={{ marginRight: 16 }}>
+      <SetupGuideAvatar>
+        <Pressable
+          testID="header-account"
+          accessibilityLabel={t("nav.settings")}
+          role="button"
+          onPress={() => router.push("/settings")}
+          className="h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent active:opacity-70"
+        >
+          <Text className="text-xs font-sans-bold text-sidebar-accent-foreground">{initials}</Text>
+        </Pressable>
+      </SetupGuideAvatar>
+    </View>
   );
 }
 

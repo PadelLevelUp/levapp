@@ -394,6 +394,11 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
     e. **Not in this rule:** invites to a started class from other entry points (the calendar's
        Notificar, vacancy invites). The invite engine is unchanged; the owner decides.
 
+13. **(PAD-839) The student setup guide is not a block.** The guide's sheet, card, avatar ring
+    and "Conta pronta" card are drawn by each shell from `/auth/me`, the blockers list and the
+    `profile_incomplete` block (`dashboard.student-setup-guide` rule 1). The player payload's
+    block list (DASHBOARD-BLOCKS-8) is unchanged, and no capability token is added.
+
 ### Acceptance Criteria
 
 #### DASHBOARD-BLOCKS-1: Coach dashboard

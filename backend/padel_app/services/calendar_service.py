@@ -27,6 +27,9 @@ def _clone_block(src, *, user_id, **overrides):
     new.recurrence_end = overrides.get('recurrence_end', src.recurrence_end)
     # B-727: a split student blocker must stay a blocker; the column defaults to False.
     new.blocks_auto_invitations = overrides.get('blocks_auto_invitations', src.blocks_auto_invitations)
+    # PAD-839 (calendar.student-blockers rule 18): a split keeps its schedule; a one-off made from
+    # one occurrence leaves it, since every row of a schedule is weekly.
+    new.schedule_id = overrides.get('schedule_id', src.schedule_id if new.is_recurring else None)
     new.create()
     return new
 
@@ -241,6 +244,10 @@ def edit_event_service(block_id, user_id, data):
     fake_request = JsonRequestAdapter(_edit_block_payload(data, block), form, mode="present")
     values = form.set_values(fake_request)
     block.update_with_dict(values, write_none=True)
+    # PAD-839 (calendar.student-blockers rule 18): an edit that makes a schedule row a one-off
+    # takes it out of the schedule.
+    if not block.is_recurring:
+        block.schedule_id = None
     block.save()
     return block
 

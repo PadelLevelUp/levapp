@@ -81,6 +81,26 @@ reminder fan-out reads `blocked_players_for_instance` in `notification_service.p
 
 17. The conflict check answers only for students on the asking coach's roster: anyone else is left out of the answer, which is still 200. A check that fails never stops the save; the form goes on with no warning.
 
+18. **(PAD-839) A schedule is a set of blockers written and deleted whole.** The setup guide's
+    schedule editor (`dashboard.student-setup-guide` rules 9–11) saves one schedule as several
+    weekly blockers sharing `calendar_blocks.schedule_id`.
+    - `PUT /api/app/availability_schedules/<id>` replaces every row with that id, or creates them,
+      and answers the rows. `DELETE /api/app/availability_schedules/<id>` removes them all. Both
+      are student-only and in addition to rule 2's endpoints; another student's id is 404.
+    - The PUT is **one unit of work**: every row is checked first like a single create, then the
+      old rows are removed and the new ones written, with `type="unavailable"` and
+      `blocks_auto_invitations=true` set before the one commit. If one row is refused, the answer
+      is 400 and no row changes, old or new.
+    - `GET /api/app/availability_blockers` (and the PUT's answer) carries `scheduleId`
+      (`serialize_calendar_block`) on every row: the id, or null for a block made any other way.
+      Old builds ignore the key.
+    - The rows are otherwise ordinary blockers. Rules 4–12 apply to them, and the Disponibilidade
+      tab lists, edits and deletes them one by one (rules 14–17).
+    - A tab edit keeps `schedule_id` while the row still recurs. An edit that makes it a one-off
+      clears it.
+    - Deleting one occurrence splits the row (`_split_block` → `_clone_block`), and the
+      continuation keeps its `schedule_id`.
+
 ### Acceptance Criteria
 
 #### CALENDAR-STUDENT-BLOCKERS-1: Blocker suppresses auto-invitation
@@ -174,3 +194,15 @@ test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `te
 - **When** the student deletes the 2026-10-12 occurrence alone (`scope: "single"`), which splits the series
 - **Then** the continuation row keeps `blocks_auto_invitations`: the student is still blocked on 2026-10-19 for both the live engine's predicate (`blocked_user_ids_for_window`) and the new engine's store (`availability_blocker` in `TableStore._own_blocks`), is free on 2026-10-12, and the student's list still shows the continuation
 test: `backend/padel_app/tests/test_b727_split_blocker_keeps_suppression.py` › `test_deleting_one_occurrence_keeps_the_rest_blocking_the_live_engine` (+1 more)
+
+#### CALENDAR-STUDENT-BLOCKERS-15: The blockers list names each row's schedule, and a one-off edit leaves it (rule 18)
+- **Given** a student with a two-row schedule and one hand-made block
+- **When** they GET `/api/app/availability_blockers`, then edit one schedule row on the tab to a one-off
+- **Then** the schedule rows carry the same `scheduleId` and the hand-made block `scheduleId: null`; after the edit, the edited row's `scheduleId` is null and the other keeps it
+test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_the_blockers_list_carries_schedule_id_and_a_one_off_edit_clears_it`
+
+#### CALENDAR-STUDENT-BLOCKERS-16: Splitting a schedule row keeps the continuation in the schedule (rule 18)
+- **Given** a student's schedule row, weekly on Mondays, and the clock pinned
+- **When** the student deletes one Monday's occurrence (`scope: "single"`), and separately moves one occurrence to the Tuesday (`/reschedule_block`, scope single)
+- **Then** the continuation row of the series keeps the row's `schedule_id`, and the moved one-off clone has none
+test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_a_split_schedule_row_keeps_its_schedule_and_a_one_off_clone_leaves_it`

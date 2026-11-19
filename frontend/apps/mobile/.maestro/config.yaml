@@ -444,6 +444,13 @@ executionOrder:
     - 334-player-pending-registration
     - 335-player-attendance-block
     - 336-players-list-pending-filter
+    # 337-340 (PAD-839, dashboard.student-setup-guide criteria 2, 5, 10, 11): each makes its own fresh
+    # student through the API (the seed hides the guide for seeded students) and takes her off the
+    # coach's roster in its teardown, so their position is not load bearing.
+    - 337-setup-guide-first-login
+    - 338-setup-guide-hide
+    - 339-schedule-editor-same
+    - 340-schedule-editor-varies
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

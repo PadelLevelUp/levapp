@@ -187,3 +187,21 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
 
   return true;
 }
+
+/**
+ * PAD-839 (dashboard.student-setup-guide rule 7): an iPhone or iPad browser outside an installed web
+ * app, where no push can arrive at all. iPadOS reports itself as a Mac, so a Mac user agent with
+ * touch counts too. An installed web app (`navigator.standalone`, `display-mode: standalone`) is not.
+ */
+export function isIosBrowserWithoutApp(
+  nav: { userAgent: string; maxTouchPoints?: number; standalone?: boolean } = navigator as Navigator & {
+    standalone?: boolean;
+  },
+  standaloneDisplay: boolean = typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(display-mode: standalone)").matches
+): boolean {
+  const ua = nav.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (nav.maxTouchPoints ?? 0) > 1);
+  return ios && !nav.standalone && !standaloneDisplay;
+}
