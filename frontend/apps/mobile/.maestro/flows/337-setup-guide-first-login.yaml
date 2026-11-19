@@ -1,0 +1,31 @@
+# PAD-839 (dashboard.student-setup-guide, DASHBOARD-STUDENT-SETUP-GUIDE-2): a NEW student who joined
+# through a coach's join link lands on the dashboard with the setup guide's sheet open: the coach
+# link step is done and the guide reads 20%.
+#
+# The E2E seed hides the guide for every seeded student, so the setup script makes a fresh one
+# (scripts/setup-guide-student-setup.js: register, confirm the email, accept a join token minted by
+# the seeded coach); the teardown takes her off the roster. Assertions are by testID; the percent is
+# read from the server (a re-rendered Text keeps matching its first value on iOS) and from the
+# sheet's progress line. Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow number 337.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/setup-guide-student-setup.js
+onFlowComplete:
+  - runScript: ../scripts/setup-guide-student-teardown.js
+---
+- assertTrue: "${output.username && output.username.length > 10}"
+- runFlow:
+    file: ../subflows/login-guide-student.yaml
+    env:
+      USERNAME: ${output.username}
+      PASSWORD: ${output.password}
+- assertVisible:
+    id: "setup-guide-step-coach_link"
+- assertVisible:
+    id: "setup-guide-progress"
+    text: ".*20%.*"
+- assertVisible:
+    id: "setup-guide-ring"
+# The server agrees: one of five steps done, the guide neither hidden nor snoozed away.
+- evalScript: "${output.me = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.studentTok } }).body)}"
+- assertTrue: "${output.me.setupGuide.hidden === false}"

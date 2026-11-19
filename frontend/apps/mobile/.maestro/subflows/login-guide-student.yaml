@@ -1,0 +1,26 @@
+# PAD-839 (flows 337-340): sign in as the throw-away student the setup script made, and stop at the
+# setup guide's sheet. login.yaml cannot be used: it ends on `screen-dashboard`, which the sheet's
+# modal covers for a student whose guide is live.
+# Usage: runFlow with env USERNAME and PASSWORD.
+appId: com.padellevelup.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn:
+    id: "login-username"
+- inputText: ${USERNAME}
+- tapOn:
+    id: "login-password"
+- inputText: ${PASSWORD}
+- tapOn:
+    id: "login-submit"
+- runFlow: dismiss-save-password.yaml
+- extendedWaitUntil:
+    visible:
+      id: "setup-guide-sheet"
+    timeout: 30000
