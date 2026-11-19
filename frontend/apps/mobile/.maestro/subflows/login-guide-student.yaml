@@ -18,10 +18,19 @@ appId: com.padellevelup.app
     optional: true
 # Both platforms: iOS titles it "... Would Like to Send You Notifications", Android 13+ "Allow LevApp
 # to send you notifications?" (CI grants POST_NOTIFICATIONS, but launchApp's `unset` takes it away);
-# both deny with "Don't Allow" / "Don't allow" (Maestro's text match ignores case; the apostrophe
-# is a curly one, hence the dot).
+# Android's button reads DON'T ALLOW (caps, curly apostrophe), so it is tapped by its id; iOS's
+# "Don't Allow" by text (Maestro's text match ignores case; the curly apostrophe is the dot).
 - runFlow:
     when:
+      platform: Android
+      visible:
+        text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
+    commands:
+      - tapOn:
+          id: "com.android.permissioncontroller:id/permission_deny_button"
+- runFlow:
+    when:
+      platform: iOS
       visible:
         text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
     commands:
@@ -51,6 +60,15 @@ appId: com.padellevelup.app
     optional: true
 - runFlow:
     when:
+      platform: Android
+      visible:
+        text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
+    commands:
+      - tapOn:
+          id: "com.android.permissioncontroller:id/permission_deny_button"
+- runFlow:
+    when:
+      platform: iOS
       visible:
         text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
     commands:

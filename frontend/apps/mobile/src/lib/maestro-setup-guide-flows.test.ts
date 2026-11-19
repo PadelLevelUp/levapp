@@ -56,6 +56,7 @@ describe("PAD-839 setup guide flows (337-340)", () => {
     // Android lane stuck on it), so the subflow answers either, on either platform.
     expect(login).toContain("send you notifications");
     expect(login).toContain("Would Like to Send You Notifications");
-    expect(login).not.toMatch(/platform:\s*iOS/);
+    expect(login).toContain("com.android.permissioncontroller:id/permission_deny_button");
+    expect(login).toMatch(/platform:\s*Android/);
   });
 });
