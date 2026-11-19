@@ -406,3 +406,53 @@ export function prolongedEnd(currentEnd: string | null, todayISO: string): strin
 export function newScheduleEnd(todayISO: string): string {
   return plusMonths(todayISO, BLOCKER_DEFAULT_MONTHS);
 }
+
+/**
+ * A new schedule id (UUID v4 shape). `crypto.randomUUID` is not on every engine both shells run
+ * (Hermes), so this uses `getRandomValues` when present and `Math.random` otherwise; the id only
+ * groups one student's rows, and the server refuses another student's id.
+ */
+export function newScheduleId(): string {
+  const bytes = new Uint8Array(16);
+  const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
+  if (c?.getRandomValues) c.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** The saved schedules among a student's blockers: rows grouped by `scheduleId`, newest first. */
+export function savedSchedules<T extends ScheduleRow & { scheduleId?: string | null }>(
+  rows: T[]
+): { scheduleId: string; rows: T[] }[] {
+  const groups = new Map<string, T[]>();
+  for (const r of rows) if (r.scheduleId) groups.set(r.scheduleId, [...(groups.get(r.scheduleId) ?? []), r]);
+  return [...groups.entries()]
+    .map(([scheduleId, rs]) => ({ scheduleId, rows: rs }))
+    .sort((a, b) => Math.max(...b.rows.map((r) => r.id)) - Math.max(...a.rows.map((r) => r.id)));
+}
+
+/** "Prolongar": the same rows, each with the new end (rule 18). */
+export function rowsWithEnd(
+  rows: (ScheduleRow & { date: string | null })[],
+  endDate: string
+): ScheduleRowInput[] {
+  return rows
+    .filter((r) => r.date && r.startTime && r.endTime)
+    .map((r) => ({
+      title: r.title,
+      date: r.date!,
+      startTime: r.startTime!,
+      endTime: r.endTime!,
+      isRecurring: true as const,
+      recurrenceRule: { frequency: "weekly" as const, daysOfWeek: (r.recurrenceRule?.daysOfWeek ?? []).slice() },
+      endDate,
+    }));
+}
+
+/** The step-3 preview: "seg, ter, qua, qui, sex" and "09:00 – 18:00" for a schedule in "Igual". */
+export function scheduleDaysText(s: Schedule): string {
+  return SCHEDULE_WEEK_ORDER.filter((d) => s.days[d]).map((d) => PT_DAY_SHORT[d]).join(", ");
+}

@@ -26,6 +26,7 @@ import { greetingKey, longDate, todayISO } from "@levelup/config";
 import { useIsDesktop } from "./coach/useIsDesktop";
 import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
 import { useAuth } from "@/auth/AuthContext";
+import { SetupGuideOnDashboard } from "@/components/setup-guide/SetupGuideSurfaces";
 
 function pick<T extends DashboardBlock["type"]>(blocks: DashboardBlock[], type: T) {
   return blocks.find((b): b is Extract<DashboardBlock, { type: T }> => b.type === type);
@@ -90,6 +91,10 @@ export function StudentDashboard({
   // to link it — the dashboard is one of the two places they can answer.
   const claimRequests = <ClaimRequestsList variant="banner" onAccepted={onRefresh} />;
 
+  // dashboard.student-setup-guide rule 4 (PAD-839): the guide's card sits at the top, before the
+  // profile card; its first-login sheet opens over the dashboard.
+  const setupGuide = <SetupGuideOnDashboard />;
+
   const greeting = t(`dashboard.greeting.${greetingKey()}`, { name: firstName });
   const today = longDate(todayISO(), i18n.language);
   const needsCount = needsYouBlock?.data.count ?? 0;
@@ -104,6 +109,7 @@ export function StudentDashboard({
             {needsCount > 0 && ` · ${t("dashboard.thingsNeedYou", { count: needsCount })}`}
           </span>
         </div>
+        {setupGuide}
         {claimRequests}
         {connectPrompt}
         {profileIncomplete}
@@ -139,6 +145,7 @@ export function StudentDashboard({
 
       <div className="grid grid-cols-[minmax(0,1.35fr)_400px] items-start gap-7 p-8">
         <div className="flex min-w-0 flex-col gap-6">
+          {setupGuide}
           {claimRequests}
           {connectPrompt}
           {profileIncomplete}

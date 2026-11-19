@@ -212,3 +212,25 @@ describe("end date and Prolongar", () => {
     expect(prolongedEnd(null, today)).toBe("2027-02-19");
   });
 });
+
+describe("ids, saved schedules and Prolongar rows", () => {
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-14] a new schedule id, and the saved schedules newest first", async () => {
+    const { newScheduleId, savedSchedules } = await import("./availability-schedule");
+    expect(newScheduleId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    const row = (id: number, scheduleId: string | null) => ({ id, scheduleId, title: null, startTime: "09:00",
+      endTime: "11:00", recurrenceRule: { daysOfWeek: [1] }, recurrenceEnd: "2027-02-16" });
+    const groups = savedSchedules([row(1, "a"), row(2, null), row(3, "b"), row(4, "a")]);
+    expect(groups.map((g) => [g.scheduleId, g.rows.map((r) => r.id)])).toEqual([["a", [1, 4]], ["b", [3]]]);
+  });
+
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-28] Prolongar keeps every row and moves its end", async () => {
+    const { rowsWithEnd } = await import("./availability-schedule");
+    const rows = rowsWithEnd(
+      [{ id: 1, title: "Trabalho", date: "2026-11-16", startTime: "09:00", endTime: "18:00",
+        recurrenceRule: { daysOfWeek: [1, 2, 3, 4, 5] }, recurrenceEnd: "2027-02-16" }],
+      "2027-05-19"
+    );
+    expect(rows).toEqual([{ title: "Trabalho", date: "2026-11-16", startTime: "09:00", endTime: "18:00",
+      isRecurring: true, recurrenceRule: { frequency: "weekly", daysOfWeek: [1, 2, 3, 4, 5] }, endDate: "2027-05-19" }]);
+  });
+});

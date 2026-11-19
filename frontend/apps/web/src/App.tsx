@@ -15,6 +15,7 @@ import {
   AttendancePage,
   AuthPage,
   AvailabilityPage,
+  SetupGuidePage,
   CalendarPage,
   ClassRequestsPage,
   ClubOnboardingPage,
@@ -335,6 +336,16 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["player"]}>
                     <AvailabilityPage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* PAD-839 (dashboard.student-setup-guide rule 5): the setup guide's steps. */}
+              <Route
+                path="/setup"
+                element={
+                  <RoleRoute allowedRoles={["player"]}>
+                    <SetupGuidePage />
                   </RoleRoute>
                 }
               />
