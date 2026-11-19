@@ -11,7 +11,7 @@ from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
 from padel_app.model import NotNullableFieldError
-from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach
+from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach, roster_state_payload
 from padel_app.tools.unit_of_work import transactional
 from padel_app.tools.username_tools import unique_placeholder_username
 
@@ -297,6 +297,8 @@ def _serialize_coach_player_relation(rel, due=None, duplicates=None):
         # players.claim rule 4c (PAD-528): only a claimable row can carry one.
         "possibleDuplicateOf": (duplicates or {}).get(rel.id),
         **nickname_payload(rel, user.name if user else None),
+        # players.list rule 13 (PAD-834): `Player.coach_player_info` carries the same keys.
+        **roster_state_payload(rel, user),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —
@@ -523,9 +525,14 @@ def search_coach_players(coach_id, term, limit=20):
     return results
 
 
+# const:PENDING_REGISTRATION in SQL: `_is_placeholder_user` (models/players.py) on the joined User.
+_PENDING_REGISTRATION_SQL = (User.status == "inactive") & User.password.is_(None)
+
+
 def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
                                 sort_by="name", sort_dir="asc",
-                                missing_level=False, missing_side=False, incomplete=False):
+                                missing_level=False, missing_side=False, incomplete=False,
+                                pending=False):
     from padel_app.models.coach_levels import CoachLevel
 
     query = (
@@ -550,6 +557,9 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     # dashboard.profile-completeness rule 3: the dashboard's "see all" (no level OR no side).
     if incomplete:
         query = query.filter(or_(Association_CoachPlayer.level_id.is_(None), Association_CoachPlayer.side.is_(None)))
+    # players.list rule 5 (PAD-834): the pending filter, the SQL twin of `_is_placeholder_user`.
+    if pending:
+        query = query.filter(_PENDING_REGISTRATION_SQL)
 
     # Sorting
     if sort_by == "level":
@@ -605,6 +615,11 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     )
     missing_level_count = base_query.filter(Association_CoachPlayer.level_id.is_(None)).count()
     missing_side_count = base_query.filter(Association_CoachPlayer.side.is_(None)).count()
+    # players.list rule 14 (PAD-834): the two alerts the roster shows, over the whole roster.
+    incomplete_count = base_query.filter(
+        or_(Association_CoachPlayer.level_id.is_(None), Association_CoachPlayer.side.is_(None))
+    ).count()
+    pending_count = base_query.filter(_PENDING_REGISTRATION_SQL).count()
 
     from padel_app.services.evaluation_api_service import due_for_links
 
@@ -623,6 +638,8 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
         "alerts": {
             "missingLevel": missing_level_count,
             "missingSide": missing_side_count,
+            "incomplete": incomplete_count,
+            "pendingRegistration": pending_count,
         },
     }
 

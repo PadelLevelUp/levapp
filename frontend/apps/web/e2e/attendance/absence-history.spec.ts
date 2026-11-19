@@ -38,6 +38,8 @@ import {
 } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { ui } from "../helpers/i18n";
+import { clickPlayerCard } from "../helpers/players";
+import { openProfileList } from "../helpers/profileAttendance";
 
 const API_BASE = `${API_ROOT}/app`;
 
@@ -363,4 +365,24 @@ test.describe("PAD-141: absence_history authorization", () => {
     );
     expect(res.status()).toBe(403);
   });
+});
+
+// PAD-834 (attendance.absences rule 12): the player card lists the absences in place; its "Ver página
+// completa" opens this page for that player.
+test("[ATTENDANCE-ABSENCES-13] the coach reaches the player's absences page from the profile's open list", async ({
+  page,
+}) => {
+  await loginAsCoach(page);
+  await page.goto("/players");
+  await page.getByPlaceholder(/search/i).first().fill("E2E Student");
+  await clickPlayerCard(page, STUDENT_USERNAME);
+  await page.waitForURL(/\/players\/\d+$/, { timeout: 15_000 });
+  const playerId = new URL(page.url()).pathname.split("/").pop();
+
+  await openProfileList(page, "absences");
+  await expect(page.getByTestId("profile-absences-list").getByTestId("absences-justification").first()).toBeVisible();
+  await page.getByTestId("profile-absences-full").click();
+  await page.waitForURL(`**/players/${playerId}/absences`, { timeout: 15_000 });
+  await expect(page.getByTestId("absences-subject")).toBeVisible();
+  await expect(page.getByTestId("absences-back")).toBeVisible();
 });

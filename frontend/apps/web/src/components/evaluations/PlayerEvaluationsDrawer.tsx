@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { EvaluationEvolution } from "./EvaluationEvolution";
 import { EvaluationForm } from "./EvaluationForm";
 import { EvaluationHistoryCard } from "./EvaluationHistoryCard";
 import { formatEvaluationDate } from "./formatEvaluationDate";
@@ -29,18 +28,32 @@ interface PlayerEvaluationsDrawerProps {
   playerId: string;
   playerName: string;
   onClose: () => void;
+  /**
+   * PAD-834 (players.profile rule 10): what the drawer opens on — the history (null), the form on
+   * today's class-less record ("new"), or the form on a record (the last evaluation's Editar).
+   */
+  initialTarget?: FormTarget;
+  /** Reports whether the form is open, so the profile's Evolução holds its shape meanwhile. */
+  onFormOpenChange?: (open: boolean) => void;
 }
 
 /** `"new"` = today's class-less record (or none yet); a record = that record, with its class. */
-type FormTarget = "new" | EvaluationRecord | null;
+export type FormTarget = "new" | EvaluationRecord | null;
 
 /**
  * "Avaliações — {nome}" (evaluations.history rule 3): a 520 px drawer on desktop,
- * the full width of a phone. Two sections — "Evolução" (`EvaluationEvolution`, PAD-375) and
- * "Histórico". The drawer owns its state (rule 10): closing it closes the form, and
- * it is keyed by player so another player never inherits a form.
+ * the full width of a phone, with "Histórico" and the form. PAD-834: "Evolução" lives in the
+ * profile's Avaliações block now (players.profile rule 10). The drawer owns its state (rule 10):
+ * closing it closes the form, and it is keyed by player so another player never inherits a form.
  */
-export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }: PlayerEvaluationsDrawerProps) {
+export function PlayerEvaluationsDrawer({
+  open,
+  playerId,
+  playerName,
+  onClose,
+  initialTarget = null,
+  onFormOpenChange,
+}: PlayerEvaluationsDrawerProps) {
   const { t, i18n } = useTranslation();
   // PAD-660 rule 8: coach-only drawer — the title and the share dialog use the coach's name for the student.
   const displayName = useCoachDisplayName();
@@ -55,7 +68,12 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
   const [deleting, setDeleting] = useState<EvaluationRecord | null>(null);
   useEffect(() => {
     if (!open) { setTarget(null); setDeleting(null); }
+    else setTarget(initialTarget);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, playerId]);
+  useEffect(() => {
+    onFormOpenChange?.(target !== null);
+  }, [target, onFormOpenChange]);
 
   const records = history.data?.records ?? [];
   const competencies = competencySet.data?.competencies ?? [];
@@ -88,18 +106,6 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
         </SheetHeader>
 
         <div className="mt-6 space-y-8">
-          <section className="space-y-3" data-testid="evaluation-evolution">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("players.evaluationHistory.evolution")}
-            </h3>
-            <EvaluationEvolution
-              playerId={playerId}
-              competencies={competencies}
-              competenciesWithData={history.data?.competenciesWithData ?? []}
-              held={target !== null}
-            />
-          </section>
-
           <section className="space-y-3" data-testid="evaluation-history">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">

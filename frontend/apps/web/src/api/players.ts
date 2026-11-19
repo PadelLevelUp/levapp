@@ -39,6 +39,7 @@ export async function getCoachPlayersPaginated(
   missingLevel?: boolean,
   missingSide?: boolean,
   incomplete?: boolean,
+  pending?: boolean,
 ): Promise<CoachPlayersPageResponse> {
   if (USE_MOCK_DATA) {
     let filtered = mockCoachPlayers;
@@ -71,6 +72,7 @@ export async function getCoachPlayersPaginated(
     missingLevel,
     missingSide,
     incomplete,
+    pending,
   );
 }
 

@@ -37,17 +37,14 @@ appId: com.padellevelup.app
     visible:
       id: "player-detail"
     timeout: 15000
+# PAD-834 (players.profile rule 10): Evolução is read in the profile's Avaliações block, from the
+# second record on (the seed gives this player several).
 - scrollUntilVisible:
     element:
-      id: "player-evaluations-open"
+      id: "evaluation-evolution"
     direction: DOWN
     timeout: 30000
-- tapOn:
-    id: "player-evaluations-open"
-- extendedWaitUntil:
-    visible:
-      id: "player-evaluations"
-    timeout: 15000
+    centerElement: true
 
 # ── The first competency with data is selected; the figures are the server's ──
 - extendedWaitUntil:
@@ -73,7 +70,20 @@ appId: com.padellevelup.app
       id: "evolution-point-caption-0"
     timeout: 5000
 
-# ── The seeded history is there too ──
+# ── The seeded history is there too, behind "Histórico (N)" ──
+- scrollUntilVisible:
+    element:
+      id: "player-evaluations-open"
+    direction: UP
+    timeout: 20000
+    # Centred: scrolled up only until "visible", the button sits under the header and the tap lands there.
+    centerElement: true
+- tapOn:
+    id: "player-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
 # (Whether a card offers "edit" is the server's `editable`; flow 78 covers it on its own rows. Not
 # asserted here: another flow rating this player today must not be able to turn this one red.)
 - scrollUntilVisible:

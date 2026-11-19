@@ -45,6 +45,10 @@ appId: com.padellevelup.app
     timeout: 30000
 - assertVisible:
     id: "evaluation-card-last"
+# PAD-834 (players.profile rule 10): no record yet is one empty state with "Fazer primeira avaliação";
+# "Histórico (0)" keeps the history screen's entry id.
+- assertVisible:
+    id: "profile-evaluations-first"
 - tapOn:
     id: "player-evaluations-open"
 - extendedWaitUntil:
@@ -53,8 +57,9 @@ appId: com.padellevelup.app
     timeout: 15000
 - assertVisible:
     id: "evaluation-history-empty"
-- assertVisible:
-    id: "evaluation-evolution-empty"
+# PAD-834: Evolução lives in the profile's Avaliações block now, not on this screen.
+- assertNotVisible:
+    id: "evaluation-evolution"
 
 # ── "Nova avaliação": the action hides while the form is open ──
 - tapOn:

@@ -5,8 +5,14 @@ import { PlayerEvaluationsScreen } from "@/features/evaluations/player-evaluatio
 
 /** "Avaliações — {nome}" (PAD-374): pushed from the player profile with the player's id and name. */
 export default function PlayerEvaluationsRoute() {
-  const { playerId, name } = useLocalSearchParams<{ playerId: string; name?: string }>();
+  const { playerId, name, form } = useLocalSearchParams<{ playerId: string; name?: string; form?: string }>();
   const { t } = useTranslation();
   // Without a name param the title still reads as a title, not "Avaliações — ".
-  return <PlayerEvaluationsScreen playerId={String(playerId)} playerName={name || t("players.evaluationHistory.player")} />;
+  return (
+    <PlayerEvaluationsScreen
+      playerId={String(playerId)}
+      playerName={name || t("players.evaluationHistory.player")}
+      initialForm={form}
+    />
+  );
 }

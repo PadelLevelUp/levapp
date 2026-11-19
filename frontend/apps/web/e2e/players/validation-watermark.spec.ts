@@ -32,7 +32,8 @@ test.describe("PAD-30: player validation watermark", () => {
     await expect(
       studentCard.getByTestId("pending-registration-badge"),
     ).toHaveCount(0);
-    await expect(studentCard).toHaveAttribute("data-validated", "true");
+    // players.list rule 15 (PAD-834): the row says pending, not validated.
+    await expect(studentCard).toHaveAttribute("data-pending", "false");
 
     // --- Unvalidated player: pending badge + faded styling ---
     await searchInput.fill("Ghost");
@@ -44,7 +45,7 @@ test.describe("PAD-30: player validation watermark", () => {
     await expect(
       ghostCard.getByTestId("pending-registration-badge"),
     ).toBeVisible();
-    await expect(ghostCard).toHaveAttribute("data-validated", "false");
+    await expect(ghostCard).toHaveAttribute("data-pending", "true");
     // Faded appearance is applied via an opacity utility class.
     await expect(ghostCard).toHaveClass(/opacity-60/);
   });

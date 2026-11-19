@@ -29,7 +29,8 @@ test.describe("PAD-410: players master-detail", () => {
 
     await page.waitForURL(/\/players\/\d+$/, { timeout: 5000 });
     await expect(firstCard).toHaveAttribute("aria-current", "true");
-    await expect(page.getByTestId("player-evaluations-action")).toBeVisible({ timeout: 10_000 });
+    // PAD-834: the drawer's entry is Block 2's "Histórico (N)".
+    await expect(page.getByTestId("player-evaluations-open")).toBeVisible({ timeout: 10_000 });
 
     // Selecting a row never touched what was typed into the search box.
     await expect(searchInput).toHaveValue("E2E Student");
