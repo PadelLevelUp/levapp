@@ -121,6 +121,12 @@ export function inviteeNotes(inv: {
 }
 
 /** PAD-920 (ND1): a new-engine session's invitee always carries `tierSource` (null for a manual one). */
+/** invitations NB6: a new-engine row's engine key. Its `id` is `-invitationId` (the old iOS builds'
+ *  key); a row from a server before NB6 has no `invitationId`, and its `id` is the invitation's. */
+export function engineInvitationId(inv: { id: number; invitationId?: number }): number {
+  return inv.invitationId ?? inv.id;
+}
+
 export function isNewEngineInvitee(inv: object): boolean {
   return "tierSource" in inv && (inv as { tierSource?: unknown }).tierSource !== undefined;
 }

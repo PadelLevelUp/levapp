@@ -64,7 +64,25 @@ def _metadata_for(message, viewer_id):
     if (isinstance(meta, dict) and meta.get("engine") == "new" and "countsUntil" in meta
             and (viewer_id is None or viewer_id != message.sender_id)):
         meta = {k: v for k, v in meta.items() if k != "countsUntil"}
+    if _started_open_engine_invite(meta):
+        # invitations NB6: App Store builds 33-35 cannot derive "the class has started" (NB1); they read it
+        # as answered. The stored row is unchanged, and the current shells still derive it from startsAt.
+        meta = {**meta, "responded": True, "response": "expired"}
     return meta
+
+
+def _started_open_engine_invite(meta) -> bool:
+    from datetime import datetime
+
+    from padel_app.utils.dates import utcnow_naive
+
+    if not (isinstance(meta, dict) and meta.get("engine") == "new" and meta.get("state") == "open"
+            and not meta.get("responded") and meta.get("startsAt")):
+        return False
+    try:
+        return utcnow_naive() >= datetime.fromisoformat(str(meta["startsAt"])).replace(tzinfo=None)
+    except ValueError:
+        return False
 
 
 def serialize_message(message, last_read_at, *, class_deleted=False, viewer_id=None):

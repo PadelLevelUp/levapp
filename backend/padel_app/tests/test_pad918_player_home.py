@@ -26,5 +26,5 @@ def test_an_open_engine_invitation_is_the_students_vacancy_invite(app):
         items = _vacancy_invite_items(player_id=int(invited), now=NOW)
         assert [(i["kind"], i["id"], i["invitationId"], i["lessonInstanceId"]) for i in items] == [
             ("vacancy_invite", f"invitation-{row.id}", row.id, int(s))]
-        assert "notificationEventId" not in items[0]
+        assert items[0]["notificationEventId"] == -row.id                      # invitations NB6: old builds
         assert _vacancy_invite_items(player_id=int(answered), now=NOW) == []

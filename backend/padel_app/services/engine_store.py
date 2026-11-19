@@ -190,6 +190,12 @@ def _close_request_message(message_id: int | None, state: str) -> None:
     publish({"type": "message_edited", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
 
 
+#: invitations NB6: the ``response`` App Store builds 33-35 read when a state closes the buttons; an
+#: answer writes its own (``yes``/``no``).
+OLD_CLIENT_RESPONSE = {"sorry": "spot_filled", "closed_same_hour": "booked_same_day", "withdrawn": "withdrawn",
+                       "reopened": "reopened", "class_cancelled": "class_cancelled"}
+
+
 def _refresh_bubbles(row, state: str, **extra) -> None:
     """Write the invitation's new ``state`` (invitations NB1: ``answered`` with ``response``, ``sorry``,
     ``reopened``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on its
@@ -209,7 +215,10 @@ def _refresh_bubbles(row, state: str, **extra) -> None:
         meta = dict(msg.msg_metadata or {})
         meta.update({"engine": "new", "invitationId": row.id, "lessonInstanceId": row.lesson_instance_id,
                      "state": state, "startsAt": wall_to_utc_naive(start).isoformat() if start else None,
-                     "countsUntil": row.counts_until.isoformat() if row.counts_until else None, **extra})
+                     "countsUntil": row.counts_until.isoformat() if row.counts_until else None,
+                     # invitations NB6: old builds hide the buttons only on `responded`.
+                     "notificationEventId": -row.id, "responded": True,
+                     "response": extra.get("response") or OLD_CLIENT_RESPONSE.get(state, state), **extra})
         msg.msg_metadata = meta
         db.session.flush()
         # PAD-918 (INVITATIONS-124): once per reader, so the coach's copy keeps countsUntil live.
