@@ -820,3 +820,33 @@ def test_a_regular_the_coach_removed_stays_a_removed_regular(app):
     assert reg not in {st.id for st in s.pool}
     other = store.snapshot(b)
     assert other.coach_removed == frozenset() and reg in {p.student for p in other.going}
+
+
+@pytest.mark.criterion("ATTENDANCE-STATS-13")
+def test_an_invitation_answered_yes_is_never_closed_same_hour(app):
+    """History import D2 (attendance.stats rule 3, ATTENDANCE-STATS-13): a same-hour placement closes the
+    student's OTHER open invitations (engine-answers rule 10), never the yes that placed them, so a
+    `closed_reason == "same_hour"` row is always one that was never answered yes and the make-up count
+    needs no `same_hour` exclusion. Pinned at the planner, which names the rows it closes, and at the
+    store, which skips a close aimed at an answered row."""
+    from padel_app.invitation_engine import planner
+    from padel_app.models import EngineInvitation
+
+    store, (a, b), (_, x, _) = _seed(app, starts=(START, START))
+    with store.unit((a,)):
+        store.apply([_invited(a, x)])
+    with store.unit((b,)):
+        store.apply([_invited(b, x)])
+    with store.unit((a, b)):
+        snapshot = store.snapshot(a)
+        closes = planner.close_same_hour(snapshot, x, NOW)
+    assert [c.session for c in closes] == [b], "only the other session's invitation is named"
+    with store.unit((a,)):
+        store.apply([fx.Answered(a, NOW, x, "yes", "invitation"), fx.Placed(a, NOW, x, "L", "invitation")])
+    with store.unit((b,)):
+        store.apply(list(closes))
+    with store.unit((a,)):
+        store.apply([fx.InvitationClosed(a, NOW, x)])               # aimed at the yes itself: skipped
+    yes, other = (db.session.get(EngineInvitation, store.invitation_id(s, x)) for s in (a, b))
+    assert (yes.answer, yes.closed_at, yes.closed_reason) == ("yes", None, None)
+    assert (other.answer, other.closed_reason) == (None, "same_hour")
