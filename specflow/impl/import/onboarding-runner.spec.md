@@ -189,9 +189,11 @@ a history row, like a roster run.
     4 and 25 hold, 1 otherwise.
 19. **The series start moves back first (D8).** For every weekly class of the coach that starts
     after its first date on or after `from`, the class's first occurrence is moved to that date,
-    at the same wall-clock time (R-023), by the coach's own "edit this and all following classes
-    on the first occurrence" path, which rewrites the series' start in place and forks nothing.
-    A class that already starts on or before that date is left as it is. The previous start of each
+    at the same wall-clock time (R-023), by the lesson edit the coach's own "edit this and all
+    following classes" runs on a first occurrence (`edit_lesson_helper`): the series' start is
+    rewritten in place and nothing forks. The "edit this and following" wrapper is **not** used: it
+    also edits every occurrence already materialised from the new date, which would rewrite the
+    coach's own instances. A class that already starts on or before that date is left as it is. The previous start of each
     moved class is recorded (rule 24). No instance that exists is touched by the move.
 20. **Occurrences are materialised up to a cut-off.** For each weekly class, every occurrence from
     its start to the cut-off, the earlier of `through` and the day before the class's first
@@ -199,12 +201,15 @@ a history row, like a roster run.
     created if it does not exist, through the same path as the coach's calendar (the roster is
     enrolled on it), skipping excluded dates. An occurrence that is not over at the run (its end
     is not before now, club time) is never created: `through` must be before the club's local today.
-21. **Marks are written through `enrol` and are validated (D9, D5).** For each occurrence from rule
-    20: each file absence is an absent row with the justification of its type (`coach` is a
-    justified absence, D5) and its `note`; each file guest is a present row for that student,
-    enrolled with source `import`; every other student on the class's roster is a present row with
-    no absence in the file, so the occurrence leaves nothing to validate. Every row written is
-    `validated = true`, `recorded_by = "import"`. A row that already exists and is not coach-made
+21. **Marks are written on rows created through `enrol` and are validated (D9, D5).** For each
+    occurrence from rule 20: each file absence is an absent row with the justification of its type
+    (`coach` is a justified absence, D5) and its `note`; each file guest, and each absence of a
+    student who is in no class, is a row for that student created through `enrol` with source
+    `import`, present or absent; every other student on the class's roster is a present row with no
+    absence in the file, so the occurrence leaves nothing to validate. The status, justification and
+    note are set on the rows directly, not through the coach's attendance sheet (`add_presences`),
+    so no realtime event is published and the invitation engine records no no-show. Every row
+    written is `validated = true`, `recorded_by = "import"`. A row that already exists and is not coach-made
     is updated, and its previous values are recorded (rule 24); **a coach-made row is never
     written** (D11). The file's notes say that weeks with no row mean everyone present (D9).
 22. **Nobody is contacted and nothing is opened.** No message, email, push or notification event
