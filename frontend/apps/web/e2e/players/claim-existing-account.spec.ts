@@ -2,6 +2,7 @@ import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { completeEmailVerification } from "../helpers/emailVerification";
 import { openPlayers } from "../helpers/navigation";
+import { dismissSetupGuide } from "../helpers/setupGuide";
 
 /**
  * players.claim (PAD-213) — a coach-created record is folded into the account
@@ -132,6 +133,8 @@ test.describe("players.claim", () => {
 
     // 4. The student sees the request on the dashboard and accepts it.
     await student.goto("/dashboard");
+    // PAD-839: a fresh student meets the setup guide's first-login sheet; this spec is about the claim.
+    await dismissSetupGuide(student);
     const banner = student.getByTestId("claim-request-banner");
     await expect(banner).toBeVisible({ timeout: 10_000 });
     await expect(banner).toContainText(placeholderName);
