@@ -204,14 +204,25 @@ def _register_onboarding(app):
         problems = service.validate_file(data)
         if problems:
             _refuse(problems)
-        if "history" in data:
-            _refuse(["a history file is checked but not yet applied: the history apply is not built"])
         if not dry_run:
             _require_database(service, database)
 
         coach, club, problems = service.check_target(data)
         if problems:
             _refuse(problems)
+        if "history" in data:
+            from padel_app.services import onboarding_history as history
+
+            problems = history.target_problems(data, coach)
+            history_plan = history.plan(data, coach)
+            for line in history.plan_lines(data, coach, club, history_plan):
+                click.echo(line)
+            if problems + history_plan.problems:
+                _refuse(problems + history_plan.problems)
+            if not dry_run:
+                _refuse(["the history apply is not built yet: only --dry-run runs"])
+            click.echo("Dry run: nothing written.")
+            return
         for line in service.plan_lines(data, coach, club):
             click.echo(line)
         if dry_run:
