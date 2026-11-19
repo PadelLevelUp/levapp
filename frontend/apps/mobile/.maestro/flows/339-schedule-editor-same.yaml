@@ -73,3 +73,11 @@ onFlowComplete:
     visible:
       id: "setup-saved-schedule"
     timeout: 15000
+# The server holds exactly what criterion 10 names: two rows sharing one scheduleId, 09:00-11:00
+# and 15:00-20:00, weekly on all seven days, type unavailable, blocking auto-invitations.
+- evalScript: "${output.rows = json(http.get(output.api + '/api/app/availability_blockers', { headers: { 'Authorization': 'Bearer ' + output.studentTok } }).body)}"
+- evalScript: "${output.rowKeys = output.rows.map(function (r) { return r.startTime + '-' + r.endTime + '@' + r.recurrenceRule.daysOfWeek.slice().sort().join(',') }).sort().join(' | ')}"
+- assertTrue: "${output.rows.length === 2}"
+- assertTrue: "${output.rows[0].scheduleId && output.rows.every(function (r) { return r.scheduleId === output.rows[0].scheduleId })}"
+- assertTrue: "${output.rows.every(function (r) { return r.type === 'unavailable' && r.isRecurring === true && r.blocksAutoInvitations === true })}"
+- assertTrue: "${output.rowKeys === '09:00-11:00@0,1,2,3,4,5,6 | 15:00-20:00@0,1,2,3,4,5,6'}"

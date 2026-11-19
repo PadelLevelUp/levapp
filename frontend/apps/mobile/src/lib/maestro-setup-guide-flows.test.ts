@@ -44,4 +44,13 @@ describe("PAD-839 setup guide flows (337-340)", () => {
       expect(existsSync(join(MAESTRO, helper)), helper).toBe(true);
     }
   });
+
+  it("ends 339 and 340 with a read of the saved rows, and logs a fresh student in with notifications unset", () => {
+    for (const flow of ["339-schedule-editor-same", "340-schedule-editor-varies"]) {
+      const body = readFileSync(join(MAESTRO, "flows", `${flow}.yaml`), "utf8");
+      expect(body, flow).toContain("availability_blockers");
+    }
+    const login = readFileSync(join(MAESTRO, "subflows", "login-guide-student.yaml"), "utf8");
+    expect(login).toMatch(/notifications:\s*unset/);
+  });
 });

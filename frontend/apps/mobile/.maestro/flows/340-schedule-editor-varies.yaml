@@ -37,6 +37,11 @@ onFlowComplete:
     visible:
       id: "schedule-editor"
     timeout: 15000
+# Scrolling inside the editor (an iOS pageSheet): a downward drag that starts while the sheet's
+# ScrollView is already at its top closes the sheet. Every UP scroll below therefore stops as soon
+# as its target is fully on screen (no centerElement: the mode switch and the day chips sit at the
+# top of the sheet and can never be centred, so Maestro would keep dragging down at the top). Maestro
+# starts each scroll's swipe from the middle of the screen, inside the sheet.
 - tapOn:
     id: "schedule-days-weekdays"
 - tapOn:
@@ -58,7 +63,6 @@ onFlowComplete:
       id: "schedule-mode-varies"
     direction: UP
     timeout: 15000
-    centerElement: true
 - tapOn:
     id: "schedule-mode-varies"
 
@@ -70,7 +74,6 @@ onFlowComplete:
       id: "schedule-clear"
     direction: UP
     timeout: 15000
-    centerElement: true
 - tapOn:
     id: "schedule-clear"
 - scrollUntilVisible:
@@ -96,7 +99,6 @@ onFlowComplete:
       id: "schedule-day-3"
     direction: UP
     timeout: 15000
-    centerElement: true
 - tapOn:
     id: "schedule-day-3"
 - scrollUntilVisible:
@@ -114,7 +116,6 @@ onFlowComplete:
       id: "schedule-day-1"
     direction: UP
     timeout: 15000
-    centerElement: true
 - tapOn:
     id: "schedule-day-1"
 - scrollUntilVisible:
@@ -167,3 +168,11 @@ onFlowComplete:
     visible:
       id: "setup-saved-schedule"
     timeout: 15000
+# The server holds one row per distinct interval (criterion 11), sharing one scheduleId:
+# 09:00-11:00 on Mon, Wed, Thu, Fri; 09:00-20:00 on Tue; 15:00-20:00 on Mon, Thu, Fri.
+- evalScript: "${output.rows = json(http.get(output.api + '/api/app/availability_blockers', { headers: { 'Authorization': 'Bearer ' + output.studentTok } }).body)}"
+- evalScript: "${output.rowKeys = output.rows.map(function (r) { return r.startTime + '-' + r.endTime + '@' + r.recurrenceRule.daysOfWeek.slice().sort().join(',') }).sort().join(' | ')}"
+- assertTrue: "${output.rows.length === 3}"
+- assertTrue: "${output.rows[0].scheduleId && output.rows.every(function (r) { return r.scheduleId === output.rows[0].scheduleId })}"
+- assertTrue: "${output.rows.every(function (r) { return r.type === 'unavailable' && r.isRecurring === true && r.blocksAutoInvitations === true })}"
+- assertTrue: "${output.rowKeys === '09:00-11:00@1,3,4,5 | 09:00-20:00@2 | 15:00-20:00@1,4,5'}"

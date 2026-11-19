@@ -24,8 +24,19 @@ onFlowComplete:
 - assertVisible:
     id: "setup-guide-progress"
     text: ".*20%.*"
-- assertVisible:
-    id: "setup-guide-ring"
-# The server agrees: one of five steps done, the guide neither hidden nor snoozed away.
+# The open sheet is a modal: iOS leaves what is behind it (the header avatar) out of the
+# accessibility tree, so the ring is asserted after "later" closes the sheet (the card stays, and the
+# ring shows while the card would).
+- tapOn:
+    id: "setup-guide-later"
+- extendedWaitUntil:
+    notVisible:
+      id: "setup-guide-sheet"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "setup-guide-ring"
+    timeout: 10000
+# The server agrees: "later" snoozed the guide for the day but did not hide it.
 - evalScript: "${output.me = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.studentTok } }).body)}"
 - assertTrue: "${output.me.setupGuide.hidden === false}"
