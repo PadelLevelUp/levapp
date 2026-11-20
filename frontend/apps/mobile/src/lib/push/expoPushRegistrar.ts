@@ -59,16 +59,25 @@ export class ExpoPushRegistrar implements PushRegistrar {
   /** Bumped by unregister(): a retry or a rotation from an earlier session sees a stale value and stops. */
   private generation = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The raw device token of the last push-token event: an event repeating it is not a rotation. */
+  private lastRawToken: string | null = null;
+  /** The POST in flight, so register() and the listener never post one token twice. */
+  private posting: { token: string; done: Promise<void> } | null = null;
 
-  /** Fetches the Expo push token for this device, or null if unavailable. */
-  private async getDeviceToken(): Promise<string | null> {
+  /**
+   * Fetches the Expo push token for this device, or null if unavailable. `deviceEvent` is a
+   * push-token event: its device token is handed to Expo so the fetch never asks the native module
+   * for one. That ask (`registerForRemoteNotifications`) emits the event again (PAD-741, build 37).
+   */
+  private async getDeviceToken(deviceEvent?: unknown): Promise<string | null> {
     if (!Device.isDevice) return null;
 
     const projectId: string | undefined =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;
+    const options = { ...(projectId ? { projectId } : {}), ...(deviceEvent ? { devicePushToken: deviceEvent } : {}) };
     const { data: token } = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined
+      Object.keys(options).length ? (options as Notifications.ExpoPushTokenOptions) : undefined
     );
     return token;
   }
@@ -164,18 +173,28 @@ export class ExpoPushRegistrar implements PushRegistrar {
   /** Caches the token and posts it; throws on a failed POST so the caller can retry. */
   private async send(token: string, generation: number): Promise<void> {
     if (generation !== this.generation) return;
+    if (this.posting?.token === token) return this.posting.done;
     this.currentToken = token;
+    const done = (async () => {
+      try {
+        await api.post(PUSH_TOKEN_ENDPOINT, {
+          token,
+          platform: Platform.OS,
+        });
+      } catch (error) {
+        throw new PostFailed(error);
+      }
+      if (generation !== this.generation) return;
+      this.clearRetry();
+      this.setStatus("registered");
+    })();
+    const entry = { token, done };
+    this.posting = entry;
     try {
-      await api.post(PUSH_TOKEN_ENDPOINT, {
-        token,
-        platform: Platform.OS,
-      });
-    } catch (error) {
-      throw new PostFailed(error);
+      await done;
+    } finally {
+      if (this.posting === entry) this.posting = null;
     }
-    if (generation !== this.generation) return;
-    this.clearRetry();
-    this.setStatus("registered");
   }
 
   /** Rule 15: retry with growing waits, never across a logout; `failed` once they are spent. */
@@ -196,13 +215,18 @@ export class ExpoPushRegistrar implements PushRegistrar {
   watchTokenRotation(): () => void {
     try {
       // PAD-741 (B-706, rule 15): the event carries the raw native device token (APNs/FCM), which
-      // Expo does not accept, so it is only a signal. The Expo token is fetched again and posted
-      // when it changed; the event's own token is never posted or cached.
-      const subscription = Notifications.addPushTokenListener(() => {
+      // Expo does not accept, so it is only the input to Expo's own token. The Expo token is fetched
+      // from the EVENT (never from a fresh native request, which would emit the event again, forever)
+      // and posted when it changed; the raw token is never posted or cached. An event repeating the
+      // last raw token is not a rotation.
+      const subscription = Notifications.addPushTokenListener((event) => {
+        const raw = typeof event?.data === "string" ? event.data : null;
+        if (raw && raw === this.lastRawToken) return;
+        this.lastRawToken = raw;
         const generation = this.generation;
         const sendRotated = async (retry: number): Promise<void> => {
           try {
-            const token = await this.getDeviceToken();
+            const token = await this.getDeviceToken(event);
             if (!token || token === this.currentToken) return;
             await this.send(token, generation);
           } catch (error) {
