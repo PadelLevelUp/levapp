@@ -72,15 +72,11 @@ held on the coach's calendar while the request is open.
    - **The student:** "{name} já está inscrito noutra aula à mesma hora ({title}, {date} {time})." /
      "{name} is already in another class at the same time ({title}, {date} {time})." (proposed, for the
      owner's approval). The clash can name an invitee, so the line names who.
-4b. **A client without the clash lines gets the code it knows (releases #21).** App Store builds 33,
-   34 and 35 have no `classRequests.refusal.busy_same_hour` copy, so rule 4a's code would show as the
-   raw key. Rule 4a's refusal is answered with `code: "slot_taken"` (rule 13's code, which those builds
-   read as "Esse horário já não está livre") to a request that does not declare the `waiting-list-side`
-   capability (`utils/client_capabilities.py`; build 37 and later and the web declare it, so they keep
-   `busy_same_hour`). The `message`, the `clashes` and the "nothing changes" of rule 4a stay the same.
-   The same mapping lives in one helper (`engine_entry.same_hour_refusal_code`). The other same-hour
-   refusals (join-request accept, `/add_class`, class edit) are left as they are: builds 33–35 already
-   show their generic failure copy there, never a raw key.
+   - **A client without those lines (releases #21):** App Store builds 33, 34 and 35 have no
+     `classRequests.refusal.busy_same_hour` copy. A request that does not declare the
+     `waiting-list-side` capability gets the code `slot_taken` instead (rule 13's code, which those
+     builds read as "Esse horário já não está livre"), with the same `message` and `clashes`. Build 37
+     and later and the web declare it and keep `busy_same_hour`.
 5. **The student answers a proposal**: `accept-proposal` behaves exactly like the coach's accept
    (the class is created at the proposed slot); `decline-proposal` closes the request as
    `declined` with `decided_by: student`; `counter-proposal` sends another time back to the
@@ -578,7 +574,7 @@ test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.busy
 - **Then** both take a refused accept's text from `classRequestRefusalLines` before the refusal key
 test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wiring.test.ts` › `both iOS request screens read the clash lines first`
 
-#### CLASSES-CLASS-REQUESTS-43: A client that does not declare waiting-list-side gets slot_taken for a same-hour accept (rule 4b)
+#### CLASSES-CLASS-REQUESTS-43: A client that does not declare waiting-list-side gets slot_taken for a same-hour accept (rule 4a)
 - **Given** criterion 39's clash, once from a client that declares `waiting-list-side` and once from a client that declares no capabilities
 - **When** the coach accepts
 - **Then** the declaring client gets `409` `busy_same_hour` and the other `409` `slot_taken`, each with the same `message` and the same one clash naming Ana and the other class
