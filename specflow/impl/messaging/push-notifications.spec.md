@@ -339,9 +339,14 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
       Granting in the system Settings is therefore enough: the next return to the app registers.
     - **A rotated token is sent.** The app listens for push-token changes while signed in. The
       listener's event carries the raw native device token (APNs on iOS, FCM on Android), which
-      Expo does not accept, so the event is only a signal: the app fetches its **Expo** push token
-      again (`getExpoPushTokenAsync`) and, when that differs from the cached token, caches and
-      posts it to `POST /api/notifications/device`. The event's own token is never posted and
+      Expo does not accept, so the app turns it into its **Expo** push token by handing the event
+      itself to `getExpoPushTokenAsync({ devicePushToken: event })` and, when that differs from the
+      cached token, caches and posts it to `POST /api/notifications/device`. The listener never
+      asks the native module for a device token (`getDevicePushTokenAsync`, or
+      `getExpoPushTokenAsync` without the event): that call registers for remote notifications
+      again and emits the event again, a loop that held iOS build 37 slow (PAD-741 follow-up). An
+      event repeating the last raw token is not a rotation and does nothing; a token already being
+      posted is not posted a second time. The event's own token is never posted and
       never cached (PAD-741, B-706), so logout's revoke always sends the Expo token (rule 9 and
       `auth.logout` rule 4). The old row needs no delete: Expo's `DeviceNotRegistered` receipt
       prunes it (rule 9).
@@ -423,8 +428,11 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
 #### MESSAGING-PUSH-NOTIFICATIONS-7: A rotated token replaces the cached one and is sent (PAD-744, PAD-741)
 - **Given** a signed-in student registered with `ExponentPushToken[old]`
 - **When** the push-token listener reports a raw device token (64 hex characters) and the Expo
-  token the app fetches again is now `ExponentPushToken[new]`
+  token Expo returns for that event is now `ExponentPushToken[new]`
 - **Then** `ExponentPushToken[new]` is posted and the raw token is never posted
+- **And** the listener hands the event to Expo as the device token and never asks the native
+  module for one; a second event with the same raw token does nothing; registering against a
+  native module that re-emits the event on every device-token request posts once, with no retry
 - **And** a logout afterwards sends `ExponentPushToken[new]` in its revoke and in `/auth/logout`'s
   `pushToken`
 - **And** when the fetched Expo token equals the cached one, nothing is posted
