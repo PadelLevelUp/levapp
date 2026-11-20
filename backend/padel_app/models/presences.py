@@ -1,5 +1,5 @@
-from sqlalchemy import CheckConstraint, Column, DateTime, Integer, String, ForeignKey, Enum, Boolean, UniqueConstraint, Index
-from sqlalchemy.orm import relationship
+from sqlalchemy import CheckConstraint, Column, DateTime, Integer, String, Text, ForeignKey, Enum, Boolean, UniqueConstraint, Index
+from sqlalchemy.orm import relationship, validates
 
 from padel_app.sql_db import db
 from padel_app import model
@@ -69,7 +69,16 @@ class Presence(db.Model, model.Model):
     placed_at = Column(DateTime, nullable=True)
     side_moved_at = Column(DateTime, nullable=True)
     left_reason = Column(String(10), nullable=True)
+    # History import D4 (attendance.presence rule 11): the coach's private note on this student's
+    # presence, written by the onboarding import. Nothing reads it and no payload carries it yet.
+    note = Column(Text, nullable=True)
     
+    @validates("note")
+    def _clean_note(self, _key, value):
+        """attendance.presence rule 11: trimmed, a blank note is NULL, at most 1000 characters."""
+        value = (value or "").strip()
+        return value[:1000] or None
+
     @property
     def attendance_state(self) -> str:
         """PAD-313 (attendance.presence rule 9): the one state a human reads.

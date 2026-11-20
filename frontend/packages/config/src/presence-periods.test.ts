@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ALL_HISTORY_FROM,
   customPresencePeriod,
   presencePeriod,
   presencePeriodShortcuts,
@@ -38,10 +39,17 @@ describe("presencePeriod (PAD-837, attendance.validation rule 17g)", () => {
 
   it("[ATTENDANCE-VALIDATION-70] offers the season only with one, and takes its bounds as given", () => {
     const season = { startDate: "2026-09-01", endDate: "2027-07-31" };
-    expect(presencePeriodShortcuts()).toEqual(["thisWeek", "thisMonth", "lastMonth"]);
-    expect(presencePeriodShortcuts(season)).toEqual(["thisWeek", "thisMonth", "lastMonth", "season"]);
+    expect(presencePeriodShortcuts()).toEqual(["thisWeek", "thisMonth", "lastMonth", "all"]);
+    expect(presencePeriodShortcuts(season)).toEqual(["thisWeek", "thisMonth", "lastMonth", "season", "all"]);
     expect(presencePeriod("season", WINTER_SUNDAY_2330, season)).toEqual({ from: "2026-09-01", to: "2027-07-31" });
     expect(presencePeriod("season", WINTER_SUNDAY_2330)).toBeNull();
+  });
+
+  it("[ATTENDANCE-VALIDATION-73] all history sends the constant from and the club's today, with no season", () => {
+    expect(presencePeriod("all", WINTER_SUNDAY_2330)).toEqual({ from: ALL_HISTORY_FROM, to: "2026-11-15" });
+    // 00:30 on the 1st is already the new day at the club, whatever the UTC date says.
+    expect(presencePeriod("all", SUMMER_FIRST_0030)).toEqual({ from: ALL_HISTORY_FROM, to: "2026-08-01" });
+    expect(presencePeriodShortcuts()).toContain("all");
   });
 
   it("[ATTENDANCE-VALIDATION-70] checks a custom range with isValidCustomRange", () => {

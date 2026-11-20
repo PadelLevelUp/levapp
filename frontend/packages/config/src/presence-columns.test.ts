@@ -103,6 +103,7 @@ describe("resolveDefaultPeriod (PAD-837, settings.coach-presences-view rule 3)",
     expect(resolveDefaultPeriod(null)).toBe("thisMonth");
     expect(resolveDefaultPeriod({ columns: ["total"] })).toBe("thisMonth");
     expect(resolveDefaultPeriod({ columns: ["total"], defaultPeriod: "lastMonth" })).toBe("lastMonth");
+    expect(resolveDefaultPeriod({ columns: ["total"], defaultPeriod: "all" })).toBe("all");
     expect(resolveDefaultPeriod({ columns: ["total"], defaultPeriod: "nextYear" })).toBe("thisMonth");
     for (const stored of [undefined, "lastMonth", 3, {}, { defaultPeriod: 2 }]) {
       expect(resolveDefaultPeriod(stored)).toBe("thisMonth");

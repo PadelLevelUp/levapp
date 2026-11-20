@@ -77,6 +77,8 @@ UPDATE coach_in_player SET notes = NULL WHERE notes IS NOT NULL;
 -- scrubbed: evaluation_entries.comment evaluation_records.note
 UPDATE evaluation_entries SET comment = NULL WHERE comment IS NOT NULL;
 UPDATE evaluation_records SET note = NULL WHERE note IS NOT NULL;
+-- scrubbed: presences.note
+UPDATE presences SET note = NULL WHERE note IS NOT NULL;
 -- scrubbed: class_requests.note class_join_requests.note message_reports.reason
 UPDATE class_requests SET note = NULL WHERE note IS NOT NULL;
 UPDATE class_join_requests SET note = NULL WHERE note IS NOT NULL;

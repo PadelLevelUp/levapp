@@ -421,7 +421,10 @@ def _log_exception(msg, *args):
         logging.getLogger(__name__).exception(msg, *args)
 
 
-def get_or_materialize_instance(lesson: Lesson, date):
+def get_or_materialize_instance(lesson: Lesson, date, *, quiet=False):
+    # ``quiet`` (import.onboarding-runner rule 22): the history import writes occurrences that already
+    # happened. Only the instance and its roster rows are written: no engine adoption, reminder job,
+    # vacancy work or waiting-list fan-out.
     # An occurrence's identity is (lesson_id, occurrence date), NOT the parent
     # lesson's time-of-day. A "this occurrence only" edit can move an instance's
     # start_datetime off the parent's time; keying the lookup on
@@ -457,6 +460,7 @@ def get_or_materialize_instance(lesson: Lesson, date):
 
     instance = _lookup()
     if instance:
+        instance._materialised_now = False
         return instance
 
     # PAD-261 (classes.instances rule 8): materialisation is serialised per
@@ -469,12 +473,18 @@ def get_or_materialize_instance(lesson: Lesson, date):
     instance = _lookup()
     if instance:
         db.session.commit()  # release the lock
+        instance._materialised_now = False
         return instance
 
-    instance = create_lesson_instance_helper({'date':date, 'original_lesson_occurence_date': date}, lesson)
+    instance = create_lesson_instance_helper(
+        {'date':date, 'original_lesson_occurence_date': date}, lesson, quiet=quiet,
+    )
 
     instance.add_to_session()
     instance.flush()
+    # Not a column: tells THIS caller its call made the occurrence (the history import records what it
+    # created, and a lookup that merely found one made by someone else is not its own).
+    instance._materialised_now = True
 
     # PAD-259 (classes.instance-enrollment rule 4): the roster is copied onto
     # the occurrence through the single writer; create_lesson_instance_helper
@@ -482,8 +492,11 @@ def get_or_materialize_instance(lesson: Lesson, date):
     # work (PAD-272): the roster lands in one commit, not N+1.
     with unit_of_work():
         for rel in lesson.players_relations:
-            enrol(rel.player_id, instance, "roster")
+            enrol(rel.player_id, instance, "roster", new_engine=quiet)
         instance.save()
+
+    if quiet:
+        return instance
 
     # Schedule reminder + invitation-start jobs for this new instance
     from padel_app.scheduler import _maybe_schedule_instance
@@ -628,7 +641,7 @@ def coach_instance_ids(coach_id):
     return own | {row[0] for row in inherited}
 
 
-def create_lesson_instance_helper(data, parent_lesson=None):
+def create_lesson_instance_helper(data, parent_lesson=None, *, quiet=False):
     if not parent_lesson and not data.get('lesson_id'):
         raise ValueError('Need connection to parent lesson')
     if not parent_lesson:
@@ -713,7 +726,7 @@ def create_lesson_instance_helper(data, parent_lesson=None):
             _owe_removal_notice(lesson_instance, pid)
     with unit_of_work():
         for pid in player_ids:
-            enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach")
+            enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach", new_engine=quiet)
 
     for coach_id in instance_data.get('coach_ids', []):
         Association_CoachLessonInstance(
@@ -723,8 +736,9 @@ def create_lesson_instance_helper(data, parent_lesson=None):
 
     # PAD-917 (notifications.config rule 18, CONFIG-63): the creating path assigns the engine; a switched
     # coach's new occurrence is on the new engine from now.
-    from padel_app.services.engine_switch import on_occurrence_created
-    on_occurrence_created(lesson_instance)
+    if not quiet:
+        from padel_app.services.engine_switch import on_occurrence_created
+        on_occurrence_created(lesson_instance)
 
     return lesson_instance
 
