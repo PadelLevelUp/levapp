@@ -258,6 +258,7 @@ def _key(name):
 class HistoryPlan:
     def __init__(self):
         self.classes = []
+        self.after_through = []  # rule 31: series that start after `through` (a coach's split), left as they are
         self.absences = []   # resolved rows: dicts with the row's fields and `class`
         self.guests = []
         self.adjustments = []  # {"student", "date", "lessons", "lesson_minutes", "minutes", "clashes"}
@@ -368,7 +369,11 @@ def plan(data, coach):
         .filter(Association_CoachLesson.coach_id == coach.id, Lesson.is_recurring.is_(True))
         .order_by(Lesson.id).all()
     )
-    result.classes = [_Class(lesson, first, first_marks.get(lesson.id)) for lesson in lessons]
+    # Rule 31: a series that starts after `through` (the later half of a coach's split) holds no
+    # occurrence of the period: it is not moved back, materialises nothing and takes no row.
+    result.after_through = [lesson for lesson in lessons if lesson.start_datetime.date() > through]
+    result.classes = [_Class(lesson, first, first_marks.get(lesson.id))
+                      for lesson in lessons if lesson.start_datetime.date() <= through]
     classes = result.classes
 
     from padel_app.models import Association_CoachPlayer
@@ -544,6 +549,8 @@ def plan_lines(data, coach, club, plan_):
         move = f"starts {c.lesson.start_datetime.date()} -> {c.new_start}" if c.moves else f"starts {c.lesson.start_datetime.date()}"
         cut = f", cut-off {c.cutoff(through)} (first coach mark {c.first_mark})" if c.first_mark else ""
         lines.append(f"  {c.title}: {move}, {len(c.occurrences(through))} occurrences{cut}")
+    for lesson in plan_.after_through:
+        lines.append(f"  {lesson.title}: starts {lesson.start_datetime.date()}, starts after through, left as is")
     lines.append(
         f"Rows: {len(plan_.absences)} absences, {len(plan_.guests)} guests, {len(plan_.adjustments)} adjustments "
         f"({sum(a['lessons'] for a in plan_.adjustments)} one-off lessons), {len(history.get('excluded', []))} excluded"
