@@ -157,11 +157,14 @@ def create_default_config_for_coach(coach):
 
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.tools.unit_of_work import commit_or_flush
+    from padel_app.utils import dates
 
     existing = NotificationConfig.query.filter_by(coach_id=coach.id).first()
     if existing is not None:
         return existing
     config = NotificationConfig(coach_id=coach.id, **copy.deepcopy(DEFAULT_COACH_CONFIG))
+    # Rule 18 (CONFIG-83): a new coach starts on the new engine, switched now; never `new` without the time.
+    config.engine_version, config.engine_switched_at = "new", dates.utcnow_naive()
     db.session.add(config)
     commit_or_flush()
     return config

@@ -57,7 +57,7 @@ def _seed(app, *, reminder_count=1):
         db.session.add(Association_PlayerLesson(player_id=player.id, lesson_id=lesson.id))
         db.session.commit()
 
-        cfg = get_or_create_config(coach.id)
+        cfg = get_or_create_config(coach.id, on_new_engine=False)
         cfg.reminder_count = reminder_count
         db.session.commit()
         return {
@@ -174,7 +174,7 @@ def test_two_reminders_are_two_passes_not_one_minute(app, live_scheduler):
         retry_id, retry = next(iter(retries.items()))
         assert retry_id.startswith(f"{inst_id}_retry_"), retry_id
         from padel_app.services.notification_service import get_or_create_config
-        hours = get_or_create_config(ids["coach_id"]).get_hours_between_reminders()
+        hours = get_or_create_config(ids["coach_id"], on_new_engine=False).get_hours_between_reminders()
         expected = datetime.utcnow() + timedelta(hours=hours)
         assert abs((retry.trigger.run_date.replace(tzinfo=None) - expected).total_seconds()) < 120
 

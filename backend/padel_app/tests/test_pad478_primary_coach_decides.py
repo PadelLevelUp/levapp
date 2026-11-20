@@ -48,7 +48,7 @@ def _store_timing(coach_id, timing):
     so each test decides which pass runs and as whom."""
     from padel_app.services.notification_service import get_or_create_config
 
-    config = get_or_create_config(coach_id)
+    config = get_or_create_config(coach_id, on_new_engine=False)
     config.reminder_timing = {"firstReminder": timing, "invitationStart": timing}
     config.save()
 
@@ -223,7 +223,7 @@ def test_a_follow_up_is_armed_for_a_class_coached_through_its_lesson(substituted
     coach = substituted["lesson_coach"]
     from padel_app.services.notification_service import get_or_create_config
 
-    config = get_or_create_config(coach)
+    config = get_or_create_config(coach, on_new_engine=False)
     config.reminder_timing = {"firstReminder": FUTURE, "reminderCount": 2, "hoursBetweenReminders": 3}
     config.save()
     substituted["module"].schedule_instance_jobs(substituted["instance"], coach)
@@ -247,7 +247,7 @@ def test_the_follow_up_spacing_is_the_primary_coachs(co_coached, monkeypatch):
     from padel_app.services.notification_service import get_or_create_config
 
     for coach_id, hours in ((co_coached["primary"], 2), (co_coached["second"], 5)):
-        config = get_or_create_config(coach_id)
+        config = get_or_create_config(coach_id, on_new_engine=False)
         config.reminder_timing = {"firstReminder": FUTURE, "reminderCount": 2, "hoursBetweenReminders": hours}
         config.save()
     co_coached["module"].schedule_instance_jobs(co_coached["instance"], co_coached["primary"])
@@ -309,7 +309,7 @@ def test_the_configuration_is_read_again_inside_the_lock(co_coached):
     from padel_app.services.notification_service import get_or_create_config
 
     _store_timing(co_coached["primary"], FUTURE)                 # 1 day before at 18:00
-    stale = get_or_create_config(co_coached["primary"])
+    stale = get_or_create_config(co_coached["primary"], on_new_engine=False)
     assert stale.reminder_time == "18:00"                        # loaded in this session
     # Another request commits "1 day before at 06:00" behind this session's back.
     db.session.execute(

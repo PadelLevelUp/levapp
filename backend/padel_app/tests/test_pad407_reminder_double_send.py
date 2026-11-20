@@ -99,7 +99,7 @@ def _seed(app, *, reminder_count, hours_between=2.0, n_players=3):
         for pid in player_ids:
             _get_or_create_direct_conversation(cu.id, db.session.get(Player, pid).user_id)
         db.session.commit()
-        cfg = get_or_create_config(coach.id)
+        cfg = get_or_create_config(coach.id, on_new_engine=False)
         cfg.reminder_count = reminder_count
         cfg.hours_between_reminders = float(hours_between)
         db.session.commit()

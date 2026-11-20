@@ -39,6 +39,9 @@ def armed(app, live_scheduler, monkeypatch):
     pin_clock(monkeypatch, NOW_UTC)
     with app.app_context():
         coach_id, student_id, instance_id = _seed(app, CLASS_WALL)
+        from padel_app.services.notification_service import get_or_create_config
+
+        get_or_create_config(coach_id, on_new_engine=False)  # an old-engine coach (config rule 18, CONFIG-83)
         yield {"coach": coach_id, "student": student_id, "instance": instance_id,
                "sched": live_scheduler._scheduler}
 
@@ -437,7 +440,7 @@ def test_quiet_hours_do_not_defer_a_re_timed_follow_up(armed, monkeypatch):
     a reminder pass is not deferred by quiet hours either (only the late-arrival ask is)."""
     from padel_app.services.notification_service import get_or_create_config
 
-    config = get_or_create_config(armed["coach"])
+    config = get_or_create_config(armed["coach"], on_new_engine=False)
     config.quiet_hours_enabled = True
     config.save()
     _after_first_reminder(armed, monkeypatch)
