@@ -54,3 +54,16 @@ def test_marking_clearing_and_answering_leave_the_note_and_no_payload_carries_it
         db.session.commit()
         assert _presence(ids).note == "observação"
         assert "note" not in serialize_presence(_presence(ids))
+
+
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-8")
+def test_the_note_migration_parents_on_the_setup_guide_migration():
+    """[ATTENDANCE-PRESENCE-8] The note column's migration follows staging's 3696b022341c: one chain, one head."""
+    from pathlib import Path
+
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    cfg = Config()
+    cfg.set_main_option("script_location", str(Path(__file__).resolve().parents[2] / "migrations"))
+    assert ScriptDirectory.from_config(cfg).get_revision("32e30677a843").down_revision == "3696b022341c"

@@ -7,7 +7,7 @@ coach's own observations. Nothing reads it and no payload carries it yet.
 - Downgrade: drops it.
 
 Revision ID: 32e30677a843
-Revises: f796ea7e680b
+Revises: 3696b022341c
 Create Date: 2026-11-19 19:45:00.000000
 """
 from alembic import op
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 
 revision = "32e30677a843"
-down_revision = "f796ea7e680b"
+down_revision = "3696b022341c"
 branch_labels = None
 depends_on = None
 
