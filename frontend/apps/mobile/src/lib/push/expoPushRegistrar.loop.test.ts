@@ -7,59 +7,14 @@
  * delays the first POST.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { expoNotificationsFake as fake } from "./testing/expoNotificationsFake";
 
 const post = vi.fn();
 vi.mock("@/lib/api", () => ({ api: { post: (...a: unknown[]) => post(...a), delete: vi.fn() } }));
 vi.mock("expo-constants", () => ({ default: { expoConfig: { extra: { eas: { projectId: "p" } } } } }));
 vi.mock("expo-device", () => ({ isDevice: true }));
 
-const RAW = "a3f1".repeat(16);
-const native = vi.hoisted(() => ({
-  listener: null as null | ((e: { type: string; data: string }) => void),
-  deviceTokenCalls: 0,
-  events: 0,
-  inFlight: null as null | { reject: (e: Error) => void },
-  expoCalls: [] as unknown[],
-  getDevice: (() => Promise.reject(new Error("unset"))) as () => Promise<unknown>,
-}));
-// The native call: starts a registration, a newer call rejects the one in flight, and the
-// registration's answer is delivered as a token EVENT (as well as the promise).
-native.getDevice = () => {
-    native.deviceTokenCalls += 1;
-    // A runaway loop must end the test with a failed assertion, not a timeout.
-    if (native.deviceTokenCalls > 30) return Promise.reject(new Error("loop cap"));
-    native.inFlight?.reject(Object.assign(new Error("replaced"), { code: "E_PROMISE_REPLACED" }));
-    return new Promise<{ type: string; data: string }>((resolve, reject) => {
-      native.inFlight = { reject };
-      setTimeout(() => {
-        native.inFlight = null;
-        native.events += 1;
-        native.listener?.({ type: "ios", data: RAW });
-        resolve({ type: "ios", data: RAW });
-      }, 50);
-    });
-  };
-
-
-vi.mock("expo-notifications", () => ({
-  AndroidImportance: { HIGH: 4 },
-  setNotificationChannelAsync: vi.fn(async () => undefined),
-  getPermissionsAsync: vi.fn(async () => ({ status: "granted" })),
-  requestPermissionsAsync: vi.fn(async () => ({ status: "granted" })),
-  addPushTokenListener: vi.fn((l: (e: { type: string; data: string }) => void) => {
-    native.listener = l;
-    return { remove: () => (native.listener = null) };
-  }),
-  // The native call: starts a registration, a newer call rejects the one in flight, and the
-  // registration's answer is delivered as a token EVENT (as well as the promise).
-  getDevicePushTokenAsync: vi.fn(() => native.getDevice()),
-  // Expo's own: uses the device token it is given, otherwise asks the native module for one.
-  getExpoPushTokenAsync: vi.fn(async (options?: { devicePushToken?: unknown }) => {
-    native.expoCalls.push(options);
-    if (!options?.devicePushToken) await native.getDevice();
-    return { data: "ExponentPushToken[abc]" };
-  }),
-}));
+vi.mock("expo-notifications", () => fake.module);
 
 import { ExpoPushRegistrar, PUSH_TOKEN_ENDPOINT } from "./expoPushRegistrar";
 
@@ -68,7 +23,7 @@ const posted = () => post.mock.calls.filter(([p]) => p === PUSH_TOKEN_ENDPOINT).
 beforeEach(() => {
   vi.useFakeTimers();
   post.mockReset().mockResolvedValue({});
-  Object.assign(native, { listener: null, deviceTokenCalls: 0, events: 0, inFlight: null, expoCalls: [] });
+  fake.reset();
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
 });
@@ -86,8 +41,8 @@ describe("push-token listener against a native module that re-emits (PAD-741, bu
     await registered;
     expect(posted()).toEqual(["ExponentPushToken[abc]"]);
     // One native registration: register()'s own. Today's listener starts another on every event, forever.
-    expect(native.deviceTokenCalls).toBe(1);
-    expect(native.events).toBeLessThanOrEqual(2);
+    expect(fake.counters.nativeRegistrations).toBe(1);
+    expect(fake.counters.events).toBeLessThanOrEqual(2);
     expect(registrar.status()).toBe("registered");
     stop();
   });
@@ -96,15 +51,15 @@ describe("push-token listener against a native module that re-emits (PAD-741, bu
     const registrar = new ExpoPushRegistrar();
     await Promise.all([registrar.register(), vi.advanceTimersByTimeAsync(100)]);
     const stop = registrar.watchTokenRotation();
-    native.expoCalls.length = 0;
-    native.listener?.({ type: "ios", data: "b".repeat(64) });
+    fake.counters.expoCalls.length = 0;
+    fake.emit("b".repeat(64));
     await vi.advanceTimersByTimeAsync(10);
-    expect(native.expoCalls).toEqual([{ projectId: "p", devicePushToken: { type: "ios", data: "b".repeat(64) } }]);
-    const calls = native.deviceTokenCalls;
-    native.listener?.({ type: "ios", data: "b".repeat(64) }); // same raw token again
+    expect(fake.counters.expoCalls).toEqual([{ projectId: "p", devicePushToken: { type: "ios", data: "b".repeat(64) } }]);
+    const calls = fake.counters.nativeRegistrations;
+    fake.emit("b".repeat(64)); // same raw token again
     await vi.advanceTimersByTimeAsync(10);
-    expect(native.expoCalls).toHaveLength(1);
-    expect(native.deviceTokenCalls).toBe(calls);
+    expect(fake.counters.expoCalls).toHaveLength(1);
+    expect(fake.counters.nativeRegistrations).toBe(calls);
     expect(posted()).not.toContain("b".repeat(64));
     stop();
   });
