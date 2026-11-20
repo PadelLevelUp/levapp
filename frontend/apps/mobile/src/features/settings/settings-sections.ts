@@ -147,6 +147,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
 ];
 
 /**
+ * settings.role-scope rule 10 (PAD-839): "Configurar conta" is a row inside Profile, shown to a
+ * student only; the section list above does not change.
+ */
+export function showsSetupGuideEntry(isCoach: boolean): boolean {
+  return !isCoach;
+}
+
+/**
  * The sections a given role may see. Single source of truth: the screen uses
  * it to build the nav AND to resolve the open section, so a player can never
  * end up inside a coach pane — not even in the window between the cached

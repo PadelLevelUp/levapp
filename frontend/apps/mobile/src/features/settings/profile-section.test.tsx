@@ -24,7 +24,8 @@ import {
   useUnsavedRegistry,
 } from "@/features/settings/unsaved-registry";
 
-vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
+const routerPush = vi.hoisted(() => vi.fn());
+vi.mock("expo-router", () => ({ router: { push: routerPush } }));
 vi.mock("@/auth/AuthContext", () => ({
   useAuth: () => ({ user: null, refreshUser: vi.fn() }),
 }));
@@ -316,5 +317,23 @@ describe("date of birth and country (PAD-640)", () => {
     await n.flush();
     expect(n.byTestId("settings-profile-birthDate-error").props.children).toBe("auth.signup.birthDateRequired");
     expect(updateMe).not.toHaveBeenCalled();
+  });
+});
+
+// PAD-839 (settings.role-scope rule 10): "Configurar conta" is a row inside Profile, for a student only.
+describe("Configurar conta (PAD-839)", () => {
+  it("[SETTINGS-ROLE-SCOPE-14] only a student sees Configurar conta inside Profile", async () => {
+    getMe.mockResolvedValue({ ...ME, roles: ["player"] });
+    const { n: student } = await mountProfile();
+    expect(student.queryByTestId("settings-setup-guide")).not.toBeNull();
+    routerPush.mockClear();
+    await student.press("settings-setup-guide-open");
+    expect(routerPush).toHaveBeenCalledWith("/setup-guide");
+
+    getMe.mockResolvedValue(ME);
+    const { n: coach } = await mountProfile();
+    await coach.flush();
+    expect(coach.queryByTestId("settings-setup-guide")).toBeNull();
+    expect(coach.queryByTestId("settings-setup-guide-open")).toBeNull();
   });
 });

@@ -69,6 +69,20 @@ out of scope (no backend support exists for them).
     save with the tab's one "Guardar alterações" (`settings.explicit-save`) and send only when changed
     (rule 8).
 
+12. **Setup guide state (PAD-839).** These keys are additive, and old builds ignore them.
+    - `GET /api/auth/me` also returns `setupGuide` (`snoozedAt` as UTC ISO or null, `hidden`,
+      `readyClosed`, `alwaysAvailable`, `alertsConfirmed`).
+    - Each entry of a student's `coaches[]` gains `level` (the coach's level label, or null) and
+      `side` (`left`, `right`, `both` or null).
+    - `PATCH /api/auth/me` also accepts `setupGuideSnooze: true`, `setupGuideHidden`,
+      `setupGuideReadyClosed: true`, `setupGuideAlertsConfirmed: true` and `alwaysAvailable`, added
+      to `OWN_PROFILE_FIELDS`. A `false` where only `true` is allowed is 400.
+    - Only a student may write them. The role check runs before any field is written, so a
+      coach's request that holds any of them is 403 as a whole and stores nothing.
+    - The snooze stores the route's own `now`, passed into the service.
+    - Specified in `dashboard.student-setup-guide` rule 14. They are not part of Perfil's form or
+      its explicit save.
+
 ### Acceptance Criteria
 
 #### SETTINGS-PROFILE-1: Profile is loaded from the server
@@ -159,6 +173,12 @@ test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `te
 - **When** a later read of the profile brings a phone changed on another device
 - **Then** the form shows the phone from that read
 test: `frontend/apps/mobile/src/features/settings/profile-section.test.tsx` › `after a save, a later read fills the fields the coach had edited (the touched set is cleared)`
+
+#### SETTINGS-PROFILE-15: The setup guide's keys ride on `/auth/me` without touching the profile form (rule 12)
+- **Given** a student with a coach who set level "B2" and side left
+- **When** they GET `/api/auth/me`, PATCH `{setupGuideHidden: true}`, and reopen Perfil
+- **Then** the GET carries `setupGuide` and `coaches: [{id, name, level: "B2", side: "left"}]`, the PATCH stores only the hidden flag, and Perfil's fields and its save button are unchanged
+test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_guide_keys_ride_on_auth_me_without_the_profile_form`
 
 ### Notes
 - Source: ticket PAD-81; rules 10–11 PAD-640 (privacy review D7: correction of one's own data).

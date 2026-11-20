@@ -1,6 +1,6 @@
 ---
 id: evaluations.history
-status: implemented
+status: implementing
 depends_on: [evaluations.records, evaluations.competencies, evaluations.player-view, players.notes]
 serves: [P-EVALUATIONS-1]
 governed_by: []
@@ -37,14 +37,20 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
    listed on no card and counted nowhere in the new API. A player not on
    the coach's roster → 404; a caller with no coach profile → 403. Each coach sees only their own
    (build default Q20).
-2. **(AV-030) The profile card "Avaliação"** reads "Última avaliação em {d Mmm aaaa}." from
+2. **(AV-030; PAD-834) The profile's date line** (`evaluation-card-last`, in the profile's
+   Avaliações block, `players.profile` rule 10) reads "Última avaliação em {d Mmm aaaa}." from
    `lastEvaluatedOn`, formatted in the active locale, or "Ainda não há avaliações." when null.
-   The per-category list of latest scores that the card shows today
-   (`evaluations.player-view` rules 2–3) leaves the profile; the latest values are read from the
-   newest history card. **(pending owner decision Q7)**
-3. **(AV-031, build default Q23) "Avaliações" is a primary action on the player profile** and
-   opens "Avaliações — {nome}" with two sections, "Evolução" (`evaluations.evolution`) and
-   "Histórico". Web: a 520 px drawer, a full page at phone width. iOS: a pushed screen, not a
+   That one format serves this rule, EVALUATIONS-HISTORY-2 and `players.profile`. The latest
+   scores return to the profile (the old Q7, answered by PAD-834): the block's "Última avaliação"
+   column shows the newest record's competencies on their own scales and its note, read from this
+   rule-1 read; its author is the signed-in coach's display name, since records are per coach
+   (rule 1) and the Record carries no author.
+3. **(AV-031, build default Q23; PAD-834) The profile's Avaliações block opens the drawer**
+   (`players.profile` rule 10): "Histórico (N)" opens it, "Nova avaliação" and "Fazer primeira
+   avaliação" open it with the form open. It is no longer a header action. The drawer
+   opens "Avaliações — {nome}" with "Histórico" and the form (rule 4). "Evolução"
+   (`evaluations.evolution`) lives in the profile's block from the wave that ships it; until
+   then the drawer keeps it as its first section. Web: a 520 px drawer, a full page at phone width. iOS: a pushed screen, not a
    native `Modal` sheet. Coach-only. Web and iOS ship in the same ticket.
 4. **(AV-032) "Nova avaliação"** is a secondary action, hidden while the form is open. The form
    lists competencies, then "Nota privada (opcional)", then "Concluir avaliação", which only
@@ -86,9 +92,9 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
    iOS's card uses — and was proven to work before the commit that dropped them from the form:
    `e2e/evaluation-tools/player-notes.spec.ts`, 2 passed (US-44, US-45), at `ddf6b1f14`,
    2026-09-21 19:20:34–19:21:37 UTC. Recorded in `players.notes` rule 5.
-10. **(AV-077) The drawer owns its state.** Closing it closes the form and resets the evolution
-    selection; opening it for another player never shows the previous player's form or
-    selection. It is not rendered outside the player view.
+10. **(AV-077) The drawer owns its state.** Closing it closes the form; opening it for another
+    player never shows the previous player's form. (PAD-834: the evolution selection belongs to
+    the profile's block, which resets it when another player is opened.) It is not rendered outside the player view.
 11. **(build default Q33) Nothing drawn above a form that saves on tap changes shape in answer
     to that tap.** The section keeps its shape while the form is open and follows the server
     when it closes; whatever is drawn BELOW the form (the history cards) follows at once. The
@@ -104,7 +110,7 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
 ### Touches
 - `evaluations.player-view` — the shipped card it describes is replaced by rule 2 when this leaf
   is built; that leaf is then rewritten or deprecated by the building slice.
-- `players.profile` — the profile screen gains the "Avaliações" action; `GET /player_profile`
+- `players.profile` — the profile's Avaliações block (PAD-834, rule 10 there) opens the drawer; `GET /player_profile`
   keeps its shape (`evaluations.legacy-client-contract` rule 4) and new clients read it for
   strengths and weaknesses only.
 - `players.notes` — rule 9's outcome (where strengths/weaknesses are edited on web) is recorded
@@ -130,7 +136,9 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
 - **When** Ana opens each profile on web and on iOS
 - **Then** João's card (`data-testid` `evaluation-card-last`) shows the 2026-09-21 date in the
   active locale ("Última avaliação em 21 Set 2026." in pt); Sara's shows the empty line
-  ("Ainda não há avaliações."); both profiles offer the "Avaliações" action
+  ("Ainda não há avaliações."); both offer "Histórico (N)" (`player-evaluations-open`, N = 3 and 0) and Sara's also offers "Fazer primeira avaliação" (`profile-evaluations-first`), which opens the form
+test: `frontend/apps/web/src/components/evaluations/PlayerEvaluationsDrawer.test.tsx` › `[EVALUATIONS-HISTORY-2] says so when there is none, and still offers 'Avaliações'` (amended: moves to `PlayerEvaluationsBlock.test.tsx` and asserts the block's entry points)
+test: `frontend/apps/mobile/src/features/evaluations/evaluations-block.test.tsx` › `[EVALUATIONS-HISTORY-2] the date line and the entry points on iOS` (new)
 
 #### EVALUATIONS-HISTORY-3: A switched-off competency stays on its card (rule 6)
 - **Given** the 2026-06-18 record holds Bandeja 4 and Bandeja has since been switched off
@@ -185,7 +193,7 @@ test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` ›
 - **And** edit is offered on today's card only; delete and share on every card
 - **When** the coach presses delete on the earlier record
 - **Then** a confirmation names its date, and the record is deleted only after they confirm
-- **And** a player with no record sees the empty line, the empty evolution state and "Nova avaliação"
+- **And** a player with no record sees the empty line and "Nova avaliação", and the drawer has no Evolução section
 test: `frontend/apps/web/src/components/evaluations/PlayerEvaluationsDrawer.test.tsx` › `is one card per record, newest first, the class one carrying its class name` (+3 more)
 
 ### Runs cited for `implemented` (PAD-374, #358)

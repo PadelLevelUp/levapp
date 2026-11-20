@@ -1,0 +1,46 @@
+# PAD-834 (players.list rules 5, 15): the roster's "registo pendente" alert filters it; a pending row
+# shows the dashed avatar, the pending badge and the needs-configuring chips; "Ver todos" clears.
+# Proof on iOS for PLAYERS-LIST-17 (the citable tests are vitest).
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad834-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad834-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-alert-pending"
+    timeout: 20000
+- assertVisible:
+    id: "players-alert-incomplete"
+- tapOn:
+    id: "players-alert-pending"
+- extendedWaitUntil:
+    visible:
+      id: "players-filter-clear"
+    timeout: 10000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "${output.pendingName}"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-${output.pendingId}"
+    timeout: 20000
+- assertVisible:
+    id: "pending-registration-badge"
+- assertVisible:
+    id: "player-row-avatar-pending"
+- assertVisible:
+    id: "player-row-no-level"
+- assertVisible:
+    id: "player-row-no-side"
+- tapOn:
+    id: "players-filter-clear"
+- extendedWaitUntil:
+    notVisible:
+      id: "players-filter-clear"
+    timeout: 10000

@@ -129,7 +129,8 @@ export function useCoachPlayersPaginated(
         params.sortDir,
         params.missingLevel,
         params.missingSide,
-        params.incomplete
+        params.incomplete,
+        params.pending
       ),
     ...options,
   });
@@ -211,6 +212,27 @@ export function useAvailabilityBlockers(
     queryKey: queryKeys.availabilityBlockers,
     queryFn: availabilityApi.listBlockers,
     ...options,
+  });
+}
+
+/**
+ * PAD-839 (calendar.student-blockers rule 18): write a schedule's rows whole (all or none), and
+ * remove them. Both refresh the blockers list, which carries each row's `scheduleId`.
+ */
+export function useSaveSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ scheduleId, data }: { scheduleId: string; data: availabilityApi.ScheduleInput }) =>
+      availabilityApi.putSchedule(scheduleId, data),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.availabilityBlockers }),
+  });
+}
+
+export function useDeleteSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (scheduleId: string) => availabilityApi.deleteSchedule(scheduleId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.availabilityBlockers }),
   });
 }
 

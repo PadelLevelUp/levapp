@@ -3,7 +3,7 @@
 // its own. Covers auth.push-subscription rule 8.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { requestAndSubscribe, subscribeToPush } from "./pushNotifications";
+import { isIosBrowserWithoutApp, requestAndSubscribe, subscribeToPush } from "./pushNotifications";
 
 const SAVE = /\/notifications\/save-subscription$/;
 
@@ -67,5 +67,21 @@ describe("subscribeToPush in-flight dedupe", () => {
     releaseSave();
     releaseSave();
     await expect(Promise.all([a, b])).resolves.toEqual([true, true]);
+  });
+});
+
+describe("isIosBrowserWithoutApp", () => {
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1";
+  const MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15";
+
+  it("[DASHBOARD-STUDENT-SETUP-GUIDE-9] isIosBrowserWithoutApp detects Safari on an iPhone outside an installed app", () => {
+    expect(isIosBrowserWithoutApp({ userAgent: IPHONE, maxTouchPoints: 5 }, false)).toBe(true);
+    // iPadOS reports itself as a Mac, with touch.
+    expect(isIosBrowserWithoutApp({ userAgent: MAC, maxTouchPoints: 5 }, false)).toBe(true);
+    // Inside an installed web app.
+    expect(isIosBrowserWithoutApp({ userAgent: IPHONE, maxTouchPoints: 5, standalone: true }, false)).toBe(false);
+    expect(isIosBrowserWithoutApp({ userAgent: IPHONE, maxTouchPoints: 5 }, true)).toBe(false);
+    // A desktop Mac has no touch.
+    expect(isIosBrowserWithoutApp({ userAgent: MAC, maxTouchPoints: 0 }, false)).toBe(false);
   });
 });

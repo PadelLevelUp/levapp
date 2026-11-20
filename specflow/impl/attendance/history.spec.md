@@ -1,6 +1,6 @@
 ---
 id: attendance.history
-status: implemented
+status: implementing
 depends_on: [attendance.presence, classes.instances, players.list, dashboard.navigation]
 serves: [P-ATTENDANCE-3]
 governed_by: []
@@ -18,6 +18,9 @@ never contrasts present against absent on a single surface.
 statement about what did not exist yet, not a design constraint: `attendance.absences` is now
 the missed-classes counterpart. The surviving constraint is the one that always mattered — each
 page charts **one** predicate, so neither page is a present-vs-absent comparison view.
+**(PAD-834)** The coach's player profile shows a Presenças card beside a Faltas card
+(`players.profile` rule 12). Each card charts one predicate and no figure combines them (no rate),
+so the constraint holds there too.
 
 ### Entities
 No new entity. The history is derived from existing `presences` joined to `lesson_instances`;
@@ -94,8 +97,9 @@ for every bucket and every history row.
 17. Entry points mirror web's:
     - the student's dashboard "Attended" KPI tile (`href: "/attendance"` from the backend, now
       mapped to a mobile route in `DashboardBlocks`);
-    - an action on the coach's player-detail screen (`player-attendance-link`), first in the
-      action row, as it is first in web's `PageActions`.
+    - **(PAD-834)** the coach's player profile shows the counts, the chart and the list in place
+      (`players.profile` rule 12) and reaches this screen through "Ver página completa"
+      (`profile-attendance-full`) at the end of the open list, on web and iOS alike.
 18. A history row deep-links to `/class/[id]` rather than following the server-built `href`
     from rule 8: `/calendar?classId=…` is not a route in the Expo Router tree. The row resolves
     the same `calendarEventId` through `parseDashboardItemId`, which is exactly what a mobile
@@ -127,9 +131,10 @@ for every bucket and every history row.
   preset view
 
 #### ATTENDANCE-HISTORY-4: Coach opens a roster player's attendance
-- **Given** a coach viewing the profile of a player on their roster
-- **When** they follow the attendance link
-- **Then** they land on `/players/:playerId/attendance` and see that player's attendance history
+- **Given** a coach on the profile of a player on their roster, with the Presenças list open
+- **When** they follow "Ver página completa"
+- **Then** they land on `/players/:playerId/attendance` and see that player's attendance history, with a way back to the profile (rule 9)
+test: `frontend/apps/web/e2e/attendance/attendance-history.spec.ts` › `[ATTENDANCE-HISTORY-4] the coach reaches the player's attendance page from the profile's open list` (amended: it clicks `player-attendance-link` today, lines 324 and 493)
 
 #### ATTENDANCE-HISTORY-5: A coach cannot read a non-roster player's attendance
 - **Given** a coach with no `Association_CoachPlayer` row for player X
@@ -157,10 +162,13 @@ for every bucket and every history row.
 - **Then** the attendance screen opens with the chart, the range controls `1W` / `1M` / `1Y` /
   `…` below it, and the attended classes listed underneath
 
-#### ATTENDANCE-HISTORY-10: Coach reaches a roster player's attendance from iOS player detail
-- **Given** a coach on a roster player's detail screen
-- **When** they tap the attendance action
-- **Then** the same attendance screen opens for that player, subtitled with their name
+#### ATTENDANCE-HISTORY-10: Coach reaches a roster player's attendance screen from the iOS profile (PAD-834)
+- **Given** a coach on a roster player's detail screen, with the Presenças list of the Assiduidade block open
+- **When** they tap `profile-attendance-full`
+- **Then** the attendance screen opens for that player (`/attendance?playerId=<id>`), subtitled with their name
+- The in-place list is PLAYERS-PROFILE-18's.
+test: `frontend/apps/mobile/src/features/attendance/attendance-block.test.tsx` › `[ATTENDANCE-HISTORY-10] the full-page link routes to the player's attendance screen` (new)
+- Proof on iOS (Maestro, not citable): `frontend/apps/mobile/.maestro/flows/<next free number>-player-attendance-block.yaml` (new, shared with PLAYERS-PROFILE-18)
 
 #### ATTENDANCE-HISTORY-11: The buckets follow the length of the range and leave no gap (rules 4, 5)
 - **Given** ranges of a week, a year and five years

@@ -1,0 +1,101 @@
+# PAD-839 (flows 337-340): sign in as the throw-away student the setup script made, and stop at the
+# setup guide's sheet. login.yaml cannot be used: it ends on `screen-dashboard`, which the sheet's
+# modal covers for a student whose guide is live.
+# Usage: runFlow with env USERNAME and PASSWORD.
+appId: com.padellevelup.app
+---
+# Notifications unset: Maestro's launchApp grants every permission by default, and step 2
+# (device_push) counts this device's granted permission as done, so a "new" student would read 40%.
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: unset
+# The notifications alert (see below) can also come up at launch, over the login screen.
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+    optional: true
+# Android's clear-data race (PR #996 runs 44555742257 and 44627907193, flow 337 both times, the
+# first flow after a coach session): clearState kills the old process, the new one starts, and
+# about a second later the old task's "Destroy timeout of remove-task" kills the NEW process too
+# ("Killing ...: remove task" in logcat), so the screen stays dark however long the wait. A
+# longer wait never helps; a second launch does: the state is already clear and no task is left
+# to destroy. 338-340 launch the same way after a dead process and are fine.
+- runFlow:
+    when:
+      notVisible:
+        id: "login-username"
+    commands:
+      - launchApp:
+          appId: com.padellevelup.app
+          permissions:
+            notifications: unset
+      - extendedWaitUntil:
+          visible:
+            id: "login-username"
+          timeout: 30000
+          optional: true
+# Both platforms: iOS titles it "... Would Like to Send You Notifications", Android 13+ "Allow LevApp
+# to send you notifications?" (CI grants POST_NOTIFICATIONS, but launchApp's `unset` takes it away);
+# Android's button reads DON'T ALLOW (caps, curly apostrophe), so it is tapped by its id; iOS's
+# "Don't Allow" by text (Maestro's text match ignores case; the curly apostrophe is the dot).
+- runFlow:
+    when:
+      platform: Android
+      visible:
+        text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
+    commands:
+      - tapOn:
+          id: "com.android.permissioncontroller:id/permission_deny_button"
+- runFlow:
+    when:
+      platform: iOS
+      visible:
+        text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
+    commands:
+      - tapOn:
+          text: "Don.t allow"
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn:
+    id: "login-username"
+- inputText: ${USERNAME}
+- tapOn:
+    id: "login-password"
+- inputText: ${PASSWORD}
+- tapOn:
+    id: "login-submit"
+- runFlow: dismiss-save-password.yaml
+# With notifications unset, the push registrar asks on sign-in and the system's alert covers the sheet.
+# Answer it only while its own title shows (never a bare text tap, B-728); "Don't Allow" keeps step 2
+# not done, so the guide still reads 20%. Its apostrophe is a curly one, hence "Don.t".
+- extendedWaitUntil:
+    visible:
+      text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
+    timeout: 8000
+    optional: true
+- runFlow:
+    when:
+      platform: Android
+      visible:
+        text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
+    commands:
+      - tapOn:
+          id: "com.android.permissioncontroller:id/permission_deny_button"
+- runFlow:
+    when:
+      platform: iOS
+      visible:
+        text: ".*(Would Like to Send You Notifications|send you notifications\\?).*"
+    commands:
+      - tapOn:
+          text: "Don.t allow"
+- runFlow: dismiss-save-password.yaml
+- extendedWaitUntil:
+    visible:
+      id: "setup-guide-sheet"
+    timeout: 30000

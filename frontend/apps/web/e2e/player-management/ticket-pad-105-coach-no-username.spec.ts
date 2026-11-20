@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
+import { copyInviteLink } from "../helpers/inviteLink";
 import { openPlayers } from "../helpers/navigation";
 
 /**
@@ -77,12 +78,14 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     // be rendered to the coach.
     await expect(page.getByText(/pending-[0-9a-f]{4}/i)).toHaveCount(0);
 
-    // The player header "Edit" puts the detail page into inline edit mode.
-    // There must still be nothing username-shaped to type into.
-    await page.getByRole("button", { name: /^edit$/i }).first().click();
+    // The header's edit (name and nickname, PAD-834) has nothing username-shaped to type into.
+    await page.getByTestId("player-edit").click();
+    await expect(page.getByTestId("player-nickname")).toBeVisible({ timeout: 5000 });
+    await page.getByTestId("player-edit-cancel").click();
 
-    // Edit mode is live: the info card's other fields became inputs.
-    await expect(page.getByPlaceholder(/^email$/i)).toBeVisible({
+    // Neither has Block 1, Informação, whose e-mail box is the coach's while the player is pending.
+    await page.getByTestId("player-info-edit").click();
+    await expect(page.getByTestId("player-info-email-input")).toBeVisible({
       timeout: 5000,
     });
 
@@ -114,11 +117,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     await page.getByText(name).click();
     await page.waitForURL(/\/players\/\d+/, { timeout: 8000 });
 
-    // The detail page surfaces the shareable registration link in a readonly box.
-    const registerLink = await page
-      .locator("input[readonly]")
-      .first()
-      .inputValue();
+    // The detail page's pending alert copies the registration link (PAD-834).
+    const registerLink = await copyInviteLink(page);
     expect(registerLink).toContain("/register/");
     // auth.activate rule 2 (PAD-254): the link carries the account's secret;
     // the student opens exactly what the coach shared, path and `?t=` alike.

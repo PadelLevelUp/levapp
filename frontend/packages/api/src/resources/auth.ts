@@ -15,7 +15,7 @@ export type MeResponse = {
    * PAD-225: a student's coaches (`coach_in_player`), `[]` for a coach. This —
    * not an empty calendar — is what "not connected to a coach yet" means.
    */
-  coaches?: { id: number; name: string }[];
+  coaches?: MeCoach[];
   isSuperAdmin: boolean;
   language?: "pt" | "en";
   /** PAD-81: profile fields the Settings profile form is hydrated from. */
@@ -56,6 +56,33 @@ export type MeResponse = {
   emailVerification?: EmailVerificationState;
   /** Seconds until "Send a new code" is allowed again; 0 when it is. */
   emailVerificationResendInSeconds?: number;
+  /**
+   * PAD-839 (dashboard.student-setup-guide rule 14): the setup guide's choices, kept on the
+   * account. Absent from an older backend, which a client treats as nothing chosen.
+   */
+  setupGuide?: SetupGuideState;
+};
+
+/**
+ * PAD-225 / PAD-839: one of a student's coaches. `level` (the coach's level label) and `side` are
+ * what that coach set for this student (settings.profile rule 12); null when not set, absent on an
+ * older backend.
+ */
+export type MeCoach = {
+  id: number;
+  name: string;
+  level?: string | null;
+  side?: "left" | "right" | "both" | null;
+};
+
+/** PAD-839: the setup guide's per-account state (dashboard.student-setup-guide rule 14). */
+export type SetupGuideState = {
+  /** UTC ISO instant of the last close of the first-login sheet, or null. Compared as Lisbon dates. */
+  snoozedAt: string | null;
+  hidden: boolean;
+  readyClosed: boolean;
+  alwaysAvailable: boolean;
+  alertsConfirmed: boolean;
 };
 
 export type EmailVerificationState = "verified" | "pending" | "unverified";
@@ -130,6 +157,15 @@ export type UpdateMePayload = {
   requestAlerts?: boolean;
   /** PAD-680: the notification sound (notifications.notification-sound rule 1). */
   notificationSound?: boolean;
+  /**
+   * PAD-839 (dashboard.student-setup-guide rule 14): student-only. The server stamps its own time;
+   * `false` is refused for the three that only switch on.
+   */
+  setupGuideSnooze?: true;
+  setupGuideHidden?: boolean;
+  setupGuideReadyClosed?: true;
+  setupGuideAlertsConfirmed?: true;
+  alwaysAvailable?: boolean;
 };
 
 export async function getMe(): Promise<MeResponse> {

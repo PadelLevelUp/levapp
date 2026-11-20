@@ -32,3 +32,14 @@ onFlowComplete:
     visible:
       id: "player-detail"
     timeout: 15000
+# PAD-834 (players.profile rule 9): the profile says what is missing and leads to Block 1.
+- assertVisible:
+    id: "player-needs-config-alert"
+- assertVisible:
+    id: "player-chip-no-level"
+- tapOn:
+    id: "player-needs-config-complete"
+- extendedWaitUntil:
+    visible:
+      id: "player-info-save"
+    timeout: 10000

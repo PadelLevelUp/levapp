@@ -45,7 +45,6 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn() }));
 
 import { PlayerEvaluationsDrawer } from "./PlayerEvaluationsDrawer";
-import { EvaluationSummaryCard } from "./EvaluationSummaryCard";
 
 beforeAll(() => {
   window.HTMLElement.prototype.hasPointerCapture = () => false;
@@ -90,20 +89,8 @@ beforeEach(() => {
 
 const open = () => render(<PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} />);
 
-describe("the profile card", () => {
-  it("[EVALUATIONS-HISTORY-2] names the last evaluation in the active locale, from the server's date", () => {
-    render(<EvaluationSummaryCard lastEvaluatedOn="2026-09-21" onOpen={vi.fn()} />);
-    expect(screen.getByTestId("evaluation-card-last").textContent).toContain("21 set 2026");
-  });
-
-  it("[EVALUATIONS-HISTORY-2] says so when there is none, and still offers 'Avaliações'", () => {
-    const onOpen = vi.fn();
-    render(<EvaluationSummaryCard lastEvaluatedOn={null} onOpen={onOpen} />);
-    expect(screen.getByTestId("evaluation-card-last").textContent).toBe("players.evaluationHistory.none");
-    fireEvent.click(screen.getByTestId("player-evaluations-open"));
-    expect(onOpen).toHaveBeenCalled();
-  });
-});
+// The profile's date line and entry points (EVALUATIONS-HISTORY-2) moved to the Avaliações block
+// with PAD-834: PlayerEvaluationsBlock.test.tsx.
 
 describe("the history", () => {
   it("is one card per record, newest first, the class one carrying its class name", () => {
@@ -144,12 +131,14 @@ describe("the history", () => {
     expect(state.remove).toHaveBeenCalledWith(2);
   });
 
-  it("an empty history still offers 'Nova avaliação', and the evolution slot says why it is empty", () => {
+  it("an empty history still offers 'Nova avaliação', and the drawer has no Evolução section (PAD-834)", () => {
     state.evaluations = { lastEvaluatedOn: null, records: [], competenciesWithData: [] };
     open();
     expect(screen.getByTestId("evaluation-history-empty")).toBeTruthy();
-    expect(screen.getByTestId("evaluation-evolution-empty")).toBeTruthy();
     expect(screen.getByTestId("evaluation-new")).toBeTruthy();
+    // players.profile rule 10: Evolução lives in the profile's Avaliações block now.
+    expect(screen.queryByTestId("evaluation-evolution")).toBeNull();
+    expect(screen.queryByTestId("evaluation-evolution-empty")).toBeNull();
   });
 });
 
@@ -180,19 +169,36 @@ describe("'Nova avaliação'", () => {
     expect(form.queryByTestId("evaluation-row-12")).toBeNull(); // Bandeja is switched off and not rated in that record
   });
 
-  it("nothing above the open form changes shape: a first rating does not make 'Evolução' appear until the form closes", async () => {
+  it("says while the form is open, so the profile's Evolução holds its shape until it closes (PAD-834)", async () => {
     state.evaluations = { lastEvaluatedOn: null, records: [], competenciesWithData: [] };
-    const view = open();
+    const onFormOpenChange = vi.fn();
+    const view = render(
+      <PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} onFormOpenChange={onFormOpenChange} />,
+    );
+    expect(onFormOpenChange).toHaveBeenLastCalledWith(false);
     fireEvent.click(screen.getByTestId("evaluation-new"));
-    // the tap was saved and the history refetched: the player now has data
+    expect(onFormOpenChange).toHaveBeenLastCalledWith(true);
+    // the tap was saved and the history refetched: the history below the form does follow
     state.evaluations = { ...JOAO, records: [JOAO.records[1]], competenciesWithData: [3] };
-    view.rerender(<PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} />);
-    expect(screen.getByTestId("evaluation-history-card-8")).toBeTruthy(); // the history below the form does follow
-    expect(screen.getByTestId("evaluation-evolution-empty")).toBeTruthy();
-    expect(screen.queryByTestId("evolution-pill-3")).toBeNull();
+    view.rerender(
+      <PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} onFormOpenChange={onFormOpenChange} />,
+    );
+    expect(screen.getByTestId("evaluation-history-card-8")).toBeTruthy();
     await act(async () => fireEvent.click(screen.getByTestId("evaluation-finish")));
-    expect(screen.queryByTestId("evaluation-evolution-empty")).toBeNull();
-    expect(screen.getByTestId("evolution-pill-3")).toBeTruthy();
+    expect(onFormOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("opens on the form when the profile asks for it, and on a record for the last evaluation's Editar (PAD-834)", () => {
+    const first = render(
+      <PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} initialTarget="new" />,
+    );
+    expect(screen.getByTestId("evaluation-form")).toBeTruthy();
+    expect(screen.queryByTestId("evaluation-new")).toBeNull();
+    first.unmount();
+    render(
+      <PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} initialTarget={JOAO.records[0]} />,
+    );
+    expect(screen.getByTestId("evaluation-form")).toBeTruthy();
   });
 
   it("[EVALUATIONS-HISTORY-4] closing it untouched sends nothing", async () => {

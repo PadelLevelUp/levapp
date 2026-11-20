@@ -27,13 +27,20 @@ export function usePushNotifications(token: string | null) {
     isSupported ? Notification.permission : "unsupported"
   );
   const [isSubscribed, setIsSubscribed] = useState(false);
+  // PAD-839 (dashboard.student-setup-guide rule 3a): false until the browser's subscription has been
+  // read once, so a reader can tell "not subscribed" from "not known yet".
+  const [ready, setReady] = useState(!isSupported);
   const [saveState, setSaveState] = useState<PushSaveState>("idle");
 
   const refreshSubscriptionState = useCallback(async () => {
     if (!isSupported) return;
-    const registration = await navigator.serviceWorker.getRegistration();
-    const subscription = await registration?.pushManager.getSubscription();
-    setIsSubscribed(Boolean(subscription));
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      const subscription = await registration?.pushManager.getSubscription();
+      setIsSubscribed(Boolean(subscription));
+    } finally {
+      setReady(true);
+    }
   }, [isSupported]);
 
   useEffect(() => {
@@ -107,6 +114,7 @@ export function usePushNotifications(token: string | null) {
 
   return {
     isSupported,
+    ready,
     permission,
     isSubscribed,
     saveState,

@@ -1,11 +1,10 @@
-# confirmed — Session-D, iPhone 17 Pro simulator, feature/pad-410 @ cd34535ec, 2026-09-23 00:06:17Z: 45 steps, 0 failed
-# PAD-410: master-detail mock parity for player detail — Editar at the top
-# right of the header, and the action row in the mock's exact order: Ver
-# presenças, Ver faltas, Adicionar a aulas, Lista de espera, Avaliações
-# (primary), Desassociar (destructive, last) — then the Avaliação and Pontos
-# fortes e fracos cards. Modelled on 07-player-notes.yaml's search-and-open
-# pattern. By test id only — never rendered copy.
+# PAD-834 (players.profile rules 4, 21): the header's four actions in order — Adicionar a aulas,
+# Lista de espera, Editar, Desassociar (destructive, last); presences, absences and evaluations left
+# the header for the blocks. Then the blocks, in order: Informação, Avaliações, Assiduidade, and the
+# Pontos fortes e fracos card until owner question Q4 is answered. By test id only — never rendered
+# copy. Modelled on 07-player-notes.yaml's search-and-open pattern.
 # player-card-1 is deterministic: E2E Student (see 04-attendance.yaml).
+# Proof on iOS for PLAYERS-PROFILE-10 and -21 (not citable: the citable tests are vitest).
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -31,16 +30,7 @@ appId: com.padellevelup.app
       id: "player-detail"
     timeout: 15000
 
-# ── Header: Editar at the top right (PAD-410 moved it out of the profile
-#    card's old bottom button pair) ──
-- assertVisible:
-    id: "player-edit"
-
-# ── Action row, in the mock's exact order (left to right) ──
-- assertVisible:
-    id: "player-attendance-link"
-- assertVisible:
-    id: "player-absences-link"
+# ── Header: four actions, in order (they wrap on a narrow screen, left to right) ──
 - assertVisible:
     id: "player-add-to-classes"
 # E2E Student is seeded off the standing waiting list; if a peer flow leaves
@@ -48,28 +38,38 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "player-waiting-list"
 - assertVisible:
-    id: "player-evaluations-action"
-# Desassociar: moved into the action row (last), destructive-styled — same
-# testID and handler as the old profile-card button.
+    id: "player-edit"
 - assertVisible:
     id: "player-remove"
+- assertNotVisible:
+    id: "player-attendance-link"
+- assertNotVisible:
+    id: "player-absences-link"
+- assertNotVisible:
+    id: "player-evaluations-action"
 
-# ── Cards below the action row, in the mock's order: Avaliação, Informação,
-#    Pontos fortes e fracos (players.profile rule 4). ──
-- scrollUntilVisible:
-    element:
-      id: "evaluation-card"
-    direction: DOWN
-    timeout: 15000
-- assertVisible:
-    id: "evaluation-card"
+# ── The blocks, in order ──
 - scrollUntilVisible:
     element:
       id: "player-info-card"
     direction: DOWN
     timeout: 15000
 - assertVisible:
-    id: "player-info-card"
+    id: "player-info-edit"
+- scrollUntilVisible:
+    element:
+      id: "evaluation-card"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "player-evaluations-open"
+# The block is taller than the screen, so it is never 100% visible: scroll to its period chips.
+- scrollUntilVisible:
+    element:
+      id: "profile-period-1m"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
 - scrollUntilVisible:
     element:
       id: "strengths-weaknesses-card"

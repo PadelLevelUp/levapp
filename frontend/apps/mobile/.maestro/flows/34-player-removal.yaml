@@ -3,8 +3,8 @@
 # - E2E Student has an account: the button says Disconnect, the confirmation
 #   lists the coach's notes and evaluations and no attendance, and Cancel
 #   leaves the student alone.
-# - A placeholder this flow creates says Delete, lists its attendance too, and
-#   is deleted.
+# - A placeholder this flow creates says Cancel invite (PAD-834; Delete before), lists its
+#   attendance too, and is deleted.
 # - A competency this flow adds in "Gerir competências" (PAD-373) asks for its typed
 #   name before it is deleted; the confirm stays disabled until the name matches.
 # Self-contained: it deletes only what it creates, so its position in the
@@ -159,8 +159,10 @@ appId: com.padellevelup.app
       id: "player-remove"
     direction: DOWN
     timeout: 30000
+# PAD-834 (players.remove rules 7, 9; assumption Q5): a pending player's removal reads "Cancelar
+# convite" and does what Delete does; the mode in the id says so without reading the word.
 - assertVisible:
-    id: "player-remove-mode-delete"
+    id: "player-remove-mode-cancel-invite"
 - tapOn:
     id: "player-remove"
 - extendedWaitUntil:

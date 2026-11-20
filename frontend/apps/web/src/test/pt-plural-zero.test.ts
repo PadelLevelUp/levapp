@@ -37,6 +37,17 @@ function pairsWithoutZero(d: Dict, prefix = "", out: string[] = []): string[] {
 }
 
 describe("Portuguese zero counts (PAD-629)", () => {
+  it("PAD-834: the player card's pending age and 'added' line read the plural for 0, 1 and 2 days", async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "pt", resources: { pt: { translation: load() } } });
+    expect([0, 1, 2].map((count) => i18n.t("players.card.pendingAge", { count }))).toEqual([
+      "Pendente · há 0 dias",
+      "Pendente · há 1 dia",
+      "Pendente · há 2 dias",
+    ]);
+    expect(i18n.t("players.card.addedAgo", { count: 0 })).toBe("Adicionado há 0 dias.");
+  });
+
   it("every pt plural pair has a _zero form", () => {
     expect(pairsWithoutZero(load())).toEqual([]);
   });

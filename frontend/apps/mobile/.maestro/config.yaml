@@ -436,6 +436,21 @@ executionOrder:
     # back before and after a confirm. Creates and validates its own ten ended classes through the
     # debug route and deletes them in its teardown, so its position is not load bearing.
     - 323-validate-sheet-scrolls-after-confirm
+    # 333-336 (PAD-834, players.profile rules 9, 11, 12; players.list rule 15): the player card's
+    # needs-configuring and pending states, its Assiduidade block, and the roster's pending filter.
+    # 333, 334 and 336 create and delete their own placeholder (scripts/pad834-setup.js); 335 writes
+    # nothing. Their position is not load bearing.
+    - 333-player-needs-configuring
+    - 334-player-pending-registration
+    - 335-player-attendance-block
+    - 336-players-list-pending-filter
+    # 337-340 (PAD-839, dashboard.student-setup-guide criteria 2, 5, 10, 11): each makes its own fresh
+    # student through the API (the seed hides the guide for seeded students) and takes her off the
+    # coach's roster in its teardown, so their position is not load bearing.
+    - 337-setup-guide-first-login
+    - 338-setup-guide-hide
+    - 339-schedule-editor-same
+    - 340-schedule-editor-varies
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

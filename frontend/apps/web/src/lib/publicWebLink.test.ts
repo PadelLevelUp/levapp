@@ -30,7 +30,8 @@ const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BUILDERS = [
   "components/settings/ClubSection.tsx",
   "components/players/AddByQrDialog.tsx",
-  "components/players/detail/PlayerHeader.tsx",
+  // PAD-834: the invite link moved from the header into the pending-registration alert.
+  "components/players/detail/PlayerStateAlerts.tsx",
   "components/players/EditPlayerSheet.tsx",
   "pages/PlayersPage.tsx",
 ];

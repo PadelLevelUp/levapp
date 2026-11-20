@@ -3,7 +3,7 @@
 # did not move, so only the first ~9 levels could be chosen.
 #
 # Setup adds 14 levels after the seed's two (scripts/pad655-setup.js); teardown removes them.
-# The coach opens E2E Student's edit form, opens the level select, swipes the LIST up until the
+# The coach opens E2E Student's Informação block in edit mode (PAD-834), opens the level select, swipes the LIST up until the
 # last level is on screen and picks it; the list closes. Nothing is saved.
 # Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow 280 is from Session C's
 # wave-15 range (279–288).
@@ -36,8 +36,14 @@ onFlowComplete:
     visible:
       id: "player-detail"
     timeout: 15000
+# PAD-834 (players.profile rule 8): level and side are edited in Block 1, Informação.
+- scrollUntilVisible:
+    element:
+      id: "player-info-edit"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
-    id: "player-edit"
+    id: "player-info-edit"
 - scrollUntilVisible:
     element:
       id: "player-level-select"

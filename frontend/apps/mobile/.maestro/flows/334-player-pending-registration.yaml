@@ -1,0 +1,49 @@
+# PAD-834 (players.profile rule 11; assumption Q6): a placeholder's profile shows the pending chip
+# and alert, copies the activation link (expo-clipboard; the button then confirms) and offers no OS share.
+# Proof on iOS for PLAYERS-PROFILE-14 (the citable tests are vitest).
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad834-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad834-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "${output.pendingName}"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-${output.pendingId}"
+    timeout: 20000
+- tapOn:
+    id: "player-card-${output.pendingId}"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- assertVisible:
+    id: "player-chip-pending"
+- assertVisible:
+    id: "player-avatar-pending"
+- scrollUntilVisible:
+    element:
+      id: "player-pending-alert"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "player-pending-age"
+- assertNotVisible:
+    id: "player-share-register-link"
+- tapOn:
+    id: "player-copy-invite-link"
+- extendedWaitUntil:
+    visible:
+      id: "player-copy-invite-link-done"
+    timeout: 10000

@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
@@ -20,6 +21,7 @@ import { CountryField } from "@/features/auth/CountryField";
 import { CODE_KEYS, formatBirthInput, toDisplay, toIso } from "@/features/auth/signup-form";
 import { useSectionSave } from "@/features/settings/unsaved-registry";
 import { writeAuthMe } from "@/features/settings/write-auth-me";
+import { showsSetupGuideEntry } from "@/features/settings/settings-sections";
 
 type ProfileForm = {
   name: string;
@@ -323,6 +325,16 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
           onChange={(code) => setField("country", code)}
         />
 
+        {/* settings.role-scope rule 10 (PAD-839): the setup guide, for a student only. */}
+        {showsSetupGuideEntry(isCoach) && (
+          <View className="gap-2 border-t border-border pt-4" testID="settings-setup-guide">
+            <Text className="font-medium">{t("setupGuide.settings.title")}</Text>
+            <Text className="text-sm text-muted-foreground">{t("setupGuide.settings.description")}</Text>
+            <Button variant="outline" testID="settings-setup-guide-open" onPress={() => router.push("/setup-guide")}>
+              <Text>{t("setupGuide.settings.open")}</Text>
+            </Button>
+          </View>
+        )}
       </CardContent>
     </Card>
   );
