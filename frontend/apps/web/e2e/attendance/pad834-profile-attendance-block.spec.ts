@@ -28,9 +28,15 @@ test("[PLAYERS-PROFILE-18] one period for both cards, the list opens in place, e
 
   // The default period is the month, pressed on both cards' shared chips.
   await expect(page.getByTestId("profile-period-1m")).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
+  // Let the initial reads land before arming any waiter (data-total appears with the first
+  // answer): the block fetches only when the period CHANGES, so a click on the chip that is
+  // already pressed sends nothing, and a waiter armed over the initial reads would otherwise
+  // catch those instead (PR #996's subset timed out 180 s on the already-pressed month).
+  await expect(page.getByTestId("profile-attendance-card")).toHaveAttribute("data-total", /^\d+$/, { timeout: 15_000 });
+  await expect(page.getByTestId("profile-absences-card")).toHaveAttribute("data-total", /^\d+$/, { timeout: 15_000 });
 
-  // Each card's total is the server's for the same period.
-  for (const period of ["1m", "1y"] as const) {
+  // Each card's total is the server's for the same period: away from the default, then back.
+  for (const period of ["1y", "1m"] as const) {
     const answers = Promise.all([
       page.waitForResponse((r) => /\/attendance_history/.test(r.url()) && r.status() === 200),
       page.waitForResponse((r) => /\/absence_history/.test(r.url()) && r.status() === 200),
