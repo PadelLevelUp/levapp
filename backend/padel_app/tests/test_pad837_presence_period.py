@@ -119,3 +119,37 @@ def test_the_validation_routes_are_not_clamped(app, client, hours_world):
     stats = client.get("/api/app/presence_stats", query_string=params, headers=headers).get_json()
     trend = client.get("/api/app/presence_trend", query_string=params, headers=headers).get_json()
     assert stats["to"] < "2099" and trend["to"] == stats["to"]
+
+
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-74")
+def test_an_all_history_from_is_raised_to_the_first_occurrence(app, hours_world):
+    """[ATTENDANCE-VALIDATION-74] Rule 17i: stats and trend both echo the coach's first class day."""
+    from padel_app.services.presence_overview_service import ALL_HISTORY_FROM
+
+    w = hours_world
+    now = datetime(2026, 11, 19, 12, 0)
+    with app.app_context():
+        for day in (datetime(2026, 8, 31, 18, 0), datetime(2026, 10, 5, 18, 0)):
+            _add_class(w, day, day + timedelta(minutes=60), [w["ana_id"]], _present(w))
+    start = datetime(ALL_HISTORY_FROM.year, ALL_HISTORY_FROM.month, ALL_HISTORY_FROM.day)
+
+    stats, trend = _read(app, w, start, datetime(2026, 11, 19, 23, 59, 59), now)
+    assert stats["from"].startswith("2026-08-31T00:00:00")
+    assert trend["from"].startswith("2026-08-31T00:00:00")
+    assert trend["total"] == 2
+    assert min(bucket["start"] for bucket in trend["buckets"] if "start" in bucket) >= "2026-08-01"
+    assert _ana(stats, w)["total"] == 2
+
+    # A custom range that is not the constant is never raised.
+    stats, _trend = _read(app, w, datetime(2026, 9, 1), datetime(2026, 11, 19, 23, 59, 59), now)
+    assert stats["from"].startswith("2026-09-01")
+
+
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-74")
+def test_an_all_history_period_with_no_occurrence_starts_today(app, hours_world):
+    """[ATTENDANCE-VALIDATION-74] No class at all: from is the club's today and every row is zero."""
+    w = hours_world
+    stats, trend = _read(app, w, datetime(2020, 1, 1), datetime(2026, 11, 19, 23, 59, 59), datetime(2026, 11, 19, 12, 0))
+    assert stats["from"].startswith("2026-11-19T00:00:00")
+    assert all(row["total"] == 0 for row in stats["players"])
+    assert trend["total"] == 0

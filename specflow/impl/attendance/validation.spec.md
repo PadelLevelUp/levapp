@@ -260,6 +260,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     no trend buckets, the requested bounds echoed. The running bucket is drawn as rule 17b says.
     Bounds are inclusive: a class on the first or the last day of the period counts.
 
+17i. **(History import, owner decision D1, 2026-11-19) "Todo o histórico" is a fourth period shortcut, on both shells.** The shortcut set is this week, this month, last month and **all history** (`all`; "Todo o histórico" / "All history"); "Esta época" stays out (Open questions, Q5), so the shortcut cannot depend on a season row, which not every coach has. It is a `PresencePeriodShortcut` in `@levelup/config`, so both shells send the same bounds (criterion 70) and the coach can make it their default (rule 17f; a saved default the clients do not know falls back as today). The shortcut sends `from` = `ALL_HISTORY_FROM`, one constant in `@levelup/config` earlier than any class the app can hold, and `to` = the club's today. The server then raises `from` to **the club's day of this coach's earliest occurrence** (the stats and trend services, beside rule 17h's clamp and never in the shared parser `_presence_overview_range`), so the trend is bucketed over the coach's real history and not from the constant; the payload's `from` echoes the raised bound (rule 17g). A coach with no occurrence at all gets `from` = the club's today. A typed custom range whose `from` equals `ALL_HISTORY_FROM` is treated as the shortcut (the server cannot tell them apart, and no class precedes that date); any other custom range is never raised.
+
 18. **(PAD-190 / PAD-201, B-045; amended by PAD-539, B-342) One count for "classes to validate",
     and it is the whole backlog.** A class is *pending* when it has ended (`end_datetime <=` the
     club's now), is not canceled, and has at least one presence row that is not validated; a
@@ -992,6 +994,21 @@ test: `frontend/apps/web/src/pages/PresencesPage.test.tsx` › `opens on the def
 3. **837c**, ATTENDANCE-VALIDATION-70, 68, 69, 67, 71, 72: `@levelup/config` periods, the server
    clamp, the hooks' keys, then the period control on both shells. Needs Q4 and Q5 answered, and
    lands after PAD-814 (rule 17b), whose running-bucket drawing it reuses.
+
+#### ATTENDANCE-VALIDATION-73: "Todo o histórico" covers every class the coach has, on both shells (rule 17i, D1)
+- **Given** a coach whose first class occurrence was on 31 Aug and whose season row does not exist
+- **When** they pick "Todo o histórico" on web, and on iOS
+- **Then** both shells send the same `from` (`ALL_HISTORY_FROM`) and `to` (the club's today) from `@levelup/config`
+- **And** the period shown at the top is the payload's `from`/`to`, with `from` = 31 Aug, and every row, KPI tile and chart counts the classes since then, including the hours balance
+test: `frontend/packages/config/src/presence-periods.test.ts` (+ `frontend/apps/web/src/pages/PresencesPage.test.tsx`, `frontend/apps/mobile/src/features/presences/PresencesScreen.test.tsx`)
+
+#### ATTENDANCE-VALIDATION-74: The server raises an all-history `from` to the first occurrence, and only for stats and trend (rule 17i, D1)
+- **Given** a coach whose earliest occurrence is on 31 Aug, asked for `from=ALL_HISTORY_FROM`
+- **When** `GET /presence_stats` and `GET /presence_trend` answer
+- **Then** both echo `from` = 31 Aug and the trend has no bucket before August
+- **And** the `pending_validation` routes and a custom range with any other `from` keep the bounds as sent
+- **And** a coach with no occurrence gets `from` = `to` = the club's today and every roster row at zero
+
 
 ### Open questions
 PAD-837. Q1 to Q5 are decided (owner, 2026-11-15); the rest are open. Each open line gives the lead's

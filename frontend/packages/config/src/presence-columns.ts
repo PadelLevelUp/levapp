@@ -102,6 +102,7 @@ export const DEFAULT_PERIOD_CHOICES: readonly PresencePeriodShortcut[] = [
   "thisMonth",
   "lastMonth",
   "season",
+  "all",
 ];
 
 /** "Este mês" until the coach makes another shortcut their default (Q5, decided 2026-11-15). */

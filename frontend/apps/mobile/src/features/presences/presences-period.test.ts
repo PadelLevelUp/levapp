@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { customPresencePeriod, presencePeriod } from "@levelup/config";
+import { ALL_HISTORY_FROM, customPresencePeriod, presencePeriod } from "@levelup/config";
 
 import { DEFAULT_SORT } from "./report-state";
 import {
@@ -24,6 +24,11 @@ describe("the Presences period on iOS (PAD-837c)", () => {
     vi.setSystemTime(new Date("2026-11-15T12:00:00Z"));
   });
   afterEach(() => vi.useRealTimers());
+
+  it("[ATTENDANCE-VALIDATION-73] all history sends the same constant from and the club's today on iOS as on web", () => {
+    expect(periodBounds(shortcutChoice("all"))).toEqual(presencePeriod("all"));
+    expect(periodBounds(shortcutChoice("all"))).toEqual({ from: ALL_HISTORY_FROM, to: "2026-11-15" });
+  });
 
   it("[ATTENDANCE-VALIDATION-70] a shortcut's bounds are the shared function's, so both shells send the same days", () => {
     for (const shortcut of ["thisWeek", "thisMonth", "lastMonth"] as const) {

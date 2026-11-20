@@ -80,6 +80,30 @@ def _normalize_range(range_start: datetime, range_end: datetime) -> Tuple[dateti
     return start, end
 
 
+#: attendance.validation rule 17i: the "all history" shortcut sends this `from` (the same constant as
+#: `ALL_HISTORY_FROM` in `@levelup/config`); the stats and trend builders raise it to the coach's first class.
+ALL_HISTORY_FROM = date(2020, 1, 1)
+
+
+def _raise_all_history(
+    coach_id: int, start: datetime, now: Optional[datetime]
+) -> datetime:
+    """Rule 17i: a ``from`` of ``ALL_HISTORY_FROM`` becomes the club's day of this coach's earliest
+    occurrence (the club's today when there is none). Any other ``from`` is returned as sent. Lives
+    in the stats and trend builders, beside the rule 17h clamp, never in the shared range parser."""
+    if start.date() != ALL_HISTORY_FROM:
+        return start
+    first = (
+        db.session.query(func.min(LessonInstance.start_datetime))
+        .join(Lesson, LessonInstance.lesson_id == Lesson.id)
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+        .filter(Association_CoachLesson.coach_id == coach_id)
+        .scalar()
+    )
+    day = first or _as_club_wall(now or datetime.now(timezone.utc))
+    return day.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def _clamp_to_today(
     start: datetime, end: datetime, now: Optional[datetime]
 ) -> Tuple[datetime, datetime, bool]:
@@ -141,6 +165,7 @@ def build_presence_stats(
     the clamped end; a window that starts after today counts nothing and echoes what was asked.
     """
     start, end = _normalize_range(range_start, range_end)
+    start = _raise_all_history(coach_id, start, now)
     start, end, empty = _clamp_to_today(start, end, now)
 
     present = Presence.status == "present"
@@ -282,6 +307,7 @@ def build_presence_trend(
     empty list is a filter that matched nobody and yields an all-zero series.
     """
     start, end = _normalize_range(range_start, range_end)
+    start = _raise_all_history(coach_id, start, now)
     requested_start, requested_end = start, end
     start, end, empty = _clamp_to_today(start, end, now)
     if granularity not in GRANULARITIES:

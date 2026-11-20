@@ -855,6 +855,11 @@ def revert_import(import_id, coach):
     _delete_by_ids(EvaluationEntry, _entry_ids, deleted, "evaluation_entries")
     prune_empty_records(_touched_links, commit=False)  # the revert commits once, below
     _delete_by_ids(Presence, record_ids.get("presences", []), deleted, "presences")
+    # import.revert rule 5: an onboarding history run lists the occurrences it created. Only those go; the
+    # presences above went first so an instance never takes an unrecorded row with it by cascade.
+    from padel_app.models.lesson_instances import LessonInstance
+
+    _delete_by_ids(LessonInstance, record_ids.get("lesson_instances", []), deleted, "lesson_instances")
     _delete_by_ids(Association_PlayerLesson, record_ids.get("player_lessons", []), deleted, "player_lessons")
     _delete_by_ids(PlayerLevelHistory, record_ids.get("player_level_history", []), deleted, "player_level_history")
     # classes.class-requests rule 18 (PAD-360, #345 review F1): an imported student

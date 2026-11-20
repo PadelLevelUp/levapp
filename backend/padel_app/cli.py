@@ -210,6 +210,27 @@ def _register_onboarding(app):
         coach, club, problems = service.check_target(data)
         if problems:
             _refuse(problems)
+        if "history" in data:
+            from padel_app.services import onboarding_history as history
+
+            problems = history.target_problems(data, coach)
+            history_plan = history.plan(data, coach)
+            for line in history.plan_lines(data, coach, club, history_plan):
+                click.echo(line)
+            if problems + history_plan.problems:
+                _refuse(problems + history_plan.problems)
+            if dry_run:
+                click.echo("Dry run: nothing written.")
+                return
+            try:
+                run, lines = history.apply(data, raw, coach, club, history_plan)
+            except service.OnboardingFailed as exc:
+                _refuse([str(exc)], heading="Failed:")
+            for line in lines:
+                click.echo(line)
+            click.echo(f"Applied onboarding {data['id']} as import #{run.id}.")
+            click.echo(f"Undo with: flask onboarding revert {data['id']} --database {service.connected_database()}")
+            return
         for line in service.plan_lines(data, coach, club):
             click.echo(line)
         if dry_run:

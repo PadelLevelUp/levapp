@@ -4725,6 +4725,8 @@ Untagged tests: 4278
   - **MESSAGING-PUSH-NOTIFICATIONS-6** A permission granted in Settings registers on the next return to the app (PAD-744)
     - test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › [MESSAGING-PUSH-NOTIFICATIONS-6] a return to the app registers without a prompt until this session has registered
   - **MESSAGING-PUSH-NOTIFICATIONS-7** A rotated token replaces the cached one and is sent (PAD-744, PAD-741)
+    - test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.loop.test.ts` › [MESSAGING-PUSH-NOTIFICATIONS-7] registering posts once, with no retry, and the listener never asks for a device token
+    - test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.loop.test.ts` › [MESSAGING-PUSH-NOTIFICATIONS-7] the listener hands the event to Expo as the device token, and an unchanged raw token does nothing
     - test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › [MESSAGING-PUSH-NOTIFICATIONS-7] a rotation fetches the Expo token again, caches and posts it, and logout revokes it (PAD-741)
     - test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › [MESSAGING-PUSH-NOTIFICATIONS-7] a rotation whose Expo token did not change posts nothing and keeps the cached token (PAD-741)
   - **MESSAGING-PUSH-NOTIFICATIONS-8** A raw device token is not registered (PAD-741)

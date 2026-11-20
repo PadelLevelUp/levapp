@@ -12,7 +12,14 @@ import { daysSinceWeekStart } from "./week-start";
  * here clamps.
  */
 
-export type PresencePeriodShortcut = "thisWeek" | "thisMonth" | "lastMonth" | "season";
+export type PresencePeriodShortcut = "thisWeek" | "thisMonth" | "lastMonth" | "season" | "all";
+
+/**
+ * Rule 17i (history import D1): the `from` "Todo o histórico" sends, earlier than any class the app
+ * can hold. The server raises it to the coach's first class (`presence_overview_service.ALL_HISTORY_FROM`
+ * is the same date), so the trend is bucketed over the real history and no season row is needed.
+ */
+export const ALL_HISTORY_FROM = "2020-01-01";
 
 export interface PresencePeriod {
   from: string;
@@ -21,11 +28,13 @@ export interface PresencePeriod {
 
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 
-/** The shortcuts to offer, in order: "Esta época" only when the coach has a current season. */
+/** The shortcuts to offer, in order: "Esta época" only when the coach has a current season; "Todo o histórico" last. */
 export function presencePeriodShortcuts(
   season: SeasonOccurrenceRange | null = null
 ): PresencePeriodShortcut[] {
-  return season ? ["thisWeek", "thisMonth", "lastMonth", "season"] : ["thisWeek", "thisMonth", "lastMonth"];
+  return season
+    ? ["thisWeek", "thisMonth", "lastMonth", "season", "all"]
+    : ["thisWeek", "thisMonth", "lastMonth", "all"];
 }
 
 /**
@@ -41,6 +50,7 @@ export function presencePeriod(
     return season ? { from: season.startDate, to: season.endDate } : null;
   }
   const today = clubTodayUtcDate(now);
+  if (shortcut === "all") return { from: ALL_HISTORY_FROM, to: iso(today) };
   const y = today.getUTCFullYear();
   const m = today.getUTCMonth();
   const d = today.getUTCDate();
