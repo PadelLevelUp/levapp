@@ -81,7 +81,14 @@ function weekdayOf(iso: string): number {
   return new Date(Date.UTC(y, m - 1, day)).getUTCDay();
 }
 
-function plusMonths(iso: string, months: number): string {
+/**
+ * calendar.student-blockers rule 16: a recurring block with no end date ends this many months after
+ * its start. PAD-839's schedule editor and its "Prolongar" use the same length.
+ */
+export const BLOCKER_DEFAULT_MONTHS = 3;
+
+/** `iso` (YYYY-MM-DD) plus `months` calendar months, clamped to the target month's last day. */
+export function plusMonths(iso: string, months: number): string {
   const [y, m, day] = iso.split("-").map(Number);
   const target = new Date(Date.UTC(y, m - 1 + months, 1));
   const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
@@ -100,6 +107,6 @@ export function blockerDraftToInput(d: BlockerDraft): BlockerDraftInput {
     endTime: d.endTime,
     isRecurring: recurring,
     recurrenceRule: recurring ? { frequency: "weekly", daysOfWeek: days } : null,
-    endDate: recurring ? d.endDate || plusMonths(d.date, 3) : null,
+    endDate: recurring ? d.endDate || plusMonths(d.date, BLOCKER_DEFAULT_MONTHS) : null,
   };
 }

@@ -12,18 +12,16 @@ import { useAuth } from "@/auth/AuthContext";
 import { CoachDashboard } from "@/features/dashboard/CoachDashboard";
 import { EmailPromptBanner } from "@/features/dashboard/email-prompt-banner";
 import { StudentDashboard } from "@/features/dashboard/StudentDashboard";
+import { useDashboardWindow } from "@/features/dashboard/use-dashboard-window";
 
 export default function DashboardScreen() {
   // PAD-587: the measurement's last milestone.
   React.useEffect(() => launchMark("dashboard-mounted"), []);
   const { t } = useTranslation();
   const { user } = useAuth();
-  // Same window the web dashboard uses: now → +30 days. Computed once so the
-  // query key stays stable across renders.
-  const [range] = React.useState(() => ({
-    from: new Date().toISOString(),
-    to: new Date(Date.now() + 30 * 86400000).toISOString(),
-  }));
+  // Same window the web dashboard uses: today's local midnight → +30 days. Day-stable, so the
+  // setup guide (PAD-839: card, steps, avatar ring) reads this same cache entry.
+  const range = useDashboardWindow();
 
   const { data, isPending, isError, refetch, isRefetching } =
     useDashboard(range);

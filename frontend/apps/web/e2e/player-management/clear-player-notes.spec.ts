@@ -2,7 +2,6 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
-import { ui } from "../helpers/i18n";
 import { clickPlayerCard } from "../helpers/players";
 
 // PAD-388 / players.edit rule 4 (B-136 step 3): a coach can DELETE a note about a
@@ -57,21 +56,21 @@ test("US-388a: emptying the notes box deletes the note — the body says null an
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
 
   // Give the player a note first, through the same sheet (R-040: the spec puts back what it changes).
-  await page.getByRole("button", { name: ui("common.edit") }).first().click({ timeout: 5000 });
+  await page.getByTestId("player-info-edit").click({ timeout: 5000 }); // PAD-834: the note is Block 1's
   const notes = page.getByTestId("player-notes");
   await notes.fill("E2E note to be deleted");
   const wrote = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/edit_player"));
-  await page.getByRole("button", { name: ui("common.save") }).click();
+  await page.getByTestId("player-info-save").click();
   expect((await wrote).postDataJSON().updates.notes).toBe("E2E note to be deleted");
   await expect.poll(() => studentNotes(request, token)).toBe("E2E note to be deleted");
   await expect(page.getByTestId("player-notes-text")).toHaveText("E2E note to be deleted"); // read mode shows it
 
   // Now empty it. The body carries `notes: null` — an omitted key would mean keep.
-  await page.getByRole("button", { name: ui("common.edit") }).first().click({ timeout: 5000 });
+  await page.getByTestId("player-info-edit").click({ timeout: 5000 }); // PAD-834: the note is Block 1's
   await notes.fill("");
   const cleared = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/edit_player"));
   const answered = page.waitForResponse((r) => r.url().endsWith("/edit_player"));
-  await page.getByRole("button", { name: ui("common.save") }).click();
+  await page.getByTestId("player-info-save").click();
   const body = (await cleared).postDataJSON();
   expect(body.updates).toHaveProperty("notes", null);
   expect((await answered).status()).toBe(200);

@@ -1,6 +1,6 @@
 ---
 id: attendance.absences
-status: implemented
+status: implementing
 depends_on: [attendance.presence, attendance.history, classes.instances, players.list, dashboard.navigation]
 serves: [P-ATTENDANCE-3]
 governed_by: []
@@ -68,9 +68,9 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 12. Entry points mirror web's:
     - the student's dashboard "Missed" KPI tile (`href: "/absences"` from the backend, mapped to
       a mobile route in `DashboardBlocks`, alongside the "Attended" mapping PAD-162 added);
-    - an action on the coach's player-detail screen (`player-absences-link`), placed immediately
-      beside `player-attendance-link`, as web places it immediately beside its counterpart in
-      `PageActions`.
+    - **(PAD-834)** the coach's player profile shows the absences beside the presences, in place
+      (`players.profile` rule 12), and reaches this screen through "Ver página completa"
+      (`profile-absences-full`) at the end of the open list, on web and iOS.
 13. Justification (rule 8) renders as a badge on each row, same rule as web: presentational only,
     never filters the set.
 
@@ -129,10 +129,13 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 - **Then** the absences screen opens with the chart, the range controls below it, and the missed
   classes listed underneath with their justification badges
 
-#### ATTENDANCE-ABSENCES-10: Coach reaches a roster player's absences from iOS player detail
-- **Given** a coach on a roster player's detail screen
-- **When** they tap the absences action, next to the attendance action
-- **Then** the same absences screen opens for that player, subtitled with their name
+#### ATTENDANCE-ABSENCES-10: Coach reaches a roster player's absences screen from the iOS profile (PAD-834)
+- **Given** a coach on a roster player's detail screen, with the Faltas list of the Assiduidade block open
+- **When** they tap `profile-absences-full`
+- **Then** the absences screen opens for that player (`/absences?playerId=<id>`), subtitled with their name
+- The in-place list is PLAYERS-PROFILE-18's.
+test: `frontend/apps/mobile/src/features/attendance/attendance-block.test.tsx` › `[ATTENDANCE-ABSENCES-10] the full-page link routes to the player's absences screen` (new)
+- Proof on iOS (Maestro, not citable): `frontend/apps/mobile/.maestro/flows/<next free number>-player-attendance-block.yaml` (new; also opens the absences list in place)
 
 #### ATTENDANCE-ABSENCES-11: A justified absence badge is amber, an unjustified one red (PAD-441)
 - **Given** a student with one justified and one unjustified absence
@@ -146,6 +149,12 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 - **And** the range has 31 day buckets, the days with no absence included
 - **And** each absence carries its justification, and the attendance history's rows carry none
 test: `backend/padel_app/tests/test_absence_history.py` › `test_range_excludes_out_of_window_absences` (+2 more)
+
+#### ATTENDANCE-ABSENCES-13: Coach reaches a roster player's absences page from the web profile (PAD-834)
+- **Given** a coach on a roster player's profile on web, with the Faltas list of the Assiduidade block open
+- **When** they follow `profile-absences-full`
+- **Then** they land on `/players/:playerId/absences` and see that player's absences, with a way back to the profile
+test: `frontend/apps/web/e2e/attendance/absence-history.spec.ts` › `[ATTENDANCE-ABSENCES-13] the coach reaches the player's absences page from the profile's open list` (new test in the existing file)
 
 ### Notes
 - Source: ticket PAD-141. iOS parity: PAD-163 (from the PAD-152 parity audit, finding A2).

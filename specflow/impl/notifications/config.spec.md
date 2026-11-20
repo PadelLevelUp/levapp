@@ -389,7 +389,18 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     row with the engine off). Existing coaches move only through PAD-815's data step, coach by coach.
 18. **Which engine a session runs on (swap plan §7; coordinator ruling on PAD-912).** Each coach has an
     engine switch (`engine_version`: `old` or `new`; `old` for every coach until the coach is
-    switched). A session's coach is its class's primary coach (`lesson_service.primary_coach`, the
+    switched). **A coach whose configuration row is created from 20 Nov 2026 on starts on `new`,
+    switched at the row's creation** (`engine_switched_at` that instant; owner, 2026-11-20: the old
+    engine is retired). That holds for both paths that create a row: a new coach's row (rule 17) and
+    the row rule 1 creates for a coach who has none, except that rule 1 creates the row on `old` for a
+    coach who already has an occurrence that has not started (a coach from before this rule): only
+    the operator's switch adopts existing occurrences, so that coach waits on `old` for it. `new` is
+    never written without `engine_switched_at`. A coach whose row starts on `new` has no occurrence
+    that existed at the switch, so every occurrence of theirs is on the new engine as it is created,
+    and no old-engine job is armed for their classes. A coach who has no row when the operator switches them (`flask engine switch`)
+    is switched as any other: the row is created on `old` and the switch then adopts their
+    existing occurrences under this rule. A coach with no row reads as `old` until a row exists;
+    the column's stored default stays `old` (no migration). A session's coach is its class's primary coach (`lesson_service.primary_coach`, the
     coach the old engine runs it on), so a co-coached class whose primary coach is on `old` stays on
     `old`. A session runs on the new engine when its coach is on `new` and, when the coach was
     switched, its invitation window had not opened and the old engine had not started inviting for it:
@@ -1056,6 +1067,23 @@ Given a switched coach whose calendar week holds 20 occurrences, when the calend
 engine lookup for them is one query, whatever the number of classes.
 test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_the_calendar_reads_engines_in_one_query`
 
+#### NOTIFICATIONS-CONFIG-83: A coach created now starts on the new engine (rule 18)
+Given the old engine retired (20 Nov 2026), when a coach is created (sign-up, a club invitation
+accepted as a new user, or `create_coach_service`), or a coach with no row gets one through rule 1,
+then the row is on `new` with `engine_switched_at` the moment it was written; and when that coach's
+first class is created and its first occurrence materialised, the occurrence has an engine session
+row (`engine_for` is `new`) and no old-engine job (`invite_start_*`, `reminder_*`,
+`reminder_lesson_*`, `ask_*`, `past_due_*`) is armed for it. And when the operator switches a coach
+who has no row, that coach's occurrences that existed then are adopted as at any switch.
+test: `backend/padel_app/tests/test_new_coach_starts_on_the_new_engine.py` › `test_a_coach_created_now_is_on_the_new_engine_and_their_first_class_is_a_new_engine_session` (+2 more)
+
+#### NOTIFICATIONS-CONFIG-84: A coach from before, without a row, keeps their classes for the operator's switch (rule 18)
+Given a coach without a configuration row who has an occurrence that has not started and whose
+invitation window has not opened, when any caller first reads their configuration through rule 1, then
+the row is created on `old` with no `engine_switched_at`; and when the operator then switches the coach,
+that occurrence is adopted (an engine session row).
+test: `backend/padel_app/tests/test_new_coach_starts_on_the_new_engine.py` › `test_a_row_created_for_a_coach_with_classes_waits_on_old_for_the_switch`
+
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
   15-minute floor drops to const:ENGINE_T_FLOOR with the new timing controls
@@ -1067,6 +1095,8 @@ test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_the_calendar_re
   Decision (S, owner away, PAD-913; the owner can reverse it): `old` until switched, because the
   coordinator switches coaches one at a time (staging first, one real coach, then all) and a new
   coach on `new` would skip that order.
+  Reversed (owner, 2026-11-20): every coach switches on 20 Nov and the old engine is retired, so a
+  coach whose row is created from then on starts on `new` (rule 18, CONFIG-83).
 - `maxInactiveTime` or `maxSimultaneous` disabled, for a new-engine coach (rule 19) — options: the
   stored value; the engine's default; for the timer, T until `last_invite_at`. Decision (S, owner away,
   PAD-913; the owner can reverse it): the stored value, because the engine has no "off" for either

@@ -22,6 +22,7 @@ import { StudentEvaluationsBlock } from "./student-evaluations-block";
 import { ProfileIncompleteBlock } from "./profile-completeness";
 import { ClaimRequests } from "@/features/players/claim-requests";
 import { useAuth } from "@/auth/AuthContext";
+import { SetupGuideOnDashboard } from "@/features/setup-guide/setup-guide-surfaces";
 
 export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
   const hero = pick(blocks, "next_class");
@@ -45,6 +46,9 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
 
   return (
     <View className="gap-5" testID="student-dashboard">
+      {/* PAD-839 (dashboard.student-setup-guide rule 4): the first-login sheet and the guide's
+          card (or "Conta pronta"), at the top, before the profile_incomplete card. */}
+      <SetupGuideOnDashboard />
       {/* players.claim rule 4: a coach asks to link a record they created. */}
       <ClaimRequests variant="banner" />
       {looksUnconnected ? (

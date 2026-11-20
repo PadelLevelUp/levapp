@@ -78,7 +78,7 @@ def test_the_listing_stays_within_its_query_budget(app, monkeypatch, timing, pas
     pin_clock(monkeypatch, NOW_UTC)
     with app.app_context():
         coach_id = _seed_busy_coach(app)
-        config = get_or_create_config(coach_id)
+        config = get_or_create_config(coach_id, on_new_engine=False)
         config.reminder_timing = {"firstReminder": timing}
         config.save()
         db.session.expire_all()

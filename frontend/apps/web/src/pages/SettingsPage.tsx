@@ -851,6 +851,22 @@ export default function SettingsPage() {
               </Card>
             )}
 
+            {/* settings.role-scope rule 10 (PAD-839): "Configurar conta", a student-only row inside
+                Profile that opens the setup guide; not a section of its own. */}
+            {activeTab === "profile" && !isCoach && (
+              <Card className="mt-4" data-testid="settings-setup-guide">
+                <CardHeader>
+                  <CardTitle>{t("setupGuide.settings.title")}</CardTitle>
+                  <CardDescription>{t("setupGuide.settings.description")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" onClick={() => navigate("/setup")} data-testid="settings-setup-guide-open">
+                    {t("setupGuide.settings.open")}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* PREFERENCES */}
             {activeTab === "preferences" && (
               <Card>

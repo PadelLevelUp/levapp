@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { copyInviteLink } from "../helpers/inviteLink";
 
 /**
  * auth.activate rules 2, 4, 8 (PAD-254, B-034) — the activation link carries
@@ -26,7 +27,7 @@ async function createInactivePlayer(page: Page, name: string): Promise<string> {
   await page.getByText(name).click();
   await page.waitForURL(/\/players\/\d+/, { timeout: 8000 });
 
-  const link = await page.locator("input[readonly]").first().inputValue();
+  const link = await copyInviteLink(page); // PAD-834: the pending alert copies it
   expect(link).toContain("/register/");
   return link;
 }

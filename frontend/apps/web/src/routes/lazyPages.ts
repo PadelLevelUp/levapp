@@ -22,6 +22,8 @@ const loaders = {
   CoachPendingPage: () => import("@/pages/CoachPendingPage"),
   ConnectWithCoachPage: () => import("@/pages/ConnectWithCoachPage"),
   DashboardPage: () => import("@/pages/DashboardPage"),
+  // PAD-839: the student setup guide's steps.
+  SetupGuidePage: () => import("@/pages/SetupGuidePage"),
   DeleteAccountPage: () => import("@/pages/DeleteAccountPage"),
   ForgotPasswordPage: () => import("@/pages/ForgotPasswordPage"),
   JoinCoachPage: () => import("@/pages/JoinCoachPage"),
@@ -69,6 +71,7 @@ export const AbsencesPage = lazyWithReload(loaders.AbsencesPage);
 export const AttendancePage = lazyWithReload(loaders.AttendancePage);
 export const AuthPage = lazyWithReload(loaders.AuthPage);
 export const AvailabilityPage = lazyWithReload(loaders.AvailabilityPage);
+export const SetupGuidePage = lazyWithReload(loaders.SetupGuidePage);
 export const CalendarPage = lazyWithReload(loaders.CalendarPage);
 export const ClassRequestsPage = lazyWithReload(loaders.ClassRequestsPage);
 export const ClubOnboardingPage = lazyWithReload(loaders.ClubOnboardingPage);

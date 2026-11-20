@@ -17,6 +17,11 @@ export interface AvailabilityBlocker {
   date: string | null;
   startTime: string | null;
   endTime: string | null;
+  /**
+   * PAD-839 (calendar.student-blockers rule 18): the schedule this row belongs to, or null for a
+   * block made any other way. Absent on an older backend.
+   */
+  scheduleId?: string | null;
 }
 
 export interface BlockerInput {
@@ -54,4 +59,24 @@ export async function deleteBlocker(id: number): Promise<void> {
   await getApi().delete(`/app/availability_blockers/${id}`, {
     data: { scope: "all" },
   });
+}
+
+/** PAD-839: a schedule's rows, written whole (calendar.student-blockers rule 18). */
+export interface ScheduleInput {
+  title: string | null;
+  blockers: BlockerInput[];
+}
+
+/** Replace (or create) the schedule `scheduleId`; answers the rows written. All rows or none. */
+export async function putSchedule(
+  scheduleId: string,
+  data: ScheduleInput
+): Promise<AvailabilityBlocker[]> {
+  const res = await getApi().put(`/app/availability_schedules/${encodeURIComponent(scheduleId)}`, data);
+  return res.data;
+}
+
+/** Remove every row of the schedule `scheduleId`. */
+export async function deleteSchedule(scheduleId: string): Promise<void> {
+  await getApi().delete(`/app/availability_schedules/${encodeURIComponent(scheduleId)}`);
 }

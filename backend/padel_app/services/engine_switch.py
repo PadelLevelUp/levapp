@@ -271,7 +271,7 @@ def switch_coach(coach_id: int, *, now: datetime | None = None) -> list[str]:
     from padel_app.services.notification_service import get_or_create_config
 
     now = now or utcnow_naive()
-    config = get_or_create_config(coach_id)
+    config = get_or_create_config(coach_id, on_new_engine=False)   # a coach without a row: the full switch
     if config.engine_version == "new":
         return adopt_due(now=now, coach_ids=[coach_id])
     config.engine_version, config.engine_switched_at = "new", now

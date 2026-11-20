@@ -28,6 +28,9 @@ def klass(app, live_scheduler, monkeypatch):
     pin_clock(monkeypatch, NOW_UTC)
     with app.app_context():
         coach_id, student_id, instance_id = _seed(app, CLASS_WALL)
+        from padel_app.services.notification_service import get_or_create_config
+
+        get_or_create_config(coach_id, on_new_engine=False)  # an old-engine coach (config rule 18, CONFIG-83)
         yield {"coach": coach_id, "student": student_id, "instance": instance_id,
                "key": f"i:{instance_id}", "module": live_scheduler, "sched": live_scheduler._scheduler}
 
@@ -309,7 +312,7 @@ def test_yes_materialises_and_reminds_a_class_that_was_not_materialised(klass):
 def _quiet(coach_id):
     from padel_app.services.notification_service import get_or_create_config
 
-    config = get_or_create_config(coach_id)
+    config = get_or_create_config(coach_id, on_new_engine=False)
     config.quiet_hours_enabled = True          # default window: 22:00 to 07:00 on the club's clock
     config.save()
 
@@ -407,7 +410,7 @@ def _past_due_407(app, *, materialised, reminder_count=1):
 
     ids = _seed_407(app, reminder_count=reminder_count)
     with app.app_context():
-        config = get_or_create_config(ids["coach_id"])
+        config = get_or_create_config(ids["coach_id"], on_new_engine=False)
         config.reminder_timing = {"firstReminder": {"type": "hours_before", "value": 160}}
         config.save()
     if materialised:

@@ -1,0 +1,178 @@
+# PAD-839 (dashboard.student-setup-guide, DASHBOARD-STUDENT-SETUP-GUIDE-11): the schedule editor
+# from step 3, "varies by day": weekdays with 09 to 11 and 15 to 20, then Tuesday cleared and set
+# to 09 to 20, Wednesday's second period removed, Monday copied onto Thursday and Friday; the week
+# overview shows each row, and the schedule saves.
+#
+# Fresh student from scripts/setup-guide-student-setup.js; step 3 is opened by its link. By testID;
+# the week rows are read as text (hours are numerals, no copy). Saturday stays free, so its row is
+# asserted visible only (its "free" word is app copy). Backend: -e API_BASE=http://localhost:<port>,
+# else :5001. Flow number 340.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/setup-guide-student-setup.js
+onFlowComplete:
+  - runScript: ../scripts/setup-guide-student-teardown.js
+---
+- assertTrue: "${output.username && output.username.length > 10}"
+- runFlow:
+    file: ../subflows/login-guide-student.yaml
+    env:
+      USERNAME: ${output.username}
+      PASSWORD: ${output.password}
+# Closes the sheet for the day, then opens step 3 (unavailability) by its link.
+- tapOn:
+    id: "setup-guide-later"
+- extendedWaitUntil:
+    notVisible:
+      id: "setup-guide-sheet"
+    timeout: 10000
+- openLink: "levelup://setup-guide?step=unavailability"
+- extendedWaitUntil:
+    visible:
+      id: "setup-unavailability"
+    timeout: 20000
+- tapOn:
+    id: "setup-schedule-create"
+- extendedWaitUntil:
+    visible:
+      id: "schedule-editor"
+    timeout: 15000
+# Scrolling inside the editor (an iOS pageSheet): a downward drag that starts while the sheet's
+# ScrollView is already at its top closes the sheet. Every UP scroll below therefore stops as soon
+# as its target is fully on screen (no centerElement: the mode switch and the day chips sit at the
+# top of the sheet and can never be centred, so Maestro would keep dragging down at the top). Maestro
+# starts each scroll's swipe from the middle of the screen, inside the sheet.
+- tapOn:
+    id: "schedule-days-weekdays"
+- tapOn:
+    id: "schedule-hour-09"
+- tapOn:
+    id: "schedule-hour-11"
+- tapOn:
+    id: "schedule-hour-15"
+- scrollUntilVisible:
+    element:
+      id: "schedule-hour-20"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "schedule-hour-20"
+- scrollUntilVisible:
+    element:
+      id: "schedule-mode-varies"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "schedule-mode-varies"
+
+# Tuesday: clear, then one long period.
+- tapOn:
+    id: "schedule-day-2"
+- scrollUntilVisible:
+    element:
+      id: "schedule-clear"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "schedule-clear"
+- scrollUntilVisible:
+    element:
+      id: "schedule-hour-09"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "schedule-hour-09"
+- scrollUntilVisible:
+    element:
+      id: "schedule-hour-20"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "schedule-hour-20"
+
+# Wednesday: drop the second period.
+- scrollUntilVisible:
+    element:
+      id: "schedule-day-3"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "schedule-day-3"
+- scrollUntilVisible:
+    element:
+      id: "schedule-period-1-remove"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "schedule-period-1-remove"
+
+# Monday: copy onto Thursday and Friday.
+- scrollUntilVisible:
+    element:
+      id: "schedule-day-1"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "schedule-day-1"
+- scrollUntilVisible:
+    element:
+      id: "schedule-copy"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "schedule-copy"
+- tapOn:
+    id: "schedule-copy-day-4"
+- tapOn:
+    id: "schedule-copy-day-5"
+- tapOn:
+    id: "schedule-copy-do"
+
+# The week overview: Tuesday 09-20, Wednesday 09-11, Monday/Thursday/Friday 09-11 and 15-20.
+- scrollUntilVisible:
+    element:
+      id: "schedule-week-2-text"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- assertVisible:
+    id: "schedule-week-2-text"
+    text: "09–20"
+- assertVisible:
+    id: "schedule-week-3-text"
+    text: "09–11"
+- assertVisible:
+    id: "schedule-week-4-text"
+    text: "09–11 · 15–20"
+- assertVisible:
+    id: "schedule-week-6-text"
+
+- scrollUntilVisible:
+    element:
+      id: "schedule-save"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "schedule-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "schedule-editor"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "setup-saved-schedule"
+    timeout: 15000
+# The server holds one row per distinct interval (criterion 11), sharing one scheduleId:
+# 09:00-11:00 on Mon, Wed, Thu, Fri; 09:00-20:00 on Tue; 15:00-20:00 on Mon, Thu, Fri.
+- evalScript: "${output.rows = json(http.get(output.api + '/api/app/availability_blockers', { headers: { 'Authorization': 'Bearer ' + output.studentTok } }).body)}"
+- evalScript: "${output.rowKeys = output.rows.map(function (r) { return r.startTime + '-' + r.endTime + '@' + r.recurrenceRule.daysOfWeek.slice().sort().join(',') }).sort().join(' | ')}"
+- assertTrue: "${output.rows.length === 3}"
+- assertTrue: "${output.rows[0].scheduleId && output.rows.every(function (r) { return r.scheduleId === output.rows[0].scheduleId })}"
+- assertTrue: "${output.rows.every(function (r) { return r.type === 'unavailable' && r.isRecurring === true && r.blocksAutoInvitations === true })}"
+- assertTrue: "${output.rowKeys === '09:00-11:00@1,3,4,5 | 09:00-20:00@2 | 15:00-20:00@1,4,5'}"

@@ -19,12 +19,9 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   await page.getByText("E2E Student", { exact: true }).click();
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
 
-  // Enter inline edit mode via the PlayerHeader "Edit" button.
-  await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
-
-  // The header has two Selects: [0] = Side, [1] = Level. PAD-410: counted inside the
-  // profile pane — the roster beside it has its own sort Select.
-  const levelSelect = page.getByTestId("player-detail-pane").locator('[role="combobox"]').nth(1);
+  // PAD-834 (players.profile rule 8): level and side are edited in Block 1, Informação.
+  await page.getByTestId("player-info-edit").click({ timeout: 5000 });
+  const levelSelect = page.getByTestId("player-level-select");
   await levelSelect.click();
 
   // Seeded levels: "B1 | Beginner" and "I1 | Intermediate" (code bold, "|"
@@ -38,7 +35,7 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   const saved = page.waitForResponse(
     (r) => /\/edit_player/.test(r.url()) && r.request().method() === "POST" && r.status() < 400,
   );
-  await page.getByRole("button", { name: /^save$/i }).click();
+  await page.getByTestId("player-info-save").click();
   const savedRequest = (await saved).request();
   const savedBody = JSON.parse(savedRequest.postData() ?? "{}");
   const savedLevelId = savedBody.updates?.levelId;
@@ -57,8 +54,8 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   // asserted via data-selected-level-id (the same value that picks the
   // rendered label), never the rendered label itself (the page renders pt
   // in E2E).
-  await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
-  await expect(page.getByTestId("player-header-level-select")).toHaveAttribute(
+  await page.getByTestId("player-info-edit").click({ timeout: 5000 });
+  await expect(page.getByTestId("player-level-select")).toHaveAttribute(
     "data-selected-level-id",
     savedLevelId,
   );

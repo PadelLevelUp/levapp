@@ -5,18 +5,20 @@ import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editP
 import type { PlayerRemovalImpact } from "@levelup/types";
 import { getCoachLevels } from "@/api/coachLevel";
 import type { CoachPlayer, CoachLevel, PlayerProfile, PlayerSide } from "@/types";
-import { usePlayerEvaluations } from "@levelup/hooks";
-import { EvaluationSummaryCard } from "@/components/evaluations/EvaluationSummaryCard";
-import { PlayerEvaluationsDrawer } from "@/components/evaluations/PlayerEvaluationsDrawer";
+import type { InfoEditSession } from "@levelup/config";
+import { PlayerEvaluationsBlock } from "@/components/evaluations/PlayerEvaluationsBlock";
+import { PlayerEvaluationsDrawer, type FormTarget } from "@/components/evaluations/PlayerEvaluationsDrawer";
 import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
 // Owner question Q7 (open): does the at-a-glance list of latest scores leave the profile? The build
 // default follows the canvas — it does. `PlayerEvaluations` is kept, unmounted: to restore it, import it
 // here and render `<PlayerEvaluations evaluations={profile?.evaluations ?? []} />` under the summary card
 // (`GET /player_profile` still serves that list — legacy categories only).
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
-import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
+import { PlayerInfoBlock } from "@/components/players/detail/PlayerInfoBlock";
+import { PlayerStateAlerts } from "@/components/players/detail/PlayerStateAlerts";
+import { PlayerAttendanceBlock } from "@/components/players/detail/PlayerAttendanceBlock";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CalendarCheck, CalendarX, ClipboardList, CalendarPlus, ListX, Loader2, RefreshCw, Trash2, Unlink } from "lucide-react";
+import { ArrowLeft, CalendarPlus, ListX, Loader2, Pencil, RefreshCw, Trash2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
@@ -68,8 +70,14 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEvalOpen, setIsEvalOpen] = useState(false);
-  // evaluations.history rule 2: the card's date is the server's `lastEvaluatedOn`; the drawer shares this query.
-  const evaluations = usePlayerEvaluations(player?.playerId ?? null);
+  // players.profile rule 10 (PAD-834): what the drawer opens on, and whether its form is open
+  // (the block's Evolução holds its shape while it is).
+  const [evalTarget, setEvalTarget] = useState<FormTarget>(null);
+  const [evalFormOpen, setEvalFormOpen] = useState(false);
+  const openEvaluations = (target: FormTarget) => {
+    setEvalTarget(target);
+    setIsEvalOpen(true);
+  };
   const [isClassesOpen, setIsClassesOpen] = useState(false);
 
   // Inline edit state
@@ -82,11 +90,8 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   const [savingPlayer, setSavingPlayer] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
-  const [draftEmail, setDraftEmail] = useState("");
-  const [draftPhone, setDraftPhone] = useState("");
-  const [draftLevelId, setDraftLevelId] = useState("");
-  const [draftSide, setDraftSide] = useState<PlayerSide | "">("");
-  const [draftNotes, setDraftNotes] = useState("");
+  // players.profile rule 8 (PAD-834): Block 1 edits on its own; null in read mode.
+  const [infoSession, setInfoSession] = useState<InfoEditSession | null>(null);
   const [draftNickname, setDraftNickname] = useState("");
   const [draftNicknameAsName, setDraftNicknameAsName] = useState(false);
   const [nicknameError, setNicknameError] = useState(false);
@@ -100,6 +105,9 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   // delete the record (a placeholder); otherwise they can only disconnect.
   const canDelete = player?.deletable === true;
   const removalAction = removalImpact?.action ?? (canDelete ? "delete" : "disconnect");
+  // players.remove rules 7, 9 (PAD-834, assumption Q5): a pending player's removal is "Cancelar
+  // convite". The label follows `pendingRegistration`; the mode follows the removal impact.
+  const cancelsInvite = player?.pendingRegistration === true;
 
   const openRemove = () => {
     if (!player) return;
@@ -117,7 +125,13 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
     setDeleting(true);
     try {
       await removePlayer(authUser.coachId, player.playerId, removalAction);
-      toast.success(removalAction === "delete" ? t("players.deleted", { name }) : t("players.disconnected", { name }));
+      toast.success(
+        cancelsInvite
+          ? t("players.card.inviteCancelled", { name })
+          : removalAction === "delete"
+            ? t("players.deleted", { name })
+            : t("players.disconnected", { name }),
+      );
       onRemoved();
     } catch (err) {
       const code = removePlayerErrorCode(err);
@@ -174,11 +188,6 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   const handleEditStart = () => {
     if (!player) return;
     setDraftName(player.name ?? "");
-    setDraftEmail(player.email ?? "");
-    setDraftPhone(player.phone ?? "");
-    setDraftLevelId(player.levelId ?? "");
-    setDraftSide(player.side ?? "");
-    setDraftNotes(player.notes ?? "");
     setDraftNickname(player.nickname ?? "");
     setDraftNicknameAsName(player.nicknameAsName === true);
     setNicknameError(false);
@@ -189,9 +198,10 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
     setIsEditing(false);
   };
 
+  // players.profile rule 4 (PAD-834): the header's Editar edits what no block owns — the name
+  // and the nickname. Everything else is Block 1's.
   const handleEditSave = async () => {
     if (!player) return;
-    const level = draftLevelId ? levels.find((l) => l.id === draftLevelId) : undefined;
 
     // PAD-660 (players.nickname rule 6): only what changed is sent; a blank box clears it.
     const nickname = draftNickname.trim();
@@ -208,13 +218,6 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
       ...(asNameChanged ? { nicknameAsName: draftNicknameAsName } : {}),
       name: draftName.trim() || undefined,
       userId: player.userId,
-      // PAD-388: an emptied box is sent as null so the server CLEARS it (an
-      // omitted key still means keep). Level and side have no clear control.
-      email: player.validated ? undefined : draftEmail.trim() || null, // an account holder's e-mail is the student's own
-      phone: draftPhone.trim() || null,
-      levelId: draftLevelId || undefined,
-      side: (draftSide || undefined) as PlayerSide | undefined,
-      notes: draftNotes.trim() || null,
     };
 
     setSavingPlayer(true);
@@ -231,12 +234,6 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         nickname: savedNickname,
         nicknameAsName: savedAsName,
         displayName: savedAsName && savedNickname ? savedNickname : savedName,
-        email: updates.email,
-        phone: updates.phone,
-        levelId: updates.levelId,
-        side: updates.side,
-        notes: updates.notes,
-        level,
       };
 
       setPlayer(updated);
@@ -252,6 +249,29 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
       );
     } finally {
       setSavingPlayer(false);
+    }
+  };
+
+  // players.profile rule 8 (PAD-834): Block 1's Guardar — only the keys that changed.
+  const handleInfoSave = async (changes: Record<string, string | null>) => {
+    if (!player) return;
+    try {
+      await editPlayer(player, { userId: player.userId, ...changes });
+      const nextLevelId = "levelId" in changes ? (changes.levelId ?? undefined) : player.levelId;
+      const updated: CoachPlayer = {
+        ...player,
+        ...("email" in changes ? { email: changes.email ?? "" } : {}),
+        ...("phone" in changes ? { phone: changes.phone } : {}),
+        ...("notes" in changes ? { notes: changes.notes } : {}),
+        ...("side" in changes ? { side: (changes.side ?? undefined) as PlayerSide | undefined } : {}),
+        levelId: nextLevelId,
+        level: nextLevelId ? levels.find((l) => l.id === String(nextLevelId)) ?? player.level : undefined,
+      };
+      setPlayer(updated);
+      setInfoSession(null);
+      onUpdated();
+    } catch (err) {
+      toast.error(editPlayerInvalidFields(err) ? t("players.invalidFields") : t("players.saveChangesFailed"));
     }
   };
 
@@ -298,44 +318,25 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         isEditing={isEditing}
         saving={savingPlayer}
         draftName={draftName}
-        draftLevelId={draftLevelId}
-        draftSide={draftSide}
         draftNickname={draftNickname}
         draftNicknameAsName={draftNicknameAsName}
         nicknameError={nicknameError}
         onDraftNicknameChange={setDraftNickname}
         onDraftNicknameAsNameChange={setDraftNicknameAsName}
         onDraftNameChange={setDraftName}
-        onDraftLevelIdChange={setDraftLevelId}
-        onDraftSideChange={setDraftSide}
-        onEdit={handleEditStart}
+
         onSave={handleEditSave}
         onCancel={handleEditCancel}
       />
 
+      <PlayerStateAlerts
+        player={player}
+        onComplete={() => setInfoSession("complete")}
+        completeDisabled={isEditing || infoSession !== null}
+      />
+
       <PageActions
         actions={[
-          // PAD-114: the coach-side entry point into the shared "Presenças"
-          // page. The student reaches the same page from their dashboard's
-          // "Attended" KPI; both land on one component backed by one
-          // server-authorized endpoint.
-          {
-            label: t("attendance.playerLink"),
-            icon: <CalendarCheck className="mr-2 h-4 w-4" />,
-            onClick: () => navigate(`/players/${playerId}/attendance`),
-            testId: "player-attendance-link",
-          },
-          // PAD-141: the same entry point for "Faltas". Kept immediately
-          // beside its counterpart so the pair reads as one idea.
-          // `PageActions` already wraps (PAD-114 widened it after a 5th
-          // action pushed "Delete Player" off a 1280px viewport), so this
-          // 6th action does not reintroduce that overflow.
-          {
-            label: t("absences.playerLink"),
-            icon: <CalendarX className="mr-2 h-4 w-4" />,
-            onClick: () => navigate(`/players/${playerId}/absences`),
-            testId: "player-absences-link",
-          },
           {
             label: t("players.addToClasses"),
             icon: <CalendarPlus className="mr-2 h-4 w-4" />,
@@ -383,16 +384,19 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
                 },
               ]
             : []),
+          // players.profile rule 4 (PAD-834): Editar is a header action; it edits what no block owns
+          // (the name and the nickname). Presences, absences and evaluations live in the blocks.
           {
-            // evaluations.history rule 3: "Avaliações" is a primary action on the profile.
-            label: t("players.evaluationHistory.open"),
-            icon: <ClipboardList className="mr-2 h-4 w-4" />,
-            onClick: () => setIsEvalOpen(true),
-            testId: "player-evaluations-action",
-            variant: "default" as const,
+            label: t("common.edit"),
+            icon: <Pencil className="mr-2 h-4 w-4" />,
+            onClick: handleEditStart,
+            disabled: isEditing || infoSession !== null,
+            testId: "player-edit",
           },
           {
-            label: canDelete ? t("players.deletePlayer") : t("players.disconnectPlayer"),
+            label: cancelsInvite
+              ? t("players.card.cancelInvite")
+              : canDelete ? t("players.deletePlayer") : t("players.disconnectPlayer"),
             icon: canDelete ? <Trash2 className="mr-2 h-4 w-4" /> : <Unlink className="mr-2 h-4 w-4" />,
             onClick: openRemove,
             variant: "destructive" as const,
@@ -401,20 +405,32 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         ] satisfies PageAction[]}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <EvaluationSummaryCard lastEvaluatedOn={evaluations.data?.lastEvaluatedOn} onOpen={() => setIsEvalOpen(true)} />
-        <PlayerInfoCard
+      <div>
+        <PlayerInfoBlock
           player={player}
-          isEditing={isEditing}
-          draftEmail={draftEmail}
-          draftPhone={draftPhone}
-          draftNotes={draftNotes}
-          onDraftEmailChange={setDraftEmail}
-          onDraftPhoneChange={setDraftPhone}
-          onDraftNotesChange={setDraftNotes}
+          levels={levels}
+          session={infoSession}
+          onEdit={() => setInfoSession("edit")}
+          onCancel={() => setInfoSession(null)}
+          onSave={handleInfoSave}
+          editDisabled={isEditing}
         />
       </div>
 
+      {/* players.profile rule 10 (PAD-834): Block 2, Avaliações. */}
+      <PlayerEvaluationsBlock
+        playerId={player.playerId}
+        authorName={authUser?.name ?? ""}
+        onOpenHistory={() => openEvaluations(null)}
+        onNew={() => openEvaluations("new")}
+        onEdit={(record) => openEvaluations(record)}
+        held={isEvalOpen && evalFormOpen}
+      />
+
+      {/* players.profile rule 12 (PAD-834): Block 3, Assiduidade. */}
+      <PlayerAttendanceBlock playerId={player.playerId} />
+
+      {/* Owner question Q4 (open): the strengths-and-weaknesses card stays, unchanged, after Block 3. */}
       <PlayerStrengthsWeaknesses
         strengths={profile?.strengths ?? []}
         weaknesses={profile?.weaknesses ?? []}
@@ -462,6 +478,8 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         playerId={player.playerId}
         playerName={player.displayName || player.name}
         onClose={() => setIsEvalOpen(false)}
+        initialTarget={evalTarget}
+        onFormOpenChange={setEvalFormOpen}
       />
 
       <AddToClassesDialog
@@ -500,9 +518,13 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
           <AlertDialogHeader>
             <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {removalAction === "delete"
-                ? t("players.deletePlaceholderConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
-                : t("players.disconnectConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })}
+              {cancelsInvite
+                ? removalAction === "delete"
+                  ? t("players.card.cancelInviteConfirm", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
+                  : t("players.card.cancelInviteConfirmShared", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
+                : removalAction === "delete"
+                  ? t("players.deletePlaceholderConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
+                  : t("players.disconnectConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div data-testid="player-removal-impact" className="text-sm text-muted-foreground">
@@ -527,9 +549,11 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {removalAction === "delete"
-                ? deleting ? t("players.deleting") : t("common.delete")
-                : deleting ? t("players.disconnecting") : t("players.disconnect")}
+              {cancelsInvite
+                ? t("players.card.cancelInvite")
+                : removalAction === "delete"
+                  ? deleting ? t("players.deleting") : t("common.delete")
+                  : deleting ? t("players.disconnecting") : t("players.disconnect")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

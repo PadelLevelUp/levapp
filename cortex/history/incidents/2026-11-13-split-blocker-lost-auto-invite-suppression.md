@@ -43,4 +43,6 @@ The copy was never extended.
 
 **Fix:** `_clone_block` copies `blocks_auto_invitations`. Pinned by CALENDAR-STUDENT-BLOCKERS-14.
 
+**Shipped:** PR #983, merged into staging 2026-11-15 20:09Z and promoted to prod with main cbdb96cf7 the same evening.
+
 Filing: splitting a recurring blocker dropped its invitation suppression → cortex/history/incidents/2026-11-13-split-blocker-lost-auto-invite-suppression.md (origin: session:75d11801-afcd-44c9-b036-268537caa590)

@@ -37,7 +37,7 @@ from padel_app.services.password_recovery_service import (
     confirm_recovery,
     request_recovery,
 )
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import to_utc_iso, utcnow_naive
 from padel_app.utils.debug_flags import debug_endpoints_enabled
 from padel_app.utils.rate_limit import rate_limited
 from padel_app.utils.tokens import issue_access_token
@@ -50,10 +50,17 @@ def _student_coaches(user):
     player = getattr(user, "player", None)
     if user.coach or player is None:
         return []
-    coaches = [rel.coach for rel in player.coaches_relations if rel.coach is not None]
+    rels = [rel for rel in player.coaches_relations if rel.coach is not None]
+    # PAD-839 (settings.profile rule 12): each coach's level label and side for this student,
+    # shown by the setup guide's step 5. Additive keys; old builds ignore them.
     return [
-        {"id": c.id, "name": c.name}
-        for c in sorted(coaches, key=lambda c: (c.name or "").lower())
+        {
+            "id": rel.coach.id,
+            "name": rel.coach.name,
+            "level": rel.level.label if rel.level is not None else None,
+            "side": rel.side,
+        }
+        for rel in sorted(rels, key=lambda r: (r.coach.name or "").lower())
     ]
 
 
@@ -107,6 +114,14 @@ def _serialize_me(user):
         "country": user.country,
         # PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for.
         "legalPending": legal_pending(user),
+        # PAD-839 (dashboard.student-setup-guide rule 14): the setup guide's choices, per account.
+        "setupGuide": {
+            "snoozedAt": to_utc_iso(user.setup_guide_snoozed_at),
+            "hidden": user.setup_guide_hidden_at is not None,
+            "readyClosed": user.setup_guide_ready_closed_at is not None,
+            "alwaysAvailable": user.setup_always_available_at is not None,
+            "alertsConfirmed": user.setup_alerts_confirmed_at is not None,
+        },
     }
 
 @bp.post("/register")
@@ -354,7 +369,8 @@ def update_me():
     payload = {k: v for k, v in data.items() if k in OWN_PROFILE_FIELDS}
 
     try:
-        user = update_own_profile_service(user_id, payload)
+        # PAD-839: one instant for the request (the setup guide's snooze stores it).
+        user = update_own_profile_service(user_id, payload, now=utcnow_naive())
     except ProfileValidationError as exc:
         db.session.rollback()
         body = {"error": exc.message}

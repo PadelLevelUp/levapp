@@ -104,6 +104,15 @@ vi.mock("@/api/playerInvitations", () => ({
   createIncompletePlayer: vi.fn(),
 }));
 
+// PAD-834: the detail pane's Assiduidade block reads both histories and the coach's season.
+vi.mock("@/api/attendance", () => ({
+  getAttendanceHistory: vi.fn(async () => ({ total: 0, granularity: "day", buckets: [], sessions: [] })),
+}));
+vi.mock("@/api/absences", () => ({
+  getAbsenceHistory: vi.fn(async () => ({ total: 0, granularity: "day", buckets: [], sessions: [] })),
+}));
+vi.mock("@/api/seasons", () => ({ getSeason: vi.fn(async () => null) }));
+
 vi.mock("@/api/notificationEngine", () => ({
   getStandingWaitingList: vi.fn(async () => []),
   removeFromStandingWaitingList: vi.fn(),
@@ -166,7 +175,7 @@ describe("PlayersPage master-detail (PAD-410)", () => {
 
     // The pane loaded Bruno Costa's own detail, not a stub.
     expect(await screen.findByRole("heading", { name: "Bruno Costa" })).toBeInTheDocument();
-    expect(screen.getByTestId("player-evaluations-action")).toBeInTheDocument();
+    expect(screen.getByTestId("player-evaluations-open")).toBeInTheDocument();
   });
 
   it("[PLAYERS-PROFILE-8] (c) clicking another row changes the route and keeps the search input's value", async () => {
@@ -192,15 +201,31 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     expect(vi.mocked(getCoachPlayersPaginated).mock.calls.length).toBe(listCallsBefore);
   });
 
-  it("[PLAYERS-PROFILE-10] (e) the pane's action row has the screenshot's order", async () => {
+  // players.profile rule 4 (PAD-834): four header actions; presences, absences and evaluations
+  // live in the blocks.
+  it("[PLAYERS-PROFILE-10] (e) the header carries four actions in order", async () => {
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Ana Silva" });
 
     const pane = screen.getByTestId("player-detail-pane");
-    const wanted = [
-      "player-attendance-link", "player-absences-link", "player-add-to-classes",
-      "player-waiting-list", "player-evaluations-action", "player-remove",
-    ];
+    const wanted = ["player-add-to-classes", "player-waiting-list", "player-edit", "player-remove"];
+    const seen: string[] = [];
+    pane.querySelectorAll("[data-testid]").forEach((el) => {
+      const id = el.getAttribute("data-testid")!;
+      if (wanted.includes(id) && !seen.includes(id)) seen.push(id);
+    });
+    expect(seen).toEqual(wanted);
+    for (const gone of ["player-attendance-link", "player-absences-link", "player-evaluations-action"]) {
+      expect(within(pane).queryByTestId(gone)).toBeNull();
+    }
+  });
+
+  it("[PLAYERS-PROFILE-21] the three blocks follow the header in order", async () => {
+    renderAt("/players/1");
+    await screen.findByRole("heading", { name: "Ana Silva" });
+
+    const pane = screen.getByTestId("player-detail-pane");
+    const wanted = ["player-remove", "player-info-card", "evaluation-card", "profile-attendance-block", "sw-section"];
     const seen: string[] = [];
     pane.querySelectorAll("[data-testid]").forEach((el) => {
       const id = el.getAttribute("data-testid")!;

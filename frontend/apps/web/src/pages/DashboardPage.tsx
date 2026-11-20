@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingDashboard } from "@/components/ui/loading-skeleton";
-import { useCallback, useEffect, useMemo } from "react";
-import { format } from "date-fns";
+import { useCallback, useEffect } from "react";
+import { useDashboardWindow } from "@/hooks/useDashboardWindow";
 import { useQueryClient } from "@tanstack/react-query";
 import { COACH_DASHBOARD_ID } from "@/types";
 import { CoachDashboard } from "@/components/dashboard/CoachDashboard";
@@ -19,19 +19,9 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  // The 30-day window starts at the local midnight of the calendar day, so the query key is
-  // byte-identical across mounts within a day and a return inside the stale window renders from
-  // cache (client.query-cache rule 2). A `new Date()` here would mint a new key per mount: the
-  // first E2E run measured exactly that as one extra request. The dashboard view does not read
-  // `from`/`to` today; the window only names the payload.
-  const today = format(new Date(), "yyyy-MM-dd");
-  const params = useMemo(() => {
-    const dayStart = new Date(`${today}T00:00:00`);
-    return {
-      from: dayStart.toISOString(),
-      to: new Date(dayStart.getTime() + 30 * 86400000).toISOString(),
-    };
-  }, [today]);
+  // The 30-day window (client.query-cache rule 2): one key per day, shared with the setup guide.
+  // The dashboard view does not read `from`/`to` today; the window only names the payload.
+  const params = useDashboardWindow();
   const { data: dashboard, isPending, refetch } = useDashboard(params);
 
   // Neither home renders the messages block; the layout's unread badge reads it — which is how

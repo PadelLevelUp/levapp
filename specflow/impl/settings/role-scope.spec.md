@@ -94,6 +94,12 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    with 403, SETTINGS-ROLE-SCOPE-13) — they are not coach-only and must not be hardened with
    `require_coach()`.
 
+10. **(PAD-839) "Configurar conta" is a student-only row inside Profile, not a section.** The
+    student-visible section list of rule 2 is unchanged. Inside the Profile section, a student
+    (never a coach) sees a row "Configurar conta" (`settings-setup-guide`) that opens the setup
+    guide (`dashboard.student-setup-guide` rule 4), on web and iOS. It is gated by the same role
+    check as the sections (rule 4's audience), not by a new `SETTINGS_TABS` entry.
+
 ### Acceptance Criteria
 
 #### SETTINGS-ROLE-SCOPE-1: Student sees only student-relevant sections
@@ -182,6 +188,13 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **Then** none of the student's three requests is refused or fails
 - **And** the student's blockers answer 200, and the coach, who has no player profile, gets 403
 test: `backend/padel_app/tests/test_settings_role_authz.py` › `test_student_can_still_manage_their_availability` (+1 more)
+
+#### SETTINGS-ROLE-SCOPE-14: Only a student sees "Configurar conta", inside Profile (rule 10)
+- **Given** a student and a coach on Settings, web and iOS
+- **When** each opens the Profile section
+- **Then** the student sees the `settings-setup-guide` row and the coach does not, and both see the same section lists as before (SETTINGS-ROLE-SCOPE-1 unchanged)
+test: `frontend/apps/web/src/pages/SettingsPage.setup-guide.test.tsx` › `only a student sees Configurar conta inside Profile`
+test: `frontend/apps/mobile/src/features/settings/profile-section.test.tsx` › `only a student sees Configurar conta inside Profile`
 
 ### Notes
 - **Admin section leaving (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10

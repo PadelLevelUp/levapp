@@ -64,7 +64,9 @@ test("PAD-274: a student with an account offers Disconnect, shows what goes, and
   await expect(dialog).toHaveCount(0);
 });
 
-test("PAD-274: a placeholder the coach created offers Delete and is deleted", async ({ page, request }) => {
+// players.remove rules 7, 9 (PAD-834, assumption Q5): a pending player's removal reads "Cancelar
+// convite" and does what Delete did — the placeholder is deleted.
+test("[PLAYERS-REMOVE-10] cancelling the invite of a pending player deletes it", async ({ page, request }) => {
   const token = await coachToken(request);
   const name = `E2E Removal Placeholder ${Date.now()}`;
   const created = await request.post(`${API_APP}/add_player`, { headers: bearer(token), data: { name } });
@@ -73,14 +75,15 @@ test("PAD-274: a placeholder the coach created offers Delete and is deleted", as
 
   await loginAsCoach(page);
   await page.goto(`/players/${placeholderId}`);
-  const del = page.getByRole("button", { name: ui("players.deletePlayer") });
-  await expect(del).toBeVisible({ timeout: 10_000 });
+  const del = page.getByTestId("player-remove");
+  await expect(del).toHaveText(ui("players.card.cancelInvite"), { timeout: 10_000 });
   await expect(page.getByRole("button", { name: ui("players.disconnectPlayer") })).toHaveCount(0);
 
   await del.click();
   const dialog = page.getByRole("alertdialog");
   // Notes, evaluations and attendance: a delete takes the record's presences too.
   await expect(dialog.getByTestId("player-removal-impact").getByRole("listitem")).toHaveCount(3, { timeout: 10_000 });
+  await expect(dialog.getByTestId("player-remove-confirm")).toHaveText(ui("players.card.cancelInvite"));
 
   const removed = page.waitForResponse(
     (r) => r.url().includes("/remove_player") && r.request().method() === "POST",
@@ -94,4 +97,12 @@ test("PAD-274: a placeholder the coach created offers Delete and is deleted", as
   // Gone from the roster: the impact now refuses (no link left to this coach).
   const after = await request.get(`${API_APP}/player/${placeholderId}/removal_impact`, { headers: bearer(token) });
   expect(after.status()).toBe(403);
+});
+
+test("PAD-274: a registered student's removal still reads Desassociar, never Cancelar convite", async ({ page, request }) => {
+  const token = await coachToken(request);
+  const studentId = await playerIdByName(request, token, "E2E Student");
+  await loginAsCoach(page);
+  await page.goto(`/players/${studentId}`);
+  await expect(page.getByTestId("player-remove")).toHaveText(ui("players.disconnectPlayer"), { timeout: 10_000 });
 });

@@ -37,11 +37,11 @@ onFlowComplete:
 # ── 1. Write a note through the edit card ──
 - scrollUntilVisible:
     element:
-      id: "player-edit"
+      id: "player-info-edit"
     direction: DOWN
     timeout: 30000
 - tapOn:
-    id: "player-edit"
+    id: "player-info-edit"
 - scrollUntilVisible:
     element:
       id: "player-notes"
@@ -70,15 +70,15 @@ onFlowComplete:
 - pressKey: Enter
 - scrollUntilVisible:
     element:
-      id: "player-save"
+      id: "player-info-save"
     direction: DOWN
     timeout: 30000
     centerElement: true
 - tapOn:
-    id: "player-save"
+    id: "player-info-save"
 - extendedWaitUntil:
     notVisible:
-      id: "player-save"
+      id: "player-info-save"
     timeout: 15000
 - evalScript: "${output.noteAfterWrite = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student' })[0].notes}"
 - assertTrue: "${output.noteAfterWrite == 'Maestro note to be deleted'}"
@@ -86,11 +86,11 @@ onFlowComplete:
 # ── 2. Empty the box and save: the server holds NO note ──
 - scrollUntilVisible:
     element:
-      id: "player-edit"
+      id: "player-info-edit"
     direction: UP
     timeout: 30000
 - tapOn:
-    id: "player-edit"
+    id: "player-info-edit"
 - scrollUntilVisible:
     element:
       id: "player-notes"
@@ -116,15 +116,15 @@ onFlowComplete:
 - pressKey: Enter
 - scrollUntilVisible:
     element:
-      id: "player-save"
+      id: "player-info-save"
     direction: DOWN
     timeout: 30000
     centerElement: true
 - tapOn:
-    id: "player-save"
+    id: "player-info-save"
 - extendedWaitUntil:
     notVisible:
-      id: "player-save"
+      id: "player-info-save"
     timeout: 15000
 - evalScript: "${output.noteAfterClear = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student' })[0].notes}"
 - assertTrue: "${output.noteAfterClear === null}"

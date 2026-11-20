@@ -32,10 +32,14 @@ describe("PlayerContactRows (PAD-731)", () => {
     expect(text(n.byTestId("player-info-phone"))).toBe("players.noPhone");
   });
 
-  it("is what the player screen renders, with no hard-coded English labels left", () => {
+  it("is what the player screen's Informação block renders, with no hard-coded English labels left", () => {
+    // PAD-834: the rows moved from the screen into Block 1 (player-info-block.tsx).
     const here = path.dirname(fileURLToPath(import.meta.url));
+    const block = fs.readFileSync(path.resolve(here, "player-info-block.tsx"), "utf8");
     const screen = fs.readFileSync(path.resolve(here, "../../../app/player/[playerId].tsx"), "utf8");
-    expect(screen).toContain("<PlayerContactRows");
+    expect(block).toContain("<PlayerContactRows");
+    expect(screen).toContain("<PlayerInfoBlock");
+    expect(block).not.toMatch(/>\s*(Email|Phone):/);
     expect(screen).not.toMatch(/>\s*(Email|Phone):/);
   });
 });

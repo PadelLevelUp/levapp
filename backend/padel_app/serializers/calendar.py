@@ -24,6 +24,10 @@ def serialize_calendar_block(block):
 
         "blocksAutoInvitations": bool(getattr(block, "blocks_auto_invitations", False)),
 
+        # PAD-839 (calendar.student-blockers rule 18): the schedule this row belongs to, or null
+        # for a block made any other way. Additive; installed builds ignore it.
+        "scheduleId": getattr(block, "schedule_id", None),
+
         # PAD-372 (classes.class-requests rule 3): the OPEN request this block is the live
         # hold of, else null. The shells stop offering "this one / this and following" on
         # it; the server refuses those anyway (409 HOLD_OCCURRENCE_LOCKED). Additive —

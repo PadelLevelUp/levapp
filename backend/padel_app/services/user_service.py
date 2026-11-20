@@ -211,7 +211,24 @@ OWN_PROFILE_FIELDS = (
     "country",
     # PAD-640 (settings.profile rule 10): the date of birth, corrected in Perfil.
     "birthDate",
+    # PAD-839 (settings.profile rule 12): the student setup guide's state.
+    "setupGuideSnooze",
+    "setupGuideHidden",
+    "setupGuideReadyClosed",
+    "setupGuideAlertsConfirmed",
+    "alwaysAvailable",
 )
+
+#: PAD-839 (dashboard.student-setup-guide rule 14): guide key → `users` column (an instant, NULL = not
+#: chosen). The first three only ever switch on; `false` for them is refused, not read as "clear".
+SETUP_GUIDE_FIELDS = {
+    "setupGuideSnooze": "setup_guide_snoozed_at",
+    "setupGuideReadyClosed": "setup_guide_ready_closed_at",
+    "setupGuideAlertsConfirmed": "setup_alerts_confirmed_at",
+    "setupGuideHidden": "setup_guide_hidden_at",
+    "alwaysAvailable": "setup_always_available_at",
+}
+_SETUP_GUIDE_TRUE_ONLY = ("setupGuideSnooze", "setupGuideReadyClosed", "setupGuideAlertsConfirmed")
 
 #: PAD-112: payload key → `users` column, for the three block toggles.
 NOTIFICATION_BLOCK_FIELDS = {
@@ -261,7 +278,26 @@ def _own_birth_date(raw):
         raise ProfileValidationError(err.message, code=err.code, field="birthDate") from None
 
 
-def update_own_profile_service(user_id, data):
+def _apply_setup_guide(user, data, now):
+    """dashboard.student-setup-guide rule 14. The snooze always takes the server's `now` (the
+    clients compare its Lisbon date); every other key stamps `now` when switched on and clears
+    when switched off."""
+    for key, column in SETUP_GUIDE_FIELDS.items():
+        if key not in data:
+            continue
+        on = _coerce_bool(data.get(key), key)
+        if not on and key in _SETUP_GUIDE_TRUE_ONLY:
+            raise ProfileValidationError(f"'{key}' only accepts true")
+        if key == "setupGuideSnooze":
+            user.setup_guide_snoozed_at = now
+        elif on:
+            if getattr(user, column) is None:
+                setattr(user, column, now)
+        else:
+            setattr(user, column, None)
+
+
+def update_own_profile_service(user_id, data, *, now=None):
     """
     Apply a partial update to the signed-in user's own profile (PAD-81).
 
@@ -273,6 +309,13 @@ def update_own_profile_service(user_id, data):
     """
     user = User.query.get_or_404(user_id)
     email_changed = False
+    now = now or utcnow_naive()
+
+    # settings.profile rule 12 (PAD-839): only a student writes the setup guide's keys, and the
+    # refusal comes before anything is written, so a coach's request stores nothing at all.
+    # An account with no player row (an admin) is not a student either.
+    if (user.coach is not None or user.player is None) and any(k in data for k in SETUP_GUIDE_FIELDS):
+        raise ProfileValidationError("The setup guide is for students only", status=403)
 
     # settings.profile rule 10 (PAD-640): judged before anything is written, so an under-18 date
     # refuses the whole PATCH.
@@ -348,6 +391,8 @@ def update_own_profile_service(user_id, data):
     if "notificationBlockReason" in data:
         reason = (data.get("notificationBlockReason") or "").strip()
         user.notif_block_reason = reason[:NOTIFICATION_BLOCK_REASON_MAX_LENGTH] or None
+
+    _apply_setup_guide(user, data, now)
 
     db.session.commit()
 
