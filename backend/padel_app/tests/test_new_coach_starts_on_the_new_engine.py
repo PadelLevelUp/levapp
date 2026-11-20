@@ -70,11 +70,16 @@ def test_a_coach_created_now_is_on_the_new_engine_and_their_first_class_is_a_new
 
 @pytest.mark.criterion("NOTIFICATIONS-CONFIG-83")
 def test_a_row_created_for_a_coach_without_one_is_on_the_new_engine(app, pinned):  # noqa: F811
+    from padel_app.models import User
     from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.coach_service import create_coach_service
     from padel_app.services.notification_service import get_or_create_config
 
-    _, coach_id, _, _ = _classes(app)
-    NotificationConfig.query.filter_by(coach_id=coach_id).delete()
+    user = User(name="No Row", username="config83_no_row", password="pw123")
+    db.session.add(user)
+    db.session.commit()
+    coach_id = create_coach_service({"user": user.id}).id
+    NotificationConfig.query.filter_by(coach_id=coach_id).delete()      # a coach without a row, no classes
     db.session.commit()
 
     config = get_or_create_config(coach_id)
@@ -98,3 +103,21 @@ def test_switching_a_coach_without_a_row_adopts_their_existing_occurrences(app, 
     assert engine_for(_instance(not_opened)) == "new"
     assert engine_for(_instance(opened)) == "old"       # its window had opened: it drains
     assert (_config(coach_id).engine_version, _config(coach_id).engine_switched_at) == ("new", NOW)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-84")
+def test_a_row_created_for_a_coach_with_classes_waits_on_old_for_the_switch(app, pinned):  # noqa: F811
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.engine_switch import engine_for, switch_coach
+    from padel_app.services.notification_service import get_or_create_config
+
+    _, coach_id, _, not_opened = _classes(app)
+    NotificationConfig.query.filter_by(coach_id=coach_id).delete()
+    db.session.commit()
+
+    config = get_or_create_config(coach_id)             # an ordinary reader, before the operator's switch
+    assert (config.engine_version, config.engine_switched_at) == ("old", None)
+    assert engine_for(_instance(not_opened)) == "old"
+
+    assert switch_coach(coach_id, now=NOW + timedelta(minutes=5)) == [not_opened]
+    assert engine_for(_instance(not_opened)) == "new"

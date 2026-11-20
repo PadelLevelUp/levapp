@@ -150,8 +150,9 @@ def get_or_create_config(coach_id: int, *, on_new_engine: bool = True) -> Notifi
     """The coach's configuration, creating the row (engine off) when there is none.
 
     A row created here starts on the new engine, switched now (notifications.config rule 18, CONFIG-83:
-    the old engine is retired). ``switch_coach`` passes ``on_new_engine=False``: it creates the row on
-    ``old`` and then switches it, so the coach's existing occurrences are adopted.
+    the old engine is retired), unless the coach already has an occurrence that has not started
+    (CONFIG-84): only the operator's switch adopts existing occurrences, so that coach's row is ``old``
+    until it runs. ``switch_coach`` passes ``on_new_engine=False`` for the same reason.
 
     Race-safe (B-302 follow-up; #592's Postgres lane): two callers for a coach with no row can both
     read "none" and both insert, and the second hits the unique key on `coach_id`. The insert runs in
@@ -170,7 +171,11 @@ def get_or_create_config(coach_id: int, *, on_new_engine: bool = True) -> Notifi
 
     config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=False)
     if on_new_engine:
-        config.engine_version, config.engine_switched_at = "new", dates.utcnow_naive()
+        from padel_app.services.engine_switch import _future_occurrences
+
+        now = dates.utcnow_naive()
+        if not _future_occurrences(coach_id, now):
+            config.engine_version, config.engine_switched_at = "new", now
     _forget_config(coach_id)
     try:
         with db.session.begin_nested():
