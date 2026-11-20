@@ -17,6 +17,7 @@ from flask_jwt_extended import create_access_token
 
 from padel_app.sql_db import db
 from padel_app.tests.test_pad104_class_requests import DAY, _request, _setup
+from padel_app.utils.client_capabilities import HEADER, WAITING_LIST_SIDE
 
 
 @pytest.fixture(autouse=True)
@@ -60,10 +61,14 @@ def _going_elsewhere(player_id, start: time, end: time):
     return inst.id
 
 
-def _post(client, user_id, path, body=None):
+def _post(client, user_id, path, body=None, *, capabilities=WAITING_LIST_SIDE):
+    """As a client declaring ``capabilities`` (rule 4b: build 37+ and the web declare waiting-list-side)."""
     with client.application.app_context():
         token = create_access_token(identity=str(user_id))
-    return client.post(f"/api/app/class-requests/{path}", json=body or {}, headers={"Authorization": f"Bearer {token}"})
+    headers = {"Authorization": f"Bearer {token}"}
+    if capabilities:
+        headers[HEADER] = capabilities
+    return client.post(f"/api/app/class-requests/{path}", json=body or {}, headers=headers)
 
 
 def _state(rid):
@@ -114,10 +119,10 @@ def _lessons(app, coach_id):
         return Association_CoachLesson.query.filter_by(coach_id=coach_id).count()
 
 
-def _check_refused(app, res, ids, made):
+def _check_refused(app, res, ids, made, code="busy_same_hour"):
     assert res.status_code == 409, res.get_json()
     body = res.get_json()
-    assert body["code"] == "busy_same_hour" and body["message"]
+    assert body["code"] == code and body["message"]
     assert [(c["playerId"], c["lessonInstanceId"]) for c in body["clashes"]] == [(ids["player_id"], made[0])]
 
 
@@ -148,4 +153,24 @@ def test_the_students_accept_of_a_proposal_that_clashes_answers_409_and_changes_
     _check_refused(app, res, ids, made)
     with app.app_context():
         assert _state(rid) == ("countered", None, True)
+    assert _lessons(app, ids["coach_id"]) == lessons
+
+
+
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-43")
+@pytest.mark.parametrize("capabilities, code", [
+    (None, "slot_taken"),                       # App Store 33-35: no waiting-list-side
+    ("join-side, notification-sound", "slot_taken"),
+    (WAITING_LIST_SIDE, "busy_same_hour"),      # build 37+, the web
+])
+def test_the_same_hour_code_follows_waiting_list_side_with_the_same_message_and_clashes(
+        app, client, monkeypatch, capabilities, code):
+    ids, rid, armed, made = _world(app, monkeypatch)
+    lessons = _lessons(app, ids["coach_id"])
+    armed.append((time(11, 0), time(12, 0)))
+    res = _post(client, ids["coach_user_id"], f"{rid}/accept", capabilities=capabilities)
+    _check_refused(app, res, ids, made, code=code)
+    assert res.get_json()["message"] == "busy same hour"
+    with app.app_context():
+        assert _state(rid) == ("pending", None, True)
     assert _lessons(app, ids["coach_id"]) == lessons

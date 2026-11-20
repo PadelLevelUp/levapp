@@ -416,6 +416,15 @@ def busy_same_hour(clashes: list[dict]) -> tuple[dict, int]:
     return {"code": "busy_same_hour", "message": "busy same hour", "clashes": clashes}, 409
 
 
+def same_hour_refusal_code() -> str:
+    """The same-hour refusal's code for this request (classes.class-requests rule 4b): ``busy_same_hour``
+    to a client that declares ``waiting-list-side`` (build 37+, the web), ``slot_taken`` to one that
+    does not (App Store 33-35 have no copy for ``busy_same_hour`` and would show the raw key)."""
+    from padel_app.utils.client_capabilities import WAITING_LIST_SIDE, client_declares
+
+    return "busy_same_hour" if client_declares(WAITING_LIST_SIDE) else "slot_taken"
+
+
 def sorry_joins_waiting_list(instance, player, config, now: datetime | None = None) -> dict:
     """A yes to the sorry's waiting-list offer (invitations NB2, INVITATIONS-121): the session's
     students' list, the side choice "own" when the coach offers the choice and none when not. A
