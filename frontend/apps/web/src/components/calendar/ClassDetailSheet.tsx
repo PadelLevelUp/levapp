@@ -71,7 +71,7 @@ import {
   getApprovalState,
   recomputeApprovalState,
 } from "@/api/notificationEngine";
-import { isEngineApproval, joinRefusalKey, waitingListSideChoice, INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, inviteeTierText, isNewEngineInvitee, pendingInviteCount, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, mergeSuggestionBundles, suggestionBundles } from "@levelup/config";
+import { isEngineApproval, joinRefusalKey, waitingListSideChoice, INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, inviteeTierText, isNewEngineInvitee, engineInvitationId, pendingInviteCount, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, mergeSuggestionBundles, suggestionBundles } from "@levelup/config";
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -457,7 +457,7 @@ export function ClassDetailSheet({
     try {
       // PAD-920 (notifications.invitations NB5): a new-engine row's id is the invitation's.
       const result = isNewEngineInvitee(inv)
-        ? await coachRespondToEngineInvitation({ invitationId: inv.id, action })
+        ? await coachRespondToEngineInvitation({ invitationId: engineInvitationId(inv), action })
         : await coachRespondToNotification(inv.id, action);
       applyInviteeAnswer(inv, result.action, true);
     } catch {
@@ -474,7 +474,7 @@ export function ClassDetailSheet({
     if (!inv) return;
     setInviteeBusyId(inv.id);
     try {
-      const result = isNewEngineInvitee(inv) ? await withdrawEngineInvitation(inv.id) : await withdrawInvitation(inv.id);
+      const result = isNewEngineInvitee(inv) ? await withdrawEngineInvitation(engineInvitationId(inv)) : await withdrawInvitation(inv.id);
       if (result.action === "confirmed") toast({ title: t("calendar.detail.inviteeAlreadyAccepted") });
       applyInviteeAnswer(inv, result.action, false);
     } catch {

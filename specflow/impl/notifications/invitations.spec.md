@@ -131,6 +131,34 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   sent wins over the answer's response: the bubble shows the newest state it heard of, never an older
   one. The coach withdraws a new-engine invitation through rule 19's route with the invitation's id
   (`DELETE /api/app/notify/invitations/<invitationId>?engine=new`); the same 404 and 403 apply.
+- **NB6. Old clients (App Store builds 33–35; first-switch shim, owner 2026-11-19).** Those builds know
+  nothing of `invitationId` or `state`: they answer an invitation only with `notificationEventId`, hide its
+  buttons only on `metadata.responded`, show the accepted / declined badge for `response` `yes` / `no` and
+  "Vaga preenchida" for any other `response` (build 35: "Já inscrito noutra aula" for `booked_same_day`),
+  and the iOS class detail answers and withdraws an invitee row by its `id`. So a new-engine invitation
+  also speaks their language, without changing what the current shells read (they route on
+  `isEngineInvite` first and ignore these keys):
+  - **Its id is `-invitationId`** (negative: never a `NotificationEvent` id, truthy for those builds'
+    guard): the bubble's `notificationEventId`, the student's Home card `vacancy_invite` item's
+    `notificationEventId`, and the class detail's new-engine invitee row's `id`, which also carries
+    `invitationId` (the current shells use that one).
+  - **Every state that closes the buttons also writes `responded: true` and a `response`**: `answered` the
+    answer (`yes` / `no`), `sorry` `spot_filled`, `closed_same_hour` `booked_same_day`, `withdrawn`
+    `withdrawn`, `reopened` (the older bubbles) `reopened`, `class_cancelled` `class_cancelled`. Once the
+    class has started, the message serializer sends an open new-engine bubble with `responded: true` and
+    `response` `expired` (the state stays derived, NB1).
+  - **The routes take the negative id.** `POST /notify/respond` and `POST /notify/coach_respond` with a
+    negative `notificationEventId` answer the invitation `-notificationEventId` through the engine, as
+    NB5's body would, and say it in the old engine's words: `confirmed` → `confirmed`, `declined` →
+    `declined`, `sorry` and `closed_same_hour` → `spot_filled`, `class_started` and the `class_cancelled`
+    refusal → `expired`, anything else `unknown`. A body with neither id is a 400, never a 500. NB5's
+    body with `invitationId` answers as before.
+  - **The withdrawal route serves the engine.** `DELETE /notify/invitations/<id>` with a negative id, or
+    with the invitation's id and `?engine=new` (NB5, which the current web sends), withdraws the
+    new-engine invitation through the store, 404 for an unknown id and 403 when the session is not the
+    coach's, and answers `{action}`: `withdrawn`, or for one already ended `confirmed` (answered yes),
+    `declined` (answered no), `spot_filled` (sorry or closed).
+  - Push payloads and deep links carry no invitation id in those builds; nothing to do there.
 - **NB4. Test ids, one set on both shells**: `invite-respond-yes-<invitationId>`,
   `invite-respond-no-<invitationId>` and `invite-state-<invitationId>-<state>` (`started` once the class
   has started), so one E2E reads both. The old engine's ids stay for old-engine bubbles, and the tests
@@ -1748,6 +1776,43 @@ test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_remov
 - **When** the coach cancels the class, and a student then answers yes
 - **Then** the same closes, bubble states and refusal as criterion 125
 test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_cancelling_a_new_engine_class_withdraws_its_open_invitations`
+
+#### NOTIFICATIONS-INVITATIONS-129: A new-engine bubble carries the old builds' id and closes for them (new-engine section NB6)
+Given a new-engine invitation, when its bubble is sent, then its metadata carries `notificationEventId`
+`-invitationId` and no `responded`; and when it is answered yes, answered no, told sorry, closed by a
+same-hour placement, withdrawn, reopened (on the older bubble) or cancelled with its class, then the bubble
+has `responded: true` and `response` `yes`, `no`, `spot_filled`, `booked_same_day`, `withdrawn`,
+`reopened` or `class_cancelled`, with its `state` as NB1 says.
+test: `backend/padel_app/tests/test_old_client_shim.py` › `test_a_new_engine_bubble_carries_the_old_id_and_closes_for_old_builds`
+
+#### NOTIFICATIONS-INVITATIONS-130: Once its class has started, an open new-engine bubble reads answered for old builds (new-engine section NB6)
+Given an open new-engine invitation's bubble, when a message list is read after the class's start, then
+the bubble has `responded: true` and `response` `expired` and its stored metadata is unchanged; before the
+start it has no `responded`.
+test: `backend/padel_app/tests/test_old_client_shim.py` › `test_an_open_bubble_reads_expired_once_the_class_has_started`
+
+#### NOTIFICATIONS-INVITATIONS-131: The answer routes take an old build's negative id (new-engine section NB6)
+Given open new-engine invitations, when a student answers `POST /notify/respond {notificationEventId:
+-invitationId, action}`, then a Yes that places answers `confirmed`, a No `declined`, a Yes told sorry
+`spot_filled`, a Yes after the class started `expired`, and a Yes to an invitation of a cancelled class
+`expired`; the same through `POST /notify/coach_respond` records the coach's answer and answers in the same
+words; a body with `invitationId` answers as NB5 says; and a body with neither id answers 400.
+test: `backend/padel_app/tests/test_old_client_shim.py` › `test_the_answer_routes_take_an_old_builds_negative_id`
+
+#### NOTIFICATIONS-INVITATIONS-132: An old build's Home card answers a new-engine invitation (new-engine section NB6)
+Given a student with an open new-engine invitation, when they read their dashboard and answer its
+`vacancy_invite` item with that item's `notificationEventId`, then the item carries `-invitationId`, the
+answer is `confirmed`, the student is placed, and the invitation's bubble then has `responded: true` and
+`response` `yes`.
+test: `backend/padel_app/tests/test_old_client_shim.py` › `test_an_old_builds_home_card_answers_a_new_engine_invitation`
+
+#### NOTIFICATIONS-INVITATIONS-133: The class detail's new-engine rows and the withdrawal route serve old and current builds (new-engine section NB6)
+Given a new-engine class with an open invitation, when the coach reads the class detail, then the
+invitee row's `id` is `-invitationId` and its `invitationId` the invitation's id; `DELETE
+/notify/invitations/<-invitationId>` withdraws it (`{action: "withdrawn"}`, the bubble `withdrawn` with
+`responded: true`), as `DELETE /notify/invitations/<invitationId>?engine=new` does for another; a second
+withdrawal of an answered one says `confirmed`; another coach gets 403 and an unknown id 404.
+test: `backend/padel_app/tests/test_old_client_shim.py` › `test_the_class_detail_rows_and_the_withdrawal_route_serve_old_and_current_builds`
 
 #### NOTIFICATIONS-INVITATIONS-126: The web bubble reads "class cancelled" (new-engine section NB2)
 - **Given** a new-engine bubble whose state becomes `class_cancelled`, and a Yes answered `409 class_cancelled`

@@ -39,3 +39,13 @@ appId: com.padellevelup.app
     id: "player-level-chip-1"
 - assertVisible:
     id: "player-side-chip-1"
+
+# ── PAD-834 (players.list rule 15): a registered, configured student carries neither the pending
+#    badge nor a needs-configuring chip. The pending and no-level rows are proved by the
+#    pending-filter flow, which creates its own placeholder. ──
+- assertNotVisible:
+    id: "pending-registration-badge"
+- assertNotVisible:
+    id: "player-row-no-level"
+- assertNotVisible:
+    id: "player-row-no-side"

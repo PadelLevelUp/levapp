@@ -166,6 +166,9 @@ from padel_app.services.student_availability_service import (
     create_student_blocker,
     update_student_blocker,
     delete_student_blocker,
+    ScheduleError,
+    put_student_schedule,
+    delete_student_schedule,
 )
 from padel_app.services.ai_service import stream_import_analysis
 from padel_app.services.import_service import (
@@ -1126,6 +1129,7 @@ def coach_players_paginated():
     missing_level = request.args.get("missing_level", default="", type=str) == "true"
     missing_side = request.args.get("missing_side", default="", type=str) == "true"
     incomplete = request.args.get("incomplete", default="", type=str) == "true"
+    pending = request.args.get("pending", default="", type=str) == "true"
 
     page = max(1, page or 1)
     per_page = max(1, min(100, per_page or 25))
@@ -1140,6 +1144,7 @@ def coach_players_paginated():
         coach, page=page, per_page=per_page, search=search,
         sort_by=sort_by, sort_dir=sort_dir,
         missing_level=missing_level, missing_side=missing_side, incomplete=incomplete,
+        pending=pending,
     )
     return jsonify(result)
 
@@ -1964,6 +1969,42 @@ def delete_availability_blocker(block_id):
     delete_student_blocker(
         block_id, user.id, data.get("occDate"), data.get("scope", "all")
     )
+    return "", 204
+
+
+def _schedule_refusal(exc):
+    from padel_app.sql_db import db
+
+    db.session.rollback()
+    body = {"error": exc.message}
+    if exc.field:
+        body["field"] = exc.field
+    if exc.row is not None:
+        body["row"] = exc.row
+    return jsonify(body), exc.status
+
+
+@bp.put("/availability_schedules/<schedule_id>")
+@jwt_required()
+def put_availability_schedule(schedule_id):
+    """PAD-839 (calendar.student-blockers rule 18): write a schedule's rows whole, or nothing."""
+    user = _require_student()
+    try:
+        rows = put_student_schedule(user.id, schedule_id, request.get_json(silent=True) or {})
+    except ScheduleError as exc:
+        return _schedule_refusal(exc)
+    return jsonify([serialize_calendar_block(b) for b in rows])
+
+
+@bp.delete("/availability_schedules/<schedule_id>")
+@jwt_required()
+def delete_availability_schedule(schedule_id):
+    """PAD-839 (calendar.student-blockers rule 18): remove every row of a schedule."""
+    user = _require_student()
+    try:
+        delete_student_schedule(user.id, schedule_id)
+    except ScheduleError as exc:
+        return _schedule_refusal(exc)
     return "", 204
 
 

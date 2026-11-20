@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { InstallAppBanner } from "@/components/layout/InstallAppBanner";
 import { CountryPrompt } from "@/components/layout/CountryPrompt";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SetupGuideAvatar } from "@/components/setup-guide/SetupGuideSurfaces";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -482,12 +483,15 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 className="flex items-center gap-2"
                 data-testid="user-menu-trigger"
               >
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
+                {/* dashboard.student-setup-guide rule 4 (PAD-839): a student's ring of progress. */}
+                <SetupGuideAvatar>
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src="" />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                </SetupGuideAvatar>
                 <span className="hidden sm:inline text-sm font-medium">
                   {user?.name ?? user?.username}
                 </span>

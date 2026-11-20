@@ -7,7 +7,10 @@ from padel_app import model
 
 class CalendarBlock(db.Model, model.Model):
     __tablename__ = "calendar_blocks"
-    __table_args__ = (Index("ix_calendar_blocks_user_id", "user_id"),)  # PAD-263
+    __table_args__ = (
+        Index("ix_calendar_blocks_user_id", "user_id"),  # PAD-263
+        Index("ix_calendar_blocks_schedule_id", "schedule_id"),  # PAD-839, named as its migration
+    )
     
     model_name = "CalendarBlock"
 
@@ -28,6 +31,10 @@ class CalendarBlock(db.Model, model.Model):
     # user during its window (recurring occurrences included). Manual additions by
     # a coach are unaffected. Used by the smart notification eligibility engine.
     blocks_auto_invitations = Column(Boolean, default=False, nullable=False, server_default="0")
+
+    #: PAD-839 (calendar.student-blockers rule 18): the rows one schedule-editor save wrote share
+    #: this id; NULL for every block made any other way.
+    schedule_id = Column(String(36), nullable=True)
 
     title = Column(String(255))
     description = Column(Text)

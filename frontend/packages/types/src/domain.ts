@@ -344,6 +344,14 @@ export interface CoachPlayer {
    */
   possibleDuplicateOf?: { playerId: string | number; name: string; displayName?: string } | null,
   /**
+   * players.list rule 13 (PAD-834): `const:PENDING_REGISTRATION`, the placeholder (never
+   * activated, no password). Not `!validated`: a Google/Apple student has no password and is
+   * registered. Absent on older payloads.
+   */
+  pendingRegistration?: boolean,
+  /** players.list rule 13 (PAD-834): the link's creation instant (`…+00:00`), or null. */
+  addedAt?: string | null,
+  /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
    * their own username at account activation. Do not render it in coach UI.
@@ -533,7 +541,10 @@ export type InvitationOutcome =
   | 'cancelled';
 
 export interface ClassInvitation {
+  /** A new-engine row's is `-invitationId` (invitations NB6: old iOS builds answer by it). */
   id: number;
+  /** New-engine rows only: the invitation's id, the engine routes' key (NB5, NB6). */
+  invitationId?: number;
   playerId: string;
   playerName: string;
   status: 'sent' | 'confirmed' | 'expired' | 'queued';

@@ -34,6 +34,10 @@ export interface CoachPlayersPageResponse {
   alerts?: {
     missingLevel: number;
     missingSide: number;
+    /** players.list rule 14 (PAD-834): no level OR no side. Absent on older servers. */
+    incomplete?: number;
+    /** players.list rule 14 (PAD-834): `const:PENDING_REGISTRATION`. Absent on older servers. */
+    pendingRegistration?: number;
   };
 }
 
@@ -47,6 +51,8 @@ export interface PlayersQueryParams {
   missingSide?: boolean;
   /** dashboard.profile-completeness: no level OR no side (the dashboard's "see all"). */
   incomplete?: boolean;
+  /** players.list rule 5 (PAD-834): pending registration only. */
+  pending?: boolean;
 }
 
 function isFresh(expiresAt: number): boolean {
@@ -85,8 +91,9 @@ export async function getCoachPlayersPaginated(
   missingLevel?: boolean,
   missingSide?: boolean,
   incomplete?: boolean,
+  pending?: boolean,
 ): Promise<CoachPlayersPageResponse> {
-  const hasFilters = !!search || !!missingLevel || !!missingSide || !!incomplete ||
+  const hasFilters = !!search || !!missingLevel || !!missingSide || !!incomplete || !!pending ||
     (sortBy && sortBy !== "name") || (sortDir && sortDir !== "asc");
 
   // Skip cache when any filter/sort is active
@@ -105,6 +112,7 @@ export async function getCoachPlayersPaginated(
   if (missingLevel) params.missing_level = "true";
   if (missingSide) params.missing_side = "true";
   if (incomplete) params.incomplete = "true";
+  if (pending) params.pending = "true";
 
   const res = await getApi().get("/app/coach_players_paginated", { params });
   const payload = res.data as CoachPlayersPageResponse;

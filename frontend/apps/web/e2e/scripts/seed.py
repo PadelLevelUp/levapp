@@ -1050,6 +1050,13 @@ with app.app_context(), unit_of_work():
     db.session.flush()
     db.session.add(Player(user_id=legacy_user.id))
     db.session.commit()
+    # PAD-839 (dashboard.student-setup-guide wave 1): the setup guide's first-login sheet opens over a
+    # student's dashboard until it is hidden. Every seeded student starts hidden, so no existing spec
+    # or Maestro flow meets the sheet; the guide's own specs create their students fresh.
+    _guide_hidden_at = _utcnow_naive()
+    for _seeded in User.query.filter(User.id.in_(db.session.query(Player.user_id))).all():
+        _seeded.setup_guide_hidden_at = _guide_hidden_at
+    db.session.commit()
     print("[seed] Done. Created:")
     print(f"  Coach: {coach_user.username} / E2eCoach123!")
     print(f"  Student 1: {student_user.username} / E2eStudent123!")

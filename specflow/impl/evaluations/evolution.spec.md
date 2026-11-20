@@ -1,6 +1,6 @@
 ---
 id: evaluations.evolution
-status: implemented
+status: implementing
 depends_on: [evaluations.records, evaluations.history]
 serves: [P-EVALUATIONS-1]
 governed_by: [R-048]
@@ -12,8 +12,9 @@ provenance:
 
 ### Intent
 How one competency has moved for one player over the months: a monthly-average line, three
-rolling means and a delta since the first month. It is the "Evolução" section of the player's
-evaluations drawer (`evaluations.history` rule 3). No chart, average or delta exists today.
+rolling means and a delta since the first month. It is the "Evolução" column of the
+profile's Avaliações block (`players.profile` rule 10, PAD-834); before PAD-834 it was the first
+section of the evaluations drawer (`evaluations.history` rule 3). No chart, average or delta exists today.
 
 ### Entities
 - **READS:** EvaluationEntry (the rows of the coach–player link and competency **that sit in a
@@ -117,7 +118,7 @@ Dataset (the canvas's seed): coach Ana's player João Silva (id 9), competency B
 
 #### EVALUATIONS-EVOLUTION-6: The default pill is the first competency with data (rule 4)
 - **Given** Rui has ratings only in Consistência, and Sara only in Técnica
-- **When** Ana opens Rui's drawer, then Sara's
+- **When** Ana opens Rui's profile, then Sara's (each with at least two records, `players.profile` rule 10)
 - **Then** Consistência is selected for Rui and Técnica for Sara; neither sees the empty state
 
 #### EVALUATIONS-EVOLUTION-7: No data is one empty state and no pills (rule 4)

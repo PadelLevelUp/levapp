@@ -1,0 +1,61 @@
+# PAD-839 (dashboard.student-setup-guide, DASHBOARD-STUDENT-SETUP-GUIDE-5): "Hide" on the sheet
+# takes the sheet, the card and the avatar ring away for good, and Settings > Perfil still opens the
+# guide's step list through "Configurar conta".
+#
+# Fresh student from scripts/setup-guide-student-setup.js (the seed hides the guide for seeded
+# students). Assertions are by testID; "hidden" is read from the server too. Backend: -e
+# API_BASE=http://localhost:<port>, else :5001. Flow number 338.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/setup-guide-student-setup.js
+onFlowComplete:
+  - runScript: ../scripts/setup-guide-student-teardown.js
+---
+- assertTrue: "${output.username && output.username.length > 10}"
+- runFlow:
+    file: ../subflows/login-guide-student.yaml
+    env:
+      USERNAME: ${output.username}
+      PASSWORD: ${output.password}
+- tapOn:
+    id: "setup-guide-hide"
+- extendedWaitUntil:
+    notVisible:
+      id: "setup-guide-sheet"
+    timeout: 10000
+- assertNotVisible:
+    id: "setup-guide-card"
+- assertNotVisible:
+    id: "setup-guide-ring"
+- evalScript: "${output.me = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.studentTok } }).body)}"
+- assertTrue: "${output.me.setupGuide.hidden === true}"
+
+# Settings > Perfil keeps the way back in.
+- extendedWaitUntil:
+    visible:
+      id: "header-account"
+    timeout: 15000
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-profile"
+- scrollUntilVisible:
+    element:
+      id: "settings-setup-guide-open"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- assertVisible:
+    id: "settings-setup-guide"
+- tapOn:
+    id: "settings-setup-guide-open"
+- extendedWaitUntil:
+    visible:
+      id: "setup-guide-steps"
+    timeout: 15000
+- assertVisible:
+    id: "setup-guide-step-unavailability"

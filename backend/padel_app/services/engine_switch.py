@@ -96,14 +96,18 @@ def _due_at_switch(instance, config) -> bool:
 
 
 def _adopt(store, instance, coach_id: int, now: datetime) -> bool:
-    """The session's ``engine_sessions`` row and its regulars, placed (``TableStore.add_session``), in one
-    unit; the old engine's unstarted vacancies are closed in it. Returns whether it wrote the row."""
+    """The session's ``engine_sessions`` row and its going regulars, placed (``TableStore.add_session``), in
+    one unit; the old engine's unstarted vacancies are closed in it, and its absences become the engine's
+    (engine-store rule 10). Returns whether it wrote the row."""
     from padel_app.models.presences import Presence
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.level_ladder import ladder_index_map
 
-    roster = [p for p in Presence.query.filter_by(lesson_instance_id=instance.id).all()
-              if p.enrolment_source == "roster"]
+    presences = Presence.query.filter_by(lesson_instance_id=instance.id).all()
+    # engine-store rule 10: only the going regulars are placed; enrolling an absent one again would undo
+    # their No (lesson_service.enrol's return branch).
+    roster = [p for p in presences if p.enrolment_source == "roster" and p.status != "absent"]
+    absent = [p for p in presences if p.status == "absent"]
     students = store._students(coach_id, [], {}, extra=[p.player_id for p in roster])
     regulars = []
     for p in roster:
@@ -119,6 +123,8 @@ def _adopt(store, instance, coach_id: int, now: datetime) -> bool:
             vacancy.status = "expired"                     # never invited (CONFIG-61): the old tick keeps off
         store.add_session(session, store._level(ladder_index_map(coach_id), instance.level_id),
                           instance.effective_max_players, instance.start_datetime, regulars, now)
+        for p in absent:                                   # rule 10: the old engine's absence, kept as it is
+            p.left_reason = "regular_no" if p.enrolment_source == "roster" else "cancel"
         # add_session writes the occurrence's primary coach (PAD-916), the coach the switch read.
     return True
 
@@ -265,7 +271,7 @@ def switch_coach(coach_id: int, *, now: datetime | None = None) -> list[str]:
     from padel_app.services.notification_service import get_or_create_config
 
     now = now or utcnow_naive()
-    config = get_or_create_config(coach_id)
+    config = get_or_create_config(coach_id, on_new_engine=False)   # a coach without a row: the full switch
     if config.engine_version == "new":
         return adopt_due(now=now, coach_ids=[coach_id])
     config.engine_version, config.engine_switched_at = "new", now

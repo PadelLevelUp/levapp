@@ -66,6 +66,11 @@ interface PlayerFormProps {
   requireAdultConfirmation?: boolean;
   /** PAD-660 (players.nickname rule 6): the edit screen shows the nickname field; the create form does not. */
   showNickname?: boolean;
+  /**
+   * PAD-834 (players.profile rule 4): the player screen's header edit holds only the name and the
+   * nickname; e-mail, phone, level, side and the note belong to Block 1 (player-info-block.tsx).
+   */
+  identityOnly?: boolean;
 }
 
 
@@ -98,6 +103,7 @@ export function PlayerForm({
   inviting = false,
   requireAdultConfirmation = false,
   showNickname = false,
+  identityOnly = false,
 }: PlayerFormProps) {
   const { t } = useTranslation();
   const [adultsConfirmed, setAdultsConfirmed] = React.useState(false);
@@ -234,6 +240,8 @@ export function PlayerForm({
         ) : null}
       </View>
 
+      {identityOnly ? null : (
+      <>
       <View className="gap-2">
         <Label>{t("players.emailOptional")}</Label>
         <View className="relative">
@@ -338,6 +346,8 @@ export function PlayerForm({
           onChangeText={setNotes}
         />
       </View>
+      </>
+      )}
 
       {showNickname ? (
         <View className="gap-2">

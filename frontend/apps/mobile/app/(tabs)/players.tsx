@@ -2,7 +2,13 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme, PLAYER_SEARCH_DEBOUNCE_MS } from "@levelup/config";
+import {
+  lightTheme,
+  PLAYER_SEARCH_DEBOUNCE_MS,
+  rosterFilterFromParams,
+  rosterFilterQuery,
+  type RosterFilter,
+} from "@levelup/config";
 import { keepPreviousData } from "@tanstack/react-query";
 import { playersApi } from "@levelup/api";
 import { useCoachPlayersPaginated } from "@levelup/hooks";
@@ -25,6 +31,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddByQrSheet } from "@/features/players/add-by-qr-sheet";
 import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
+import { PlayerRowStates, RosterAlerts } from "@/features/players/players-list-alerts";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -64,11 +71,12 @@ export default function PlayersScreen() {
   const router = useRouter();
   const [search, setSearch] = React.useState("");
   // PAD-287: Settings → My connections lands here with `addByQr=1`.
-  const { addByQr, missing_level, missing_side, incomplete } = useLocalSearchParams<{
+  const { addByQr, missing_level, missing_side, incomplete, pending } = useLocalSearchParams<{
     addByQr?: string;
     missing_level?: string;
     missing_side?: string;
     incomplete?: string;
+    pending?: string;
   }>();
   const [qrOpen, setQrOpen] = React.useState(addByQr === "1");
   React.useEffect(() => {
@@ -85,18 +93,18 @@ export default function PlayersScreen() {
   );
   const sortOption: Option =
     sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];
-  const [missingLevelFilter, setMissingLevelFilter] = React.useState(missing_level === "true");
-  const [missingSideFilter, setMissingSideFilter] = React.useState(missing_side === "true");
-  const [incompleteFilter, setIncompleteFilter] = React.useState(incomplete === "true");
+  // players.list rule 5 (PAD-834): one filter at a time; a URL with several keeps the first.
+  const urlFilter = rosterFilterFromParams(
+    (name) => ({ pending, incomplete, missing_level, missing_side })[name as RosterFilter],
+  );
+  const [rosterFilter, setRosterFilter] = React.useState<RosterFilter | null>(urlFilter);
   // PAD-486 (#523 review): the dashboard's "See all" lands here with a filter. The tab stays
-  // mounted, so the filters FOLLOW the URL both ways: a later arrival with different params
+  // mounted, so the filter FOLLOWS the URL both ways: a later arrival with different params
   // (or none) turns the earlier filter off instead of leaving it stuck on.
   React.useEffect(() => {
-    setMissingLevelFilter(missing_level === "true");
-    setMissingSideFilter(missing_side === "true");
-    setIncompleteFilter(incomplete === "true");
+    setRosterFilter(urlFilter);
     setPage(1);
-  }, [missing_level, missing_side, incomplete]);
+  }, [urlFilter]);
 
   // Debounce search — reset to page 1 on a new query (mirrors web, PLAYER_SEARCH_DEBOUNCE_MS = 200ms, players.search rule 10).
   React.useEffect(() => {
@@ -117,9 +125,7 @@ export default function PlayersScreen() {
       search: debouncedSearch || undefined,
       sortBy,
       sortDir,
-      missingLevel: missingLevelFilter,
-      missingSide: missingSideFilter,
-      incomplete: incompleteFilter,
+      ...rosterFilterQuery(rosterFilter),
     },
     { placeholderData: keepPreviousData }
   );
@@ -133,37 +139,28 @@ export default function PlayersScreen() {
   const players = data?.items ?? [];
   const totalPages = data?.pagination.pages || 1;
   const totalItems = data?.pagination.total || 0;
-  const alerts = data?.alerts ?? { missingLevel: 0, missingSide: 0 };
+  // players.list rule 14 (PAD-834): an older server sends no `incomplete` / `pendingRegistration`.
+  const incompleteCount = data?.alerts?.incomplete ?? 0;
+  const pendingCount = data?.alerts?.pendingRegistration ?? 0;
   // players.search rule 10: "searching" from the first keystroke until the request for the typed text lands.
   const searching = search.trim() !== debouncedSearch || (debouncedSearch !== "" && isFetching);
   const searchFeedback = (
     <PlayerSearchFeedback query={search} searching={searching} count={totalItems} />
   );
-  const hasActiveFilter = missingLevelFilter || missingSideFilter || incompleteFilter;
+  const hasActiveFilter = rosterFilter !== null;
 
   const handleSortChange = (option: Option) => {
     if (option?.value) setSortValue(option.value as SortValue);
     setPage(1);
   };
 
-  const toggleMissingLevel = () => {
-    setMissingLevelFilter((prev) => !prev);
-    setMissingSideFilter(false);
-    setIncompleteFilter(false);
-    setPage(1);
-  };
-
-  const toggleMissingSide = () => {
-    setMissingSideFilter((prev) => !prev);
-    setMissingLevelFilter(false);
-    setIncompleteFilter(false);
+  const toggleRosterFilter = (filter: RosterFilter) => {
+    setRosterFilter((prev) => (prev === filter ? null : filter));
     setPage(1);
   };
 
   const clearFilters = () => {
-    setMissingLevelFilter(false);
-    setMissingSideFilter(false);
-    setIncompleteFilter(false);
+    setRosterFilter(null);
     setPage(1);
   };
 
@@ -176,7 +173,12 @@ export default function PlayersScreen() {
       className="mb-3 rounded-lg border border-border bg-card p-4 active:bg-accent"
     >
       <View className="flex-row items-center gap-3">
-        <Avatar alt={item.displayName ?? (item.name || t("players.defaultPlayerName"))} className="h-12 w-12">
+        <Avatar
+          alt={item.displayName ?? (item.name || t("players.defaultPlayerName"))}
+          // players.list rule 15 (PAD-834): a pending row's avatar is dashed.
+          className={cn("h-12 w-12", item.pendingRegistration === true && "border-2 border-dashed border-violet-400")}
+          testID={item.pendingRegistration === true ? "player-row-avatar-pending" : undefined}
+        >
           <AvatarFallback>
             <Text className="text-primary">
               {getInitials(item.displayName ?? (item.name || ""))}
@@ -205,6 +207,7 @@ export default function PlayersScreen() {
             <Text>{t(SIDE_LABEL_KEYS[item.side])}</Text>
           </Badge>
         ) : null}
+        <PlayerRowStates player={item} />
         {/* players.claim rule 4c (PAD-528): the server's duplicate flag on a claimable row; nothing re-sorts. */}
         {item.possibleDuplicateOf ? (
           <Badge variant="outline" className="border-warning/40" testID={`player-duplicate-${item.playerId}`}
@@ -330,76 +333,13 @@ export default function PlayersScreen() {
           </SelectContent>
         </Select>
 
-        {alerts.missingLevel > 0 || alerts.missingSide > 0 ? (
-          <View className="gap-2">
-            {alerts.missingLevel > 0 ? (
-              <Pressable
-                accessibilityLabel={t("players.filterMissingLevelAria")}
-                role="button"
-                onPress={toggleMissingLevel}
-                className={cn(
-                  "flex-row items-center gap-2 rounded-md border p-3",
-                  missingLevelFilter
-                    ? "border-warning bg-warning/10"
-                    : "border-border bg-card"
-                )}
-              >
-                <Ionicons
-                  name="warning-outline"
-                  size={16}
-                  color={lightTheme.warning}
-                />
-                <Text className="flex-1 text-sm">
-                  {t("players.missingLevelAlert", { count: alerts.missingLevel })}
-                </Text>
-              </Pressable>
-            ) : null}
-            {alerts.missingSide > 0 ? (
-              <Pressable
-                accessibilityLabel={t("players.filterMissingSideAria")}
-                role="button"
-                onPress={toggleMissingSide}
-                className={cn(
-                  "flex-row items-center gap-2 rounded-md border p-3",
-                  missingSideFilter
-                    ? "border-warning bg-warning/10"
-                    : "border-border bg-card"
-                )}
-              >
-                <Ionicons
-                  name="warning-outline"
-                  size={16}
-                  color={lightTheme.warning}
-                />
-                <Text className="flex-1 text-sm">
-                  {t("players.missingSideAlert", { count: alerts.missingSide })}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-
-        {hasActiveFilter ? (
-          <View className="flex-row items-center gap-2">
-            <Badge variant="secondary">
-              <Text>
-                {incompleteFilter
-                  ? t("players.incompleteFilterActive")
-                  : missingLevelFilter
-                    ? t("players.missingLevelFilterActive")
-                    : t("players.missingSideFilterActive")}
-              </Text>
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              accessibilityLabel={t("players.clearFilterAriaLabel")}
-              onPress={clearFilters}
-            >
-              <Text>{t("players.clearFilter")}</Text>
-            </Button>
-          </View>
-        ) : null}
+        <RosterAlerts
+          incomplete={incompleteCount}
+          pending={pendingCount}
+          filter={rosterFilter}
+          onToggle={toggleRosterFilter}
+          onClear={clearFilters}
+        />
       </View>
 
       <View className="flex-1">{listBody()}</View>

@@ -1,0 +1,194 @@
+{
+  "setupGuide": {
+    "progress": "{{done}} of 5 steps · {{percent}}%",
+    "steps": {
+      "request_alerts": {
+        "title": "Turn on LevApp notifications",
+        "hint": "Invitations, reminders and attendance"
+      },
+      "device_push": {
+        "title": "Allow notifications on your phone",
+        "hint": "So alerts arrive with the app closed"
+      },
+      "unavailability": {
+        "title": "Set when you're unavailable",
+        "hint": "No invitations while you're busy"
+      },
+      "coach_link": {
+        "title": "Connect to a coach",
+        "hint": "Your coach invites you to classes"
+      },
+      "profile": {
+        "title": "Complete your profile",
+        "hint": "Level and side · remind your coach"
+      }
+    },
+    "done": "Done",
+    "next": "Next",
+    "sheet": {
+      "eyebrow": "WELCOME TO LEVAPP",
+      "title": "Set up your account",
+      "body": "5 quick steps so you never miss invitations, reminders or spots in classes.",
+      "start": "Start · 2 minutes",
+      "later": "Not now",
+      "hide": "Don't show again",
+      "footer": "You can always find this guide in Profile › Set up account."
+    },
+    "card": {
+      "eyebrow": "SET UP ACCOUNT · {{done}} OF 5",
+      "title": "Almost there, so you don't miss invitations",
+      "nextLabel": "Next: {{step}}",
+      "continue": "Continue",
+      "all": "See the 5 steps",
+      "loading": "Loading the guide…"
+    },
+    "ready": {
+      "eyebrow": "ACCOUNT READY · 5 OF 5",
+      "title": "You're all set",
+      "body": "You'll get invitations to classes at your level, reminders before each class and attendance requests, outside the hours you're busy.",
+      "close": "Close"
+    },
+    "ring": "Setup guide: {{percent}}%",
+    "step": {
+      "counter": "Step {{n}} of 5",
+      "skip": "Skip",
+      "later": "Not now",
+      "back": "Back"
+    },
+    "alerts": {
+      "title": "Don't miss a spot",
+      "body": "When a spot opens, the coach invites several players. Whoever answers first gets it.",
+      "youGet": "YOU'LL GET",
+      "items": {
+        "invites": "Invitations to open spots in classes",
+        "reminders": "Reminders before each class",
+        "presence": "Requests to confirm attendance",
+        "answers": "Your coach's answers to your requests"
+      },
+      "switchLabel": "Request alerts",
+      "switchHint": "Push and email · you can change it in Preferences",
+      "enable": "Turn on notifications",
+      "failed": "Couldn't turn them on. Try again."
+    },
+    "device": {
+      "titleIos": "Allow notifications on your iPhone",
+      "titleAndroid": "Allow notifications on your Android",
+      "titleWeb": "Allow notifications in your browser",
+      "titleIosBrowser": "Install the app to get alerts",
+      "body": "So invitations and reminders arrive even with LevApp closed.",
+      "howTo": "HOW TO",
+      "howToTap": "Tap Allow notifications.",
+      "hintIos": "In the iPhone prompt, choose Allow.",
+      "hintAndroid": "In the Android prompt, choose Allow.",
+      "hintWeb": "In the browser prompt, choose Allow.",
+      "allow": "Allow notifications",
+      "deniedTitle": "Notifications are off",
+      "deniedIos": "Open Settings › LevApp › Notifications and turn on Allow Notifications.",
+      "deniedAndroid": "Open Settings › Apps › LevApp › Notifications and turn notifications on.",
+      "deniedWeb": "Click the padlock next to the address and set Notifications to Allow.",
+      "openSettings": "Open Settings",
+      "recheck": "I changed it, check again",
+      "iosBrowserTitle": "The iPhone browser has no notifications",
+      "iosBrowserBody": "Safari only delivers alerts to installed apps. Install LevApp and sign in with the same account: your progress stays.",
+      "appStore": "Get it on the App Store",
+      "unsupported": "This browser can't receive notifications. Use another browser or the app.",
+      "doneBody": "Notifications are on for this device."
+    },
+    "unavailability": {
+      "title": "When can't you play?",
+      "body": "During those hours you get no invitations or reminders. Pick what looks most like you; you can adjust it later.",
+      "presets": {
+        "work_weekdays": {
+          "label": "Work on weekdays",
+          "detail": "Mon – Fri · 09:00 – 18:00"
+        },
+        "school_weekdays": {
+          "label": "Classes or school",
+          "detail": "Mon – Fri · 08:00 – 17:00"
+        },
+        "weekends": {
+          "label": "Weekends",
+          "detail": "Sat and Sun · all day"
+        }
+      },
+      "edit": "Edit",
+      "create": "+ Create my schedule",
+      "willSave": "WILL BE SAVED",
+      "recurring": "Recurring",
+      "save": "Save and continue",
+      "alwaysAvailable": "I'm always available",
+      "ends": "Ends on {{date}}",
+      "ended": "Ended on {{date}}",
+      "extend": "Extend",
+      "failed": "Couldn't save. Try again."
+    },
+    "coach": {
+      "title": "Connect to your coach",
+      "body": "Your coach invites you to classes and marks attendance. Without a connection, LevApp has no classes to show you.",
+      "linkTitle": "Got a link from your coach?",
+      "linkBody": "Open it on this phone and you're connected automatically. This step completes itself.",
+      "noCoachTitle": "No coach yet?",
+      "noCoachBody": "Ask LevApp to connect you to a coach at your club.",
+      "connect": "Connect me to a coach",
+      "later": "I'll do this later",
+      "linked": "You're connected to {{names}}."
+    },
+    "profile": {
+      "title": "Waiting on your coach",
+      "body": "Your level and side are set by your coach. Without them, you get no invitations to classes with a level rule or to spots reserved for one side.",
+      "coach": "Coach",
+      "level": "Level",
+      "side": "Side",
+      "unset": "Not set",
+      "sides": {
+        "left": "Left",
+        "right": "Right",
+        "both": "Both"
+      },
+      "remind": "Remind coach",
+      "remindHint": "Send a reminder. {{coach}} gets it in LevApp.",
+      "reminded": "Reminder sent to {{coach}}. This step completes when they finish your profile.",
+      "remindFailed": "Couldn't send the reminder.",
+      "noCoach": "First connect to a coach (step 4).",
+      "allSet": "Your coach has set your level and side.",
+      "finishLater": "Finish for now",
+      "toDashboard": "Go to the dashboard"
+    },
+    "editor": {
+      "titleNew": "My schedule",
+      "titleEdit": "Edit block",
+      "cancel": "Cancel",
+      "modeSame": "Same every day",
+      "modeVaries": "Varies by day",
+      "days": "DAYS",
+      "dayToEdit": "PICK THE DAY TO EDIT",
+      "all": "All",
+      "weekdays": "Weekdays",
+      "weekend": "Weekend",
+      "hours": "BUSY HOURS",
+      "hoursOf": "BUSY HOURS · {{day}}",
+      "clear": "Clear",
+      "hint1": "Tap the hour you become busy.",
+      "hint2": "Now tap the hour you're free again.",
+      "hint3": "Tap another hour to add another period.",
+      "free": "FREE",
+      "periods": "PERIODS · ADJUST IN 30-MIN STEPS",
+      "starts": "Starts",
+      "ends": "Ends",
+      "removePeriod": "Delete period",
+      "copy": "Copy {{day}} to…",
+      "copyDo": "Copy",
+      "week": "YOUR WEEK",
+      "weekFree": "Free",
+      "name": "NAME (OPTIONAL)",
+      "saveNew": "Save schedule",
+      "saveEdit": "Save changes",
+      "delete": "Delete block"
+    },
+    "settings": {
+      "title": "Set up account",
+      "description": "The 5-step guide so you never miss invitations, reminders or spots.",
+      "open": "Open the guide"
+    }
+  }
+}

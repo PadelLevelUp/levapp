@@ -93,3 +93,17 @@ describe("PAD-920 the new engine's invitation bubble (notifications.invitations 
     expect(s.labelKey).toBeNull();
   });
 });
+
+describe("the old builds' keys on a new-engine bubble (notifications.invitations NB6)", () => {
+  it("[NOTIFICATIONS-INVITATIONS-129] the current shells read the same state with or without them", () => {
+    const now = new Date("2026-11-01T19:10:00Z");
+    const base = { engine: "new", invitationId: 7, lessonInstanceId: 3, kind: "invite", startsAt: "2026-11-03T10:30:00" };
+    for (const [state, response] of [["open", undefined], ["answered", "yes"], ["sorry", "spot_filled"],
+                                     ["withdrawn", "withdrawn"], ["closed_same_hour", "booked_same_day"]] as const) {
+      const plain = { ...base, state, ...(state === "answered" ? { response } : {}) } as unknown as EngineInviteMeta;
+      const shimmed = { ...plain, notificationEventId: -7, responded: state !== "open", response } as unknown as EngineInviteMeta;
+      expect(isEngineInvite(shimmed)).toBe(true);
+      expect(engineInviteState(shimmed, "student", now)).toEqual(engineInviteState(plain, "student", now));
+    }
+  });
+});

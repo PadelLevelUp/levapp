@@ -1,0 +1,194 @@
+{
+  "setupGuide": {
+    "progress": "{{done}} de 5 passos · {{percent}}%",
+    "steps": {
+      "request_alerts": {
+        "title": "Ativar notificações na LevApp",
+        "hint": "Convites, lembretes e presenças"
+      },
+      "device_push": {
+        "title": "Permitir notificações no telemóvel",
+        "hint": "Para os avisos chegarem com a app fechada"
+      },
+      "unavailability": {
+        "title": "Definir indisponibilidade",
+        "hint": "Sem convites quando estás ocupado"
+      },
+      "coach_link": {
+        "title": "Ligar a um treinador",
+        "hint": "É ele que te convida para as aulas"
+      },
+      "profile": {
+        "title": "Completar o teu perfil",
+        "hint": "Nível e lado · lembra o treinador"
+      }
+    },
+    "done": "Feito",
+    "next": "A seguir",
+    "sheet": {
+      "eyebrow": "BEM-VINDO À LEVAPP",
+      "title": "Prepara a tua conta",
+      "body": "5 passos rápidos para não perderes convites, lembretes nem vagas nas aulas.",
+      "start": "Começar · 2 minutos",
+      "later": "Agora não",
+      "hide": "Não mostrar mais",
+      "footer": "Encontras sempre este guia em Perfil › Configurar conta."
+    },
+    "card": {
+      "eyebrow": "CONFIGURAR CONTA · {{done}} DE 5",
+      "title": "Falta pouco para não perderes convites",
+      "nextLabel": "A seguir: {{step}}",
+      "continue": "Continuar",
+      "all": "Ver os 5 passos",
+      "loading": "A carregar o guia…"
+    },
+    "ready": {
+      "eyebrow": "CONTA PRONTA · 5 DE 5",
+      "title": "Está tudo configurado",
+      "body": "Vais receber convites para as aulas do teu nível, lembretes antes de cada aula e pedidos de presença, fora das horas em que estás ocupado.",
+      "close": "Fechar"
+    },
+    "ring": "Guia de configuração: {{percent}}%",
+    "step": {
+      "counter": "Passo {{n}} de 5",
+      "skip": "Saltar",
+      "later": "Agora não",
+      "back": "Voltar"
+    },
+    "alerts": {
+      "title": "Não percas uma vaga",
+      "body": "Quando abre uma vaga, o treinador convida vários jogadores. Quem responde primeiro, fica com ela.",
+      "youGet": "VAIS RECEBER",
+      "items": {
+        "invites": "Convites para vagas nas aulas",
+        "reminders": "Lembretes antes de cada aula",
+        "presence": "Pedidos para confirmar presença",
+        "answers": "Respostas do treinador aos teus pedidos"
+      },
+      "switchLabel": "Alertas de pedidos",
+      "switchHint": "Push e email · podes mudar em Preferências",
+      "enable": "Ativar notificações",
+      "failed": "Não foi possível ativar. Tenta de novo."
+    },
+    "device": {
+      "titleIos": "Permite notificações no iPhone",
+      "titleAndroid": "Permite notificações no Android",
+      "titleWeb": "Permite notificações no navegador",
+      "titleIosBrowser": "Instala a app para receberes avisos",
+      "body": "Assim os convites e lembretes chegam mesmo com a LevApp fechada.",
+      "howTo": "COMO FAZER",
+      "howToTap": "Toca em Permitir notificações.",
+      "hintIos": "No aviso do iPhone, escolhe Permitir.",
+      "hintAndroid": "No aviso do Android, escolhe Permitir.",
+      "hintWeb": "No aviso do navegador, escolhe Permitir.",
+      "allow": "Permitir notificações",
+      "deniedTitle": "As notificações estão desligadas",
+      "deniedIos": "Abre Definições › LevApp › Notificações e liga Permitir notificações.",
+      "deniedAndroid": "Abre Definições › Apps › LevApp › Notificações e liga as notificações.",
+      "deniedWeb": "Clica no cadeado ao lado do endereço e muda Notificações para Permitir.",
+      "openSettings": "Abrir Definições",
+      "recheck": "Já mudei, verificar",
+      "iosBrowserTitle": "No navegador do iPhone não há notificações",
+      "iosBrowserBody": "O Safari só entrega avisos a apps instaladas. Instala a LevApp e entra com a mesma conta: o progresso mantém-se.",
+      "appStore": "Obter na App Store",
+      "unsupported": "Este navegador não recebe notificações. Usa outro navegador ou a app.",
+      "doneBody": "As notificações estão ativas neste dispositivo."
+    },
+    "unavailability": {
+      "title": "Quando não podes jogar?",
+      "body": "Nessas horas não recebes convites nem lembretes. Escolhe o que se parece mais contigo; ajustas depois.",
+      "presets": {
+        "work_weekdays": {
+          "label": "Trabalho em dias úteis",
+          "detail": "seg – sex · 09:00 – 18:00"
+        },
+        "school_weekdays": {
+          "label": "Aulas ou escola",
+          "detail": "seg – sex · 08:00 – 17:00"
+        },
+        "weekends": {
+          "label": "Fins de semana",
+          "detail": "sáb e dom · todo o dia"
+        }
+      },
+      "edit": "Editar",
+      "create": "+ Criar o meu horário",
+      "willSave": "VAI FICAR GUARDADO",
+      "recurring": "Recorrente",
+      "save": "Guardar e continuar",
+      "alwaysAvailable": "Estou sempre disponível",
+      "ends": "Termina a {{date}}",
+      "ended": "Terminou a {{date}}",
+      "extend": "Prolongar",
+      "failed": "Não foi possível guardar. Tenta de novo."
+    },
+    "coach": {
+      "title": "Liga-te ao teu treinador",
+      "body": "É o treinador que te convida para aulas e marca as presenças. Sem ligação, a LevApp não tem aulas para te mostrar.",
+      "linkTitle": "Recebeste um link do treinador?",
+      "linkBody": "Abre-o neste telemóvel e ficas ligado automaticamente. Este passo fica feito sozinho.",
+      "noCoachTitle": "Ainda não tens treinador?",
+      "noCoachBody": "Pede à LevApp para te ligar a um treinador do teu clube.",
+      "connect": "Ligar-me a um treinador",
+      "later": "Faço isto depois",
+      "linked": "Já estás ligado a {{names}}."
+    },
+    "profile": {
+      "title": "Falta o teu treinador",
+      "body": "O nível e o lado são definidos pelo treinador. Sem eles, não recebes convites para aulas com regra de nível nem para vagas reservadas a um lado.",
+      "coach": "Treinador",
+      "level": "Nível",
+      "side": "Lado",
+      "unset": "Por definir",
+      "sides": {
+        "left": "Esquerda",
+        "right": "Direita",
+        "both": "Ambos"
+      },
+      "remind": "Lembrar treinador",
+      "remindHint": "Envia um lembrete. O {{coach}} recebe-o na LevApp.",
+      "reminded": "Lembrete enviado ao {{coach}}. O passo fica feito quando ele completar o teu perfil.",
+      "remindFailed": "Não foi possível enviar o lembrete.",
+      "noCoach": "Primeiro liga-te a um treinador (passo 4).",
+      "allSet": "O teu treinador já definiu o nível e o lado.",
+      "finishLater": "Terminar por agora",
+      "toDashboard": "Ir para o Painel"
+    },
+    "editor": {
+      "titleNew": "O meu horário",
+      "titleEdit": "Editar bloqueio",
+      "cancel": "Cancelar",
+      "modeSame": "Igual todos os dias",
+      "modeVaries": "Varia por dia",
+      "days": "DIAS",
+      "dayToEdit": "ESCOLHE O DIA A EDITAR",
+      "all": "Todos",
+      "weekdays": "Dias úteis",
+      "weekend": "Fim de semana",
+      "hours": "HORAS OCUPADAS",
+      "hoursOf": "HORAS OCUPADAS · {{day}}",
+      "clear": "Limpar",
+      "hint1": "Toca na hora em que começas a estar ocupado.",
+      "hint2": "Agora toca na hora em que ficas livre.",
+      "hint3": "Toca noutra hora para juntar outro período.",
+      "free": "LIVRE",
+      "periods": "PERÍODOS · AFINA DE 30 EM 30 MIN",
+      "starts": "Começa",
+      "ends": "Acaba",
+      "removePeriod": "Apagar período",
+      "copy": "Copiar {{day}} para…",
+      "copyDo": "Copiar",
+      "week": "A TUA SEMANA",
+      "weekFree": "Livre",
+      "name": "NOME (OPCIONAL)",
+      "saveNew": "Guardar horário",
+      "saveEdit": "Guardar alterações",
+      "delete": "Apagar bloqueio"
+    },
+    "settings": {
+      "title": "Configurar conta",
+      "description": "O guia de 5 passos para não perderes convites, lembretes nem vagas.",
+      "open": "Abrir o guia"
+    }
+  }
+}
