@@ -5,59 +5,14 @@
  * the native registrations stop growing once registered, or once the foregrounds stop.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { expoNotificationsFake as fake } from "./testing/expoNotificationsFake";
 
 const post = vi.fn();
 vi.mock("@/lib/api", () => ({ api: { post: (...a: unknown[]) => post(...a), delete: vi.fn() } }));
 vi.mock("expo-constants", () => ({ default: { expoConfig: { extra: { eas: { projectId: "p" } } } } }));
 vi.mock("expo-device", () => ({ isDevice: true }));
 
-const RAW = "a3f1".repeat(16);
-const native = vi.hoisted(() => ({
-  listener: null as null | ((e: { type: string; data: string }) => void),
-  deviceTokenCalls: 0,
-  events: 0,
-  inFlight: null as null | { reject: (e: Error) => void },
-  expoCalls: [] as unknown[],
-  getDevice: (() => Promise.reject(new Error("unset"))) as () => Promise<unknown>,
-}));
-// The native call: starts a registration, a newer call rejects the one in flight, and the
-// registration's answer is delivered as a token EVENT (as well as the promise).
-native.getDevice = () => {
-    native.deviceTokenCalls += 1;
-    // A runaway loop must end the test with a failed assertion, not a timeout.
-    if (native.deviceTokenCalls > 30) return Promise.reject(new Error("loop cap"));
-    native.inFlight?.reject(Object.assign(new Error("replaced"), { code: "E_PROMISE_REPLACED" }));
-    return new Promise<{ type: string; data: string }>((resolve, reject) => {
-      native.inFlight = { reject };
-      setTimeout(() => {
-        native.inFlight = null;
-        native.events += 1;
-        native.listener?.({ type: "ios", data: RAW });
-        resolve({ type: "ios", data: RAW });
-      }, 50);
-    });
-  };
-
-
-vi.mock("expo-notifications", () => ({
-  AndroidImportance: { HIGH: 4 },
-  setNotificationChannelAsync: vi.fn(async () => undefined),
-  getPermissionsAsync: vi.fn(async () => ({ status: "granted" })),
-  requestPermissionsAsync: vi.fn(async () => ({ status: "granted" })),
-  addPushTokenListener: vi.fn((l: (e: { type: string; data: string }) => void) => {
-    native.listener = l;
-    return { remove: () => (native.listener = null) };
-  }),
-  // The native call: starts a registration, a newer call rejects the one in flight, and the
-  // registration's answer is delivered as a token EVENT (as well as the promise).
-  getDevicePushTokenAsync: vi.fn(() => native.getDevice()),
-  // Expo's own: uses the device token it is given, otherwise asks the native module for one.
-  getExpoPushTokenAsync: vi.fn(async (options?: { devicePushToken?: unknown }) => {
-    native.expoCalls.push(options);
-    if (!options?.devicePushToken) await native.getDevice();
-    return { data: "ExponentPushToken[abc]" };
-  }),
-}));
+vi.mock("expo-notifications", () => fake.module);
 
 import { ExpoPushRegistrar, PUSH_TOKEN_ENDPOINT } from "./expoPushRegistrar";
 import { startPushRecovery } from "./recovery";
@@ -78,7 +33,7 @@ function fakeAppState() {
 beforeEach(() => {
   vi.useFakeTimers();
   post.mockReset().mockResolvedValue({});
-  Object.assign(native, { listener: null, deviceTokenCalls: 0, events: 0, inFlight: null, expoCalls: [] });
+  fake.reset();
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
 });
@@ -96,13 +51,13 @@ describe("startPushRecovery against a native module that re-emits (PAD-741, buil
     app.foreground(); // iOS reports "active" while the first registration is still in flight
     await vi.advanceTimersByTimeAsync(1_000);
     expect(registrar.status()).toBe("registered");
-    const afterStart = native.deviceTokenCalls;
+    const afterStart = fake.counters.nativeRegistrations;
     expect(afterStart).toBeLessThanOrEqual(2);
     for (let i = 0; i < 5; i++) {
       app.foreground();
       await vi.advanceTimersByTimeAsync(1_000);
     }
-    expect(native.deviceTokenCalls).toBe(afterStart);
+    expect(fake.counters.nativeRegistrations).toBe(afterStart);
     // The race can post the same Expo token twice (each registration ends in its own POST); never more.
     const posts = post.mock.calls.filter(([p]) => p === PUSH_TOKEN_ENDPOINT);
     expect(posts.length).toBeLessThanOrEqual(2);
@@ -121,10 +76,10 @@ describe("startPushRecovery against a native module that re-emits (PAD-741, buil
       await vi.advanceTimersByTimeAsync(1_000);
     }
     await vi.advanceTimersByTimeAsync(3_600_000); // every retry wait, an hour on
-    const settled = native.deviceTokenCalls;
+    const settled = fake.counters.nativeRegistrations;
     expect(settled).toBeLessThan(30); // the loop cap is 30: a runaway is not "bounded"
     await vi.advanceTimersByTimeAsync(3_600_000);
-    expect(native.deviceTokenCalls).toBe(settled);
+    expect(fake.counters.nativeRegistrations).toBe(settled);
     stop();
   });
 });
