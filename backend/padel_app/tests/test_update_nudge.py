@@ -231,3 +231,13 @@ def test_the_switch_turns_it_off_and_the_row_beats_the_env(app, client, sent, mo
     nudge_service.reset_cache()
     _get(app, client, uid)
     assert len(_nudges(app)) == 1
+
+
+@pytest.mark.criterion("MESSAGING-UPDATE-NUDGE-6")
+def test_staging_switches_the_nudge_off_and_production_does_not_name_it():
+    """The tracked env files deploy as written; staging's database is a copy of prod's users."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    assert "\nUPDATE_NUDGE_ENABLED=0\n" in (root / ".env.staging").read_text()
+    assert "UPDATE_NUDGE_ENABLED" not in (root / ".env.prod").read_text()
