@@ -125,8 +125,7 @@ def nudge(user_id: int) -> bool:
     db.session.commit()
     _done.add(user_id)
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
-    url = f"/messages/{conv.id}"
-    send_push_notification(user_id=user_id, title=PUSH_TITLE, body=text, url=url)
+    send_push_notification(user_id=user_id, title=PUSH_TITLE, body=text, url=f"/messages/{conv.id}")
     send_expo_push_to_user(user_id, title=PUSH_TITLE, body=text,
                            data={"type": "message", "conversationId": conv.id, "messageId": msg.id},
                            badge=get_unread_count(user_id))
