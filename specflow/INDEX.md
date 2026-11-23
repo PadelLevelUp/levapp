@@ -2458,7 +2458,7 @@ Untagged tests: 4280
     - test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.busySameHour.test.tsx` › [CLASSES-CLASS-REQUESTS-41] the chat bubble takes a refused accept's text from the same helper
   - **CLASSES-CLASS-REQUESTS-42** The iOS request screens show the clash lines (rule 4a)
     - test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wiring.test.ts` › [CLASSES-CLASS-REQUESTS-42] both iOS request screens read the clash lines first
-  - **CLASSES-CLASS-REQUESTS-43** A client that does not declare waiting-list-side gets slot_taken for a same-hour accept (rule 4b)
+  - **CLASSES-CLASS-REQUESTS-43** A client that does not declare waiting-list-side gets slot_taken for a same-hour accept (rule 4a)
     - test: `backend/padel_app/tests/test_b729_class_request_accept_same_hour.py` › test_the_same_hour_code_follows_waiting_list_side_with_the_same_message_and_clashes
 
 ### P-CLASSES-4: Student joins and views classes
