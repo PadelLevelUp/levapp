@@ -714,9 +714,11 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
     except BusySameHourError as e:
         # B-729 (rule 4a; instance-enrollment rule 15): someone is going to another class at that hour,
         # placed after the slot check above. Nothing is kept (the released hold comes back with the
-        # rollback) and the answer is /add_class's 409.
+        # rollback) and the answer is /add_class's 409. Rule 4b: `slot_taken` to builds 33-35.
+        from padel_app.services.engine_entry import same_hour_refusal_code
+
         db.session.rollback()
-        _refuse(e.code, str(e), clashes=e.clashes)
+        _refuse(same_hour_refusal_code(), str(e), clashes=e.clashes)
     # PAD-357 rule 14: the people they brought did not ask — they are told.
     from padel_app.services.system_messages import notify_student_added_to_class
     for p in invitees:
