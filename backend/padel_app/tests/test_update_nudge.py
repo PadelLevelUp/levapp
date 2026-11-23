@@ -16,6 +16,11 @@ from padel_app.sql_db import db
 
 OLD_UA = "LevApp/37 CFNetwork/1494.0.7 Darwin/23.4.0"
 ME = "/api/auth/me"
+EXACT = {
+    "pt": "A LevApp 1.3.5 já está na App Store. A versão que tens tem um erro que a torna muito lenta. Para atualizar: abre a App Store, toca na tua foto (canto superior direito) e toca em Atualizar ao lado da LevApp.",
+    "en": "LevApp 1.3.5 is now on the App Store. The version you have has a bug that makes it very slow. To update: open the App Store, tap your photo (top right) and tap Update next to LevApp.",
+    "fr": "LevApp 1.3.5 est disponible sur l'App Store. Ta version a un bug qui la rend très lente. Pour mettre à jour : ouvre l'App Store, touche ta photo (en haut à droite) puis touche « Mettre à jour » à côté de LevApp.",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -182,7 +187,9 @@ def test_the_text_follows_the_users_language(app, client, sent, language, expect
     _get(app, client, uid)
     (msg,) = _nudges(app)
     assert msg.text == nudge_service.TEXTS[expected]
-    assert "1.3.5" in msg.text
+    # The owner's wording (the steps, no link: builds 33-37 draw plain text), and the whole text is pushed.
+    assert msg.text == EXACT[expected]
+    assert sent["web"][0]["body"] == sent["expo"][0]["body"] == EXACT[expected]
 
 
 @pytest.mark.criterion("MESSAGING-UPDATE-NUDGE-5")

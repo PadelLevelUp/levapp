@@ -25,9 +25,9 @@ SWITCH_CACHE_SECONDS = 30
 _UA_BUILD = re.compile(r"^LevApp/(\d+)\b")
 
 TEXTS = {
-    "pt": "A LevApp 1.3.5 já está na App Store. Atualiza a app: a versão que tens tem um erro que a torna muito lenta.",
-    "en": "LevApp 1.3.5 is now on the App Store. Update the app: the version you have has a bug that makes it very slow.",
-    "fr": "LevApp 1.3.5 est disponible sur l'App Store. Mets à jour l'app : ta version a un bug qui la rend très lente.",
+    "pt": "A LevApp 1.3.5 já está na App Store. A versão que tens tem um erro que a torna muito lenta. Para atualizar: abre a App Store, toca na tua foto (canto superior direito) e toca em Atualizar ao lado da LevApp.",
+    "en": "LevApp 1.3.5 is now on the App Store. The version you have has a bug that makes it very slow. To update: open the App Store, tap your photo (top right) and tap Update next to LevApp.",
+    "fr": "LevApp 1.3.5 est disponible sur l'App Store. Ta version a un bug qui la rend très lente. Pour mettre à jour : ouvre l'App Store, touche ta photo (en haut à droite) puis touche « Mettre à jour » à côté de LevApp.",
 }
 
 #: Users this worker knows hold the nudge: their requests then cost no query at all.
