@@ -4953,6 +4953,7 @@ Untagged tests: 4280
     - test: `backend/padel_app/tests/test_update_nudge.py` › test_a_failing_nudge_never_fails_the_request
   - **MESSAGING-UPDATE-NUDGE-6** The switch turns it off (rule 6)
     - test: `backend/padel_app/tests/test_update_nudge.py` › test_the_switch_turns_it_off_and_the_row_beats_the_env
+    - test: `backend/padel_app/tests/test_update_nudge.py` › test_staging_switches_the_nudge_off_and_production_does_not_name_it
 - spec **notifications.notification-sound** (`specflow/impl/notifications/notification-sound.spec.md`)
   - **NOTIFICATIONS-NOTIFICATION-SOUND-1** The switch defaults on and is saved (rule 1)
     - test: `backend/padel_app/tests/test_pad680_notification_sound.py` › test_the_switch_defaults_on_and_is_saved
