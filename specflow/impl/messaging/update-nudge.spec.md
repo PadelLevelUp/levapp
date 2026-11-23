@@ -41,9 +41,12 @@ revealed the old build is never slowed or failed by it.
    the conversation's recipients, then one push with the same text: the web push and the Expo push
    (title "LevApp 1.3.5", opening the conversation).
 4. **Language: the user's.** The text follows `users.language` (`pt` when it is anything else):
-   - pt: "A LevApp 1.3.5 já está na App Store. Atualiza a app: a versão que tens tem um erro que a torna muito lenta."
-   - en: "LevApp 1.3.5 is now on the App Store. Update the app: the version you have has a bug that makes it very slow."
-   - fr: "LevApp 1.3.5 est disponible sur l'App Store. Mets à jour l'app : ta version a un bug qui la rend très lente."
+   - pt: "A LevApp 1.3.5 já está na App Store. A versão que tens tem um erro que a torna muito lenta. Para atualizar: abre a App Store, toca na tua foto (canto superior direito) e toca em Atualizar ao lado da LevApp."
+   - en: "LevApp 1.3.5 is now on the App Store. The version you have has a bug that makes it very slow. To update: open the App Store, tap your photo (top right) and tap Update next to LevApp."
+   - fr: "LevApp 1.3.5 est disponible sur l'App Store. Ta version a un bug qui la rend très lente. Pour mettre à jour : ouvre l'App Store, touche ta photo (en haut à droite) puis touche « Mettre à jour » à côté de LevApp."
+
+   The text carries the steps, not a link: builds 33-37 draw message text as plain text with no link
+   detection, and a push tap only opens the app. The push body is the whole text (nothing shortens it).
 5. **Never a failure mode.** The nudge runs after the response is built, in its own database
    session. Any exception is logged and swallowed; the response, its status and its headers are
    unchanged, and the request's own work is neither committed nor rolled back by it.
