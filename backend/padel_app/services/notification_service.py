@@ -1120,6 +1120,12 @@ def makeups_owed_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[in
     presence on this coach's occurrence whose seat was a guest's (``enrolment_source`` fill, coach or
     walk_in; for unknown or import, no place on the class's roster now). All time, even when the student
     then missed the class an invitation filled (owner decisions PAD-505 Q2; history import D2)."""
+    balance = makeups_balance_for(player_ids, coach_id, instance_ids=instance_ids)
+    return {pid: max(n, 0) for pid, n in balance.items()}
+
+
+def makeups_balance_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[int, int]:
+    """``makeups_owed_for`` before its floor at 0: negative when more make-ups were taken than owed."""
     from sqlalchemy import and_, func, or_
 
     from padel_app.models import Association_PlayerLesson, EngineInvitation
@@ -1170,7 +1176,7 @@ def makeups_owed_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[in
     )
     for pid, _iid in taken:
         balance[pid] -= 1
-    return {pid: max(n, 0) for pid, n in balance.items()}
+    return balance
 
 
 def makeups_owed(player_id: int, coach_id: int) -> int:

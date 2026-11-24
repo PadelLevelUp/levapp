@@ -677,6 +677,9 @@ def _write_everything(data, run, record_ids, coach, club, plan_):
     through = date.fromisoformat(history["through"])
     summary = {}
 
+    # Rule 26: the app's numbers before the first write, which the proof compares with those after the last.
+    before = app_numbers(coach.id, date.fromisoformat(history["from"]), through)
+
     # Rule 28: the season.
     if plan_.season_to_create:
         season = plan_.season_to_create
@@ -818,27 +821,35 @@ def _write_everything(data, run, record_ids, coach, club, plan_):
         summary["Lessons"] = n_lessons
     summary["Instances"], summary["Presences"] = n_instances, len(record_ids.get("presences", []))
 
-    lines = _prove(data, plan_, record_ids, coach, club)
+    lines = _prove(data, plan_, record_ids, coach, club, before)
     run.summary = json.dumps(summary)
     db.session.commit()
     return lines
+
+
+#: Rule 26: the numbers the proof compares before and after, by the label the table prints.
+_PROVEN = {"justified": "justified", "justified min": "justifiedMinutes", "unjustified": "unjustified",
+           "guest": "invitesJoined", "guest min": "guestPresenceMinutes", "balance": "balanceMinutes"}
 
 
 def app_numbers(coach_id, first, through):
     """What the Presences tab and the engine say, per student name key (rule 26)."""
     from datetime import datetime, time
 
-    from padel_app.services.notification_service import makeups_owed_for
+    from padel_app.services.notification_service import makeups_balance_for, makeups_owed_for
     from padel_app.services.presence_overview_service import build_presence_stats
 
     stats = build_presence_stats(coach_id=coach_id, range_start=datetime.combine(first, time.min),
                                  range_end=datetime.combine(through, time.max))
-    owed = makeups_owed_for([p["playerId"] for p in stats["players"]], coach_id)
-    return {_key(p["name"]): {**p, "owed": owed.get(p["playerId"], 0)} for p in stats["players"]}
+    ids = [p["playerId"] for p in stats["players"]]
+    owed, balance = makeups_owed_for(ids, coach_id), makeups_balance_for(ids, coach_id)
+    return {_key(p["name"]): {**p, "owed": owed.get(p["playerId"], 0), "makeupsBalance": balance.get(p["playerId"], 0)}
+            for p in stats["players"]}
 
 
-def _prove(data, plan_, record_ids, coach, club):
-    """Rule 26: ownership, nothing left to validate, and the app's numbers equal the file's loaded rows."""
+def _prove(data, plan_, record_ids, coach, club, before):
+    """Rule 26: ownership, nothing left to validate, and what the run changed in the app's numbers (``before`` is
+    the reading taken just before the first write) equals the file's loaded rows."""
     from padel_app.models import Association_CoachLesson, Lesson, LessonInstance, Presence
     from padel_app.services.onboarding_service import OnboardingFailed
     from padel_app.sql_db import db
@@ -872,24 +883,42 @@ def _prove(data, plan_, record_ids, coach, club):
             problems.append(f"{c.title}: {left} rows are left to validate up to {c.cutoff(through)}")
 
     numbers = app_numbers(coach.id, first, through)
-    lines = ["Expected vs app (file loaded rows / app; ✓ = equal):"]
+    lines = ["Expected vs app (file loaded rows / what the run changed, owed expected / app; ✓ = equal):"]
     for e in plan_.table:
         app = numbers.get(_key(e["student"]))
         if app is None:
             problems.append(f"{e['student']}: not on the coach's roster after the run")
             continue
-        pairs = (("justified", e["just_n"], app["justified"]), ("justified min", e["just_min"], app["justifiedMinutes"]),
-                 ("unjustified", e["unj_n"], app["unjustified"]), ("guest", e["guest_n"], app["invitesJoined"]),
-                 ("guest min", e["guest_min"], app["guestPresenceMinutes"]), ("balance", e["balance"], app["balanceMinutes"]),
-                 ("owed", e["owed"], app["owed"]))
+        was = before.get(_key(e["student"]), {})  # a student the run created starts from zero
+        changed = {f: app[f] - was.get(f, 0) for f in _PROVEN.values()}
+        pairs = (("justified", e["just_n"], changed["justified"]), ("justified min", e["just_min"], changed["justifiedMinutes"]),
+                 ("unjustified", e["unj_n"], changed["unjustified"]), ("guest", e["guest_n"], changed["invitesJoined"]),
+                 ("guest min", e["guest_min"], changed["guestPresenceMinutes"]),
+                 ("balance", e["balance"], changed["balanceMinutes"]),
+                 # Owed has a floor and no period: recomputed from before plus the file, never subtracted.
+                 ("owed", max(was.get("makeupsBalance", 0) + e["just_n"] - e["guest_n"], 0), app["owed"]))
         cells = []
         for label, expected, found in pairs:
             cells.append(f"{label} {expected}/{found} " + ("✓" if expected == found else f"Δ{found - expected:+d}"))
             if expected != found:
-                problems.append(f"{e['student']}: {label} is {found} in the app, the file's rows give {expected}")
+                verb = "is" if label == "owed" else "changed by"
+                problems.append(f"{e['student']}: {label} {verb} {found} in the app, the file's rows give {expected}")
         lines.append(f"  {e['student']}: " + ", ".join(cells)
                      + (f"; excluded just {e['ex_just']} unj {e['ex_unj']} guest {e['ex_guest']}"
                         if e["ex_just"] or e["ex_unj"] or e["ex_guest"] else ""))
+    # A student the file gives no row: the run may mark them present, and changes none of these numbers.
+    in_file = {_key(e["student"]) for e in plan_.table}
+    for k, app in numbers.items():
+        if k in in_file:
+            continue
+        was = before.get(k, {})
+        for label, f in _PROVEN.items():
+            if app[f] != was.get(f, 0):
+                problems.append(f"{app['name']}: {label} changed by {app[f] - was.get(f, 0)} in the app, "
+                                "the file has no row of theirs")
+        if app["owed"] != was.get("owed", 0):
+            problems.append(f"{app['name']}: owed is {app['owed']} in the app, it was {was.get('owed', 0)} and "
+                            "the file has no row of theirs")
     if problems:
         raise OnboardingFailed("proof failed: " + "; ".join(problems))
     return lines
