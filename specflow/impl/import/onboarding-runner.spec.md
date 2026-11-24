@@ -296,6 +296,15 @@ a history row, like a roster run.
     them (rule 27), after the presences that name them. A history file with `players` still needs
     `expects.players` to be the coach's count before the run (rule 4b).
 
+31. **A series split after `through` is not a history class (prod dry run, 2026-11-20).** When the
+    coach edits "this and all following classes", the series forks: the old lesson ends on the day
+    before and a new lesson, with the same students, starts on the edited day. A weekly class of the
+    coach whose first occurrence is after `through` has no occurrence in the period: it is not moved
+    back (rule 19), materialises nothing (rule 20) and takes no row (rule 17); the dry run prints it
+    as "starts after through, left as is". Its predecessor, which holds the period, is the class the
+    rows resolve to. A student who is only in the new lesson is "in no class" for a row in the period
+    and the row is refused, never guessed.
+
 ### Acceptance Criteria
 
 #### IMPORT-ONBOARDING-RUNNER-1: A dry run shows the plan and writes nothing (rule 5)
@@ -639,6 +648,15 @@ the roster in no class. No instance exists. History file `2026_11_19_rui_history
 - **Then** no occurrence of that run remains, the history row is gone, and the same file applies afterwards
 - **And** after a completed run is reverted, each moved class has its start, end and recurrence rule
   text as before the run
+
+#### IMPORT-ONBOARDING-RUNNER-44: A series split after `through` is left as it is (rule 31)
+- **Given** the fixture, with "Segunda 18:00" split by the coach on a Monday after `through` (the old
+  lesson ends the day before, a new lesson with the same students starts that Monday), and the valid file
+- **When** the run is dry-run and then applied
+- **Then** no row is refused as "in two classes", each Monday row resolves to the old lesson, the
+  dry run prints the new lesson as starting after `through`, left as is
+- **And** after the apply the new lesson still starts on its own Monday and has no instance in the
+  period; the old lesson starts on 2026-08-31
 
 ### Notes
 - Reused, not reimplemented: player creation is `import.confirm`'s, class creation is

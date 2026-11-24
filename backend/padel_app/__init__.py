@@ -120,6 +120,11 @@ def create_app(test_config=None):
 
         return response
 
+    # messaging.update-nudge: after the response is final; never fails the request.
+    from padel_app.services import update_nudge_service
+
+    app.after_request(update_nudge_service.after_request)
+
     with app.app_context():
         modules.startup.add_to_session()
 

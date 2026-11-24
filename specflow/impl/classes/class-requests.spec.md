@@ -72,6 +72,11 @@ held on the coach's calendar while the request is open.
    - **The student:** "{name} já está inscrito noutra aula à mesma hora ({title}, {date} {time})." /
      "{name} is already in another class at the same time ({title}, {date} {time})." (proposed, for the
      owner's approval). The clash can name an invitee, so the line names who.
+   - **A client without those lines (releases #21):** App Store builds 33, 34 and 35 have no
+     `classRequests.refusal.busy_same_hour` copy. A request that does not declare the
+     `waiting-list-side` capability gets the code `slot_taken` instead (rule 13's code, which those
+     builds read as "Esse horário já não está livre"), with the same `message` and `clashes`. Build 37
+     and later and the web declare it and keep `busy_same_hour`.
 5. **The student answers a proposal**: `accept-proposal` behaves exactly like the coach's accept
    (the class is created at the proposed slot); `decline-proposal` closes the request as
    `declined` with `decided_by: student`; `counter-proposal` sends another time back to the
@@ -549,7 +554,7 @@ test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `te
 - **And** the requester's own username answers `SELF_INVITE`, and a name given twice `DUPLICATE_INVITEE`
 test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `test_participants_resolve_one_at_a_time_without_an_oracle`
 #### CLASSES-CLASS-REQUESTS-39: An accept that clashes at the same hour answers 409 busy_same_hour and changes nothing (rule 4a, B-729)
-- **Given** a coach on the new engine with a pending request from Ana for 11:00, and Ana starts going to another coach's 11:00 class just after the accept's slot check
+- **Given** a client that declares `waiting-list-side`, a coach on the new engine with a pending request from Ana for 11:00, and Ana starts going to another coach's 11:00 class just after the accept's slot check
 - **When** the coach accepts, and, separately, when the coach has proposed 15:00, Ana starts going to another coach's 15:00 class just after the check, and Ana accepts the proposal
 - **Then** each answers `409` with `code` `busy_same_hour`, a `message`, and one clash naming Ana and the other class; the request keeps its status (`pending`, `countered`) and its hold, and no class is created
 test: `backend/padel_app/tests/test_b729_class_request_accept_same_hour.py` › `test_the_coachs_accept_that_clashes_at_the_same_hour_answers_409_and_changes_nothing` (+1 more)
@@ -568,4 +573,9 @@ test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.busy
 - **Given** the iOS request list and the conversation's request bubble
 - **Then** both take a refused accept's text from `classRequestRefusalLines` before the refusal key
 test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wiring.test.ts` › `both iOS request screens read the clash lines first`
+
+#### CLASSES-CLASS-REQUESTS-43: A client that does not declare waiting-list-side gets slot_taken for a same-hour accept (rule 4a)
+- **Given** criterion 39's clash, once from a client that declares `waiting-list-side` and once from a client that declares no capabilities
+- **When** the coach accepts
+- **Then** the declaring client gets `409` `busy_same_hour` and the other `409` `slot_taken`, each with the same `message` and the same one clash naming Ana and the other class
 
