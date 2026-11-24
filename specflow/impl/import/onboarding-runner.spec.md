@@ -252,7 +252,8 @@ a history row, like a roster run.
     below 0 and has no period, so it is not subtracted: it equals justified absences minus make-ups
     taken before the write, not floored, plus the file's justified absences minus its guest rows,
     floored at 0. So the coach's own marks, which the file leaves out (D11), neither fail the run nor
-    hide a wrong row. Any difference fails the run as rule 11. The table of rule 18 is printed again
+    hide a wrong row. Every other student of the roster has none of these numbers changed, and the
+    same classes owed as before. Any difference fails the run as rule 11. The table of rule 18 is printed again
     with the file's number beside what the run changed, and classes owed beside its expected value.
 27. **Revert of a history run** is `import.revert` on its row (the instances, presences, lessons
     and enrolments in `record_ids`) and then restores each series' start (and its recurrence rule text) and each updated
@@ -538,7 +539,8 @@ the roster in no class. No instance exists. History file `2026_11_19_rui_history
   with a row in no class who has a coach-made present mark, and a student whose make-ups taken exceed
   their justified absences before the run, the run succeeds and every cell of the table has ✓
 - **And** in that same state, one written row that differs from the file (an absence left present)
-  still fails the run as in criterion 14, leaving nothing
+  still fails the run as in criterion 14, leaving nothing; so does one absence written to a student
+  with no row in the file
 
 #### IMPORT-ONBOARDING-RUNNER-30: A second history run and a changed starting state are refused (rule 25)
 - **Given** the history run applied; or the coach with 3 instances and a file saying `instances: 0`
