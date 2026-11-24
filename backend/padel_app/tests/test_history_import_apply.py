@@ -422,6 +422,9 @@ def test_the_coachs_own_marks_do_not_fail_the_proof(app, tmp_path):
     ("Ana Exemplo", "Segunda 18:00", datetime.date(2026, 9, 7), ("present", None), "justified changed by 1"),
     ("Teo Imaginario", "Quinta 19:00", datetime.date(2026, 9, 17), ("absent", "justified"), "unjustified changed by 0"),
     ("Lia Inventada", "Segunda 18:00", datetime.date(2026, 9, 21), ("absent", "unjustified"), "guest changed by 1"),
+    # Rui has no row in the file: no number of theirs may change.
+    ("Rui Ficticio", "Segunda 18:00", datetime.date(2026, 9, 7), ("absent", "justified"), "justified changed by 1"),
+    ("Rui Ficticio", "Segunda 18:00", datetime.date(2026, 9, 7), ("absent", "unjustified"), "unjustified changed by 1"),
 ])
 def test_a_wrong_written_row_still_fails_the_proof_beside_coach_marks(
         app, tmp_path, monkeypatch, student, title, day, change, says):

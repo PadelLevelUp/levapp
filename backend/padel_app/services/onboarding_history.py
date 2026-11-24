@@ -827,6 +827,11 @@ def _write_everything(data, run, record_ids, coach, club, plan_):
     return lines
 
 
+#: Rule 26: the numbers the proof compares before and after, by the label the table prints.
+_PROVEN = {"justified": "justified", "justified min": "justifiedMinutes", "unjustified": "unjustified",
+           "guest": "invitesJoined", "guest min": "guestPresenceMinutes", "balance": "balanceMinutes"}
+
+
 def app_numbers(coach_id, first, through):
     """What the Presences tab and the engine say, per student name key (rule 26)."""
     from datetime import datetime, time
@@ -885,8 +890,7 @@ def _prove(data, plan_, record_ids, coach, club, before):
             problems.append(f"{e['student']}: not on the coach's roster after the run")
             continue
         was = before.get(_key(e["student"]), {})  # a student the run created starts from zero
-        changed = {f: app[f] - was.get(f, 0) for f in ("justified", "justifiedMinutes", "unjustified", "invitesJoined",
-                                                       "guestPresenceMinutes", "balanceMinutes")}
+        changed = {f: app[f] - was.get(f, 0) for f in _PROVEN.values()}
         pairs = (("justified", e["just_n"], changed["justified"]), ("justified min", e["just_min"], changed["justifiedMinutes"]),
                  ("unjustified", e["unj_n"], changed["unjustified"]), ("guest", e["guest_n"], changed["invitesJoined"]),
                  ("guest min", e["guest_min"], changed["guestPresenceMinutes"]),
@@ -902,6 +906,19 @@ def _prove(data, plan_, record_ids, coach, club, before):
         lines.append(f"  {e['student']}: " + ", ".join(cells)
                      + (f"; excluded just {e['ex_just']} unj {e['ex_unj']} guest {e['ex_guest']}"
                         if e["ex_just"] or e["ex_unj"] or e["ex_guest"] else ""))
+    # A student the file gives no row: the run may mark them present, and changes none of these numbers.
+    in_file = {_key(e["student"]) for e in plan_.table}
+    for k, app in numbers.items():
+        if k in in_file:
+            continue
+        was = before.get(k, {})
+        for label, f in _PROVEN.items():
+            if app[f] != was.get(f, 0):
+                problems.append(f"{app['name']}: {label} changed by {app[f] - was.get(f, 0)} in the app, "
+                                "the file has no row of theirs")
+        if app["owed"] != was.get("owed", 0):
+            problems.append(f"{app['name']}: owed is {app['owed']} in the app, it was {was.get('owed', 0)} and "
+                            "the file has no row of theirs")
     if problems:
         raise OnboardingFailed("proof failed: " + "; ".join(problems))
     return lines
