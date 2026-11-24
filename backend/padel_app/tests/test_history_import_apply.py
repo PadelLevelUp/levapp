@@ -322,3 +322,43 @@ def test_a_second_history_run_is_refused_while_one_is_active(app, tmp_path):
 
     assert result.exit_code == 1
     assert f"the coach already has an active history run (onboarding:{HISTORY_ID}" in result.output
+
+
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-44")
+def test_a_series_split_after_through_is_left_as_it_is(app, tmp_path):
+    """[IMPORT-ONBOARDING-RUNNER-44] The coach split "Segunda 18:00" on Monday 2026-11-16, after `through`."""
+    from padel_app.models import Lesson, LessonInstance
+    from padel_app.services import lesson_service
+
+    ids = _roster_run(app, tmp_path)
+    split_day = datetime.date(2026, 11, 16)
+    with app.app_context():
+        old, new = lesson_service.split_lesson(_lesson("Segunda 18:00"), split_day)
+        old.recurrence_end = split_day - datetime.timedelta(days=1)  # as prod's split series end
+        db.session.commit()
+        old_id, new_id = old.id, new.id
+        assert sorted(r.player.user.name for r in new.players_relations) == ["Ana Exemplo", "Rui Ficticio"]
+    data = _history(ids, classes=3)
+
+    dry = _dry(app, tmp_path, data)
+    assert dry.exit_code == 0, dry.output
+    assert "two classes" not in dry.output
+    assert "Segunda 18:00: starts 2026-11-16, starts after through, left as is" in dry.output
+
+    result = _run(app, tmp_path, ids, data)
+    assert result.exit_code == 0, result.output
+    with app.app_context():
+        assert db.session.get(Lesson, old_id).start_datetime == datetime.datetime(2026, 8, 31, 18, 0)
+        assert db.session.get(Lesson, new_id).start_datetime == datetime.datetime(2026, 11, 16, 18, 0)
+        assert LessonInstance.query.filter(LessonInstance.lesson_id == new_id,
+                                           LessonInstance.original_lesson_occurence_date < split_day).count() == 0
+        ana = _presence_on(old_id, datetime.date(2026, 9, 7), "Ana Exemplo")
+        assert (ana.status, ana.justification) == ("absent", "justified")
+
+
+def _presence_on(lesson_id, day, student):
+    from padel_app.models import LessonInstance, Player, Presence, User
+
+    instance = LessonInstance.query.filter_by(lesson_id=lesson_id, original_lesson_occurence_date=day).one()
+    return Presence.query.join(Player, Player.id == Presence.player_id).join(User, User.id == Player.user_id).filter(
+        Presence.lesson_instance_id == instance.id, User.name == student).one()
