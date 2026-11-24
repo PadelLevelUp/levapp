@@ -644,3 +644,9 @@ test: `backend/padel_app/tests/test_pad294_push_sender_review.py` › `test_inli
 - **Then** staging's file sets `EXPO_PUSH_DISABLED=1` and production's does not name it
 - **And** with the flag set nothing is requested from Expo, and without it one request is made
 test: `backend/padel_app/tests/test_pad624_staging_sends_no_expo_push.py` › `test_staging_sets_the_flag_and_production_does_not` (+2 more)
+
+#### MESSAGING-PUSH-NOTIFICATIONS-37: A push-token event costs at most one Expo token fetch (rule 15, PAD-741)
+- **Given** a native module that re-emits the push-token event on every device-token request (iOS `PushTokenModule.swift` `didRegister`, Android `PushTokenModule.kt` `onNewToken`), and on iOS rejects a superseded request with `E_PROMISE_REPLACED`
+- **When** a push-token event arrives, whether the token rotated or repeats the last one, or the app returns to the foreground without being registered
+- **Then** the event causes at most one Expo token fetch, made with the event's device token, and a repeated event causes none
+- **And** only the app's own registration asks the native module for a device token, once per registration, so the fetches a foreground or a rotation causes stay bounded and stop once the phone is registered
