@@ -285,9 +285,13 @@ def test_a_difference_between_the_file_and_the_app_fails_the_run_and_leaves_noth
     before = _written(app)
     real = onboarding_history.app_numbers
 
+    readings = []
+
     def wrong(*args, **kwargs):
         numbers = real(*args, **kwargs)
-        numbers["ana exemplo"] = dict(numbers["ana exemplo"], justified=99)
+        readings.append(1)
+        if len(readings) == 2:  # the reading after the write
+            numbers["ana exemplo"] = dict(numbers["ana exemplo"], justified=99)
         return numbers
 
     monkeypatch.setattr(onboarding_history, "app_numbers", wrong)
@@ -298,7 +302,7 @@ def test_a_difference_between_the_file_and_the_app_fails_the_run_and_leaves_noth
     result = _run(app, tmp_path, ids, data)
 
     assert result.exit_code == 1
-    assert "Ana Exemplo: justified is 99 in the app, the file's rows give 2" in result.output
+    assert "Ana Exemplo: justified changed by 99 in the app, the file's rows give 2" in result.output
     assert _history_row(app) is None and _written(app) == before
     with app.app_context():
         from padel_app.models.coach_seasons import CoachSeason
@@ -362,3 +366,124 @@ def _presence_on(lesson_id, day, student):
     instance = LessonInstance.query.filter_by(lesson_id=lesson_id, original_lesson_occurence_date=day).one()
     return Presence.query.join(Player, Player.id == Presence.player_id).join(User, User.id == Player.user_id).filter(
         Presence.lesson_instance_id == instance.id, User.name == student).one()
+
+
+def _coach_made_state(app, ids):
+    """Coach-made rows as prod had them: Ana justified absent inside the period (9 Nov) and after it (16 Nov); Teo
+    present on 12 Nov and since in no class; Eva twice a walk-in (make-ups taken, no absence: below the floor)."""
+    from padel_app.models import Association_PlayerLesson, Player, Presence, User
+    from padel_app.services import lesson_service
+    from padel_app.services.onboarding_history import _instance_facts
+
+    def player(name):
+        return Player.query.join(User, User.id == Player.user_id).filter(User.name == name).one()
+
+    def coach_mark(instance, name, status, justification=None):
+        row = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player(name).id).one()
+        row.status, row.justification, row.validated, row.recorded_by = status, justification, True, "coach"
+
+    with app.app_context():
+        for day in (datetime.date(2026, 11, 9), datetime.date(2026, 11, 16)):
+            monday = lesson_service.get_or_materialize_instance(_lesson("Segunda 18:00"), day, quiet=True)
+            coach_mark(monday, "Ana Exemplo", "absent", "justified")
+            lesson_service.enrol(player("Eva Teste").id, monday, "walk_in", validated=True, new_engine=True)
+            db.session.flush()
+            coach_mark(monday, "Eva Teste", "present")
+        thursday = lesson_service.get_or_materialize_instance(_lesson("Quinta 19:00"), datetime.date(2026, 11, 12), quiet=True)
+        coach_mark(thursday, "Teo Imaginario", "present")
+        Association_PlayerLesson.query.filter_by(
+            lesson_id=_lesson("Quinta 19:00").id, player_id=player("Teo Imaginario").id).delete()
+        db.session.commit()
+        instances, marks, _ = _instance_facts(ids["coach_id"])
+    return {"instances": instances, "coach_marks": marks}
+
+
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-29")
+def test_the_coachs_own_marks_do_not_fail_the_proof(app, tmp_path):
+    """[IMPORT-ONBOARDING-RUNNER-29] Coach marks in and after the period, an unenrolled student, owed below the floor."""
+    ids = _roster_run(app, tmp_path)
+    data = _history(ids)
+    data["expects"].update(_coach_made_state(app, ids))
+
+    result = _run(app, tmp_path, ids, data)
+
+    assert result.exit_code == 0, result.output
+    table = result.output.split("Expected vs app")[1]
+    assert "Δ" not in table
+    line = {name: next(l for l in table.splitlines() if l.startswith(f"  {name}:"))
+            for name in ("Ana Exemplo", "Eva Teste", "Teo Imaginario")}
+    assert "justified 2/2 ✓" in line["Ana Exemplo"] and "owed 3/3 ✓" in line["Ana Exemplo"]  # 2 before + 2 - 1
+    assert "justified 7/7 ✓" in line["Eva Teste"] and "owed 5/5 ✓" in line["Eva Teste"]  # -2 before + 7
+    assert "guest 0/0 ✓" in line["Teo Imaginario"] and "unjustified 1/1 ✓" in line["Teo Imaginario"]
+
+
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-29")
+@pytest.mark.parametrize("student, title, day, change, says", [
+    ("Ana Exemplo", "Segunda 18:00", datetime.date(2026, 9, 7), ("present", None), "justified changed by 1"),
+    ("Teo Imaginario", "Quinta 19:00", datetime.date(2026, 9, 17), ("absent", "justified"), "unjustified changed by 0"),
+    ("Lia Inventada", "Segunda 18:00", datetime.date(2026, 9, 21), ("absent", "unjustified"), "guest changed by 1"),
+    # Rui has no row in the file: no number of theirs may change.
+    ("Rui Ficticio", "Segunda 18:00", datetime.date(2026, 9, 7), ("absent", "justified"), "justified changed by 1"),
+    ("Rui Ficticio", "Segunda 18:00", datetime.date(2026, 9, 7), ("absent", "unjustified"), "unjustified changed by 1"),
+])
+def test_a_wrong_written_row_still_fails_the_proof_beside_coach_marks(
+        app, tmp_path, monkeypatch, student, title, day, change, says):
+    """[IMPORT-ONBOARDING-RUNNER-29] A row in the database differs from the file when the proof reads it."""
+    from padel_app.services import onboarding_history
+
+    ids = _roster_run(app, tmp_path)
+    data = _history(ids)
+    data["expects"].update(_coach_made_state(app, ids))
+    before, real = _written(app), onboarding_history._prove
+
+    def corrupt_then_prove(*args, **kwargs):
+        row = _presence(title, day, student)
+        row.status, row.justification = change
+        db.session.commit()
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(onboarding_history, "_prove", corrupt_then_prove)
+    result = _run(app, tmp_path, ids, data)
+
+    assert result.exit_code == 1 and f"{student}: {says}" in result.output, result.output
+    assert _history_row(app) is None and _written(app) == before
+
+
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-27")
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-29")
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-31")
+def test_the_run_is_proven_and_reverted_for_a_coach_switched_to_the_new_engine(app, tmp_path):
+    """[IMPORT-ONBOARDING-RUNNER-27] [IMPORT-ONBOARDING-RUNNER-29] [IMPORT-ONBOARDING-RUNNER-31] The coach is on the
+    new engine, with their own marks, before the run: it opens nothing, its proof holds, and revert puts it back."""
+    from padel_app.models import EngineInvitation, EngineSession
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services import engine_switch
+    from padel_app.services.onboarding_history import _instance_facts
+
+    def engine_rows():
+        config = NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).one()
+        return (_side_effect_rows(), EngineSession.query.count(), EngineInvitation.query.count(),
+                config.engine_version, config.engine_switched_at)
+
+    ids = _roster_run(app, tmp_path)
+    data = _history(ids)
+    _coach_made_state(app, ids)
+    with app.app_context():
+        engine_switch.switch_coach(ids["coach_id"])  # may create occurrences of its own: count after it
+        instances, marks, _ = _instance_facts(ids["coach_id"])
+        data["expects"].update(instances=instances, coach_marks=marks)
+        engine_before, starts = engine_rows(), _starts()
+        assert engine_before[3] == "new"
+    before = _written(app)
+
+    result = _run(app, tmp_path, ids, data)
+
+    assert result.exit_code == 0, result.output
+    assert "Δ" not in result.output.split("Expected vs app")[1]
+    with app.app_context():
+        assert engine_rows() == engine_before
+    assert _revert(app, HISTORY_ID, ids["database"]).exit_code == 0
+    after = _written(app)
+    with app.app_context():
+        assert engine_rows() == engine_before and _starts() == starts
+    assert {k: (before[k], after[k]) for k in before if before[k] != after[k] and k not in ("imports", "bulk_imports")} == {}
