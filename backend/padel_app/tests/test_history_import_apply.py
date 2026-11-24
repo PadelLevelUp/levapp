@@ -444,3 +444,43 @@ def test_a_wrong_written_row_still_fails_the_proof_beside_coach_marks(
 
     assert result.exit_code == 1 and f"{student}: {says}" in result.output, result.output
     assert _history_row(app) is None and _written(app) == before
+
+
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-27")
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-29")
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-31")
+def test_the_run_is_proven_and_reverted_for_a_coach_switched_to_the_new_engine(app, tmp_path):
+    """[IMPORT-ONBOARDING-RUNNER-27] [IMPORT-ONBOARDING-RUNNER-29] [IMPORT-ONBOARDING-RUNNER-31] The coach is on the
+    new engine, with their own marks, before the run: it opens nothing, its proof holds, and revert puts it back."""
+    from padel_app.models import EngineInvitation, EngineSession
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services import engine_switch
+    from padel_app.services.onboarding_history import _instance_facts
+
+    def engine_rows():
+        config = NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).one()
+        return (_side_effect_rows(), EngineSession.query.count(), EngineInvitation.query.count(),
+                config.engine_version, config.engine_switched_at)
+
+    ids = _roster_run(app, tmp_path)
+    data = _history(ids)
+    _coach_made_state(app, ids)
+    with app.app_context():
+        engine_switch.switch_coach(ids["coach_id"])  # may create occurrences of its own: count after it
+        instances, marks, _ = _instance_facts(ids["coach_id"])
+        data["expects"].update(instances=instances, coach_marks=marks)
+        engine_before, starts = engine_rows(), _starts()
+        assert engine_before[3] == "new"
+    before = _written(app)
+
+    result = _run(app, tmp_path, ids, data)
+
+    assert result.exit_code == 0, result.output
+    assert "Δ" not in result.output.split("Expected vs app")[1]
+    with app.app_context():
+        assert engine_rows() == engine_before
+    assert _revert(app, HISTORY_ID, ids["database"]).exit_code == 0
+    after = _written(app)
+    with app.app_context():
+        assert engine_rows() == engine_before and _starts() == starts
+    assert {k: (before[k], after[k]) for k in before if before[k] != after[k] and k not in ("imports", "bulk_imports")} == {}
