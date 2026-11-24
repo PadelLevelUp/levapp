@@ -244,11 +244,16 @@ a history row, like a roster run.
     when the failure came. Before the run is declared
     done: every created lesson and instance belongs to the target coach (rule 12's check); no
     instance of the coach between each class's start and its cut-off has a row left unvalidated;
-    and, for each student with a row, the app's own presence statistics over `from`..`through` (the
-    Presences tab's numbers, `attendance.validation` rule 17) equal the file's rows in justified,
-    unjustified and guest counts and minutes, the hours balance and the classes owed
-    (`attendance.stats` rule 3). Any difference fails the run as rule 11. The table of rule 18 is
-    printed again with the app's numbers.
+    and, for each student with a row, what the run **changed** equals the file's rows. The app's own
+    presence statistics over `from`..`through` (the Presences tab's numbers, `attendance.validation`
+    rule 17) are read just before the first write and again after the last; after minus before equals
+    the file's rows in justified, unjustified and guest counts and minutes and in the hours balance
+    (a student the run created starts from zero). Classes owed (`attendance.stats` rule 3) never goes
+    below 0 and has no period, so it is not subtracted: it equals justified absences minus make-ups
+    taken before the write, not floored, plus the file's justified absences minus its guest rows,
+    floored at 0. So the coach's own marks, which the file leaves out (D11), neither fail the run nor
+    hide a wrong row. Any difference fails the run as rule 11. The table of rule 18 is printed again
+    with the file's number beside what the run changed, and classes owed beside its expected value.
 27. **Revert of a history run** is `import.revert` on its row (the instances, presences, lessons
     and enrolments in `record_ids`) and then restores each series' start (and its recurrence rule text) and each updated
     presence's previous values, and deletes the season the run created (rule 28). It is refused,
@@ -529,6 +534,11 @@ the roster in no class. No instance exists. History file `2026_11_19_rui_history
 - **And** the table is printed again with "file / app" and ✓ on every cell
 - **And** when one number differs (a guest row made a regular presence), the run fails as in
   criterion 14, leaving nothing
+- **And** with coach-made justified absences of Ana Exemplo inside the period and after it, a student
+  with a row in no class who has a coach-made present mark, and a student whose make-ups taken exceed
+  their justified absences before the run, the run succeeds and every cell of the table has ✓
+- **And** in that same state, one written row that differs from the file (an absence left present)
+  still fails the run as in criterion 14, leaving nothing
 
 #### IMPORT-ONBOARDING-RUNNER-30: A second history run and a changed starting state are refused (rule 25)
 - **Given** the history run applied; or the coach with 3 instances and a file saying `instances: 0`
