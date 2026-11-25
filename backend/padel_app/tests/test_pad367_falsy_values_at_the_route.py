@@ -815,12 +815,10 @@ def test_add_coach_note_refuses_an_empty_text_itself(app, client):
 
 # ── POST / PUT /api/app/availability_blockers (a student's unavailability) ───
 
-def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week(app, client):
-    """FLIPPED by PAD-377 (B-150), by the fix's author — this pin asserted the DEFECT and went red when
-    `edit_event_service` began clearing the rule on an explicit `isRecurring: false`. Was: DEFECT PINNED, NOT FIXED (B-150, the consequence that costs someone a class).
-    Same service as the calendar edit above. The notification engine's own
-    predicate, `user_is_blocked_for_window`, expands the leftover rule: two weeks
-    after the ONE day the student said they were away, they are still "blocked"."""
+def test_a_students_unavailability_made_one_off_leaves_them_free_again_two_weeks_later(app, client):
+    """PAD-377 (B-150): `edit_event_service` clears the rule on an explicit `isRecurring: false`, so the
+    notification engine's predicate, `user_is_blocked_for_window`, blocks the student on the one day
+    they said they were away and not two weeks later."""
     from datetime import datetime
 
     from padel_app.services.student_availability_service import user_is_blocked_for_window
