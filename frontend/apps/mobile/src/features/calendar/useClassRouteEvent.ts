@@ -11,18 +11,21 @@ import {
   type LessonInstancePayload,
 } from "./params";
 
-/** The read's values fill what the route has none of; the route's own values win. */
+/**
+ * The read's date, times, capacity and status, as one set: a class that moved since the card was drawn must
+ * not show the old start with the new end. The route keeps only what the read does not decide (title, colour).
+ */
 function completeEvent(route: CalendarEvent, instance: LessonInstancePayload): CalendarEvent {
   const read = eventFromLessonInstance(instance);
   return {
     ...route,
-    date: route.date || read.date,
-    startTime: route.startTime || read.startTime,
-    endTime: route.endTime || read.endTime,
+    date: read.date || route.date,
+    startTime: read.startTime || route.startTime,
+    endTime: read.endTime || route.endTime,
+    maxPlayers: read.maxPlayers ?? route.maxPlayers,
+    status: read.status || route.status,
     title: route.title || read.title,
     color: route.color || read.color,
-    status: route.status || read.status,
-    maxPlayers: route.maxPlayers ?? read.maxPlayers,
   };
 }
 
@@ -50,9 +53,11 @@ export function useClassRouteEvent(params: Partial<Record<keyof ClassRouteParams
     (!paramsEvent.date || !paramsEvent.startTime || !paramsEvent.endTime || paramsEvent.maxPlayers === undefined)
       ? paramsEvent.originalId
       : null;
-  // One read per open: no refetch on focus, reconnect or re-render while it is fresh.
+  // One read per open, and per-query overrides need a reason (client.query-cache rule 3): it is made on every
+  // mount (a reopen must not show the times of an earlier visit; saves and live events refresh it through
+  // `invalidateClassInstance` and the `["class-instance"]` family), and never again on a focus or reconnect.
   const byId = useLessonInstanceById(fallbackId ?? completeId, {
-    staleTime: 60_000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -61,11 +66,17 @@ export function useClassRouteEvent(params: Partial<Record<keyof ClassRouteParams
     if (paramsEvent) return completeId && instance ? completeEvent(paramsEvent, instance) : paramsEvent;
     return instance ? eventFromLessonInstance(instance) : null;
   }, [paramsEvent, completeId, instance]);
-  const classEvent = completeId && byId.isPending ? null : event;
+  // class_instance waits for a read that is RUNNING: `getClassInstance` copies the event's times into its result,
+  // so asking early would cache empty times under the same key. `isLoading` is false for a read that cannot run
+  // (offline: paused), so a cached class still shows instead of waiting forever.
+  const classEvent = completeId && byId.isLoading ? null : event;
   return { event, fallbackId, byId, classEvent };
 }
 
 /** Refresh what the class screen shows after it changed the class (a save, a cancel, a scope change). */
 export function invalidateClassInstance(queryClient: QueryClient, event: CalendarEvent) {
-  return queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.lessonInstanceById(Number(event.originalId)) }),
+  ]);
 }
