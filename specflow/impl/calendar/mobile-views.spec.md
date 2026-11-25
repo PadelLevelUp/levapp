@@ -160,8 +160,6 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     cluster needs more than **two** lanes on a phone, the first lane renders and the second holds
     one "+N" marker spanning the hidden events' time; tapping it selects the day, whose sheet lists
     every class. The selected day's column is tinted `secondary`.
-   - Code to follow: delete `groupOverlappingEvents` and `layoutDayEvents` from `calendar-grid.ts`, which no
-     code calls, and their tests in `calendar-grid.test.ts`.
 14. **Tapping** a column's empty area selects that day. Tapping an event block opens its
     detail exactly as tapping its card does today (class → class detail; block → event
     detail).
@@ -462,8 +460,6 @@ test: `frontend/packages/config/src/calendar-card.test.ts` › `a calendar block
 - **And** the next class's label is the colour mixed 55 % toward the foreground, which reads at 4.5:1 on the card in both themes
 - **And** a class with no colour uses the primary colour, and for a value that is not a colour the label takes the card's own token and a faded or outlined card takes no colour from it
 test: `frontend/packages/config/src/calendar-status.test.ts` › `picks whichever of ink/white actually reads, for every swatch` (+26 more)
-- Code to follow: `calendar-status.test.ts` builds its swatch list from `CLASS_COLOR_SWATCHES`, not from the
-  colours that were retired in PAD-246.
 
 #### CALENDAR-MOBILE-VIEWS-33: A day's dot takes its colour from the class's state, and for a student from their relation (rules 5, 10; `calendar.view` rule 23)
 - **Given** a day with classes in several states, seen by the coach and by a student
