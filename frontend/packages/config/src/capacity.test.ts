@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectiveFilledSpots, effectiveFilledSpotsOf, participantsHeader } from "./capacity";
+import { capacityBarOf, confirmedSpotsOf, effectiveFilledSpots, effectiveFilledSpotsOf, participantsHeader } from "./capacity";
 
 describe("effectiveFilledSpots (PAD-71)", () => {
   it("[CLASSES-INSTANCE-ENROLLMENT-9] subtracts declined students from the enrolment count", () => {
@@ -78,5 +78,52 @@ describe("participantsHeader (PAD-771, calendar.event-detail rule 5)", () => {
   it("shows the count alone without a capacity", () => {
     expect(participantsHeader(3, 0)).toEqual({ key: "calendar.participants.filledNoMax", values: { current: 3 } });
     expect(participantsHeader(3, null).key).toBe("calendar.participants.filledNoMax");
+  });
+});
+
+describe("confirmedSpotsOf (calendar.event-detail rule 27, UI idea 3)", () => {
+  const listed = [{ id: "1" }, { id: "2" }, { id: "3" }];
+  const rows = [
+    { playerId: "1", status: "present" },
+    { playerId: "2", status: "absent" },
+    { playerId: "9", status: "present" }, // not on the list
+  ];
+
+  it("[CALENDAR-EVENT-DETAIL-40] confirmedSpotsOf counts the listed present students only", () => {
+    // one present, one absent, one unanswered (3 has no row), and a present row for a student not listed
+    expect(confirmedSpotsOf(listed, rows)).toBe(1);
+    expect(confirmedSpotsOf(listed, rows)).toBeLessThanOrEqual(effectiveFilledSpotsOf(listed, rows));
+    expect(confirmedSpotsOf(listed, [])).toBe(0);
+    expect(confirmedSpotsOf(listed, undefined)).toBe(0);
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-40] never counts more than the filled spots, whatever the rows say", () => {
+    const dup = [
+      { playerId: "1", status: "present" },
+      { playerId: "1", status: "present" },
+      { playerId: 2, status: "present" },
+    ];
+    expect(confirmedSpotsOf([{ id: 1 }, { id: "2" }], dup)).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("capacityBarOf (calendar.event-detail rule 27, UI idea 3)", () => {
+  const base = { capacity: 8, filled: 5, status: "scheduled", ended: false, canManage: true, editing: false };
+
+  it("[CALENDAR-EVENT-DETAIL-41] draws the bar amber for a coach reading a class with a free seat", () => {
+    expect(capacityBarOf(base)).toEqual({ tone: "warning" });
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-41] draws in the box's own colour when full, ended, or completed", () => {
+    expect(capacityBarOf({ ...base, filled: 8 })).toEqual({ tone: "current" });
+    expect(capacityBarOf({ ...base, ended: true })).toEqual({ tone: "current" });
+    expect(capacityBarOf({ ...base, status: "completed" })).toEqual({ tone: "current" });
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-42] draws no bar while editing, canceled, with no capacity, or for a student", () => {
+    expect(capacityBarOf({ ...base, editing: true })).toBeNull();
+    expect(capacityBarOf({ ...base, status: "canceled" })).toBeNull();
+    expect(capacityBarOf({ ...base, capacity: 0 })).toBeNull();
+    expect(capacityBarOf({ ...base, canManage: false })).toBeNull();
   });
 });
