@@ -1,13 +1,11 @@
 import { useMemo } from "react";
 import { format, parseISO } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { findNextEventId, isClubToday } from "@levelup/config";
-import type { CalendarViewMode } from "@levelup/hooks";
+import { findNextEventId, isClubToday, nextClassIdInTodayWeek } from "@levelup/config";
+import type { CalendarViewMode, useDayList } from "@levelup/hooks";
 import type { CalendarEvent, CoachLevel } from "@/types";
-import { DayHeader } from "./DayHeader";
+import { DayList } from "./DayList";
 import { DayStrip } from "./DayStrip";
-import { FAB_CLEARANCE_PX } from "./layout";
-import { MobileEventCard } from "./MobileEventCard";
 import { MonthView } from "./MonthView";
 import { ViewModeControl } from "./ViewModeControl";
 import { WeekView } from "./WeekView";
@@ -65,6 +63,7 @@ export function MobileCalendar({
   onNextMonth,
   events,
   monthEvents,
+  dayList,
   levels = [],
   onEventClick,
   onAddButtonsHiddenChange,
@@ -90,6 +89,11 @@ export function MobileCalendar({
   events: CalendarEvent[];
   /** Every event inside the Mês grid's range. */
   monthEvents: CalendarEvent[];
+  /**
+   * Dia's continuous list (rule 26): its state, and the events of every loaded day (the student's filter
+   * applied). Given only while Dia shows on a phone; Semana and Mês never get it.
+   */
+  dayList?: { list: ReturnType<typeof useDayList>; events: CalendarEvent[] };
   levels?: CoachLevel[];
   onEventClick?: (event: CalendarEvent) => void;
   /** Rule 18: in Mês, true while the day sheet is pulled up — hide the add buttons. */
@@ -104,7 +108,13 @@ export function MobileCalendar({
   // need every day's events in start-time order, and the detail list is just
   // one of those buckets.
   const eventsByDay = useMemo(() => bucketByDay(visibleEvents), [visibleEvents]);
-  const dayEvents = eventsByDay[format(selectedDay, "yyyy-MM-dd")] ?? [];
+  // Dia (rule 26): every loaded day, not just the visible week; its next class is searched in today's week only (26e).
+  const listEvents = dayList?.events;
+  const listEventsByDay = useMemo(() => bucketByDay(listEvents ?? []), [listEvents]);
+  const listNextEventId = useMemo(
+    () => (listEvents ? nextClassIdInTodayWeek(listEvents) : undefined),
+    [listEvents]
+  );
 
   const levelCodeById = useMemo(
     () => new Map(levels.map((l) => [String(l.id), l.code])),
@@ -168,7 +178,7 @@ export function MobileCalendar({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       {control}
 
       <DayStrip
@@ -177,35 +187,30 @@ export function MobileCalendar({
         onSelectDay={onSelectDay}
         onPrev={onPrevWeek}
         onNext={onNextWeek}
-        eventsByDay={eventsByDay}
+        eventsByDay={dayList ? listEventsByDay : eventsByDay}
       />
 
-      <div data-testid="calendar-day-list" className="min-h-0 flex-1 overflow-y-auto">
-        <DayHeader day={selectedDay} count={dayEvents.length} />
-        {/* Rule 18: bottom padding taller than the floating add buttons, so
-            the last card can always be scrolled clear of them. */}
-        <div className="flex flex-col gap-3 px-5 pt-3" style={{ paddingBottom: FAB_CLEARANCE_PX }}>
-          {dayEvents.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              {t("calendar.mobile.noClassesScheduled")}
-            </p>
-          ) : (
-            dayEvents.map((event) => (
-              <MobileEventCard
-                key={String(event.id)}
-                event={event}
-                isNext={event.id === nextEventId}
-                levelCode={
-                  event.levelId !== undefined
-                    ? levelCodeById.get(String(event.levelId))
-                    : undefined
-                }
-                onClick={onEventClick}
-              />
-            ))
-          )}
-        </div>
-      </div>
+      {dayList && (
+        <DayList
+          list={dayList.list}
+          eventsByDay={listEventsByDay}
+          nextEventId={listNextEventId}
+          levelCodeById={levelCodeById}
+          onEventClick={onEventClick}
+        />
+      )}
+
+      {/* Rule 26f: Hoje shows whenever the selected day is not today, and moves to it. */}
+      {dayList && !isClubToday(selectedDay) && (
+        <button
+          type="button"
+          data-testid="calendar-day-today"
+          onClick={onToday}
+          className="absolute bottom-24 left-1/2 z-30 h-11 -translate-x-1/2 rounded-full border border-border bg-card px-5 text-sm font-semibold text-foreground shadow-lg"
+        >
+          {t("calendar.toolbar.today")}
+        </button>
+      )}
     </div>
   );
 }

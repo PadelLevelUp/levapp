@@ -234,6 +234,10 @@ test.describe("PAD-248: phone calendar Mês view", () => {
     };
 
     await lastCardClearsButtons("calendar-day-list");
+    // Rule 26b: in Dia the list ends with filler, never shorter than the add buttons' clearance.
+    expect((await page.getByTestId("calendar-day-filler").boundingBox())!.height).toBeGreaterThanOrEqual(224);
+    // Scrolling the list to its end moved the selected day with it; Semana and Mês show today again.
+    await page.getByTestId("calendar-day-today").click();
 
     await page.getByTestId("calendar-view-week").click();
     await lastCardClearsButtons("calendar-sheet-list");

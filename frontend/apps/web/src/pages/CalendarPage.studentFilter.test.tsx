@@ -22,6 +22,8 @@ vi.mock("@/api/events", () => ({ subscribeAppEvents: () => () => undefined }));
 vi.mock("@levelup/hooks", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useCalendarEvents: () => ({ data: state.events, isPending: false, isPlaceholderData: false }),
+  // calendar.mobile-views rule 26c: in Dia on a phone the page's own week read is off and the list's reads feed it.
+  useDayList: () => ({ events: state.events, status: "ready" }),
   useCoachRoster: () => ({ data: [] }),
   useCoachLevels: () => ({ data: [] }),
 }));
@@ -43,8 +45,12 @@ vi.mock("@/components/calendar/CalendarGrid", () => ({
 }));
 vi.mock("@/components/calendar/mobile/MobileCalendar", () => ({
   ENABLED_VIEW_MODES: ["day", "week", "month"],
-  MobileCalendar: ({ events }: { events: CalendarEvent[] }) => (
-    <div data-testid="phone" data-ids={events.map((e) => e.id).join(",")} />
+  MobileCalendar: ({ events, dayList }: { events: CalendarEvent[]; dayList?: { events: CalendarEvent[] } }) => (
+    <div
+      data-testid="phone"
+      data-ids={events.map((e) => e.id).join(",")}
+      data-day-ids={dayList?.events.map((e) => e.id).join(",")}
+    />
   ),
 }));
 
@@ -93,6 +99,8 @@ describe("the student's calendar (PAD-664)", () => {
     fireEvent.click(screen.getByTestId("calendar-student-filter-mine"));
     expect(screen.getAllByTestId("calendar-legend-item")).toHaveLength(4);
     expect(screen.getByTestId("phone").getAttribute("data-ids")).toBe("own,wait");
+    // Dia's list gets the same narrowed events (rule 26e: the filter applies to every loaded day).
+    expect(screen.getByTestId("phone").getAttribute("data-day-ids")).toBe("own,wait");
   });
 });
 
