@@ -121,7 +121,8 @@ def test_a_recipient_counts_once_and_the_block_holds_only_counts(app, client):
     resp = client.get("/admin/api/engine-health", headers=headers)
     push = resp.get_json()["push"]
     assert push["messageRecipients"]["total"] == 1
-    assert set(push) == {"activeStudents7d", "messageRecipients", "registrationFailures7d"}
+    assert set(push) == {"activeStudents7d", "messageRecipients", "permissionRefused",
+                        "registrationFailures7d"}
     assert set(push["messageRecipients"]) == {"windowDays", "total", "noChannel", "webPushOnly",
                                               "nativeOnly", "nativeAndWebPush"}
     assert all(type(v) is int for v in push["messageRecipients"].values())
