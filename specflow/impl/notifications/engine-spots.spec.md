@@ -96,6 +96,7 @@ test: `backend/padel_app/tests/test_invitation_engine_spots.py` › `test_one_si
 Given capacity 8 with 2 left, 3 right and 1 unplaced {left, right} regular, when the counts are
 computed, then `class_empty` 2, `open(L)` 2, `open(R)` 1, `must(L)` 1, `must(R)` 0, `either` 1.
 test: `backend/padel_app/tests/test_invitation_engine_spots.py` › `test_unplaced_flexible_regular_makes_one_either_spot`
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P44-a-both-regular-lets-a-one-sided-waiting-entry-in]`
 
 #### NOTIFICATIONS-ENGINE-SPOTS-3: Σ open(v) equals class_empty plus the flexible going students (rule 6)
 Given capacity 8 with 2 left, 2 right and 3 unplaced {left, right} regulars, when the counts are

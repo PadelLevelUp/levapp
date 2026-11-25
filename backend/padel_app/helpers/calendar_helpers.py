@@ -353,7 +353,7 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
 
         def consider(obj, *, override_id=None, override_date=None, occ_start=None):
             start = ensure_utc(occ_start or obj.start_datetime)
-            if start is None or start < now_wall:
+            if start is None or start <= now_wall:  # rule 7: a class starting now is closed, as join requests are
                 return
             if getattr(obj, "status", None) in ("canceled", "completed"):
                 return

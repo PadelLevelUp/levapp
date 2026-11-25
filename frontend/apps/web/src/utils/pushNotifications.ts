@@ -166,19 +166,29 @@ export async function requestAndSubscribe(token: string): Promise<void> {
   }
 }
 
+/** This browser's push endpoint, or null (auth.logout rule 4, PAD-753: sign-out names its browser). */
+export async function currentPushEndpoint(): Promise<string | null> {
+  const registration = await navigator.serviceWorker?.getRegistration();
+  const subscription = await registration?.pushManager?.getSubscription();
+  return subscription?.endpoint ?? null;
+}
+
 export async function unsubscribeFromPush(token: string): Promise<boolean> {
   savedFor = null;
   const registration = await navigator.serviceWorker.getRegistration();
   const subscription = await registration?.pushManager.getSubscription();
-  if (subscription) {
-    await subscription.unsubscribe();
-  }
+  // auth.push-subscription rule 3 (PAD-753): no body means every browser, so with no subscription
+  // here there is nothing to remove.
+  if (!subscription) return true;
+  await subscription.unsubscribe();
 
   const response = await fetch(`${API_BASE_URL}/notifications/unsubscribe`, {
     method: "DELETE",
     headers: {
+      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify({ endpoint: subscription.endpoint }),
   });
 
   if (!response.ok && response.status !== 404) {

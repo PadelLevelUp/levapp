@@ -2,8 +2,6 @@ import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses"
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_COLOR_SWATCHES,
-  blockedNames,
-  blockedReasons,
   attendanceStateLabelKey,
   attendanceStateOf,
   attendanceStateTone,
@@ -35,8 +33,6 @@ import {
   joinRequestAcceptedAtOnce,
   joinRequestStatusKey,
   sideLongKeyOf,
-  shouldReportSent,
-  splitBlockedByCause,
   hasRecordedAttendance,
   mergeSuggestionBundles,
   suggestionBundles,
@@ -105,6 +101,7 @@ import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
+import { reportReminders } from "@/features/calendar/send-reminders-report";
 import { ClassEvaluationsAction } from "@/features/evaluations/class-evaluations-action";
 import {
   canCancelAttendance,
@@ -928,31 +925,9 @@ export default function ClassDetailScreen() {
         date: event.date,
       });
 
-      // PAD-170 C6: same reporting web's ClassDetailSheet does. `blocked` was
-      // being discarded here, so "reminders sent to N" was the only thing the
-      // coach saw even when nobody could be reached.
-      const { unavailable, optedOut } = splitBlockedByCause(blocked);
-      if (unavailable.length > 0) {
-        toast.error(
-          t("calendar.unavailable.blocked", {
-            count: unavailable.length,
-            names: blockedNames(unavailable),
-          })
-        );
-      }
-      // PAD-239: a student's own opt-out is a caveat, not a failure — warning
-      // slot, as on web.
-      if (optedOut.length > 0) {
-        toast.warning(
-          t("calendar.notify.blockedByPreference", {
-            names: blockedNames(optedOut),
-          }),
-          blockedReasons(optedOut) || undefined
-        );
-      }
-      if (shouldReportSent(sent, blocked)) {
-        toast.success(t("calendar.detail.remindersSent", { count: sent }));
-      }
+      // PAD-170 C6 + engine #16 (class-reminders-manual rule 7): the same reporting web's
+      // ClassDetailSheet does — every student not reached, under their cause.
+      reportReminders({ sent, blocked }, t, toast, displayName);
     } catch {
       toast.error(t("calendar.detail.failedSendReminders"));
     }

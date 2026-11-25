@@ -16,6 +16,8 @@ export const queryKeys = {
   // The coach's whole roster (`GET /app/coach_players`): mobile's coachPlayersKey, and the
   // source of PAD-660's display names (useCoachDisplayName).
   coachPlayers: ["coach-players"] as const,
+  // Who the viewer may start a conversation with (messaging.conversations rule 7).
+  messageableUsers: ["messageable-users"] as const,
   coachPlayersPaginated: (params: PlayersQueryParams = {}) =>
     ["coach-players-paginated", params] as const,
   // client.query-cache: the prefix every roster write invalidates (all pages and filters).

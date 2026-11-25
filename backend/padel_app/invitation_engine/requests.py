@@ -5,7 +5,7 @@ names follow the plan (§7, §8); the scenario harness maps its events onto them
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Mapping
 
@@ -129,6 +129,16 @@ class CoachInvites:
 
 
 @dataclass(frozen=True)
+class CoachRequestsAttendance:
+    """The coach's "send reminders" on the session (engine-timeline rule 8; engine plan item #16): ask
+    now every going student the schedule would ask. ``skipped`` names the students the route keeps out
+    (unavailable for the slot, blocked all notifications, the coach's attendance marks) with the reason
+    it gives for each (class-reminders-manual rule 6)."""
+
+    skipped: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class Appear:
     """A club student becomes visible and eligible from now (plan D8)."""
 
@@ -171,7 +181,8 @@ class ReopenGroup:
 COACH_QUEUE_REQUESTS = (ApproveGroup, DismissGroup, ReopenGroup)
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
-           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | CoachSetsSide | CoachInvites | Appear
+           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | CoachSetsSide | CoachInvites
+           | CoachRequestsAttendance | Appear
            | UpdateSettings
            | ApproveGroup | DismissGroup | ReopenGroup)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,

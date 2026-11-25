@@ -138,7 +138,7 @@ Manage conversations between users (1:1 or group chats).
     tab badge (rule 16; one helper, `_unread_message_predicate`), so an unread thread on any page is
     found and a row is listed exactly when it would carry the pill. Switching the filter starts again
     from page 1. The name search applies on top of either choice (client-side, over the loaded
-    rows). On web, the conversation open in the thread pane stays in the "Não lidas" list after it
+    rows; for a coach with "Todas" also over the people they may message, rule 20). On web, the conversation open in the thread pane stays in the "Não lidas" list after it
     is read, until the pane closes or the filter changes, so no row moves under the reader; on iOS
     the thread is its own screen, and the read row is gone from the list on return. With nothing
     unread the list says so ("Sem conversas por ler" / "No unread conversations").
@@ -149,6 +149,41 @@ Manage conversations between users (1:1 or group chats).
 19. A row shows when its last message was sent, in the viewer's language: the time for today, the word
     for yesterday, and the day and month before that, with the year when it is not this year. Web and
     phone alike.
+20. **A coach's search finds every person they may message, loaded or not (PAD-831).** On the Messages
+    tab, web and iOS, while a coach's search box holds a non-blank query and "Todas" is selected:
+    - **Two sources.** The query runs through the shared name rule (`players.search` rules 2–6, with
+      `coach: true`) over (i) the loaded conversation rows, by `participantName` and, when the
+      counterpart is on the coach's roster, the roster's real `name` and `nickname`
+      (`rosterNicknameOf`), and (ii) the coach's messageable people (`GET /api/app/messageable-users`,
+      rule 7's set), by `name` and the roster nickname. Either name finds the student, whether or not
+      the coach shows the nickname as the name (`players.nickname` rule 5).
+    - **One row per person.** A matched person whose conversation is among the loaded rows shows as
+      that conversation row only. Every other matched messageable person shows as a "start a
+      conversation" row (test id `conversation-start-<userId>`, web and iOS): the coach's display name
+      for them (`useCoachDisplayNameByUser`), their photo or initials (rule 18) and the line
+      "Iniciar conversa" / "Start a conversation" (`messages.startConversation`).
+    - **Order.** The matching conversation rows first, best match first, then the start rows, best
+      match first (`players.search` rule 6, "the messaging pickers").
+    - **Tap.** A start row makes the same call as the new-conversation picker: `POST
+      /api/app/conversation` with `otherParticipants: [userId]`, then opens the conversation it
+      answers. That call finds or creates (rules 2, 6), so a person whose conversation sits on a page
+      not yet loaded gets that conversation back, never a second one. A refusal shows "You can't
+      message this user" (`messages.cannotMessageUser`, as MESSAGING-CONVERSATIONS-25) and the list
+      stays.
+    - **Nothing found.** `players.search` rule 10's line shows only when both sources match nobody.
+    - **Blank box, or "Não lidas".** A blank box shows the loaded list exactly as before, with no start
+      row. With "Não lidas" on, the search filters the unread rows only: a person with nothing unread
+      is not offered.
+    - **Loading.** The messageable list and the coach's roster are read once per visit of the tab, not
+      per keystroke, and no server search endpoint exists for this. Until the messageable list has
+      arrived, or when it fails, the conversation rows answer alone.
+    - **The box is there with no conversation.** A coach whose list loaded with no conversation still
+      sees the search box (iOS hid it); the empty state stays under it while the box is blank.
+    - **Active students only.** A student of the coach who has not activated their account, or a block
+      either way, is outside rule 7's set, so no start row shows for them, as in the "+" picker. The
+      roster only adds names to search by; it never adds a person.
+    - **A student viewer is unchanged** (`players.search` rule 8, PLAYERS-SEARCH-11): their search
+      filters the loaded rows by the plain substring, and no start row appears.
 
 ### Acceptance Criteria
 
@@ -383,3 +418,79 @@ test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_s
 - **And** a message from today shows its time, and one from yesterday the word for yesterday
 - **And** an earlier message shows the day and month in the viewer's language, with the year for an earlier year, on web and on the phone
 test: `frontend/packages/config/src/initials.test.ts` › `takes the first letter of the first two words, uppercased` (+13 more)
+
+#### MESSAGING-CONVERSATIONS-34: A coach finds a student whose conversation is not loaded, and gets that conversation back (rule 20, PAD-831)
+- **Given** a coach whose loaded rows are page 1 of their conversations, and student "Egor Petrov", messageable, whose conversation is on a page not yet loaded
+- **When** the coach types `egor` on the Messages tab, on web and on iOS
+- **Then** one row for Egor shows, a start row
+- **And** tapping it posts `otherParticipants: [Egor's user id]` and opens the conversation id the server answers
+- **And** when the server refuses (403), "You can't message this user" shows and the list stays
+- iOS: `frontend/apps/mobile/src/features/messages/messages-search.test.tsx` › `[MESSAGING-CONVERSATIONS-34] a student whose conversation is not loaded is found and reopened`
+test: `frontend/apps/web/src/components/messages/ConversationList.search.test.tsx` › `[MESSAGING-CONVERSATIONS-34] a student whose conversation is not loaded is found and reopened` (+1 more)
+
+#### MESSAGING-CONVERSATIONS-35: A coach finds a student with no conversation, and tapping starts one (rule 20, PAD-831)
+- **Given** a coach with conversations, and messageable student "Eurico Gonçalves" with none
+- **When** the coach types `eurico`, `EURICO`, `goncalves` and `eur gon`, on web and on iOS
+- **Then** each time a start row for Eurico shows, with "Iniciar conversa"
+- **And** tapping it creates the conversation and opens it
+- iOS: `frontend/apps/mobile/src/features/messages/messages-search.test.tsx` › `[MESSAGING-CONVERSATIONS-35] a student with no conversation is found by name or surname, any case or accent`
+test: `frontend/apps/web/src/components/messages/ConversationList.search.test.tsx` › `[MESSAGING-CONVERSATIONS-35] a student with no conversation is found by name or surname, any case or accent` (+1 more)
+
+#### MESSAGING-CONVERSATIONS-36: Either name finds the student, the nickname or the real one (rule 20, players.nickname rule 5)
+- **Given** a coach who calls "Jorge Silva" "Jorge chato" with the nickname shown as the name, whose conversation is loaded, and "José Pinto" "Zé" with the nickname kept off the name and no conversation
+- **When** the coach types `jorge silva`, `chato`, `ze` and `pinto`
+- **Then** `jorge silva` and `chato` each find Jorge's conversation row, and `ze` and `pinto` each find José's start row
+test: `frontend/packages/config/src/player-search.test.ts` › `[MESSAGING-CONVERSATIONS-36] the messages search reads the real name and the roster nickname`
+
+#### MESSAGING-CONVERSATIONS-37: One row per person, conversations first (rule 20)
+- **Given** a coach whose loaded rows hold a conversation with "Rita Zé", and messageable "Ana Rita" with no conversation
+- **When** the coach types `rita`
+- **Then** "Rita Zé" shows once, as her conversation row, and "Ana Rita" as a start row after it
+test: `frontend/packages/config/src/player-search.test.ts` › `[MESSAGING-CONVERSATIONS-37] a loaded conversation hides its start row and comes first`
+
+#### MESSAGING-CONVERSATIONS-38: A blank box, "Não lidas" and nobody found behave as before (rule 20)
+- **Given** a coach with loaded conversations and messageable people without one
+- **When** the box is blank; then "Não lidas" is on and they type the name of a messageable person with nothing unread; then they type `xavier`, whom nobody matches
+- **Then** the blank box shows the loaded rows and no start row; under "Não lidas" no start row shows; and `xavier` shows "Nenhum jogador encontrado para «xavier»" because both sources are empty
+- iOS: `frontend/apps/mobile/src/features/messages/messages-search.test.tsx` › `[MESSAGING-CONVERSATIONS-38] blank, unread-only and not-found keep their behaviour`
+test: `frontend/apps/web/src/components/messages/ConversationList.search.test.tsx` › `[MESSAGING-CONVERSATIONS-38] blank, unread-only and not-found keep their behaviour` (+1 more)
+
+#### MESSAGING-CONVERSATIONS-39: A coach with no conversation can still search (rule 20)
+- **Given** a coach with no conversation and messageable student "Egor Petrov"
+- **When** they open the Messages tab on iOS
+- **Then** the search box shows above the empty state, and typing `egor` shows Egor's start row
+test: `frontend/apps/mobile/src/features/messages/messages-search.test.tsx` › `[MESSAGING-CONVERSATIONS-39] a coach with no conversation sees the box and finds a student`
+
+#### MESSAGING-CONVERSATIONS-40: A student's search shows no start row (rule 20, PLAYERS-SEARCH-11)
+- **Given** a student linked to coach "Rui Basto", with no conversation with him
+- **When** the student types `rui` on the Messages tab, on web and on iOS
+- **Then** only their loaded rows are filtered, and no start row shows
+- iOS: `frontend/apps/mobile/src/features/messages/messages-search.test.tsx` › `[MESSAGING-CONVERSATIONS-40] a student's search offers no start row`
+test: `frontend/apps/web/src/components/messages/ConversationList.search.test.tsx` › `[MESSAGING-CONVERSATIONS-40] a student's search offers no start row` (+1 more)
+
+#### MESSAGING-CONVERSATIONS-41: A student who has not activated, or is blocked, is not found (rules 7, 20)
+- **Given** a coach whose roster holds "Nuno Novo", inactive, and "Bia Bloco", active and blocked by the coach, with no conversation with either
+- **When** the coach reads who they may message, starts a conversation with each, and searches `nuno` and `bia` on the Messages tab
+- **Then** neither is in `GET /api/app/messageable-users` and each start is 403
+- **And** the search shows no start row for either, though both are on the roster it reads
+- Client: `frontend/packages/config/src/player-search.test.ts` › `[MESSAGING-CONVERSATIONS-41] a roster student outside the messageable list is not offered`
+test: `backend/padel_app/tests/test_messaging_roster_scope.py` › `test_an_inactive_or_blocked_roster_student_is_not_messageable` (+1 more)
+
+### Today (PAD-831)
+- The Messages search runs over the loaded conversation rows only: web `frontend/apps/web/src/components/messages/ConversationList.tsx:47` and iOS `frontend/apps/mobile/app/(tabs)/messages.tsx:92` call `searchPeopleByName` (`frontend/packages/config/src/player-search.ts`) on `useConversations(1, 20, …)` plus the pages fetched by scrolling (`PAGE_SIZE` 20). A student whose conversation is on a later page, or who has none, is not found: Egor and Eurico failed on iOS, and Eurico was found on web, where his conversation was loaded.
+- Neither list passes `nicknameOf`: a row is searched by `participantName` only, which the server fills with the coach's nickname when it is shown as the name (`backend/padel_app/serializers/conversation.py` `serialize_conversation`, PAD-660). Such a student is not found by their real name, and a nickname kept off the name never finds its row.
+- iOS hides the search box when the list has no conversation (`messages.tsx`, the `conversations.length > 0 || unreadOnly` guard); web always shows it.
+- The people a coach may message come from `GET /api/app/messageable-users` (rule 7), read by the new-conversation pickers: iOS `frontend/apps/mobile/app/conversation/new.tsx` (`useMessageableUsers`, query key `messageable-users`) and web `NewConversationDialog.tsx` (`getMessageableUsers` when the dialog opens). Both search it with `searchPeopleByName` and `rosterNicknameOf({ name, displayName })`, so there too a nickname kept off the name is not searched.
+- A pick creates with `POST /api/app/conversation` `otherParticipants`, which finds or creates (rules 2, 6): web `MessagesPage.tsx` `handleNewConversation`, iOS `new.tsx` `handlePick`.
+- Pinned by `ConversationList.test.tsx` (PLAYERS-SEARCH-11, student), `ConversationList.filter.test.tsx` and `messages-unread-filter.test.tsx` (rule 17).
+
+### Waves
+1. MESSAGING-CONVERSATIONS-36, 37, 41 — `@levelup/config` `player-search.ts`: one helper both shells call, taking the loaded rows, the messageable people and the roster, answering the conversation rows and the start rows.
+2. MESSAGING-CONVERSATIONS-34, 35, 38, 40 — web `ConversationList.tsx`, `MessagesPage.tsx`, locale key `messages.startConversation`.
+3. MESSAGING-CONVERSATIONS-34, 35, 38, 39, 40 — iOS `app/(tabs)/messages.tsx`, mobile locales (static import, `frontend/CLAUDE.md`).
+Waves 2 and 3 ship in the same change (web and iOS ship together).
+
+### Open questions
+- Does widening the conversation-list search to the people the coach may message conflict with `players.search` rule 7 and its Intent ("never who can appear"), owner-confirmed 2026-10-14? — options: (a) amend rule 7 with a narrow exception: the people added are exactly rule 7's messageable set, which the same screen's "+" picker already lists, so no coach sees anyone they could not already pick; (b) keep rule 7 and fix PAD-831 in the new-conversation picker only. — decision: (a), the owner's, 2026-11-25: the Messages search finds every student of that coach (not of other coaches), with or without a conversation. Rule 7's set is exactly that: a shared club is not a link (PAD-568).
+- The start row reads "Iniciar conversa" even for a person whose conversation exists on a page not yet loaded — decision: one line, because the client cannot know without loading every page, and the tap opens the existing conversation anyway (rule 2).
+- Start rows are not offered under "Não lidas" — decision: so, because that filter is the server's list of unread threads (rule 17), and a person with no unread thread is not on it.

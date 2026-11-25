@@ -182,7 +182,12 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
    - **What, not where:** the row holds the channel (`expo` | `webpush`), the user and the message
      (title, body, data or url, badge). Tokens, the web-push subscription and the VAPID key are
      looked up when it is sent: no endpoint or key is stored, and a device unregistered meanwhile
-     is not sent to.
+     is not sent to. **One web-push row per browser (PAD-753):** a web push is one row per
+     subscription the user holds, naming it by its id (`subscriptionId`, never its endpoint), so a
+     retry resends only to the browser that failed. At send time a row whose subscription is gone,
+     or now belongs to another user, is skipped. A row written before PAD-753 (no `subscriptionId`)
+     is sent to every subscription the user holds. Without the outbox (rule 10), each subscription
+     is one delivery on the bounded sender.
    - **Enqueue:** inside an active unit of work the row joins it, so a rolled-back action sends
      nothing. Outside one, the row is written at once on its own short transaction, never by
      committing the caller's session. The caller keeps its view-as suppression and its "no
@@ -650,3 +655,21 @@ test: `backend/padel_app/tests/test_pad624_staging_sends_no_expo_push.py` › `t
 - **When** a push-token event arrives, whether the token rotated or repeats the last one, or the app returns to the foreground without being registered
 - **Then** the event causes at most one Expo token fetch, made with the event's device token, and a repeated event causes none
 - **And** only the app's own registration asks the native module for a device token, once per registration, so the fetches a foreground or a rotation causes stay bounded and stop once the phone is registered
+
+#### MESSAGING-PUSH-NOTIFICATIONS-38: A web push reaches each of the user's browsers (rule 10a, PAD-753)
+- **Given** a user with two browser subscriptions
+- **When** a message push is sent to them, with the outbox off and then on
+- **Then** each browser gets one delivery; with the outbox on there are two `webpush` rows, each naming one subscription and neither holding an endpoint
+test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_web_push_reaches_each_browser_in_both_queues`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-39: A dead browser is dropped alone (rule 10a)
+- **Given** a user with two browser subscriptions, one of which the push service answers 410
+- **When** a push is sent
+- **Then** that subscription row is deleted and `push_failed` recorded, and the other browser is delivered to and kept
+test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_dead_browser_is_dropped_alone`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-40: A retry resends only to its browser (rule 10a)
+- **Given** an outbox push to two browsers where one answers 503 and the other is delivered
+- **When** the drainer retries
+- **Then** only the failed browser gets the second attempt; a row whose subscription now belongs to another user is skipped
+test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_retry_resends_only_to_its_browser`

@@ -62,6 +62,7 @@ from padel_app.models import (
     Vacancy,
     WaitingListEntry,
 )
+from padel_app.models.push_subscriptions import evict_beyond_cap
 from padel_app.sql_db import db
 from padel_app.tools.username_tools import (
     is_placeholder_username,
@@ -131,7 +132,6 @@ MERGE_UNIQUE_KEYS_HANDLED = {
     "conversations.participant_key": "_merge_conversations: a colliding key folds into the existing thread",
     "message_reactions.uq_reaction": "_repoint_user_unique on (message_id, emoji)",
     "blocked_users.uq_blocked_user": "_repoint_user_unique both ways; a self-block is deleted",
-    "push_subscriptions.user_id": "_repoint_user_unique: the claimant's subscription is kept",
     "device_tokens.uq_device_tokens_user_token": "_repoint_user_unique on token",
 }
 MERGE_UNIQUE_KEYS_IMPOSSIBLE = {
@@ -141,6 +141,7 @@ MERGE_UNIQUE_KEYS_IMPOSSIBLE = {
     "player_invitations.token_hash": "the merge never writes token_hash",
     "replacement_approval_prompts.vacancy_id": "the merge never writes vacancy_id",
     "notification_configs.coach_id": "the merge never writes coach_id",
+    "push_subscriptions.endpoint": "the merge never writes endpoint, and an endpoint has one row (PAD-753)",
 }
 
 
@@ -431,7 +432,9 @@ def _merge_rows(placeholder_player, claimant_user, counts):
     counts.move("messages", Message.query.filter_by(sender_id=puid).update({"sender_id": cuid}))
     counts.move("calendar_blocks", CalendarBlock.query.filter_by(user_id=puid).update({"user_id": cuid}))
     counts.move("message_reports", MessageReport.query.filter_by(reporter_id=puid).update({"reporter_id": cuid}))
-    _repoint_user_unique(PushSubscription, "user_id", (), puid, cuid, counts)
+    # auth.push-subscription rule 1: the cap first, while each row still has its own updated_at.
+    counts.drop(PushSubscription.__tablename__, evict_beyond_cap([puid, cuid]))
+    _repoint_user_unique(PushSubscription, "user_id", ("id",), puid, cuid, counts)
     _repoint_user_unique(DeviceToken, "user_id", ("token",), puid, cuid, counts)
     # Reactions and blocks carry unique pairs — re-point, dropping duplicates.
     _repoint_user_unique(MessageReaction, "user_id", ("message_id", "emoji"), puid, cuid, counts)

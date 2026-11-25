@@ -67,10 +67,12 @@ def test_downgrade_is_never_read():
     assert m.findings_in(source) == []
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-22")
 def test_no_pr_migrations_says_so_and_passes(tmp_path):
     r, summary = _run(tmp_path=tmp_path)
     assert r.returncode == 0
-    assert "0 added migration(s)" in summary
+    assert summary.strip() == "Expand/contract: no added migration."
+    assert "0 added" not in summary
 
 
 def test_an_unreadable_file_warns_and_passes(tmp_path):
@@ -79,6 +81,22 @@ def test_an_unreadable_file_warns_and_passes(tmp_path):
     r, _ = _run(bad, tmp_path=tmp_path)
     assert r.returncode == 0
     assert f"::warning file={bad}::expand/contract guard could not read it" in r.stdout
+
+
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-22")
+def test_an_unreadable_file_is_not_counted_as_expand_only(tmp_path):
+    bad = tmp_path / "broken.py"
+    bad.write_text("def upgrade(:\n")
+    r, summary = _run(bad, tmp_path=tmp_path)
+    assert r.returncode == 0
+    assert summary.strip() == "Expand/contract: no added migration."
+    good = tmp_path / "good.py"
+    good.write_text("def upgrade():\n    op.add_column('t', sa.Column('c', sa.Integer()))\n")
+    second = tmp_path / "second"  # the summary file is appended to: a fresh one for this run
+    second.mkdir()
+    r, summary = _run(bad, good, tmp_path=second)
+    assert r.returncode == 0
+    assert summary.strip() == "Expand/contract: 1 added migration(s), all expand-only.", "2 files, 1 read"
 
 
 @pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-22")

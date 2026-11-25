@@ -23,6 +23,7 @@ from padel_app.invitation_engine.requests import (
     CoachExcludes,
     CoachSetsSide,
     CoachInvites,
+    CoachRequestsAttendance,
     CreateSession,
     Request,
     UpdateSettings,
@@ -94,6 +95,8 @@ class Engine:
             return self._queue_answer(session, request, now)
         if isinstance(request, CoachInvites):
             return self._coach_invites(session, request, now)
+        if isinstance(request, CoachRequestsAttendance):
+            return self._coach_asks(session, request, now)
         if not isinstance(request, (CoachAdded, CoachSetsSide, CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
         # A student's request locks the student first (two of theirs never run at once, answers rule 10).
@@ -136,6 +139,13 @@ class Engine:
             settings = self.settings_for(session)
             out = self._commit(planner.coach_invites(self.store.snapshot(session), settings, request.students, now))
             return out + self._plan(session, now, settings)
+
+    def _coach_asks(self, session: str, request: CoachRequestsAttendance, now: datetime) -> list[Effect]:
+        """The coach's "send reminders" (engine-timeline rule 8), under the session's lock and with no
+        re-plan: it sends no invitation and changes no place."""
+        with self.store.unit((session,)):
+            settings = self.settings_for(session)
+            return self._commit(messages.coach_ask(self.store.snapshot(session), settings, now, request.skipped))
 
     def _queue_answer(self, session: str, request: Request, now: datetime) -> list[Effect]:
         """The coach's answer to semi-automatic mode (engine-planning rule 14), then a re-plan, which
