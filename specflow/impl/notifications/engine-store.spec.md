@@ -129,6 +129,14 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     engine as `CoachAdded`, which writes no `Placed`, so that credit is spent once. Waiting-list rule 15b
     (the last credit withdraws the student's other open offers) is not done on the new engine; see Open
     questions.
+12. **State stored before the class had its level keeps its meaning (engine effective level, 2026-11-25;
+    lead's decision).** A session adopted while the store still handed the engine an inherited class as
+    having no level (before rule 4's effective level) holds spot types stored with no level: its coach
+    alerts (`alerted`), its pending approval requests' queues (`pending`) and its dismissed groups' spot
+    counts (`dismissed_groups`). The store reads such a stored spot type as the session's current level, so
+    a deploy of rule 4 raises no alert again, reopens no dismissed group and asks for no approval again on
+    that account; an alert cleared or raised again replaces the one stored with no level. A class with no
+    level reads exactly as before. No stored row is rewritten by a migration.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -292,6 +300,14 @@ lesson's default level's ladder position (not none), and a student one level awa
 group, after the same-level students, not with them.
 test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_an_inherited_level_reaches_the_engine_at_adoption_and_in_every_snapshot` (+ `test_an_inherited_level_keeps_the_level_groups_in_order`, `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P47-an-inherited-class-level-keeps-the-level-groups]`)
 
+#### NOTIFICATIONS-ENGINE-STORE-23: Spot types stored with no level read as the session's level (rule 12)
+Given an adopted session whose occurrence inherits its class's level, holding a coach alert, a dismissed group's
+spot counts and a pending approval request's queues all stored with no level and otherwise current, when the
+store builds its snapshot and the engine decides, then it raises no `CoachAlert` and no `AlertCleared`, emits no
+`GroupReopened` and no new `ApprovalRequest`; and when the alert is raised again for a new count, the entry
+stored with no level is replaced, not kept beside it.
+test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_state_stored_with_no_level_reads_as_the_sessions_level`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -306,6 +322,8 @@ test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_an_inhe
    `_elsewhere`), `services/lesson_service.py` (`coach_instance_ids`, `coach_instance_ids_select`).
 6. (engine effective level, 2026-11-25) STORE-22 — `services/engine_store.py` (`snapshot`) and
    `services/engine_switch.py` (`_adopt`).
+7. (engine effective level, transition) STORE-23 — `services/engine_store.py` (`snapshot`'s reading of `alerted`,
+   `pending`, `dismissed_groups`; `CoachAlert` and `AlertCleared` writes).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
