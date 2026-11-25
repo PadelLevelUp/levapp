@@ -363,6 +363,16 @@ approval.**
      test pins how many times it calls `effectiveFilledSpotsOf`; iOS reads `effectiveFilledSpots` with
      `presencesOfParticipants`. That test allows exactly three such calls: the bar takes the number the box already has.
 
+29. **A link the server sends to a class is the deep link of rule 10 (numbering self-assigned,
+    unconfirmed).** Every URL the server builds to open one class on the calendar (today: the
+    coach's "Aula cheia" / "Class full" push, sent when a spot filled and pending requests were
+    closed) is `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>`, the shape `class_href`
+    builds for the dashboard, with `date` the class's own date as the calendar shows it (the start
+    datetime's date, as the engine's coach alert already does). A URL with another key
+    (`classInstanceId`) opens nothing: the calendar reads only `classId` and `date`, so the coach
+    lands on today's calendar with the class not open. One builder (`class_href`) makes the link,
+    for a one-off and for a series occurrence alike.
+
 ### Acceptance Criteria
 
 #### CALENDAR-EVENT-DETAIL-1: Sixteen players fit on a laptop, grouped and ordered (rule 22, PAD-659)
@@ -669,6 +679,12 @@ test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no l
 - **And** the payload carries `participantCount` (one number, no names or ids) from the helper the calendar event uses, a declined student is not counted, and a coach's payload carries the same number
 - **And** a server that sends no `participantCount` leaves the sheet as it was, and the coach's counts (B-240 draft, PAD-771 header) do not change
 test: `backend/padel_app/tests/test_student_class_count.py`, `frontend/apps/web/src/components/calendar/ClassDetailSheet.studentCount.test.tsx`, `frontend/packages/config/src/capacity.test.ts`
+
+#### CALENDAR-EVENT-DETAIL-48: The "Aula cheia" push opens the class it is about (rule 29)
+- **Given** a class that filled while student requests were pending, so the coach is sent the "Aula cheia" push
+- **Then** the push's url is exactly `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>` of that class, for a one-off and for a series occurrence alike
+- **And** the web calendar, given exactly that url, selects that week and opens that class's detail sheet (rules 10, 11)
+test: `backend/padel_app/tests/test_pad_superseded_push_link.py` › `[CALENDAR-EVENT-DETAIL-48]` (+ `frontend/apps/web/src/pages/CalendarPage.supersededLink.test.tsx`)
 
 ### Open questions
 - Rule 27 (UI idea 3) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can
