@@ -70,7 +70,8 @@ Register browser push notification subscriptions for authenticated users.
    unchanged. `subscribe()` resolves `false` on a failed save and never rejects. Each failed save
    (`subscribe` = the browser's `pushManager.subscribe`, `post` = the save request) is reported to
    `POST /api/notifications/registration-failure` with the permission state, never the
-   subscription (`admin.engine-health` rule 8, PAD-746); permission not granted reports nothing.
+   subscription (`admin.engine-health` rule 8, PAD-746); a permission that is not granted is not a
+   failure and reports no failure, though a `denied` one is reported as a state by rule 13.
    Native's counterpart is `messaging.push-notifications` rule 15.
 10. **A save names its browser (PAD-753).** `subscription.endpoint` must be a non-empty string of at
     most 2048 bytes; a save without one answers 400 and writes nothing. The endpoint is a capability (whoever holds it
@@ -104,6 +105,19 @@ Register browser push notification subscriptions for authenticated users.
     The copy and the prompt site are unchanged. It is PAD-789's web half: a student whose browser
     holds no subscription is offered one on Messages. The iOS/Android counterpart is
     `messaging.push-notifications` rule 17.
+
+13. **A refused permission is reported, as a state (PAD-789 item 3; owner decision 25 Nov 2026).** The
+    browser reports `denied` notification permission to `POST /api/notifications/registration-failure`
+    with `platform` `web`, `permission` `denied`, `phase` `refused`, `build` `web` and no
+    `errorClass` (`admin.engine-health` rule 8e), through the same token-bearing `fetch` as rule 9's
+    failure report, outside the API client. It reports only when the permission **changes into**
+    `denied` since the last state this browser reported for this user (remembered in
+    `localStorage`, per user), and again after `const:PUSH_REFUSAL_RESEND_DAYS` days while still
+    denied; never on each page load or focus. `granted` or `default` resets the memory. A browser
+    without the Notification API, or one that cannot read or write `localStorage`, reports at most
+    once per page session. A report that fails is dropped, not retried, and never signs the user
+    out. No prompt and no banner changes. Native's counterpart is `messaging.push-notifications`
+    rule 18.
 
 ### Acceptance Criteria
 
@@ -198,6 +212,14 @@ test: `backend/padel_app/tests/test_pad753_push_endpoint_migration.py` › `test
 - **Then** the user holds one row for this browser, under its endpoint
 test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_row_the_previous_release_wrote_is_replaced`
 
+#### AUTH-PUSH-SUBSCRIPTION-17: A browser reports a refusal once per change, with the user's token and closed fields (rule 13)
+- **Given** a signed-in user whose browser permission reads `default`, then `denied`, then (a later load) `denied`, then `granted`, then `denied`; and a browser with no Notification API
+- **When** the page reads the permission at each of those moments
+- **Then** one report `{platform: "web", phase: "refused", permission: "denied", build: "web"}` is posted at the first `denied`, none at the second, none at `granted`, one again at the last `denied`, each with the user's own bearer token and outside the API client
+- **And** after `const:PUSH_REFUSAL_RESEND_DAYS` days a still-denied permission reports once more, and not before; with `localStorage` throwing it reports once per page session; with no Notification API it reports nothing
+- **And** a failing post is dropped, not retried
+test: `frontend/apps/web/src/utils/pushRefusalReport.test.ts` › `a refusal reports once per change into denied and again after the resend interval`
+
 ### Today (PAD-753)
 - Model: `backend/padel_app/models/push_subscriptions.py:22-28` (`user_id` `unique=True, index=True`; no endpoint column).
   Migrations: `5b9a1c2d7e8f` (table, `UniqueConstraint("user_id")`, unique `ix_push_subscriptions_user_id`), then
@@ -270,6 +292,12 @@ test: `frontend/apps/web/src/utils/messagesPushBanner.test.ts` › `each browser
    one wave with `messaging.push-notifications`' MESSAGING-PUSH-NOTIFICATIONS-41.
 
 ### Open questions (PAD-789)
+- **Item 3 (refusal report), web.** Decided by the owner on 25 Nov 2026 ("Change the rule"); report,
+  frequency and count are in `admin.engine-health`'s Open questions. A `denied` browser state
+  reports through the same endpoint with platform `web` (the lead's brief). Lead decision here
+  (the lead can reverse it): the reporter lives beside `utils/pushFailureReport.ts`
+  (`utils/pushRefusalReport.ts`) and reads the permission where `usePushNotifications` already
+  does, so it adds no new permission read site.
 - **A student on an iPhone browser (outside an installed web app).** There the Push API is
   missing, so today's Messages page shows no push line at all, and the setup guide's `ios_browser`
   state (`dashboard.student-setup-guide` rule 7) is the only place that says so. Options: (a) no

@@ -368,7 +368,8 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
       `onRegistrationFailure` hook fires once per failed attempt (`token` = anything that fails
       before the POST, `post` = the POST), and the app sends it to
       `POST /api/notifications/registration-failure` with the permission state and the build,
-      never the token (`admin.engine-health` rule 8). A denial and a simulator report nothing.
+      never the token (`admin.engine-health` rule 8). A simulator reports nothing; a denial is not a
+      failure and is reported apart, by rule 18 (owner decision 25 Nov 2026).
     - Web's counterpart is `auth.push-subscription` rule 9.
 
 16. Outbox rows that are done are deleted: `sent` and `skipped` rows after a day, `dead` rows after 30 days. A `pending` row is never deleted.
@@ -385,6 +386,18 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
     alerts are off, and messages and the badge still arrive in the app. No new prompt site, no
     new copy, no dismissal (the line goes away when its cause does, as in a thread). Web's
     counterpart is `auth.push-subscription` rule 12.
+18. **A refused permission is reported, as a state (PAD-789 item 3; owner decision 25 Nov 2026).** On
+    iOS and Android the app reports a refused notification permission to
+    `POST /api/notifications/registration-failure` with `permission` `denied`, `phase` `refused`,
+    the build and no `errorClass` (`admin.engine-health` rule 8e): never the token, never free text.
+    It does so where it already reads the permission (launch, login, a return to the foreground),
+    only when the permission **changes into** denied since the last state this device reported for
+    this user (remembered locally, per user), and again only after `const:PUSH_REFUSAL_RESEND_DAYS`
+    days while still denied; never on each launch. A permission that is granted or not yet asked
+    resets the memory, so a later refusal reports again. A simulator (registrar `unsupported`)
+    reports nothing. A report that fails is dropped, not retried; a reporter that throws does not
+    stop the registration; a memory that cannot be read reports at most once per app session. It
+    adds no prompt and changes no banner. Web's counterpart is `auth.push-subscription` rule 13.
 
 ### Acceptance Criteria
 
@@ -623,7 +636,7 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
 - **Given** a phone on which the user signs in, a phone that denies notifications, a simulator, and a token that another user owns
 - **When** each registers, and a user unregisters their own token and the other user's
 - **Then** signing in, signing up and restoring a session each ask for permission once; a phone that grants it stores its token once, with its user and platform
-- **And** a denial sends nothing, is never retried and reads `no-permission`
+- **And** a denial registers no token, is never retried and reads `no-permission`; it is reported as a state by rule 18, not as a failure
 - **And** a simulator sends nothing and reads `unsupported`, so no "not active" banner shows
 - **And** unregistering removes the caller's own row and leaves the other user's; doing it twice still answers 200
 test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › `a denial is not retried` (+5 more)
@@ -694,6 +707,14 @@ test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_retr
 - **And** rendering the tab raises no permission prompt; only the banner's tap asks the system
 test: `frontend/apps/mobile/src/features/notifications/messages-tab-banner.test.tsx` › `the Messages tab shows the banner above the list in each case and prompts only on its tap`
 
+#### MESSAGING-PUSH-NOTIFICATIONS-42: A refused permission is reported once per change, and a simulator reports nothing (rule 18)
+- **Given** a signed-in student on iOS whose permission reads `undetermined`, then `denied`, then (a later launch) `denied`, then `granted`, then `denied`; and a simulator whose permission reads `denied`
+- **When** the app reads the permission at each of those moments
+- **Then** one report `{platform: "ios", phase: "refused", permission: "denied", build}` is sent at the first `denied`, none at the second, none at `granted`, and one again at the last `denied`
+- **And** after `const:PUSH_REFUSAL_RESEND_DAYS` days a still-denied permission reports once more, and not before
+- **And** the simulator sends nothing; a report that fails is dropped, not retried; a memory that cannot be read reports once per session; two signed-in users on one device each report their own change
+test: `frontend/apps/mobile/src/lib/push/refusalReport.test.ts` › `a refusal reports once per change into denied and again after the resend interval, never on a simulator`
+
 ### Today (PAD-789)
 - The banner is `frontend/apps/mobile/src/features/notifications/notifications-blocked-banner.tsx`
   (`NotificationsBlockedBanner`); its case is decided by `notification-banner.ts`
@@ -708,8 +729,11 @@ test: `frontend/apps/mobile/src/features/notifications/messages-tab-banner.test.
   app reads `/api/auth/me` at restore, login, sign-up and `refreshUser`
   (`src/auth/AuthContext.tsx:64,166,183,198`), never on a foreground, and `/auth/me` carries no
   push field (`backend/padel_app/modules/api_auth.py:_serialize_me`).
-- Item 3's state report would contradict `admin.engine-health` rule 8d (see that spec's Open
-  questions).
+- Item 3's state report contradicted `admin.engine-health` rule 8d; the owner resolved it on 25 Nov
+  2026 ("Change the rule"), see that spec's Open questions. Today the registrar sets `no-permission`
+  (`expoPushRegistrar.ts:~145`) and `failureReport.ts` reports failures only;
+  `src/lib/push/recovery.ts` already reads the permission on each foreground, which is where the
+  refusal reporter reads it.
 
 ### Waves (PAD-789)
 3. MESSAGING-PUSH-NOTIFICATIONS-41 with `auth.push-subscription`'s AUTH-PUSH-SUBSCRIPTION-16 —
@@ -720,6 +744,11 @@ test: `frontend/apps/mobile/src/features/notifications/messages-tab-banner.test.
    `src/test/setup-guide-fixtures.tsx` (`notifications`, `registrar`).
 
 ### Open questions (PAD-789)
+- **Item 3 (refusal report), iOS.** Decided by the owner on 25 Nov 2026 ("Change the rule"); the
+  report, its frequency and the count are decided in `admin.engine-health`'s Open questions. Lead
+  decision here (the lead can reverse it): the memory of the last reported state is local storage
+  of the app, keyed by user id, because two accounts can share a phone and each needs its own
+  report. It ships in the same wave as web's (wave 4 of `admin.engine-health`).
 - **"The banner's third case extended to 'never registered'" (ticket item 2, iOS).** Decision
   (lead, 2026-11-25; the owner can reverse it): option (a). On a build
   with PAD-744 every permission state already has a case: never asked → "enable", refused →
