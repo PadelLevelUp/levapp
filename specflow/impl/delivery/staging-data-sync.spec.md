@@ -237,7 +237,6 @@ reload and a live copy stay available through `workflow_dispatch`.
 - **And** a dump older than 48 hours is reported with a warning and restored all the same
 - **And** an empty dump is skipped, and so is an unknown mode; in both cases staging is not stopped
 test: `backend/padel_app/tests/test_pad589_staging_sync.py` › `test_a_stale_backup_is_reported_and_still_restored` (+3 more)
-- Code to follow: `test_a_stale_backup_is_reported_and_still_restored` (`test_pad589_staging_sync.py`) asserts the warning and the exit only; assert that the old dump was restored.
 
 #### DELIVERY-STAGING-DATA-SYNC-15: Both tester logins work after a scrub, and the job fails when one does not (rules 10, 11, 11a)
 - **Given** a restored copy in which the coach's lowest-id student signed in only with Google (no password), a `pending-…` student with a lower id, and a disabled student with a lower id still

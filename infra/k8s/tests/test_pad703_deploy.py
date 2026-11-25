@@ -43,6 +43,7 @@ def test_dispatch_only_never_cancelled_and_one_reusable_job():
     assert set(wf["on"]) == {"workflow_dispatch"}, "push triggers join in PAD-705 / PAD-708"
     assert wf["on"]["workflow_dispatch"]["inputs"]["environment"]["options"] == ["staging", "prod"]
     assert wf["concurrency"]["cancel-in-progress"] is False
+    assert wf["concurrency"]["group"] == "deploy-gke-${{ inputs.environment }}", "one queue per environment"
     job = wf["jobs"]["deploy"]
     assert job["uses"] == "./.github/workflows/_deploy-gke.yaml" and job["secrets"] == "inherit"
     assert job["with"]["image_tag"] == "${{ inputs.image_tag || github.sha }}"
@@ -96,10 +97,18 @@ def test_no_secret_is_written_into_a_script():
 
 
 def test_staging_builds_push_the_commit_tag():
-    text = (WF / "deploy-staging.yaml").read_text()
+    wf = workflow("deploy-staging.yaml")
+    pushed = [
+        step_["with"]["tags"]
+        for job in wf["jobs"].values()
+        for step_ in job.get("steps", [])
+        if str(step_.get("uses", "")).startswith("docker/build-push-action@") and step_["with"].get("push") is True
+    ]
     for image in ("levelup_backend", "levelup_frontend", "levelup_admin"):
-        assert f"${{{{ secrets.DOCKERHUB_USERNAME }}}}/{image}:${{{{ github.sha }}}}" in text, image
-        assert f"${{{{ secrets.DOCKERHUB_USERNAME }}}}/{image}:staging" in text, image
+        tags = [t for t in pushed if f"/{image}:" in t]
+        assert len(tags) == 1, f"{image}: exactly one push step"
+        assert f"${{{{ secrets.DOCKERHUB_USERNAME }}}}/{image}:${{{{ github.sha }}}}" in tags[0], image
+        assert f"${{{{ secrets.DOCKERHUB_USERNAME }}}}/{image}:staging" in tags[0], image
 
 
 # --- pull credentials --------------------------------------------------------------------------

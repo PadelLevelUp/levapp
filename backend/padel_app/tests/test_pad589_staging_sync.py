@@ -271,6 +271,7 @@ def test_a_stale_backup_is_reported_and_still_restored(sandbox):
     result, _ = run(sandbox, SYNC_NOW_EPOCH="1791849600")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "WARNING: newest backup is from 2026-10-10_0300" in result.stdout
+    assert restored(sandbox) == b"PGDMP-new", "the stale dump is still the one restored"
 
 
 @pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-6")

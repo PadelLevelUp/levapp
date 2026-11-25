@@ -314,7 +314,10 @@ def test_the_lint_workflow_validates_every_kustomization_with_schemas():
     yaml.safe_load(wf)
     for path in ("overlays/staging", "overlays/prod", "overlays/staging/migrate", "overlays/prod/migrate"):
         assert path in wf
-    assert "kubeconform" in wf and "-strict" in wf
+    assert "kubeconform" in wf
+    # `-strict` on the command line that runs kubeconform, not in the header comment.
+    run_lines = [l for l in wf.splitlines() if "kubeconform" in l and not l.lstrip().startswith("#")]
+    assert any(re.search(r"\bkubeconform\b.*\s-strict\b", l) for l in run_lines)
     assert "-ignore-missing-schemas" not in wf, "a resource with no schema must fail, not pass"
     assert re.search(r"CRDs-catalog/[0-9a-f]{40}/", wf), "the CRD catalog is pinned to a commit"
     assert "infra/k8s/tests" in wf

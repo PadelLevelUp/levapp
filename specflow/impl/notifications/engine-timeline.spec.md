@@ -25,7 +25,9 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
 2. **`attendance_request_at` (§8 step 3; owned by the engine after the swap, PAD-912).** The engine
    sends the attendance requests (`invitation_engine/messages.py`, `due`): the first at
    `attendance_request_at` (`EngineSettings.attendance_request`: days before, wall-clock time, Lisbon),
-   then every `every`, at most `max` sends, each only to who has not answered. The recipients are the
+   then every `every`, at most `max` sends, each only to who has not answered; and no student is asked
+   more than `max` times in all for the session, the coach's asks (rule 8) included, counting attempts as
+   `notifications.reminders` rule 19 does (a voided one is not counted; orchestrator, 2026-11-25). The recipients are the
    going students (`SessionSnapshot.going`: placed and not left), however they were placed: as a
    regular, a returning regular, by automatic entry, by direct join, or by accepting an invitation
    (owner, 2026-11-14, PAD-820 option b: "everyone going when the reminder is sent gets it"). Never an
@@ -86,6 +88,25 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    be accepted.
 7. **After the class (§8 step 7).** A regular who did not answer and did not come gets an absence
    with notice `late` (they never told anyone). The coach judges it, as any absence (rule 5).
+8. **The coach asks now (`CoachRequestsAttendance`; engine plan item #16, 2026-11-25).** The coach's
+   own "send reminders" on a new-engine session is an engine request, never the app's reminder flow,
+   so the engine stays the one sender (rule 2's hand-over). Its producer is pure
+   (`invitation_engine/messages.py`, beside `due`), and the engine handles it under the session's lock
+   with no re-plan: it sends no invitation and changes no place. It asks at once, outside rule 2's
+   schedule, every going student rule 2 asks (however placed), and gives each going student it does
+   not ask one reason, in this order: an absent regular (`not_coming`); one who answered, or an
+   invitation acceptor placed strictly after the first send (rule 2's owner exception, PAD-820, which
+   the app's manual send keeps too: `notifications.reminders` rule 24) (`already_confirmed`); one who
+   blocked all notifications (`preference`); one already asked `attendance_request.max` times in all
+   (`reminder_limit`, rule 2's cap); one the request names as skipped, with the reason the
+   request gives for them (the route's, `notifications.class-reminders-manual` rule 6). It ignores quiet
+   hours and the session's own notifications switch (an explicit send, `notifications.toggle-class`
+   rule 3, as the app's manual send does), whatever the coach's `attendance_request` type (`none`
+   included), and asks nobody once the class has started. Each ask is an `AttendanceRequested` at the
+   request's instant, which the store applies as it applies a scheduled one (a `ReminderAttempt` and the
+   reminder message) and the student answers the same way. Rule 2's schedule is not moved: as with any
+   request, a scheduled send whose time has passed counts as made for a student asked at or after it
+   (`due`'s rule), and a later scheduled send asks again whoever has still not answered by then.
 
 ### Not this spec
 - The class's start stopping everything: kept as `notifications.invitations` rule 20.
@@ -106,7 +127,13 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
   occurrence calls `send_class_reminders` (`notification_service.py:3846`), answered through
   `respond_to_reminder` (`:4300`); `notifications.reminders`. The engine's producer exists since #946
   (`invitation_engine/messages.py`, `AttendanceRequested`), pinned by
-  `backend/padel_app/tests/test_invitation_engine_messages.py`; no app path calls it yet.
+  `backend/padel_app/tests/test_invitation_engine_messages.py`; `Engine.tick` calls it (`messages.due`).
+- The coach's "send reminders" (`POST /app/notify/send_reminders`, `modules/notification_engine_api.py`
+  `send_reminders`) calls `send_class_reminders`, which returns `sent: 0` for a new-engine session
+  (`services/notification_service.py` `_send_class_reminders`, the `_on_new_engine` guard, PAD-918,
+  `notifications.reminders` REMINDERS-34), so on such a class the coach is told nobody was reminded. The
+  engine asks only from `Engine.tick` (`messages.due`); `invitation_engine/requests.py` has no request
+  for it. Rule 8 is new (2026-11-25).
 - Not read beyond the lines above. The new producers: `invitation_engine/timeline.py` (`due`, counting),
   `invitation_engine/absences.py`; the counting-until instant is a new field on `effects.Invited` and
   `snapshot.Invitation` (shared-module change).
@@ -251,6 +278,39 @@ when the timeline runs, then neither of those two is moved, a {left, right} stud
 by the coach moves left with const:KIND_SIDE_MOVED, and no one-sided student gets that message.
 test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_a_side_the_coach_chose_is_never_moved`
 
+#### NOTIFICATIONS-ENGINE-TIMELINE-27: The coach's ask goes at once to every going student rule 2 would ask, and gives every other going student one reason (rule 8)
+Given a session two days before `attendance_request_at` with going students placed as a regular, a
+returning regular, by automatic entry, by direct join and by accepting an invitation, an absent
+regular, a student who answered Yes, one who blocked all notifications, and one the request names as
+skipped with reason `unavailable`, when `messages.coach_ask` runs at that instant, then exactly the
+five going students who are none of those get one `AttendanceRequested` each, at the request's instant,
+and the other four get `not_coming`, `already_confirmed`, `preference` and `unavailable`; and `due` at
+`attendance_request_at` still asks whichever of the five has not answered by then.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_the_coachs_ask_goes_at_once_to_who_the_schedule_would_ask`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-28: The coach's ask skips an invitation acceptor placed after the first send (rule 8; PAD-820)
+Given a session after its first send, an invitation acceptor placed before it and one placed after it,
+when `messages.coach_ask` runs, then the first is asked and the second gets `already_confirmed`.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_the_coachs_ask_skips_an_acceptor_placed_after_the_first_send`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-29: The coach's ask ignores quiet hours (rule 8)
+Given a request inside quiet hours and a coach whose `attendance_request` type is `none`, when
+`messages.coach_ask` runs, then the going students are asked at once.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_the_coachs_ask_ignores_quiet_hours_and_the_schedule_type`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-30: The coach's ask is stored and answered as a scheduled request, and plans nothing (rule 8)
+Given a new-engine session in the app's store with a going regular and an open spot, when the engine
+handles `CoachRequestsAttendance`, then a `ReminderAttempt` is written for the regular and the reminder
+message goes to them (as for a scheduled `AttendanceRequested`), no invitation is sent, and their Yes to
+it records them confirmed, so a second coach's ask gives them `already_confirmed`.
+test: `backend/padel_app/tests/test_engine_coach_asks_attendance.py` › `test_the_coachs_ask_is_stored_and_answered_as_a_scheduled_request`
+#### NOTIFICATIONS-ENGINE-TIMELINE-31: No student is asked more than max times in all, scheduled and coach's asks together (rules 2, 8)
+Given `max` 2 and `every` 1 day, a student asked once by the coach's ask and once by the first send, a
+student whose one earlier attempt was voided (superseded and expired) and asked once since, and a third
+asked only by the first send, when the second send is due, then only the second and third are asked;
+and a coach's ask after it gives all three `reminder_limit`.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_no_student_is_asked_more_than_max_times_scheduled_and_coachs_asks_together`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) TIMELINE-2, TIMELINE-4 — `invitation_engine/timeline.py` (T at send), `invitation_engine/settings.py`
@@ -271,6 +331,13 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    app's reminder message and `ReminderAttempt`, answers go to the engine (`ConfirmAttendance`, the
    regular's No by rule 5), and the coach's `reminder_lesson_*` jobs stop (`notifications.reminders`).
 7. (Owner decisions, PAD-915) TIMELINE-8, TIMELINE-10 again — `invitation_engine/timeline.py` (moves only within the student's sides), scenario pins P18a, P19.
+8. (Engine plan item #16) TIMELINE-27 to TIMELINE-31 — `invitation_engine/requests.py`
+   (`CoachRequestsAttendance(skipped)`), `invitation_engine/messages.py` (`coach_ask`, pure; `due` gains the cap), `invitation_engine/snapshot.py` and
+   `services/engine_store.py` (the counted asks per student, voided ones left out),
+   `invitation_engine/effects.py` (the reason for a student not asked), `invitation_engine/engine.py`
+   (dispatch under the session's lock, no `_plan`), `services/engine_entry.py` (`coach_asks_attendance`,
+   as `coach_invites`); the store and outbox apply the same `AttendanceRequested`. With
+   `notifications.class-reminders-manual` wave 1, one change.
 
 ### Open questions
 - **PAD-820: is a student who already confirmed in another way asked again? (agent 3, engine stream; the
@@ -307,3 +374,21 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   overriding a coach-chosen side, are not decided.
 - Lateness by the deadline alone (rule 5) — **confirmed by the owner (2026-11-12, Codex decision 6)**: the
   notice is the cutoff's alone, whatever the reminders; the coach judges the absence (D4).
+- **The coach's ask on a new-engine class (rule 8; engine plan item #16, 2026-11-25).** Decisions by the
+  engine lead, accepted by the orchestrator on 2026-11-25 with one condition (the coach is told who was
+  skipped and why, never a silent 0); the owner can reverse each. (a) Hide the button or reroute it:
+  reroute (P-NOTIFICATIONS-7, "or when the coach sends one by hand"). (b) An ask does not move the
+  schedule; a scheduled send whose time has passed counts as made for a student asked at or after it,
+  as `due` already reads any request; changing `due` would touch TIMELINE-15 to -19. (c) Cap (orchestrator,
+  2026-11-25: "keep the old bound"): a student gets at most `attendance_request.max` asks in all,
+  scheduled and coach's together, counting attempts as `notifications.reminders` rule 19 does (voided
+  ones are not counted), so the schedule also stops at the cap, as the old engine stops every send at
+  `reminderCount`. The engine applies it to both (rule 2, rule 8). (d) Quiet hours, the
+  class's notifications switch and the coach's `attendance_request` type: ignored, as the app's manual
+  send ignores them (`_send_class_reminders` has no quiet-hours gate; toggle-class rule 3). (e) An
+  invitation acceptor placed after the first send is NOT asked by the coach's ask: the owner's PAD-820
+  exception ("quem entrou depois do envio dos lembretes não precisa de outro", rule 2) and the app's
+  manual send (`answered_for_reminders`, reminders rule 24) both apply it, so a coach's ask keeps it.
+  (f) Students unavailable for the slot (PAD-107): the route skips and names them. The engine's
+  scheduled sends write a `ReminderAttempt` for such a student and the delivery withholds the message
+  (`services/system_messages.py`); a separate finding, not this change.

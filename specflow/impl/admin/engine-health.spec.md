@@ -339,6 +339,12 @@ test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the e
 - **And** the web's report goes with the user's own token, outside the API client
 test: `frontend/apps/web/src/utils/pushFailureReport.test.ts` › `a save answered 503 sends one report with the closed fields and the user's token` (+9 more)
 
+#### ADMIN-ENGINE-HEALTH-30: A student with two browsers counts once (PAD-753)
+- **Given** an active student with two web-push subscriptions and no device token
+- **When** the push-reach summary is read
+- **Then** `webPushOnly` counts them once and `total` once
+test: `backend/padel_app/tests/test_pad746_push_reach.py` › `test_a_student_with_two_browsers_counts_once`
+
 ### Not this spec
 - Retrying, re-arming or running the engine by hand (`process_rounds`, "send now") — never from the
   console in this spec.

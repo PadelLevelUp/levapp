@@ -213,6 +213,7 @@ test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test
 Given 4 left and 1 right regulars, exactly 3 right-siders in group 1 and 6 left-siders, when the run
 plans and then one right-sider says No, then no left-sider is invited before the No, and 1 after it.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P03a-wait-for-group-1-no]`
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P45-spots-covered-by-held-invitations-wait]`
 
 #### NOTIFICATIONS-ENGINE-PLANNING-5: A silent ideal tier hands every spot down at X (rule 6; S3)
 Given S3's start, when all three right-siders are silent for T, then group 2 gets X × 3 = 9 wanted,
@@ -288,6 +289,8 @@ test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test
 Given a right-sider holds an open invitation, when the spot fills, then no invitation of the session
 changes state and no message is edited.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P29-never-revoked]`
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P43-a-yes-leaves-the-other-invitations-open]`
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P46-an-other-side-yes-keeps-its-side-and-withdraws-nothing]`
 
 #### NOTIFICATIONS-ENGINE-PLANNING-18: A type with no candidate in any tier alerts the coach (rule 11; S33)
 Given a spot type with uncovered spots, when its last counting invitation stops counting and no tier has

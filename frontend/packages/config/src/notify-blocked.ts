@@ -10,6 +10,10 @@
  *    `reason` may carry their own words.
  *  - `already_invited` (PAD-620, manual notify only) — they already hold a live
  *    invitation for that class, so no second one was sent.
+ *  - `already_confirmed`, `not_coming`, `reminder_limit` (engine plan item #16,
+ *    `send_reminders` on a new-engine class, class-reminders-manual rules 6-7) —
+ *    the student answered (or the coach marked them present), is not coming (or
+ *    was marked absent), or was already asked the maximum number of times.
  *
  * Split on `cause`, NEVER on `reason` being empty: a student can block
  * notifications without giving a reason, and treating them as "unavailable"
@@ -38,24 +42,45 @@ export interface BlockedByCause<T> {
   optedOut: T[];
   /** PAD-620: already holding a live invitation for the class; not invited twice. */
   alreadyInvited: T[];
+  /** Engine #16: answered, or marked present by the coach; not reminded. */
+  alreadyConfirmed: T[];
+  /** Engine #16: said they are not coming, or marked absent by the coach. */
+  notComing: T[];
+  /** Engine #16: already asked the maximum number of times. */
+  reminderLimit: T[];
 }
 
+/** Every cause with its own group; any other value (or none) reads as `unavailable`. */
+const OWN_GROUP: Record<string, Exclude<keyof BlockedByCause<unknown>, "unavailable">> = {
+  preference: "optedOut",
+  already_invited: "alreadyInvited",
+  already_confirmed: "alreadyConfirmed",
+  not_coming: "notComing",
+  reminder_limit: "reminderLimit",
+};
+
 /**
- * Partition `blocked` into the two causes.
+ * Partition `blocked` by cause, each row in exactly one group.
  *
- * A row with NO `cause` counts as `unavailable`, matching web's
- * `cause !== "preference"` test: an older backend only ever produced the
- * PAD-107 case, so that is the safe reading of a missing field.
+ * A row with NO `cause` counts as `unavailable`: an older backend only ever
+ * produced the PAD-107 case, so that is the safe reading of a missing field.
  */
 export function splitBlockedByCause<T extends BlockedLike>(
   blocked: T[] | null | undefined
 ): BlockedByCause<T> {
-  const rows = blocked ?? [];
-  return {
-    unavailable: rows.filter((b) => b?.cause !== "preference" && b?.cause !== "already_invited"),
-    optedOut: rows.filter((b) => b?.cause === "preference"),
-    alreadyInvited: rows.filter((b) => b?.cause === "already_invited"),
+  const out: BlockedByCause<T> = {
+    unavailable: [],
+    optedOut: [],
+    alreadyInvited: [],
+    alreadyConfirmed: [],
+    notComing: [],
+    reminderLimit: [],
   };
+  for (const row of blocked ?? []) {
+    const group = row?.cause ? OWN_GROUP[row.cause] : undefined;
+    out[group ?? "unavailable"].push(row);
+  }
+  return out;
 }
 
 /**

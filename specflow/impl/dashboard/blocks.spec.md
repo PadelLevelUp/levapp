@@ -401,6 +401,27 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
     `profile_incomplete` block (`dashboard.student-setup-guide` rule 1). The player payload's
     block list (DASHBOARD-BLOCKS-8) is unchanged, and no capability token is added.
 
+14. **The student's asks are answered on a full-width strip (UI idea 1; owner's yes, 2026-11-25; numbering
+    self-assigned).** On the student's three ask cards (`invite`, `vacancy_invite`,
+    `waiting_list_offer`) Yes and No sit side by side on a strip across the card's foot
+    (`dashboard-answer-strip`), on the secondary (blue wash) surface. The strip reaches the card's edges: the
+    card has a foot outside its padding and clips it to its own rounded corners, and the amber accent bar
+    runs past it. Yes is the filled primary; No is a text button. Both are at least 44px high at every
+    width, web and iOS, and share the strip's width equally. "Abrir" leaves the answer row: it sits at the
+    right of the card's title, opens the same place as before, and its touch area is at least 44px high. In the
+    student hero the "to confirm" label stands above Yes and No, which share the hero's width at the same
+    height, with no strip. The words, the `dashboard-confirm` wrapper and the button test ids, calls, outcomes
+    and the busy state are rule 3a's and do not change. An `invite` card with no `lessonInstanceId` has no
+    strip and keeps "Abrir" (web today; iOS gains the same guard).
+    Not in this rule: the schedule rows' Yes / No, "Avisar que não vou", the come-back buttons, the chat
+    bubble's buttons, and every coach card.
+   - **Today:** web `AnswerButtons.tsx` draws both buttons `h-9` (36px) for the three cards in
+     `NeedsYouQueue.tsx`, for `NextClassHero.tsx` (in a row with the label) and for `Schedule7Days.tsx`. iOS
+     `features/dashboard/blocks.tsx` has `AnswerButtons` (invite card, hero, schedule rows) and `AskButtons` (vacancy,
+     waiting list), both `size="sm"` (`h-9`). "Abrir" is at the card's foot, a ghost `h-9` button on
+     web and a small `Pressable` on iOS. `ActionCard` pads its whole content on both shells. The schedule rows
+     share the same buttons and must not change.
+
 15. **A metric tile's number is the largest text on its tile (UI idea 7; owner's yes, 2026-11-25; numbering
     self-assigned).** The coach's two `week_pulse` cards and the student's four `kpi_grid` tiles show their
     number at 40px from 1024px wide, and at 32px below that and on iOS, in the display face and tabular (new on
@@ -614,6 +635,28 @@ test: `frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts` › `the K
 - **Given** a student whose `attendanceState` is `not_coming` on an upcoming class
 - **When** they open `/`
 - **Then** the row shows no Yes / No and no "Avisar que não vou", and shows what `comeBack` says (DASHBOARD-BLOCKS-45)
+
+#### DASHBOARD-BLOCKS-62: The student's ask cards answer on one strip, on web (rule 14)
+- **Given** a student home on web with an `invite`, a `vacancy_invite` and a `waiting_list_offer`
+- **Then** each card holds one `dashboard-answer-strip`, the parent of `dashboard-confirm-yes` and `dashboard-confirm-no`; both carry the 44px height and the same equal-share class, and "Abrir" is outside the strip
+- **And** pressing Yes or No makes the same call with the same id as before, and both are disabled while it is in flight
+- **And** an `invite` with no `lessonInstanceId` has no strip and still shows "Abrir"
+test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.answerStrip.test.tsx` › `the three ask cards answer on one full-width strip`
+
+#### DASHBOARD-BLOCKS-63: The same strip on iOS (rule 14)
+- **Given** the same items on iOS, and an `invite` with no `lessonInstanceId`
+- **Then** the same structure, height, equal share, calls, busy state and no-strip case hold
+test: `frontend/apps/mobile/src/features/dashboard/blocks-answer-strip.test.tsx` › `the three ask cards answer on one full-width strip`
+
+#### DASHBOARD-BLOCKS-64: The hero's answers grow and the schedule rows' do not (rule 14)
+- **Given** a student hero and a schedule row that both ask
+- **Then** on web and iOS the hero's Yes and No carry the 44px height and the equal share, under the label, and the row's buttons keep their size; neither has a `dashboard-answer-strip`
+test: `frontend/apps/web/src/components/dashboard/coach/answerSizes.test.tsx` › `the hero grows and the schedule row keeps its buttons` (+ iOS: `blocks-answer-strip.test.tsx` › the same title)
+
+#### DASHBOARD-BLOCKS-67: The strip is 44px high and full width in a browser (rule 14)
+- **Given** a seeded student with a waiting-list offer, at 390px and at 1280px wide
+- **Then** Yes and No are each at least 44px high, equal in width within 1px, and the strip spans the card's inside edges within 1px of the outline and accent bar
+test: `frontend/apps/web/e2e/dashboard/student-dashboard-home.spec.ts` › `the answer strip is full width and 44px high`
 
 #### DASHBOARD-BLOCKS-20: Student answers a reminder from the dashboard (PAD-202 correction)
 - **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`
@@ -896,6 +939,12 @@ test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-empty-seats.tes
 test: `frontend/apps/web/src/components/dashboard/coach/Schedule7Days.engineVersion.test.tsx` › `keeps Convidar on a new-engine class`
 
 ### Open questions
+- Rule 14 (UI idea 1) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can
+  reverse them): "Abrir" was not in the sketch and is kept, moved to the title's right, because it is the card's
+  only way to the class before answering; the hero grows without a strip because the wash does not read on navy.
+- The schedule rows' Yes / No, "Avisar que não vou" and the come-back buttons are 36px on phones, below rule 3a's
+  44px. This is an existing gap, reported and not excused by rule 14: the owner's yes was to the cards. Options:
+  a fix in its own change, or an amended 3a. Not decided.
 - Rule 15 (UI idea 7) — decision by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can reverse
   it): the sketch showed the total beside the number ("12/16"). The line under each number already says
   it ("9 de 11", "de 11 aulas"), so only the size changes; showing it twice would read as two facts.

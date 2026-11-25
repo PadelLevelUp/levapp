@@ -151,7 +151,7 @@ UPDATE user_identities SET email = CASE WHEN email IS NULL THEN NULL ELSE 'ident
 -- Upload keys embed the original file name. The placeholder step seeds these keys afterwards.
 UPDATE images SET object_key = 'images/scrubbed/' || id;
 
--- scrubbed: push_subscriptions.subscription_json device_tokens.token
+-- scrubbed: push_subscriptions.subscription_json push_subscriptions.endpoint device_tokens.token
 -- Delivery channels: nothing on staging may reach a phone (PAD-624 also disables Expo sends).
 DELETE FROM push_subscriptions;
 DELETE FROM device_tokens;

@@ -94,6 +94,7 @@ def findings_in(source, filename="<migration>"):
 
 def main(paths):
     lines = []
+    read = 0
     for path in paths:
         try:
             with open(path, encoding="utf-8") as f:
@@ -101,6 +102,7 @@ def main(paths):
         except (OSError, SyntaxError) as exc:
             print(f"::warning file={path}::expand/contract guard could not read it: {exc}")
             continue
+        read += 1
         for line, message in found:
             print(f"::warning file={path},line={line}::{message}. {REMINDER}")
             lines.append(f"- `{path}:{line}`: {message}")
@@ -109,7 +111,9 @@ def main(paths):
         body = ["### Expand/contract: migrations this PR adds that are not expand-only", "",
                 *lines, "", REMINDER, "", "Warn-only (PAD-711): this check never fails the PR."]
     else:
-        body = [f"Expand/contract: {len(paths)} added migration(s), all expand-only."]
+        # Only the files it read count; one it could not parse was warned about above, not vouched for.
+        body = [f"Expand/contract: {read} added migration(s), all expand-only." if read
+                else "Expand/contract: no added migration."]
     print("\n".join(body))
     if summary:
         with open(summary, "a", encoding="utf-8") as f:

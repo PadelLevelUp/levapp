@@ -320,11 +320,15 @@ def test_the_worker_swap_also_follows_a_stop_first_deploy(wsb):
 
 def test_dry_run_prints_the_worker_steps(wsb):
     live(wsb, "padelapp", 5000)
-    r, _ = rollout_run(wsb, "--worker", "--dry-run")
+    r, calls = rollout_run(wsb, "--worker", "--dry-run")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "worker yes" in r.stdout
     assert "dry-run: docker run -d --name padelapp_worker_next" in r.stderr
     assert "dry-run: docker rename padelapp_worker_next padelapp_worker" in r.stderr
+    mutating = ("docker run", "docker stop", "docker rm", "docker rename", "docker start")
+    assert not any(c.startswith(mutating) for c in calls), calls
+    assert not any(c.startswith("reload ") for c in calls), "no nginx reload"
+    assert containers(wsb) == {"padelapp": "5000"}
 
 
 @pytest.mark.criterion("DELIVERY-WORKER-ROLE-6")

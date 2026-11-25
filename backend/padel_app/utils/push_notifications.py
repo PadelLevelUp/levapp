@@ -23,8 +23,13 @@ def send_push_notification(user_id, title, body, url="/"):
     # admin.approvals-and-users rule 9 (PAD-532): nothing leaves under a view-as token.
     if suppressed("webpush"):
         return False
-    subscription = PushSubscription.query.filter_by(user_id=user_id).first()
-    if not subscription:
+    # One delivery per browser (PAD-753). Read up front: an inline delivery that drops a dead
+    # browser commits, which would expire the rows still to send.
+    subscriptions = [
+        (s.id, s.subscription_json)
+        for s in PushSubscription.query.filter_by(user_id=user_id).order_by(PushSubscription.id).all()
+    ]
+    if not subscriptions:
         return False
 
     vapid_public_key = os.getenv("VAPID_PUBLIC_KEY")
@@ -36,9 +41,14 @@ def send_push_notification(user_id, title, body, url="/"):
     from padel_app.utils import push_outbox
 
     # PAD-699 (rule 10a): a row in the outbox; the drainer looks the subscription and VAPID up again
-    # when it sends, so neither the endpoint nor the key is stored.
+    # when it sends, so neither the endpoint nor the key is stored. One row per browser, named by id,
+    # so a retry resends only to the one that failed (PAD-753).
     if push_outbox.enabled():
-        return push_outbox.enqueue("webpush", user_id, {"title": title, "body": body, "url": url})
+        return any([
+            push_outbox.enqueue("webpush", user_id,
+                                {"title": title, "body": body, "url": url, "subscriptionId": subscription_id})
+            for subscription_id, _ in subscriptions
+        ])
     payload = json.dumps({
         "title": title,
         "body": body,
@@ -51,16 +61,20 @@ def send_push_notification(user_id, title, body, url="/"):
     # the test config. Returns False when the queue is full (dropped, logged).
     from padel_app.utils.push_sender import submit
 
-    return submit(
-        _deliver_web_push,
-        user_id,
-        subscription.id,
-        subscription.subscription_json,
-        payload,
-        vapid_private_key,
-        {"sub": vapid_claims_email},
-        label=f"web push for user {user_id}",
-    )
+    return any([
+        submit(
+            _deliver_web_push,
+            user_id,
+            subscription_id,
+            subscription_json,
+            payload,
+            vapid_private_key,
+            # A dict of its own: pywebpush writes the endpoint's `aud` into the claims it is given.
+            {"sub": vapid_claims_email},
+            label=f"web push for user {user_id}",
+        )
+        for subscription_id, subscription_json in subscriptions
+    ])
 
 
 def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
