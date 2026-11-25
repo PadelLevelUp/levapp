@@ -36,6 +36,8 @@ appId: com.padellevelup.app
       - waitForAnimationToEnd
 - tapOn:
     id: "calendar-day-${output.seededMonday}"
+# Rule 26: in Dia the tap moves a list of days; let it stop before the flow reads or taps a card.
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       text: "E2E Academy Class"
