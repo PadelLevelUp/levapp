@@ -18,6 +18,11 @@ vi.mock("react-i18next", () => ({
 import { ClassWhenHeader } from "./ClassWhenHeader";
 
 const text = (node: ReactTestInstance): string => node.children.map((c) => (typeof c === "string" ? c : text(c))).join("");
+/** The classes the host Text really gets, after the wrapper merged its own. */
+const hostClasses = (node: ReactTestInstance): string[] => {
+  const hosts = [node, ...node.findAll((x) => typeof x.type === "string")];
+  return String(hosts[hosts.length - 1].props.className ?? "").split(/\s+/);
+};
 const base = { date: "2026-11-24", startTime: "10:30", endTime: "12:00" };
 
 describe("the class screen's header block (iOS)", () => {
@@ -45,6 +50,16 @@ describe("the class screen's header block (iOS)", () => {
     expect(time.props.numberOfLines).toBe(1);
     expect(time.props.adjustsFontSizeToFit).toBe(true);
     expect(String(time.props.className)).toContain("font-display");
+    // The size is a class, so it replaces the wrapper's text-base and its 24px line: an inline 26px kept that line
+    // and the simulator cut the digits in half (2026-11-25).
+    expect(hostClasses(time)).toContain("text-[26px]");
+    expect(hostClasses(time)).not.toContain("text-base");
+    expect(time.props.style?.fontSize).toBeUndefined();
+    // The level and the place keep the facts line's own size, not the wrapper's 16px.
+    for (const id of ["class-detail-level", "class-detail-place"]) {
+      expect(hostClasses(n.byTestId(id)), id).toContain("text-sm");
+      expect(hostClasses(n.byTestId(id)), id).not.toContain("text-base");
+    }
     // The facts line: the level, then the club and court; the labels the boxes had are the values' names.
     const facts = n.byTestId("class-detail-facts");
     expect(text(facts)).toContain("I2");

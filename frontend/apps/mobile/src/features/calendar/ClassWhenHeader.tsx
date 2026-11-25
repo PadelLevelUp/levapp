@@ -3,6 +3,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Text } from "@/components/ui/text";
+import { cn } from "@/lib/utils";
 
 /**
  * calendar.event-detail rule 28 (UI idea 6), iOS: reading a class starts with when it is.
@@ -70,8 +71,8 @@ export function ClassWhenHeader({
             accessibilityValue={{ text: when.timeRange }}
             numberOfLines={1}
             adjustsFontSizeToFit
-            className="font-display text-foreground"
-            style={{ fontSize: narrow ? 24 : 26 }}
+            // A class, not a style: it replaces the wrapper's text-base and its 24px line, which would cut the digits.
+            className={cn("font-display text-foreground", narrow ? "text-[24px]" : "text-[26px]")}
           >
             {when.timeRange}
           </Text>
@@ -93,13 +94,13 @@ export function ClassWhenHeader({
           className="text-sm text-muted-foreground"
         >
           {levelCode ? (
-            <Text testID="class-detail-level" className="font-sans-semibold text-foreground">
+            <Text testID="class-detail-level" className="text-sm font-sans-semibold text-foreground">
               {levelCode}
             </Text>
           ) : null}
           {levelCode && place ? " · " : null}
           {place ? (
-            <Text testID="class-detail-place">{place}</Text>
+            <Text testID="class-detail-place" className="text-sm text-muted-foreground">{place}</Text>
           ) : null}
         </Text>
       ) : null}
