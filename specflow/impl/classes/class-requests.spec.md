@@ -176,6 +176,11 @@ held on the coach's calendar while the request is open.
     - If it has rows, it shows them under today's message, each with its day, time, length and club
       and its state (open or full). Each row's one action, request (open) or join the waiting list
       (full), goes through `classes.join-requests` rule 22; the rule 5 optional note is not offered.
+    - A row's action follows `academyClassAction` (`classes.academy-class-booking` rule 7), as the
+      academy step's rows do: only a **pending** request turns the row's request action into the
+      status text `classRequests.academy.requested`; a rejected, withdrawn or superseded request
+      leaves the action in place, and a row the student is on the waiting list of shows
+      `classRequests.academy.onWaitlist` instead of the action, in the test id `wizard-private-lesson-status`.
     - With no rows, the step shows today's message alone.
     - A failed availability read, and a failed or refused `type=private` read, never show the list.
       What the step shows instead for a failed availability read is PAD-927's; for a failed list read
@@ -609,3 +614,11 @@ test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.e
 - **And** when the read returns no lesson, or fails, only the empty message shows
 - **And** the step never reads `type=private` while there are start times, while the read is loading or waiting, when the availability read failed, or when the request has invitees
 test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-CLASS-REQUESTS-45] no free time lists the coach's visible private lessons`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-CLASS-REQUESTS-45] no free time lists the coach's visible private lessons`
+
+#### CLASSES-CLASS-REQUESTS-46: A private-lesson row offers the request again after a withdrawn request, and shows the status while one is pending or the student is on the waiting list (rule 13b)
+- **Given** the private step lists four open private lessons, whose `myJoinRequest` is pending, withdrawn, rejected and none, and a full one the student is on the waiting list of
+- **When** the list renders
+- **Then** the pending row shows `classRequests.academy.requested` and no request action
+- **And** the withdrawn, rejected and no-request rows show the request action
+- **And** the waiting-list row shows `classRequests.academy.onWaitlist` and no waiting-list action
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request`
