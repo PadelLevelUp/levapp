@@ -357,7 +357,9 @@ approval.**
       them would stop them joining a visible private lesson at all; lead's decision 2026-11-15,
       flagged to the owner). Both shells declare the token in the release that shows the warning,
       never before. The token retires as `join-side`'s does.
-    - **Where the warning sits relative to the side choice: open (owner question 2).**
+    - The warning comes BEFORE the side choice (owner answer to question 2, 2026-11-25): SIM opens
+      the side choice, NÃO closes with nothing sent. A `409 private_unconfirmed` answer reads the
+      class again and opens the warning again.
 
 ### Acceptance Criteria
 
@@ -675,7 +677,6 @@ test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_a_priva
 - **And** a `private_unconfirmed` answer reads the class again and opens the warning
 - **And** both shells declare `const:CAP_PRIVATE_CONFIRM`
 test: `frontend/apps/web/src/components/calendar/ClassSideChoice.privateConfirm.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] the private-lesson warning precedes any join`, `frontend/apps/mobile/src/features/calendar/private-confirm.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] the private-lesson warning precedes any join`, `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] a list row joins through the warning`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] a list row joins through the warning`
-- Test files are named after where the warning sits today; renamed after the shared warning component once owner question 2 is answered.
 
 ### Waves (PAD-929)
 1. Backend, no client change: constants, CLASSES-ACADEMY-CLASS-BOOKING-20, -21, CLASSES-JOIN-REQUESTS-42, ELIGIBILITY-OPEN-SPOT-VISIBILITY-18 — `academy_class_service.list_academy_classes(player, coach_id, lesson_type=…)`, `helpers/calendar_helpers.load_open_spot_events_for_player` (the type filter), `academy_class_service.join_class_waiting_list_service`, `class_join_request_service.create_join_request_service`, `frontend_api.py` (the `type` arg, both POST bodies), `utils/client_capabilities.py` (`PRIVATE_CONFIRM`, registered `compat`), the admin switch copy; plus tracing the six direct waiting-list callers, written in Notes.
