@@ -119,6 +119,7 @@ def test_search_is_scoped_to_the_calling_coach(app, client, world):
     assert "Alice Mallory" not in names
 
 
+@pytest.mark.criterion("PLAYERS-SEARCH-9")
 def test_returned_id_is_the_player_id_not_the_user_id(app, client, world):
     res = client.get("/api/app/notify/player_search?q=Alice Andrade",
                      headers=_auth_header(app, world["coach_a_user_id"]))
