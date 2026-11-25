@@ -1,5 +1,5 @@
 /**
- * CALENDAR-EVENT-DETAIL-41 (rule 27): the calendar opens the class named by the url the server
+ * CALENDAR-EVENT-DETAIL-48 (rule 29): the calendar opens the class named by the url the server
  * sends in the coach's "Aula cheia" push, `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>`.
  * The client reads what the server sends: the url below is the literal the backend test pins.
  */
@@ -77,14 +77,14 @@ beforeEach(() => {
   state.events = [occurrence];
 });
 
-describe("the 'Aula cheia' push url (CALENDAR-EVENT-DETAIL-41)", () => {
-  it("[CALENDAR-EVENT-DETAIL-41] opens the class named by `classId` and `date`", async () => {
+describe("the 'Aula cheia' push url (CALENDAR-EVENT-DETAIL-48)", () => {
+  it("[CALENDAR-EVENT-DETAIL-48] opens the class named by `classId` and `date`", async () => {
     renderAt(`/calendar?classId=lessoninstance-7&date=${DATE}`);
     const sheet = await screen.findByTestId("class-detail-open");
     expect(sheet.getAttribute("data-id")).toBe("lessoninstance-7");
   });
 
-  it("[CALENDAR-EVENT-DETAIL-41] the old `classInstanceId` url opens nothing: the reason the push was dead", async () => {
+  it("[CALENDAR-EVENT-DETAIL-48] the old `classInstanceId` url opens nothing: the reason the push was dead", async () => {
     renderAt("/calendar?classInstanceId=7");
     await screen.findByTestId("grid");
     expect(screen.queryByTestId("class-detail-open")).toBeNull();

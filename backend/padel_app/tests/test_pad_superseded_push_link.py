@@ -1,4 +1,4 @@
-"""CALENDAR-EVENT-DETAIL-41 (rule 27): the coach's "Aula cheia" push carries the calendar deep link
+"""CALENDAR-EVENT-DETAIL-48 (rule 29): the coach's "Aula cheia" push carries the calendar deep link
 of rule 10, `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>`, not `?classInstanceId=<id>`
 (a key the calendar never reads). Seed and helpers are PAD-131's."""
 from datetime import timedelta
@@ -43,7 +43,7 @@ def _supersede(app, instance_id):
         return len(closed), instance.start_datetime.date().isoformat()
 
 
-@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-41")
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-48")
 def test_the_class_full_push_for_a_one_off_class_opens_that_class(app, pushes):
     ids = _seed(app, eligibility_rules=None)
     _config(app, ids, open_spots_visible=True)
@@ -54,13 +54,13 @@ def test_the_class_full_push_for_a_one_off_class_opens_that_class(app, pushes):
     assert closed == 1
     urls = [p["url"] for p in pushes if p.get("url", "").startswith("/calendar")]
     assert urls == [f"/calendar?classId=lessoninstance-{ids['instance_id']}&date={date}"]
-    # Rule 27: the same string `class_href` builds for this class, so the two cannot drift.
+    # Rule 29: the same string `class_href` builds for this class, so the two cannot drift.
     from padel_app.helpers.dashboard.coach_home import class_href
 
     assert urls == [class_href({"id": f"lessoninstance-{ids['instance_id']}", "date": date})]
 
 
-@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-41")
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-48")
 def test_the_class_full_push_for_a_series_occurrence_opens_that_occurrence(app, pushes):
     from padel_app.models import ClassJoinRequest
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
