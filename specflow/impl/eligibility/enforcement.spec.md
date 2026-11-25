@@ -235,9 +235,7 @@ test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_class_edit
 - **And** when the check itself fails the invitations are sent all the same
 - **And** with nobody selected nothing is checked and nothing is sent
 - **And** on iOS a second press while the check is running starts no second check, opens one confirmation and sends nothing until it is answered
-test: `frontend/apps/web/src/components/calendar/ManualNotificationModal.eligibility.test.tsx` › `sends at once when nobody fails, and when the check itself fails` (+4 more)
-- Code to follow: add the failing-check case to `ManualNotificationModal.eligibility.test.tsx`, so the
-  check itself fails in the modal test (today only `manual-invite-flow.test.ts` proves it).
+test: `frontend/apps/web/src/components/calendar/ManualNotificationModal.eligibility.test.tsx` › `[ELIGIBILITY-ENFORCEMENT-18] sends at once when nobody fails`, `[ELIGIBILITY-ENFORCEMENT-18] sends all the same when the check itself fails` (+4 more)
 
 #### ELIGIBILITY-ENFORCEMENT-19: The confirmation and the impact note are built the same way on both shells (rules 7d, 9b)
 - **Given** the rows the server answers for a check, and for a stricter bar
