@@ -174,7 +174,10 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
       never amber (`calendar.mobile-views` rule 7 does not apply to a student viewer).
     - **Opening a full class** offers "Juntar-me à lista de espera"
       (`classes.academy-class-booking` rule 6's endpoint, `{model, originalId, date}`); a class the
-      student waits for shows "Em lista de espera" instead of the button.
+      student waits for shows "Em lista de espera" instead of the button, and "Sair da lista de
+      espera" (PAD-934): after one confirm it calls `classes.academy-class-booking` rule 7's leave
+      endpoint (`notifications.waiting-list` rule 14), removes that class's entry only, and the card
+      goes back to the join offer.
     - **Filter.** At the top of the student's calendar a two-option selector,
       "Todas em que sou elegível" (default) / "Só as minhas aulas" (`calendar-student-filter`).
       "Só as minhas" hides only the offers (`open_spot`, `full`); `enrolled`, `not_coming`,
@@ -387,3 +390,13 @@ test: `backend/padel_app/tests/test_calendar_participant_count.py` › `test_les
 - **Then** 13 July 2027 is a Tuesday
 - **And** one month after 31 January is 28 February, and three months after 13 July is 13 October
 test: `frontend/apps/web/src/lib/dateOnly.test.ts` › `the weekday of a bare date is that date's weekday` (+1 more)
+
+#### CALENDAR-VIEW-27: A student on a class's waiting list can leave it from the class detail (rule 23, PAD-934)
+- **Given** a student who is on a class's waiting list, with that class open from the Calendar
+- **Then** the waiting-list block shows "Sair da lista de espera"
+- **When** they press it
+- **Then** they are asked once, and answering no changes nothing
+- **When** they confirm
+- **Then** `POST /api/app/class-waiting-list/<lesson instance id>/leave` is called once, the block goes back to the join offer, and the calendar is read again
+- **And** a 404 (already gone) is no error, and any other failure keeps the block and says so
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.leaveWaitlist.test.tsx` › `[CALENDAR-VIEW-27] a student on the waiting list leaves it from the class detail`, `frontend/apps/mobile/src/features/calendar/waiting-list-leave.test.tsx` › `[CALENDAR-VIEW-27] a student on the waiting list leaves it from the class detail`

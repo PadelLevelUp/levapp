@@ -128,6 +128,7 @@ import { PlayerSelector } from "@/features/calendar/player-selector";
 import { useCoachPlayers } from "@/features/players/hooks";
 import { ClassWaitingListSection } from "@/features/calendar/class-waiting-list-section";
 import { ClassSideSheet } from "@/features/calendar/ClassSideSheet";
+import { WaitingListLeave } from "@/features/calendar/waiting-list-leave";
 import { JoinRequestSide } from "@/features/calendar/join-request-side";
 import {
   useCancelAttendance,
@@ -558,6 +559,8 @@ export default function ClassDetailScreen() {
   // PAD-672 (join-requests rule 20): the side sheet, and the side of the place just joined.
   const [sideSheet, setSideSheet] = React.useState<"request" | "waiting" | null>(null);
   const [joinedWaitingSide, setJoinedWaitingSide] = React.useState<PlayerSide | null>(null);
+  // PAD-934: the student left this class's waiting list from the screen.
+  const [leftWaiting, setLeftWaiting] = React.useState(false);
   const [pendingAccept, setPendingAccept] = React.useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -1057,6 +1060,16 @@ export default function ClassDetailScreen() {
     setJoinedWaitingSide(side);
     toast.success(t("calendar.waitingList.joined"));
     void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+  };
+  // PAD-934: the lesson instance a waiting-list place is on (an occurrence the student waits for is materialised).
+  const waitingLeaveId =
+    event.model === "LessonInstance" ? Number(event.originalId) : instance?.id != null ? Number(instance.id) : null;
+  const handleWaitingLeft = () => {
+    setLeftWaiting(true);
+    setWaitingJoined(false);
+    setJoinedWaitingSide(null);
+    void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    void refreshInstance();
   };
   const handleSideFailed = async (err: unknown, mode: "request" | "waiting") => {
     // PAD-920 (classes.join-requests NJ1–NJ2): a refusal of either join reads its code's own
@@ -2028,7 +2041,7 @@ export default function ClassDetailScreen() {
           (event.studentRelation === "full" || event.studentRelation === "waiting" || waitingJoined) ? (
             <>
               <Separator />
-              {event.studentRelation === "waiting" || waitingJoined ? (
+              {(event.studentRelation === "waiting" && !leftWaiting) || waitingJoined ? (
                 <View
                   className="gap-1 rounded-md border border-border bg-muted/30 px-3 py-2"
                   testID="class-waiting-list-student"
@@ -2055,6 +2068,7 @@ export default function ClassDetailScreen() {
                       <Text className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</Text>
                     </>
                   )}
+                  {waitingLeaveId != null ? <WaitingListLeave lessonInstanceId={waitingLeaveId} onLeft={handleWaitingLeft} /> : null}
                 </View>
               ) : (
                 <View
