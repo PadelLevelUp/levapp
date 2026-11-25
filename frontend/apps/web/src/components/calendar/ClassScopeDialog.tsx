@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { CalendarX, CalendarX2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export type ApplyScope = 'single' | 'future';
@@ -32,6 +33,8 @@ interface ClassScopeDialogProps {
    * used to say that recorded attendance goes with the occurrence.
    */
   note?: string;
+  /** PAD-840 (`classes.delete` rule 12): what the class's own dialog asks above its buttons. */
+  children?: ReactNode;
 }
 
 export function ClassScopeDialog({
@@ -41,6 +44,7 @@ export function ClassScopeDialog({
   onConfirm,
   keyPrefix = 'calendar.scope',
   note,
+  children,
 }: ClassScopeDialogProps) {
   const { t } = useTranslation();
   const text = {
@@ -54,7 +58,7 @@ export function ClassScopeDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle>{text.title}</AlertDialogTitle>
           <AlertDialogDescription>
@@ -69,6 +73,8 @@ export function ClassScopeDialog({
             </p>
           )}
         </AlertDialogHeader>
+
+        {children}
 
         <div className="flex flex-col gap-3 py-4">
           <Button

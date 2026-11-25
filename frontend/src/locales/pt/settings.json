@@ -595,7 +595,8 @@
         "invitations": "Convites",
         "waitingList": "Lista de espera",
         "addedToClass": "Adicionado a uma aula",
-        "removedFromClass": "Removido de uma aula"
+        "removedFromClass": "Removido de uma aula",
+        "classCancelled": "Aula cancelada"
       },
       "labels": {
         "invite": "Mensagem de convite",
@@ -613,7 +614,8 @@
         "waitingListAdded": "Entrada automática da lista de espera",
         "sideMoved": "Lado definido",
         "removedFromClass": "Removido de uma aula",
-        "removedFromSeries": "Removido da turma"
+        "removedFromSeries": "Removido da turma",
+        "classCancelled": "Aula cancelada"
       },
       "descriptions": {
         "invite": "Enviada ao notificar um aluno sobre uma vaga aberta.",
@@ -631,7 +633,8 @@
         "waitingListAdded": "Enviada quando a entrada automática põe um aluno da lista de espera numa vaga.",
         "sideMoved": "Enviada quando um aluno que joga dos dois lados fica com o lado final.",
         "removedFromClass": "Enviada quando retiras um aluno de uma data de uma aula.",
-        "removedFromSeries": "Enviada quando retiras um aluno de uma aula fixa, a partir de uma data."
+        "removedFromSeries": "Enviada quando retiras um aluno de uma aula fixa, a partir de uma data.",
+        "classCancelled": "Enviada aos alunos inscritos quando cancelas uma aula."
       },
       "help": {
         "title": "Como construir um modelo de mensagem",
@@ -654,7 +657,8 @@
           "club": "Clube",
           "class": "O título da aula",
           "when": "A data, o dia da semana e a hora da aula",
-          "side": "O lado da vaga (só no convite da lista de espera)"
+          "side": "O lado da vaga (só no convite da lista de espera)",
+          "reason": "Motivo do cancelamento"
         }
       }
     },

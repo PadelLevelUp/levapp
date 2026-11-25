@@ -86,8 +86,8 @@ UPDATE message_reports SET reason = NULL WHERE reason IS NOT NULL;
 -- scrubbed: calendar_blocks.title calendar_blocks.description
 UPDATE calendar_blocks SET title = CASE WHEN title IS NULL THEN NULL ELSE 'Bloqueio ' || id END,
     description = NULL;
--- scrubbed: lessons.title lessons.description lesson_instances.overwrite_title lesson_instances.notes
-UPDATE lessons SET title = 'Aula ' || id, description = NULL;
+-- scrubbed: lessons.title lessons.description lessons.cancellation_reasons lesson_instances.overwrite_title lesson_instances.notes
+UPDATE lessons SET title = 'Aula ' || id, description = NULL, cancellation_reasons = NULL;
 UPDATE lesson_instances SET
     overwrite_title = CASE WHEN overwrite_title IS NULL THEN NULL ELSE 'Aula ' || lesson_id END,
     notes = NULL;

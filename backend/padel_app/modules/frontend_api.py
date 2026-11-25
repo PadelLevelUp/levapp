@@ -59,6 +59,8 @@ from padel_app.services.lesson_service import (
     confirm_presences_service,
     get_lesson_instances_in_range,
     edit_class_service,
+    lesson_cancellations,
+    parse_cancel_reason,
     remove_class_service,
 )
 from padel_app.services.player_service import (
@@ -2976,6 +2978,29 @@ def remove_class():
     _assert_owns_class_payload(require_coach(), data)
     result, status = remove_class_service(data)
     return jsonify(result), status
+
+
+@bp.post("/class_cancellation_preview")
+@jwt_required()
+def class_cancellation_preview():
+    """PAD-840 (classes.delete rule 12): the message a removal with this reason would send."""
+    from padel_app.services.system_messages import cancellation_preview
+
+    data = request.get_json() or {}
+    source = _assert_owns_class_payload(require_coach(), data)
+    parsed = parse_cancel_reason(data)
+    if source is None or parsed is None:
+        return jsonify({"error": "Invalid payload"}), 400
+    reason, send = parsed
+    return jsonify(cancellation_preview(source, reason if send else ""))
+
+
+@bp.get("/class/<int:lesson_id>/cancellations")
+@jwt_required()
+def class_cancellations(lesson_id):
+    """PAD-840 (classes.delete rule 14): the kept cancellations, for the class's own coach."""
+    lesson = require_owned_class(require_coach(), "Lesson", lesson_id)
+    return jsonify({"cancellations": lesson_cancellations(lesson)})
 
 
 UNIQUE_FIELD_CHECKS = {

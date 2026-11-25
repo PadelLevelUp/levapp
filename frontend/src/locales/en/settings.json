@@ -595,7 +595,8 @@
         "invitations": "Invitations",
         "waitingList": "Waiting list",
         "addedToClass": "Added to a class",
-        "removedFromClass": "Removed from a class"
+        "removedFromClass": "Removed from a class",
+        "classCancelled": "Class cancelled"
       },
       "labels": {
         "invite": "Invite message",
@@ -613,7 +614,8 @@
         "waitingListAdded": "Placed from the waiting list",
         "sideMoved": "Side set",
         "removedFromClass": "Removed from one class",
-        "removedFromSeries": "Removed from the class group"
+        "removedFromSeries": "Removed from the class group",
+        "classCancelled": "Class cancelled"
       },
       "descriptions": {
         "invite": "Sent when notifying a student about an open spot.",
@@ -631,7 +633,8 @@
         "waitingListAdded": "Sent when automatic entry places a waiting-list student in a spot.",
         "sideMoved": "Sent when a student who plays both sides is given their final side.",
         "removedFromClass": "Sent when you take a student off one date of a class.",
-        "removedFromSeries": "Sent when you take a student off a recurring class from a date on."
+        "removedFromSeries": "Sent when you take a student off a recurring class from a date on.",
+        "classCancelled": "Sent to the enrolled students when you cancel a class."
       },
       "help": {
         "title": "How to build a message template",
@@ -654,7 +657,8 @@
           "club": "Club",
           "class": "The class's title",
           "when": "The class's date, weekday and time",
-          "side": "The side of the open spot (waiting-list invitation only)"
+          "side": "The side of the open spot (waiting-list invitation only)",
+          "reason": "Cancellation reason"
         }
       }
     },

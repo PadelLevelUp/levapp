@@ -116,8 +116,11 @@ import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import { messagesApi, presencesApi } from "@levelup/api";
+import type { CancelReason } from "@levelup/api/src/resources/classes";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { ClassJoinRequest, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
+import { ClassCancellationsSection } from "@/features/calendar/class-cancellations-section";
+import { ClassDeleteDialog } from "@/features/calendar/class-delete-dialog";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
 import { classEditRefusal, commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
 import {
@@ -991,10 +994,10 @@ export default function ClassDetailScreen() {
     }
   };
 
-  const handleDelete = async (scope: "single" | "future") => {
+  const handleDelete = async (scope: "single" | "future", cancel?: CancelReason) => {
     setDeleteOpen(false);
     try {
-      await removeClass.mutateAsync({ event, scope });
+      await removeClass.mutateAsync({ event, scope, cancel });
       router.back();
     } catch {
       setFeedback(t("classDetail.deleteFailed"));
@@ -2282,6 +2285,12 @@ export default function ClassDetailScreen() {
             </Text>
           ) : null}
 
+          <ClassCancellationsSection
+            lessonId={instance?.lessonId}
+            enabled={isCoach && isRecurring && !isEditing}
+            formatDate={(iso) => formatDay(iso, locale)}
+          />
+
           {/* Training planning — coach only */}
           {isCoach ? (
             <>
@@ -2615,61 +2624,15 @@ export default function ClassDetailScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete confirmation (scope choice for recurring classes) */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("calendar.deleteDialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {isRecurring
-                ? t("classDetail.deleteRecurringDescription")
-                : t("classDetail.deleteSingleDescription", { title })}
-            </AlertDialogDescription>
-            {attendanceRecorded ? (
-              <Text
-                testID="delete-attendance-note"
-                className="text-sm font-medium text-destructive"
-              >
-                {t("calendar.detail.deleteAttendanceNote")}
-              </Text>
-            ) : null}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            {isRecurring ? (
-              <>
-                <Button
-                  testID="class-delete-confirm"
-                  accessibilityLabel={t("classDetail.deleteOnlyThisAria")}
-                  variant="destructive"
-                  onPress={() => handleDelete("single")}
-                >
-                  <Text>{t("calendar.deleteDialog.singleTitle")}</Text>
-                </Button>
-                <Button
-                  testID="class-delete-confirm-future"
-                  accessibilityLabel={t("classDetail.deleteFutureAria")}
-                  variant="destructive"
-                  onPress={() => handleDelete("future")}
-                >
-                  <Text>{t("calendar.deleteDialog.futureTitle")}</Text>
-                </Button>
-              </>
-            ) : (
-              <Button
-                testID="class-delete-confirm"
-                accessibilityLabel={t("classDetail.confirmDeleteAria")}
-                variant="destructive"
-                onPress={() => handleDelete("single")}
-              >
-                <Text>{t("calendar.detail.delete")}</Text>
-              </Button>
-            )}
-            <AlertDialogCancel testID="class-delete-cancel">
-              <Text>{t("common.cancel")}</Text>
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ClassDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        event={event}
+        title={title}
+        isRecurring={isRecurring}
+        attendanceRecorded={attendanceRecorded}
+        onConfirm={handleDelete}
+      />
 
       {/* Student cancel-attendance confirmation */}
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>

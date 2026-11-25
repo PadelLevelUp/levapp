@@ -1,6 +1,6 @@
 ---
 id: classes.delete
-status: implemented
+status: implementing
 depends_on: [classes.create]
 serves: [P-CLASSES-2]
 governed_by: []
@@ -36,6 +36,71 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
 8. **Cancelling an occurrence tells each enrolled student (PAD-75).** Every student enrolled on the
    removed occurrence gets one message in their chat with the coach, sent as the coach and written
    in the coach's language. An occurrence with nobody enrolled sends nothing.
+9. **A cancellation can carry the coach's reason (PAD-840, phase 1).** Every removal of rules 5–7 (a
+   one-off, one occurrence of a recurring class, or "this and all future") takes an optional
+   `reason` and a `sendReason` flag in `POST /api/app/remove_class`. The reason is free text, trimmed,
+   at most **200 characters** (the lead's pick, reversible: Q4); a longer one is refused with 400 and nothing is
+   removed or sent. `sendReason` defaults to true when the trimmed reason is not empty and is ignored
+   when it is empty. A removal of several occurrences at once ("this and all future") shares one
+   reason. A client that sends neither field gets today's behaviour exactly (rule 8, no reason).
+10. **The message names the reason only when it is sent (PAD-840).** Rule 8's message is the
+   `class_cancelled` template; its reason sentence (`notifications.message-templates` rule 25) is
+   filled with the reason when `sendReason` is true and the reason is not empty, and disappears whole
+   otherwise. The message is sent either way (rule 8): the checkbox decides whether the reason is in
+   it, never whether the students are told. Each message's metadata carries `cancelReason` (the
+   reason, or null when it was not sent).
+11. **Where the reason is kept (PAD-840; a decision, see Open questions).** A cancellation removes the
+   occurrence's row (rules 5–6), and a one-off or a whole-class delete removes the class, so the reason
+   cannot live on the occurrence. It is kept on the class: `lessons.cancellation_reasons`, a new nullable
+   JSON column, a list of `{date, scope, reason, sentToStudents, at}` entries, one per removal that had a
+   non-empty reason (`date` is the date the coach removed, as the calendar showed it; `sentToStudents` is
+   true only when the reason was sent and somebody was enrolled to get it), written in the removal's transaction (rule 7) whenever the `Lesson` row survives:
+   one occurrence of a recurring class (`single`) and "this and all future" (`future`, keyed by its
+   first removed date). A removal that deletes the `Lesson` itself (a one-off, rule 5; the whole class,
+   rule 1) keeps no reason row: the students' messages (rule 10's metadata) are its only record.
+   The class detail reads it back (rule 14).
+12. **The cancel dialogs ask for the reason and show the message (PAD-840, phase 1; web and iOS
+   together).** The confirmation that removes a class or occurrence — web `ClassScopeDialog` in
+   delete mode and the one-off `AlertDialog` in `ClassDetailSheet`; iOS's delete `AlertDialog` in
+   `app/class/[id].tsx` — gains, above its buttons:
+   - a "Motivo" / "Reason" text field (optional, multi-line, a live `n/200` counter, input stopped at
+     200), `cancel-reason-input`;
+   - a checkbox "Enviar o motivo aos alunos" / "Send the reason to the students",
+     `cancel-reason-send`, disabled while the field is empty, and ticked as soon as a reason is
+     written (owner, 25 Nov 2026); the coach may untick it;
+   - a read-only preview of the message, `cancel-reason-preview`: the server renders it
+     (`POST /api/app/class_cancellation_preview` with the dialog's event, reason and
+     `sendReason`; the scope is not chosen yet and changes neither the text nor who gets it; the same rendering as the real send, rules 8 and 10; it answers
+     `{text, recipients}`, the text and how many students would be told, to the class's own coach
+     only) for the first enrolled student by name, or with the name "Aluno" / "Student" when nobody is enrolled. The preview follows
+     the field and the checkbox as the coach types (debounced, at most one request in flight). When
+     nobody would be told, the dialog says so ("Nenhum aluno será avisado." / "No student will be
+     told.") in place of the preview and the checkbox.
+   The confirm buttons send the field and the checkbox with the scope the coach picks. iOS's dialog
+   holds a text field, so it is the shared dialog, which sits above the keyboard
+   (`mobile.android-runtime` rule 15, PAD-838), and its fields scroll so its buttons stay above it too.
+   The preview is asked for about a third of a second after the last change. A removal with no reason
+   written sends neither field (rule 9).
+14. **The class detail lists its cancellations (PAD-840, phase 1; web and iOS together).** The reasons
+   rule 11 keeps are read back by `GET /api/app/class/<lesson_id>/cancellations`: the class's
+   `cancellation_reasons`, newest removed date first, each as `{date, scope, reason, sentToStudents}`;
+   only the class's own coach may read it (403 otherwise, as `classes.edit`'s ownership), and a class with
+   none answers an empty list. The class detail's payload names the class by `lessonId`, however it was
+   opened. On the detail of a recurring class (web `ClassDetailSheet`, iOS
+   `app/class/[id].tsx`), the coach sees a section "Aulas canceladas" / "Cancelled classes"
+   (`class-cancellations`) when the list is not empty, with one row per entry (`class-cancellation-row`):
+   the date as the detail writes dates, "e as seguintes" / "and the following ones" after it for a `future`
+   entry, the reason as written, and "Enviado aos alunos" / "Sent to the students" or "Não enviado aos
+   alunos" / "Not sent to the students". Students never see the section. A deleted one-off or whole class
+   has no detail, so nothing shows its reason (rule 11; Open questions).
+13. **Phase 2: the coach may edit this one message (PAD-840, phase 2: specified, not built; phase 1
+   first is the lead's pick, Q4).** The preview becomes editable for this cancellation only: the
+   placeholders in it (`{name}` and the class ones, `notifications.message-templates` rule 3a, and
+   `{reason}`) show as protected tokens that cannot be partly edited or typed over, only removed whole
+   or left; a "Repor mensagem original" / "Restore original message" button puts back the template's
+   text. The edited text goes in `POST /api/app/remove_class` as `messageOverride`, is rendered per
+   student exactly as a template (rules 5–9 of `notifications.message-templates` hold, a blank override
+   falls back to the template), and is never saved into the coach's templates.
 
 ### Acceptance Criteria
 
@@ -94,3 +159,128 @@ test: `backend/padel_app/tests/test_pad274_deletes.py` › `test_deleting_a_less
 - **When** the client asks whether the class has recorded attendance
 - **Then** the answer is false
 - **And** it is true once any row is validated, present or absent
+
+#### CLASSES-DELETE-10: A reason the coach chose to send is in each student's message (rules 9, 10, PAD-840)
+- **Given** a weekly class with two enrolled students, a Portuguese-speaking coach
+- **When** the coach removes one occurrence with the reason "Chuva forte" and `sendReason` true
+- **Then** each student gets one message that holds "Motivo indicado pelo professor: Chuva forte."
+- **And** its metadata carries `cancelReason: "Chuva forte"`
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_sent_reason_is_in_every_message`
+
+#### CLASSES-DELETE-11: A reason not sent, or no reason, leaves no trace of the sentence (rules 9, 10)
+- **Given** the same class
+- **When** the coach removes it with "Chuva forte" and `sendReason` false, then (another occurrence) with a blank reason, then with no reason fields at all
+- **Then** every student still gets the cancellation message, and none holds "Motivo", "Reason" or an empty "…: ." slot
+- **And** the third message is exactly today's text for that class
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_an_unsent_or_empty_reason_leaves_no_sentence` (+1 more)
+
+#### CLASSES-DELETE-12: A reason over 200 characters is refused and nothing happens (rule 9)
+- **Given** a class with an enrolled student
+- **When** the coach removes it with a 201-character reason
+- **Then** the answer is 400, the occurrence is still there and no message is sent
+- **And** 200 characters are accepted
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_reason_over_the_limit_is_refused_whole`
+
+#### CLASSES-DELETE-13: "This and all future" shares one reason (rules 9, 11)
+- **Given** a weekly class with three future occurrences and two students on its roster
+- **When** the coach removes "this and all future" with the reason "Fim da época"
+- **Then** each student's cancellation message holds that one reason
+- **And** the class's `cancellation_reasons` holds one entry with scope `future`, the first removed date and `sentToStudents: true`
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_this_and_all_future_shares_one_reason`
+
+#### CLASSES-DELETE-14: The reason is kept on the class when the class survives, and only then (rule 11)
+- **Given** a weekly class and a one-off class, each with a student
+- **When** the coach removes one occurrence of the weekly class with a reason not sent, and the one-off with a reason
+- **Then** the weekly class's `cancellation_reasons` holds `{date, scope: "single", reason, sentToStudents: false}`
+- **And** the one-off is gone with no reason row anywhere, and its student's message metadata holds the reason
+- **And** a removal that fails part-way (CLASSES-DELETE-6) writes no entry
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_reason_is_kept_where_the_class_survives` (+1 more)
+
+#### CLASSES-DELETE-15: The preview is the message the first student will get (rule 12)
+- **Given** a class with students "Bruno" and "Ana", and one with nobody enrolled
+- **When** the preview is asked for with a reason and `sendReason` true, then false
+- **Then** it is the text Ana's message would have, with the reason sentence, then without it
+- **And** for the empty class it says nobody will be told, and names "Aluno" in a preview with the coach in `pt`
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_preview_renders_the_first_students_message` (+1 more)
+
+#### CLASSES-DELETE-16: Web's cancel dialogs take a reason and show the message (rule 12)
+- **Given** the web class sheet of a weekly class and of a one-off, each with students
+- **When** the coach opens "Apagar" and types a reason
+- **Then** the counter follows the text up to 200 and stops input there, the checkbox becomes enabled and ticked, and the preview shows the reason sentence
+- **And** unticking it drops the sentence from the preview, and the chosen scope sends `reason` and `sendReason` as shown
+test: `frontend/apps/web/src/components/calendar/ClassCancelReason.test.tsx` › `[CLASSES-DELETE-16] the dialog sends the reason it previews` (+1 more)
+
+#### CLASSES-DELETE-17: iOS's cancel dialog takes a reason and shows the message (rule 12)
+- **Given** the iOS class screen of a weekly class with students
+- **When** the coach taps delete and types a reason
+- **Then** the counter, the checkbox and the preview behave as on web, and "Only this class" sends `reason` and `sendReason` as shown
+test: `frontend/apps/mobile/src/features/calendar/cancel-reason.test.tsx` › `[CLASSES-DELETE-17] the dialog sends the reason it previews`
+
+#### CLASSES-DELETE-18: Phase 2: an edited message goes to this cancellation only (rule 13; phase 2, not built)
+- **Given** a coach who edits the preview, keeping `{name}` and the reason token
+- **When** they confirm the removal
+- **Then** each student gets the edited text with their own name, and the coach's `class_cancelled` template is unchanged
+- **And** "Repor mensagem original" before confirming restores the template's text, and a protected token can be removed only whole
+
+#### CLASSES-DELETE-19: The class's cancellations are read back for its own coach only (rule 14)
+- **Given** a weekly class with two cancellations kept (24/11 `single`, reason sent; 01/12 `future`, reason not sent), and another class with none
+- **When** its coach reads `GET /api/app/class/<id>/cancellations`, then another coach, then the class with none
+- **Then** the coach gets both entries, 01/12 first, each with its scope, reason and `sentToStudents`
+- **And** the other coach gets 403, and the class with none gives an empty list
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_cancellations_are_read_back_for_the_coach_only` (+1 more)
+
+#### CLASSES-DELETE-20: Web's class detail lists the cancellations with date and reason (rule 14)
+- **Given** the coach opens the web detail of that weekly class, and of a class with no cancellations
+- **When** the section loads
+- **Then** "Aulas canceladas" lists 01/12 "e as seguintes" with its reason and "Não enviado aos alunos", then 24/11 with its reason and "Enviado aos alunos"
+- **And** the class with none shows no section
+test: `frontend/apps/web/src/components/calendar/ClassCancellationsSection.test.tsx` › `[CLASSES-DELETE-20] the detail lists each cancellation with its date, reason and whether it was sent`
+
+#### CLASSES-DELETE-21: iOS's class detail lists the cancellations with date and reason (rule 14)
+- **Given** the coach opens the iOS class screen of the same weekly class, and of a class with no cancellations
+- **When** the section loads
+- **Then** it lists the same two rows, in the same order, with the same words as web
+- **And** the class with none shows no section
+test: `frontend/apps/mobile/src/features/calendar/class-cancellations-section.test.tsx` › `[CLASSES-DELETE-21] the screen lists each cancellation with its date, reason and whether it was sent`
+
+### Today (PAD-840)
+- The only coach cancel is the delete: web `ClassScopeDialog` (delete mode, recurring) and the one-off
+  `AlertDialog` in `ClassDetailSheet.tsx` (~2698), iOS's delete `AlertDialog` in `app/class/[id].tsx`
+  (~2621); both call `removeClass(event, scope)` with `single` or `future`. No reason, no bulk cancel.
+- Backend: `remove_class_service` (`services/lesson_service.py` ~2174) snapshots
+  `collect_cancellation_recipients` before the removal and sends `notify_students_of_cancellation`
+  after it (`services/system_messages.py` ~500-580). `update_lesson_status_service` (sets
+  `status = "canceled"`) has no route and no client caller; it is not a cancel path and this spec does
+  not use it.
+- The ticket's "current message" ("Motivo indicado pelo professor …") exists nowhere in the code.
+
+### Waves (PAD-840)
+1. Phase 1 backend: rules 9-11, the migration (the `lessons.cancellation_reasons` column, `c840d1e2f3a4`,
+   chained on PAD-753's `b753c2d3e4f5`), the preview route; -10 … -15.
+2. Phase 1 clients: rules 12 and 14 on web and iOS together, locale keys in pt and en; -16, -17, -20, -21
+   (-19, the read route, with wave 1).
+3. `notifications.message-templates` -32 … -35 (the template, `{reason}`, the editor).
+4. Phase 2 (rule 13, -18): its own work, not started.
+
+### Open questions
+- **Q4.** (b) The checkbox ticked as soon as a reason is written: **yes (owner, 25 Nov 2026).** (a) Phase 1
+  first and phase 2 later, and (c) the 200-character limit, were not asked again: the lead's picks,
+  reversible.
+- **Where the reason is kept (messages-m2, 2026-11-13; the lead can reverse it).** The brief said "a
+  new nullable column on the cancelled occurrence", but the cancel deletes that row (rules 5-6) and a
+  one-off's or a whole class's delete removes the class too. Picked: a JSON list on `lessons` for the
+  removals that leave the class, the message metadata for the others (rule 11). Alternatives: (i) a
+  `class_cancellations` table with no foreign key to the class, which survives every delete
+  (a migration and a model more, and a reader nobody has asked for yet); (ii) keep it only in the
+  message metadata (no migration). Rec.: as picked.
+- **Showing the reason later (owner; the lead, 2026-11-13).** The ticket wants the reason visible later in the class
+  detail or history; a deleted one-off class has no detail to show it in. Phase 1 shows the list on the surviving
+  series' detail only. Keeping cancelled occurrences as rows (status `canceled`, which the model already has) would
+  change classes.delete rules 1-8 and the calendar: a later ticket if the owner wants it. (The series-detail list is
+  rule 14, -19 … -21.)
+- **The preview is rendered by the server (messages-m2).** The rendering rules (empty phrases,
+  connectors, locale) live in `_format_template`; a client copy would drift. One debounced request per
+  edit; offline, the dialog shows no preview and still cancels.
+- **The sentence names the coach in the third person ("Motivo indicado pelo professor").** Kept as the
+  ticket wrote it, as PAD-928 did with its removal texts; the message is sent from the coach's own
+  account, so "Motivo: {reason}" is the shorter alternative (a one-line change).

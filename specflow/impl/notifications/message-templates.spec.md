@@ -212,6 +212,41 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     aluno de uma aula fixa, a partir de uma data." / "Sent when you take a student off a recurring class
     from a date on.". iOS has no editor (Notes).
 
+25. **`{reason}` is the coach's cancellation reason; empty, its sentence goes whole (PAD-840; numbering
+    unconfirmed).** It is filled only in `class_cancelled`, with the reason the coach chose to send
+    (`classes.delete` rules 9-10); in that template when no reason is sent, and in every other template,
+    it is empty. It sits outside rule 3a's shared set, like `{side}` (rule 16). The reason is put in
+    last and verbatim: braces in it are not placeholders, and rule 7's connector removal does not touch
+    it. An empty `{reason}` removes the whole sentence that holds it, from the end of the sentence before
+    it (`.`, `!`, `?`, a line break, or the start of the message) to its own sentence end inclusive, so
+    "Motivo indicado pelo professor: {reason}." never renders as "Motivo indicado pelo professor: ." and
+    no empty slot is left (a `.`, `!` or `?` ends a sentence only before a space or the end of the text). A
+    coach's text that this leaves with nothing renders as the default instead: the student is always
+    told. A reason that ends on `.`, `!` or `?` replaces the template's full stop right
+    after `{reason}` (never ".."). Rules 5 and 9 hold: no raw `{reason}` token is ever sent.
+26. **`class_cancelled` names the reason and is in the editor (PAD-840; numbering unconfirmed).** Its
+    defaults become:
+
+    | Locale | Text |
+    |---|---|
+    | pt | `Olá {name}, a tua aula de {weekday} às {time} foi cancelada. Motivo indicado pelo professor: {reason}. Pedimos desculpa pelo incómodo!` |
+    | en | `Hi {name}, your class on {weekday} at {time} has been cancelled. Reason given by your coach: {reason}. Sorry for the inconvenience!` |
+
+    With no reason sent they render exactly as today's defaults (rule 25). The web editor saves the
+    whole resolved set of templates, so a coach who ever saved holds today's `class_cancelled` default
+    as stored text. A stored `class_cancelled` exactly equal to the default before this rule, in either
+    locale, is read as the new default of that locale, wherever templates are read (the message, the
+    preview and the editor); any other stored text is used as saved, and nothing stored is rewritten. Not a data
+    migration as PAD-830's (-28): the previous release does not know `{reason}` and would send it raw to
+    students while a deploy rolls, or after a rollback (lead, 25 Nov 2026). The web editor lists it in a group of
+    its own, "Aula cancelada" / "Class cancelled" (`template-group-classCancelled`), after "Removido de
+    uma aula", label "Aula cancelada" / "Class cancelled", description "Enviada aos alunos inscritos
+    quando cancelas uma aula." / "Sent to the enrolled students when you cancel a class.", with every
+    placeholder badge of rule 3a plus a `{reason}` badge, "Motivo do cancelamento" / "Cancellation
+    reason", offered under this key only; the live preview (rule 19) uses the example reason "Chuva
+    forte" / "Heavy rain" from `template_preview_examples`, and only for this key (the editor sends the
+    key): a `{reason}` typed into another template previews as it is sent, its sentence gone. iOS has no editor (Notes).
+
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-1: A placeholder works in any template (rule 3a, PAD-670)
@@ -410,6 +445,40 @@ test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_a_co
 - **Then** `template-group-removedFromClass` holds `removed_from_class` then `removed_from_series` with their labels and descriptions, each with every placeholder badge, and saving one sends it in `message_templates`
 test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `lists the two removal notices in their own group (PAD-928)`
 
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-32: The new cancellation defaults read whole with a reason and without (rules 25, 26, PAD-840)
+- **Given** a class on Wednesday at 19:00 and a student Ana
+- **When** `class_cancelled` is rendered from the default in `pt` and `en`, with the reason "Chuva forte" sent, then with no reason
+- **Then** the pt text with the reason reads "Olá Ana, a tua aula de quarta-feira às 19:00 foi cancelada. Motivo indicado pelo professor: Chuva forte. Pedimos desculpa pelo incómodo!"
+- **And** without it, in each locale, the text is exactly today's default rendered for that class, with no "Motivo", "Reason", ":" slot or double space
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_default_reads_whole_with_and_without_a_reason`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-33: The reason goes in verbatim, with one full stop (rule 25)
+- **Given** the reasons "Avaria no campo {court}!" and "Chuva."
+- **When** each is sent in `class_cancelled`
+- **Then** the first appears as typed, braces included, ending "… {court}! Pedimos desculpa…", and the second ends "Chuva. Pedimos…", never "Chuva.."
+- **And** in any other template a stray `{reason}` renders as nothing, its sentence gone
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_reason_is_verbatim_with_one_stop` (+1 more)
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-34: A stored copy of the earlier cancellation default reads as the new one (rule 26)
+- **Given** coaches whose stored `class_cancelled` is the earlier default in pt, in en, the same with one character changed, and a text of their own
+- **When** their templates are read
+- **Then** the two exact copies read as the new default in their own locale, and the other two as saved
+- **And** nothing stored is rewritten
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_stored_copy_of_the_earlier_default_reads_as_the_new_one`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-35: The web editor lists the cancellation notice with its reason badge (rule 26)
+- **Given** a coach on web Settings → message templates
+- **When** they open "Aula cancelada"
+- **Then** `class_cancelled` is there with its label, description and the `{reason}` badge, and no other key offers `{reason}`
+- **And** the preview shows the example reason, and a `{reason}` typed under another key does not
+test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `[NOTIFICATIONS-MESSAGE-TEMPLATES-35] the cancellation notice is editable with its reason badge`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-36: A cancellation text is never left empty (rule 25)
+- **Given** a coach whose `class_cancelled` is the one sentence "Aula cancelada: {reason}"
+- **When** a class is cancelled with no reason sent, then with "Chuva"
+- **Then** the first message is the default text without its reason sentence, and the second "Aula cancelada: Chuva"
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_text_left_empty_falls_back_to_the_default`
+
 ### Today (PAD-836)
 - Placeholder values: `backend/padel_app/services/message_text.py` `template_variables` (the one set, rule 3a)
   plus `class_placeholders` (`{type}`, `{date}`, `{court}`, `{day}`). No duration or club value exists.
@@ -458,6 +527,19 @@ test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.ts
 3. -31: web editor group, labels, descriptions in pt/en `settings.json`, vitest. No iOS editor.
 4. The ticket's "print": `docs/plans/messages/pad-928-examples.md` (local), from the pytest examples.
 
+
+### Today (PAD-840)
+- `class_cancelled` defaults: `models/notification_config.py` (en ~67, pt ~93); rendered once per student
+  in `collect_cancellation_recipients` (`services/system_messages.py` ~544) through `_format_template`
+  (`services/message_text.py` ~41), which removes empty phrases by their connectors, not by sentence.
+- The web editor saves the whole resolved `messageTemplates` (`NotificationsEngineSection.tsx` ~169), so
+  stored copies of the default exist; `class_cancelled` is not in `MessageTemplatesSection.tsx`'s `GROUPS`.
+
+### Waves (PAD-840)
+1. -32, -33 with `classes.delete` -10 … -15 (`test_pad840_cancel_reason.py`).
+2. -34, -36: the read-time default and the empty text.
+3. -35: the editor group, badge, pt/en copy, preview example; vitest. No iOS editor.
+
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
   reminder arrives — see `notifications.coach-fills-vacancies-automatically` and
@@ -495,3 +577,5 @@ test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.ts
 - **`class_cancelled` is still not editable (PAD-928, messages-m3).** The ticket asks for the removal
   notice to be editable "como as outras"; the cancellation notice it is modelled on has never been in the
   web editor. Not added here (out of the ticket's ask); a candidate for its own ticket.
+- **`class_cancelled` becomes editable (PAD-840, messages-m2).** Rule 26 answers the PAD-928 note above:
+  PAD-840 needs the coach to see and shape the text that carries the reason.
