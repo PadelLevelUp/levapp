@@ -14,6 +14,7 @@ read at every call (``engine_store.settings_for``).
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 
 from padel_app.invitation_engine import Engine
@@ -46,14 +47,18 @@ class _OneSession:
         return getattr(self._store, name)
 
 
-def tick_sessions(now: datetime, store=None) -> list:
-    """``Engine.tick`` for each listed session, one at a time. Returns the effects applied."""
+def tick_sessions(now: datetime, store=None, stats: dict | None = None) -> list:
+    """``Engine.tick`` for each listed session, one at a time. Returns the effects applied. ``stats``,
+    when given, gets ``listed``: how many sessions were listed."""
     from padel_app.services import delivery_incidents
     from padel_app.services.engine_store import TableStore, settings_for
 
     store = store or TableStore(clock=lambda: now)
     effects = []
-    for session in store.sessions():
+    sessions = store.sessions()
+    if stats is not None:
+        stats["listed"] = len(sessions)
+    for session in sessions:
         try:
             effects += Engine(_OneSession(store, session), settings_for).tick(now)
         except Exception as exc:  # noqa: BLE001 — STORE-6: one session never stops the others
@@ -77,11 +82,26 @@ def send_outbox() -> int:
 
 def run_tick(now: datetime | None = None) -> int:
     """The ``engine_tick`` job: adopt (and materialise), remove a drained coach's old jobs, tick every
-    session, send the outbox. Returns how many outbox rows were sent."""
+    session, send the outbox. Returns how many outbox rows were sent. Logs one INFO line when it ends
+    (engine-store rule 7, STORE-20): the run's ms, each pass's ms, and its counts, so a run that outgrows
+    ``ENGINE_RUN_EVERY`` shows in the log (APScheduler logs no run lines)."""
     from padel_app.services.engine_switch import adopt_due, cutover_pass
 
     now = now or utcnow_naive()
-    adopt_due(now=now)
+    stats: dict = {}
+    clock = time.perf_counter
+    t0 = clock()
+    adopted = adopt_due(now=now, stats=stats)
+    t1 = clock()
     cutover_pass(now=now)                               # PAD-921 (CONFIG-79): a drained coach's old jobs go
-    tick_sessions(now)
-    return send_outbox()
+    t2 = clock()
+    effects = tick_sessions(now, stats=stats)
+    t3 = clock()
+    sent = send_outbox()
+    t4 = clock()
+    ms = lambda a, b: int((b - a) * 1000)  # noqa: E731
+    log.info("engine_tick: ms=%d adopt_ms=%d cutover_ms=%d sessions_ms=%d outbox_ms=%d "
+             "materialised=%d adopted=%d listed=%d effects=%d sent=%d",
+             ms(t0, t4), ms(t0, t1), ms(t1, t2), ms(t2, t3), ms(t3, t4),
+             stats.get("materialised", 0), len(adopted), stats.get("listed", 0), len(effects), sent)
+    return sent

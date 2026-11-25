@@ -204,15 +204,22 @@ def _materialise_due(config, now: datetime) -> int:
     """Rule 18 (CONFIG-80): materialise the switched coach's recurring occurrences that are due, each by
     the earlier of its ``first_invite_at`` and its ``attendance_request_at`` (with ``first_invite`` none,
     within the scheduling window), where the old engine's lesson-level jobs used to. The creation path
-    adopts each as it is created (``on_occurrence_created``). Returns how many were created."""
-    from datetime import timedelta
+    adopts each as it is created (``on_occurrence_created``). Returns how many were created.
+
+    Rule 18's "the run stays cheap" (CONFIG-85): the coach's classes, their primary coaches and their
+    not-yet-started occurrences' dates are read in three queries whatever the number of classes or of
+    their past occurrences, and a class's occurrences are walked in start order only until the first one
+    not yet due: its due time never comes before an earlier occurrence's (``timeline._fire_at`` counts
+    back from the start), so none after it is due either (CONFIG-86)."""
+    from datetime import time, timedelta
+
+    from sqlalchemy import and_, or_
 
     from padel_app.invitation_engine import timeline
     from padel_app.invitation_engine.snapshot import SessionSnapshot
     from padel_app.models import Lesson
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.lesson_instances import LessonInstance
-    from padel_app.scheduler import _lesson_primary_coach_id
     from padel_app.services.engine_settings_mapping import settings_from_config
     from padel_app.services.lesson_service import get_or_materialize_instance
 
@@ -220,31 +227,55 @@ def _materialise_due(config, now: datetime) -> int:
     wall_now = utc_to_wall_naive(now)
     lessons = (Lesson.query.join(Association_CoachLesson, Lesson.id == Association_CoachLesson.lesson_id)
                .filter(Association_CoachLesson.coach_id == config.coach_id, Lesson.status == "active").all())
+    if not lessons:
+        return 0
+    ids = [lesson.id for lesson in lessons]
+    # The primary coach of each class: its first coach row (scheduler._lesson_primary_coach_id), in one query.
+    primary: dict[int, int] = {}
+    for lesson_id, coach_id in (db.session.query(Association_CoachLesson.lesson_id, Association_CoachLesson.coach_id)
+                                .filter(Association_CoachLesson.lesson_id.in_(ids))
+                                .order_by(Association_CoachLesson.id.asc()).all()):
+        primary.setdefault(lesson_id, coach_id)
+    own = [lesson for lesson in lessons if primary.get(lesson.id) == config.coach_id]
+    # An occurrence's key is its original date, else its start's date; only today's and later keys can
+    # match an occurrence that has not started, so past rows are not read.
+    today = datetime.combine(wall_now.date(), time.min)
+    existing: dict[int, set] = {}
+    for lesson_id, original, start in (
+            db.session.query(LessonInstance.lesson_id, LessonInstance.original_lesson_occurence_date,
+                             LessonInstance.start_datetime)
+            .filter(LessonInstance.lesson_id.in_([lesson.id for lesson in own] or [-1]),
+                    or_(LessonInstance.original_lesson_occurence_date >= wall_now.date(),
+                        and_(LessonInstance.original_lesson_occurence_date.is_(None),
+                             LessonInstance.start_datetime >= today))).all()):
+        existing.setdefault(lesson_id, set()).add(original or (start.date() if start else None))
     created = 0
-    for lesson in lessons:
-        if _lesson_primary_coach_id(lesson.id) != config.coach_id:
-            continue
-        existing = {inst.original_lesson_occurence_date or (inst.start_datetime.date() if inst.start_datetime else None)
-                    for inst in LessonInstance.query.filter_by(lesson_id=lesson.id).all()}
-        for occ in lesson.occurrences_between(wall_now, wall_now + timedelta(days=MATERIALISE_HORIZON_DAYS)):
-            start = occ.replace(tzinfo=None) if occ.tzinfo else occ
-            if start <= wall_now or start.date() in existing:
+    for lesson in own:
+        dates = existing.get(lesson.id, set())
+        occurrences = sorted(occ.replace(tzinfo=None) if occ.tzinfo else occ for occ in
+                             lesson.occurrences_between(wall_now, wall_now + timedelta(days=MATERIALISE_HORIZON_DAYS)))
+        for start in occurrences:
+            if start <= wall_now:
                 continue
             probe = SessionSnapshot(id="", level=None, capacity=0, start=start, regulars=(), going=())
             first = timeline.first_invite_at(probe, settings)
             ask = timeline.attendance_request_at(probe, settings)
             due = None if first is None else min(t for t in (first, ask) if t is not None)
-            if due is None or due <= now:
-                get_or_materialize_instance(lesson, start.date())
-                created += 1
+            if due is not None and due > now:
+                break                                       # neither it nor any later one is due yet
+            if start.date() in dates:
+                continue
+            get_or_materialize_instance(lesson, start.date())
+            created += 1
     return created
 
 
-def adopt_due(*, now: datetime | None = None, coach_ids=None) -> list[str]:
+def adopt_due(*, now: datetime | None = None, coach_ids=None, stats: dict | None = None) -> list[str]:
     """For every switched coach: materialise the recurring occurrences now due (``_materialise_due``,
     CONFIG-80), then adopt every occurrence created since the switch that has no row yet (a failed or
     missing creation hook). Occurrences that existed at the switch are never re-evaluated. Returns the
-    adopted session ids. Idempotent."""
+    adopted session ids. Idempotent. One coach's failure is logged and rolled back and the others go on
+    (CONFIG-87). ``stats``, when given, gets ``materialised`` added."""
     from padel_app.models.notification_config import NotificationConfig
 
     now = now or utcnow_naive()
@@ -253,14 +284,22 @@ def adopt_due(*, now: datetime | None = None, coach_ids=None) -> list[str]:
     if coach_ids is not None:
         query = query.filter(NotificationConfig.coach_id.in_(list(coach_ids) or [-1]))
     adopted = []
+    materialised = 0
     for config in query.order_by(NotificationConfig.coach_id).all():
+        coach_id, switched_at = config.coach_id, config.engine_switched_at
         try:
-            _materialise_due(config, now)
+            materialised += _materialise_due(config, now)
         except Exception:
             db.session.rollback()
-            log.exception("engine_switch: materialising coach %s's occurrences failed", config.coach_id)
-        due = _future_occurrences(config.coach_id, now, created_since=config.engine_switched_at)
-        adopted += _adopt_each(due, config.coach_id, now)
+            log.exception("engine_switch: materialising coach %s's occurrences failed", coach_id)
+        try:
+            due = _future_occurrences(coach_id, now, created_since=switched_at)
+            adopted += _adopt_each(due, coach_id, now)
+        except Exception:
+            db.session.rollback()
+            log.exception("engine_switch: adopting coach %s's occurrences failed; the run goes on", coach_id)
+    if stats is not None:
+        stats["materialised"] = stats.get("materialised", 0) + materialised
     return adopted
 
 
@@ -309,9 +348,12 @@ def drain_state(coach_id: int, *, now: datetime | None = None) -> dict:
     }
 
 
-def _coach_old_keys(coach_id: int) -> tuple[set[int], set[int], set[int]]:
+def _coach_old_keys(coach_id: int, among=None) -> tuple[set[int], set[int], set[int]]:
     """The coach's occurrences and lessons (the coach their primary coach: a co-coached class whose
-    primary coach is someone else keeps its jobs) and the coach's vacancies, by id."""
+    primary coach is someone else keeps its jobs) and the coach's vacancies, by id. With ``among`` (the
+    keys of the scheduler's old-engine jobs, ``scheduler.old_engine_job_keys``), only the ids those jobs
+    name are read (CONFIG-85): the result only ever selects jobs, and an occurrence whose primary coach
+    is ``coach_id`` is the coach's, through its own coach row or its lesson's."""
     from padel_app.models import Lesson
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
@@ -320,24 +362,32 @@ def _coach_old_keys(coach_id: int) -> tuple[set[int], set[int], set[int]]:
     from padel_app.scheduler import _lesson_primary_coach_id
     from padel_app.services.lesson_service import primary_coach
 
-    lesson_ids = {lid for (lid,) in db.session.query(Association_CoachLesson.lesson_id)
-                  .filter(Association_CoachLesson.coach_id == coach_id).all()
-                  if _lesson_primary_coach_id(lid) == coach_id}
-    own = db.session.query(Association_CoachLessonInstance.lesson_instance_id).filter(
-        Association_CoachLessonInstance.coach_id == coach_id)
-    instances = LessonInstance.query.filter(LessonInstance.id.in_(own) | LessonInstance.lesson_id.in_(
-        db.session.query(Lesson.id).filter(Lesson.id.in_(lesson_ids or [-1])))).all()
+    lesson_query = db.session.query(Association_CoachLesson.lesson_id).filter(Association_CoachLesson.coach_id == coach_id)
+    vacancy_query = db.session.query(Vacancy.id).filter(Vacancy.coach_id == coach_id)
+    if among is not None:
+        named = {kind: {i for k, i in among if k == kind} or {-1} for kind in ("lesson", "instance", "vacancy")}
+        lesson_query = lesson_query.filter(Association_CoachLesson.lesson_id.in_(named["lesson"]))
+        vacancy_query = vacancy_query.filter(Vacancy.id.in_(named["vacancy"]))
+    lesson_ids = {lid for (lid,) in lesson_query.all() if _lesson_primary_coach_id(lid) == coach_id}
+    if among is None:
+        own = db.session.query(Association_CoachLessonInstance.lesson_instance_id).filter(
+            Association_CoachLessonInstance.coach_id == coach_id)
+        instances = LessonInstance.query.filter(LessonInstance.id.in_(own) | LessonInstance.lesson_id.in_(
+            db.session.query(Lesson.id).filter(Lesson.id.in_(lesson_ids or [-1])))).all()
+    else:
+        instances = LessonInstance.query.filter(LessonInstance.id.in_(named["instance"])).all()
     instance_ids = {inst.id for inst in instances if getattr(primary_coach(inst), "id", None) == coach_id}
-    vacancy_ids = {vid for (vid,) in db.session.query(Vacancy.id).filter(Vacancy.coach_id == coach_id).all()}
+    vacancy_ids = {vid for (vid,) in vacancy_query.all()}
     return instance_ids, lesson_ids, vacancy_ids
 
 
-def remove_old_jobs(coach_id: int) -> list[str]:
+def remove_old_jobs(coach_id: int, among=None) -> list[str]:
     """Remove every old-engine job of the coach (rule 18, CONFIG-79): the jobs keyed on their
-    occurrences, their lessons' dates and their vacancies. Returns the removed job ids."""
+    occurrences, their lessons' dates and their vacancies. Returns the removed job ids. ``among``: the
+    scheduler's old-job keys, when the caller has read them (``_coach_old_keys``)."""
     from padel_app import scheduler
 
-    instance_ids, lesson_ids, vacancy_ids = _coach_old_keys(coach_id)
+    instance_ids, lesson_ids, vacancy_ids = _coach_old_keys(coach_id, among)
     removed = []
     for job in scheduler.old_engine_jobs(instance_ids=instance_ids, lesson_ids=lesson_ids, vacancy_ids=vacancy_ids):
         try:
@@ -351,15 +401,20 @@ def remove_old_jobs(coach_id: int) -> list[str]:
 def cutover_pass(*, now: datetime | None = None) -> dict[int, list[str]]:
     """Each switched coach who is drained has their remaining old-engine jobs removed (rule 18,
     CONFIG-79). Idempotent: a drained coach whose old jobs are gone removes nothing. The engine's tick
-    runs it after ``adopt_due``. Returns the removed job ids per coach."""
+    runs it after ``adopt_due``. Returns the removed job ids per coach. With no old-engine job left in
+    the scheduler there is nothing to remove, so nothing is read (CONFIG-85)."""
+    from padel_app import scheduler
     from padel_app.models.notification_config import NotificationConfig
 
+    keys = scheduler.old_engine_job_keys()
+    if not keys:
+        return {}
     now = now or utcnow_naive()
     out = {}
     for config in NotificationConfig.query.filter(NotificationConfig.engine_version == "new").all():
         try:
             if drain_state(config.coach_id, now=now)["drained"]:
-                removed = remove_old_jobs(config.coach_id)
+                removed = remove_old_jobs(config.coach_id, keys)
                 if removed:
                     log.info("engine_switch: coach %s drained; removed %d old jobs", config.coach_id, len(removed))
                     out[config.coach_id] = removed
@@ -367,4 +422,3 @@ def cutover_pass(*, now: datetime | None = None) -> dict[int, list[str]]:
             db.session.rollback()
             log.exception("engine_switch: the cutover pass failed for coach %s", config.coach_id)
     return out
-

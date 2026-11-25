@@ -1072,7 +1072,12 @@ def _attendance_stats(player_id: int, coach_id: int) -> tuple[float, float]:
     return _attendance_stats_for([player_id], coach_id)[player_id]
 
 
-def _attendance_counts_for(player_ids, coach_id: int) -> dict[int, tuple[int, int, int]]:
+def _no_instances(instance_ids) -> bool:
+    """An empty id collection; a SQL selection (``coach_instance_ids_select``) is never known empty."""
+    return isinstance(instance_ids, (set, frozenset, list, tuple)) and not instance_ids
+
+
+def _attendance_counts_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[int, tuple[int, int, int]]:
     """``{player_id: (total, present, justified_absences)}`` over THIS coach's
     occurrences only (`classes.coach-assignment` rule 4, `eligibility.rules` rule 3),
     in one query. PAD-382 (B-143): these readers used to count the student's rows with
@@ -1083,8 +1088,9 @@ def _attendance_counts_for(player_ids, coach_id: int) -> dict[int, tuple[int, in
 
     ids = [int(pid) for pid in player_ids]
     counts: dict[int, tuple[int, int, int]] = {pid: (0, 0, 0) for pid in ids}
-    instance_ids = _coach_instances(coach_id) if ids else set()
-    if not ids or not instance_ids:
+    if instance_ids is None:
+        instance_ids = _coach_instances(coach_id) if ids else set()
+    if not ids or _no_instances(instance_ids):
         return counts
     totals: dict[int, list[int]] = {}
     rows = (
@@ -1146,7 +1152,7 @@ def makeups_balance_for(player_ids, coach_id: int, *, instance_ids=None) -> dict
     if instance_ids is None:
         instance_ids = _coach_instances(coach_id)
     taken: set[tuple[int, int]] = set()
-    if instance_ids:
+    if not _no_instances(instance_ids):
         for pid, n in (
             db.session.query(Presence.player_id, func.count(Presence.id))
             .filter(Presence.player_id.in_(ids), Presence.lesson_instance_id.in_(instance_ids),
@@ -1238,7 +1244,7 @@ def _unjustified_absence_counts_for(player_ids, coach_id: int, *, instance_ids=N
         return counts
     if instance_ids is None:
         instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
-    if not instance_ids:
+    if _no_instances(instance_ids):
         return counts
     for pid, n in (
         db.session.query(Presence.player_id, func.count(Presence.id))
