@@ -77,7 +77,10 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
      nobody would be told, the dialog says so ("Nenhum aluno será avisado." / "No student will be
      told.") in place of the preview and the checkbox.
    The confirm buttons send the field and the checkbox with the scope the coach picks. iOS's dialog
-   holds a text field, so it sits above the keyboard (`mobile.android-runtime` rule 15, PAD-838).
+   holds a text field, so it is the shared dialog, which sits above the keyboard
+   (`mobile.android-runtime` rule 15, PAD-838), and its fields scroll so its buttons stay above it too.
+   The preview is asked for about a third of a second after the last change. A removal with no reason
+   written sends neither field (rule 9).
 14. **The class detail lists its cancellations (PAD-840, phase 1; web and iOS together).** The reasons
    rule 11 keeps are read back by `GET /api/app/class/<lesson_id>/cancellations`: the class's
    `cancellation_reasons`, newest removed date first, each as `{date, scope, reason, sentToStudents}`;
