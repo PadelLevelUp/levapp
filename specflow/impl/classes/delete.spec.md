@@ -69,8 +69,8 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
      `cancel-reason-send`, disabled while the field is empty, and ticked as soon as a reason is
      written (owner, 25 Nov 2026); the coach may untick it;
    - a read-only preview of the message, `cancel-reason-preview`: the server renders it
-     (`POST /api/app/class_cancellation_preview` with the dialog's event, scope, reason and
-     `sendReason`, the same rendering as the real send, rules 8 and 10; it answers
+     (`POST /api/app/class_cancellation_preview` with the dialog's event, reason and
+     `sendReason`; the scope is not chosen yet and changes neither the text nor who gets it; the same rendering as the real send, rules 8 and 10; it answers
      `{text, recipients}`, the text and how many students would be told, to the class's own coach
      only) for the first enrolled student by name, or with the name "Aluno" / "Student" when nobody is enrolled. The preview follows
      the field and the checkbox as the coach types (debounced, at most one request in flight). When
