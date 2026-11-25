@@ -135,8 +135,12 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     alerts (`alerted`), its pending approval requests' queues (`pending`) and its dismissed groups' spot
     counts (`dismissed_groups`). The store reads such a stored spot type as the session's current level, so
     a deploy of rule 4 raises no alert again, reopens no dismissed group and asks for no approval again on
-    that account; an alert cleared or raised again replaces the one stored with no level. A class with no
-    level reads exactly as before. No stored row is rewritten by a migration.
+    that account; an alert cleared or raised again replaces the one stored with no level. The same reading
+    holds outside the snapshot: an approval request's card built from its queued outbox row, and the admin
+    engine-health's coverage of open spots by stored invitation offers. It also holds for a class that had no
+    level and is later given one: its no-level state reads at the new level, so nothing reopens or is asked
+    again, while a change from one level to another does reopen and re-ask as before. A class with no level
+    reads exactly as before. No stored row is rewritten by a migration.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -308,6 +312,14 @@ store builds its snapshot and the engine decides, then it raises no `CoachAlert`
 stored with no level is replaced, not kept beside it.
 test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_state_stored_with_no_level_reads_as_the_sessions_level`
 
+#### NOTIFICATIONS-ENGINE-STORE-24: An approval card and the admin coverage read a stored no-level spot type as the session's level (rule 12)
+Given an adopted session whose occurrence inherits its class's level, when an approval request's outbox row
+queued with spot types of no level is turned into its card, then the card is the one the same queues at the
+session's level give (each type's open count and level label); and when admin engine-health counts the open
+spots an open counting invitation offered with no level covers, then it counts them as it does for the same
+offer at the session's level.
+test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_the_card_and_the_admin_coverage_read_a_no_level_spot_type_at_the_sessions_level`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -324,6 +336,8 @@ test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_state_s
    `services/engine_switch.py` (`_adopt`).
 7. (engine effective level, transition) STORE-23 — `services/engine_store.py` (`snapshot`'s reading of `alerted`,
    `pending`, `dismissed_groups`; `CoachAlert` and `AlertCleared` writes).
+8. (engine effective level, transition readers) STORE-24 — `services/engine_outbox.py` (`card`),
+   `services/admin/engine_health.py` (`_open_spots`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
