@@ -418,6 +418,7 @@ test.describe("PAD-236: chat-born asks reach the student's queue", () => {
         const card = page.getByTestId("dashboard-queue-waiting-list-offer").first();
         await expect(card).toBeVisible({ timeout: 10_000 });
         const strip = card.getByTestId("dashboard-answer-strip");
+        await expect(strip, `${width}px: the card has an answer strip`).toBeVisible({ timeout: 10_000 });
         const yes = strip.getByTestId("dashboard-confirm-yes");
         const no = strip.getByTestId("dashboard-confirm-no");
         const [cardBox, stripBox, yesBox, noBox] = await Promise.all([
