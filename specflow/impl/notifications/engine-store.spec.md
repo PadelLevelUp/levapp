@@ -60,6 +60,9 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    transaction (`notifications.engine-planning` rule 1). A session that raises is rolled back and
    skipped, and the tick goes on with the rest (`notifications.invitations` rule 21's new reading); the
    failure is recorded as `admin.engine-health` rule 12 says. The outbox is sent after the sessions.
+   Each run logs one line at INFO when it ends: its duration in milliseconds, each pass's duration, and
+   how many occurrences it materialised and adopted, sessions it listed, effects it applied and outbox
+   rows it sent, so a run that outgrows const:ENGINE_RUN_EVERY shows in the log.
 
 8. **Invitation messages and alerts stay current** (`notifications.invitations` NB1a;
    `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
@@ -259,6 +262,12 @@ row, then `credits_used` grows and the entry stays open; and when the coach acce
 student holding a standing row with two credits, then exactly one credit is spent.
 test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_entry_no_limit_and_a_coachs_accept_spend_as_rule_11_says`
 
+#### NOTIFICATIONS-ENGINE-STORE-20: Each run logs its duration and counts (rule 7)
+Given a switched coach with one listed session, when `engine_tick` runs, then one INFO line is logged
+with the run's total milliseconds, each pass's milliseconds, and the materialised, adopted, sessions,
+effects and sent counts.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_each_run_logs_its_duration_and_counts`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -268,6 +277,7 @@ test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_e
    engine-answers ANSWERS-32.
 4. (switch keeps lists, 2026-11-19) STORE-15 to STORE-17 — `services/engine_switch.py` (`_adopt`) and
    `services/engine_store.py` (`add_session`); STORE-18, STORE-19 — `services/engine_store.py` (`Placed`).
+5. (engine tick load, 2026-11-25) STORE-20 — `services/engine_runner.py` (`run_tick`'s log line).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
@@ -279,3 +289,6 @@ test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_e
   student's other open engine invitations paid by that entry be withdrawn? The engine never revokes (D4),
   and a withdrawal needs its own bubble state and copy. Until then a second Yes from that entry places the
   student without a credit.
+- The run's log line (rule 7, STORE-20; prod slowness, 25 Nov 2026) — decision (hotfix agent, owner's
+  order, nobody reachable to review; the owner can reverse it): a log line only, not exposed on admin
+  engine-health, because APScheduler logs no run lines and the log is the cheapest place to read it.
