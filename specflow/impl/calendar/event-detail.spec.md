@@ -357,8 +357,9 @@ approval.**
     builds for the dashboard, with `date` the class's own date as the calendar shows it (the start
     datetime's date, as the engine's coach alert already does). A URL with another key
     (`classInstanceId`) opens nothing: the calendar reads only `classId` and `date`, so the coach
-    lands on today's calendar with the class not open. One builder (`class_href`) makes the link,
-    for a one-off and for a series occurrence alike.
+    lands on today's calendar with the class not open. The link is the same string `class_href`
+    builds for the same class (a test holds the two together), for a one-off and for a series
+    occurrence alike.
 
 ### Acceptance Criteria
 
