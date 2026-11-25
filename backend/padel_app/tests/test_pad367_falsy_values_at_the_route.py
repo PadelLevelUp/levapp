@@ -478,7 +478,7 @@ def test_own_profile_an_empty_phone_clears_it(app, client):
 
     _patch_me(app, client, ids, {"phone": ""})
 
-    assert _me(app, ids)["phone"] in (None, "")
+    assert _me(app, ids)["phone"] is None
     assert _me(app, ids)["name"] == "Test Student"
 
 
