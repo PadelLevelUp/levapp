@@ -127,6 +127,23 @@ def test_a_push_subscription_prints_withheld(script, app):
         assert leaked not in out
 
 
+@pytest.mark.criterion("ADMIN-DATA-EXPORT-7")
+def test_a_push_subscription_endpoint_prints_withheld(script, app):
+    from padel_app.models.push_subscriptions import PushSubscription
+
+    uid, _ = _people(app)
+    with app.app_context():
+        for n in (1, 2):
+            db.session.add(PushSubscription(
+                user_id=uid, subscription_json=f'{{"endpoint": "https://push.example/ENDPOINT-753-{n}"}}'))
+        db.session.commit()
+        assert all(r.endpoint for r in PushSubscription.query.all())
+    _, out, _ = _run(script, app, uid)
+    rows = json.loads(out)["tables"]["push_subscriptions"]
+    assert [(r["endpoint"], r["subscription_json"]) for r in rows] == [("[withheld]", "[withheld]")] * 2
+    assert "ENDPOINT-753" not in out
+
+
 @pytest.mark.criterion("ADMIN-DATA-EXPORT-4")
 def test_who_blocked_them_is_not_exported(script, app):
     """Their own blocks are theirs; someone else's block of them is not (rule 3)."""

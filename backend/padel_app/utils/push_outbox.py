@@ -241,12 +241,20 @@ def send_row(row: dict) -> tuple[str, str | None]:
         key, email = os.getenv("VAPID_PRIVATE_KEY"), os.getenv("VAPID_CLAIMS_EMAIL")
         if not key or not email or not os.getenv("VAPID_PUBLIC_KEY"):
             return SKIP, "vapid unconfigured"
-        sub = PushSubscription.query.filter_by(user_id=user_id).first()
-        if sub is None:
+        # PAD-753: the row names one browser; it must still be this user's (the latest sign-in owns
+        # it). A row written before that names none and goes to every browser the user holds.
+        mine = PushSubscription.query.filter_by(user_id=user_id)
+        if payload.get("subscriptionId") is not None:
+            mine = mine.filter_by(id=payload["subscriptionId"])
+        subs = [(s.id, s.subscription_json) for s in mine.order_by(PushSubscription.id).all()]
+        if not subs:
             return SKIP, "no subscription"
         body = json.dumps({"title": payload.get("title"), "body": payload.get("body"),
                            "url": payload.get("url") or "/"})
-        return _deliver_web_push_outcome(user_id, sub.id, sub.subscription_json, body, key, {"sub": email})
+        return combine([
+            _deliver_web_push_outcome(user_id, sub_id, sub_json, body, key, {"sub": email})
+            for sub_id, sub_json in subs
+        ])
     return SKIP, f"unknown channel {row['channel']}"
 
 
