@@ -186,3 +186,27 @@ def test_messageable_payload_carries_only_picker_fields(client, app, roster_scen
             "avatarUrl",
             "abbreviation",
         }
+
+
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-41")
+@pytest.mark.parametrize("reason", ["inactive", "blocked"])
+def test_an_inactive_or_blocked_roster_student_is_not_messageable(
+    client, app, roster_scenario, reason
+):
+    """PAD-831: the Messages search offers exactly this set, so neither is found there."""
+    from padel_app.models import BlockedUser, User
+
+    coach_user_id = roster_scenario["coach_user_id"]
+    student_id = roster_scenario["roster_user_id"]
+    with app.app_context():
+        if reason == "inactive":
+            db.session.get(User, student_id).status = "inactive"
+        else:
+            db.session.add(BlockedUser(blocker_id=coach_user_id, blocked_id=student_id))
+        db.session.commit()
+
+    resp = client.get("/api/app/messageable-users", headers=_auth_header(app, coach_user_id))
+    assert resp.status_code == 200
+    assert student_id not in {u["id"] for u in resp.get_json()}
+    resp = _create_conversation(client, app, coach_user_id, student_id)
+    assert resp.status_code == 403
