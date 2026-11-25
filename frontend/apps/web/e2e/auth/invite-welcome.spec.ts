@@ -12,7 +12,12 @@ async function answerPreviews(page: Page) {
   await page.route("**/api/app/join-tokens/tok-join", (route) =>
     route.fulfill({ json: { coachName: LONG, clubName: `Clube-${LONG}`, clubLogoUrl: null } })
   );
-  await page.route("**/api/**/invitations/**", (route) => route.fulfill({ json: { clubName: LONG, playerName: LONG } }));
+  await page.route("**/api/app/coach-invitations/tok-coach", (route) =>
+    route.fulfill({ json: { clubName: `Clube-${LONG}`, status: "pending" } })
+  );
+  await page.route("**/api/app/player-invitations/tok-player", (route) =>
+    route.fulfill({ json: { playerName: LONG, status: "pending" } })
+  );
 }
 
 /** WCAG relative luminance of a computed `rgb(a)` colour. */
