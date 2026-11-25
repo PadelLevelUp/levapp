@@ -688,7 +688,7 @@ test: `backend/padel_app/tests/test_student_class_count.py`, `frontend/apps/web/
 test: `backend/padel_app/tests/test_pad_superseded_push_link.py` › `[CALENDAR-EVENT-DETAIL-48]` (+ `frontend/apps/web/src/pages/CalendarPage.supersededLink.test.tsx`)
 
 ### Open questions
-- Rule 29 (UI idea 3) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can
+- Rule 27 (UI idea 3) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can
   reverse them): the sketch drew green, amber and grey parts; the bar is the calendar's own (one ink in three
   strengths, amber only while seats are free), because the idea was "the same bar" and green on a class not
   yet held would break `calendar.mobile-views` rule 7. Coach only, because a student's payload cannot
