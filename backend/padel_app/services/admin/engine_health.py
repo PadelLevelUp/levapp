@@ -114,7 +114,8 @@ def _incidents(now) -> dict:
         found = dict(rows)
         return {kind: found.get(kind, 0) for kind in KINDS}
 
-    recent = DeliveryIncident.query.order_by(DeliveryIncident.created_at.desc(),
+    # Rule 8e: refusal reports are not incidents, so no refuser's user id leaves here.
+    recent = DeliveryIncident.query.filter(DeliveryIncident.kind.in_(KINDS)).order_by(DeliveryIncident.created_at.desc(),
                                              DeliveryIncident.id.desc()).limit(20).all()
     return {"last24h": counts(now - timedelta(hours=24)), "last7d": counts(now - timedelta(days=7)),
             "recent": [r.to_dict() for r in recent]}
@@ -220,10 +221,59 @@ def _push(now) -> dict:
         # Rule 13 (PAD-789): the students someone wrote to, the people a push would serve.
         "messageRecipients": {"windowDays": MESSAGE_RECIPIENT_WINDOW_DAYS,
                               **_by_channel(_message_recipients(now))},
+        "permissionRefused": _permission_refused(now),
         "registrationFailures7d": {platform: failures.get(channel, 0)
                                    for platform, channel in (("ios", "apns"), ("android", "fcm"),
                                                              ("web", "webpush"))},
     }
+
+
+def _permission_refused(now) -> dict:
+    """Rule 8e (PAD-789 item 3): distinct students with a refusal report in the window and no
+    channel of that platform created or updated after their latest refusal. A fixed number of
+    statements; counts only."""
+    from padel_app.models import DeviceToken, Player, PushSubscription
+    from padel_app.models.delivery_incident import DeliveryIncident
+
+    since = now - timedelta(days=MESSAGE_RECIPIENT_WINDOW_DAYS)
+    latest = {}  # (user, platform) -> the latest refusal row's time
+    for user_id, channel, at in (
+        db.session.query(DeliveryIncident.user_id, DeliveryIncident.channel,
+                         func.max(DeliveryIncident.created_at))
+        .join(Player, Player.user_id == DeliveryIncident.user_id)
+        .filter(DeliveryIncident.kind == "push_permission_refused",
+                DeliveryIncident.created_at >= since)
+        .group_by(DeliveryIncident.user_id, DeliveryIncident.channel).all()
+    ):
+        platform = {"apns": "ios", "fcm": "android", "webpush": "web"}.get(channel)
+        if platform:
+            latest[(user_id, platform)] = at
+    users = {user_id for user_id, _ in latest}
+    native, web = {}, {}  # user -> platform -> latest channel time
+    if users:
+        for user_id, platform, at in (
+            db.session.query(DeviceToken.user_id, DeviceToken.platform, func.max(DeviceToken.updated_at))
+            .filter(DeviceToken.user_id.in_(users)).group_by(DeviceToken.user_id, DeviceToken.platform).all()
+        ):
+            native.setdefault(user_id, {})[platform] = at
+        for user_id, at in (
+            db.session.query(PushSubscription.user_id, func.max(PushSubscription.updated_at))
+            .filter(PushSubscription.user_id.in_(users)).group_by(PushSubscription.user_id).all()
+        ):
+            web[user_id] = at
+
+    def ended(user_id, platform, refused_at):
+        if platform == "web":
+            times = [web.get(user_id)]
+        else:  # a legacy NULL-platform token is a native channel for both
+            times = [native.get(user_id, {}).get(platform), native.get(user_id, {}).get(None)]
+        return any(t is not None and t > refused_at for t in times)
+
+    live = {key for key, at in latest.items() if not ended(key[0], key[1], at)}
+    out = {"windowDays": MESSAGE_RECIPIENT_WINDOW_DAYS, "total": len({u for u, _ in live})}
+    for platform in ("ios", "android", "web"):
+        out[platform] = sum(1 for _, p in live if p == platform)
+    return out
 
 
 def this_identity() -> dict:

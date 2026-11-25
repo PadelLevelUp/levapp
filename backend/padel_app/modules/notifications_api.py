@@ -91,6 +91,9 @@ def register_device_token():
     if record is not None:
         record.platform = platform
         record.sound_capable = sound_capable
+        # admin.engine-health rule 8e (PAD-789): a registration always refreshes the row, so one
+        # made after a refusal ends it even when nothing else changed.
+        record.updated_at = utcnow_naive()
 
     db.session.commit()
     return jsonify({"success": True}), 200
@@ -207,6 +210,11 @@ REGISTRATION_FAILURE_CHANNELS = {"ios": "apns", "android": "fcm", "web": "webpus
 _IDENT = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 #: Rows one user may add per 24 hours; past it the report is acknowledged and dropped.
 REGISTRATION_FAILURES_PER_DAY = 20
+#: admin.engine-health rule 8e (PAD-789 item 3): a refused permission is reported as a state.
+REFUSAL_PHASE = "refused"
+REFUSAL_KIND = "push_permission_refused"
+#: Refusal rows one user may add per 24 hours; past it the report is acknowledged and dropped.
+REFUSALS_PER_DAY = 5
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +231,8 @@ def report_registration_failure():
     permission = data.get("permission")
     build = data.get("build")
     error_class = data.get("errorClass")
+    if phase == REFUSAL_PHASE:
+        return _record_refusal(user_id, data)
     if (platform not in REGISTRATION_FAILURE_PHASES
             or phase not in REGISTRATION_FAILURE_PHASES[platform]
             or permission not in REGISTRATION_FAILURE_PERMISSIONS
@@ -249,4 +259,31 @@ def report_registration_failure():
     delivery_incidents.record("push_registration_failed", REGISTRATION_FAILURE_CHANNELS[platform],
                               user_id=user_id, error_class=error_class,
                               detail=f"phase={phase} permission={permission} build={build}")
+    return "", 204
+
+
+def _record_refusal(user_id, data):
+    """Rule 8e: `{platform, phase: refused, permission: denied, build}` and nothing else."""
+    platform = data.get("platform")
+    build = data.get("build")
+    if (platform not in REGISTRATION_FAILURE_CHANNELS or data.get("permission") != "denied"
+            or not isinstance(build, str) or not _IDENT.match(build)
+            or set(data) - {"platform", "phase", "permission", "build"}):
+        abort(400, "platform, phase, permission denied and build are required; nothing else")
+
+    from datetime import timedelta
+
+    from padel_app.models.delivery_incident import DeliveryIncident
+    from padel_app.services import delivery_incidents
+    from padel_app.utils.dates import utcnow_naive
+
+    recent = DeliveryIncident.query.filter(
+        DeliveryIncident.kind == REFUSAL_KIND, DeliveryIncident.user_id == user_id,
+        DeliveryIncident.created_at >= utcnow_naive() - timedelta(hours=24),
+    ).count()
+    if recent >= REFUSALS_PER_DAY:
+        return "", 204
+    logger.info("push permission refused: user=%s platform=%s build=%s", user_id, platform, build)
+    delivery_incidents.record(REFUSAL_KIND, REGISTRATION_FAILURE_CHANNELS[platform], user_id=user_id,
+                              detail=f"build={build}")
     return "", 204

@@ -4,6 +4,7 @@ import { getMe, MeResponse } from "@/api/auth";
 import { signOutOnServer } from "@/auth/signOutRequest";
 import { USE_MOCK_DATA } from "@/config";
 import { startPushFailureReport } from "@/utils/pushFailureReport";
+import { startPushRefusalReport } from "@/utils/pushRefusalReport";
 import { requestAndSubscribe } from "@/utils/pushNotifications";
 import i18n from "@/i18n";
 import { emailPromptSession, legalCatchUpSession } from "@levelup/config";
@@ -55,6 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // admin.engine-health rule 8d (PAD-746): a failed push save is reported to the server.
   useEffect(() => (USE_MOCK_DATA ? undefined : startPushFailureReport()), []);
+
+  // auth.push-subscription rule 13 (PAD-789 item 3): a refused notification permission is reported
+  // once per change, by one reporter for the signed-in user.
+  const userId = user?.id;
+  useEffect(() => (USE_MOCK_DATA || userId == null ? undefined : startPushRefusalReport(userId)), [userId]);
 
   useEffect(() => {
     if (!token) {
