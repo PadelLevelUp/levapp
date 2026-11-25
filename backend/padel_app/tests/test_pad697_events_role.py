@@ -258,6 +258,9 @@ def test_a_trailing_slash_does_not_slip_past_the_guard_or_the_410(events_app, ap
     # must never be dodged.
     res = events_app.test_client().get("/api/app/events/")
     assert (res.get_json(silent=True) or {}).get("error") != "NOT_ON_EVENTS"
+    # Flask's router answers the slashed path 404 (no such route), as on the API: not the guard's
+    # 404 NOT_ON_EVENTS above, and never the 410.
+    assert res.status_code == 404
     monkeypatch.setenv("ROLE", "api")
     monkeypatch.setenv("EVENTS_SPLIT", "on")
     assert app_with_config({}).test_client().get("/api/app/events/").status_code == 410

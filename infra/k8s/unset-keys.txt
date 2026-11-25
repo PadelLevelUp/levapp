@@ -1,6 +1,6 @@
 # PAD-702 (delivery.k8s-manifests rule 10): environment keys the backend reads that neither the
 # env template (backend/.env.<env>), nor sources.txt, nor a Deployment's env sets, each with why
-# that is right. The guard (test_pad702_config_guard.py) fails on any key read by the code that is
+# that is right. The guard (test_pad702_config.py) fails on any key read by the code that is
 # in none of these. Columns: KEY  envs (all|staging|prod)  class  reason.
 # Classes: test (tests, E2E or a manual run only), image (the Dockerfile's ENV sets it), default
 # (the code's default is what the environment runs), off (unset on purpose: the feature is off),

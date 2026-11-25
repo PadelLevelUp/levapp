@@ -3314,6 +3314,8 @@ Untagged tests: 4280
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-22** An expand-only migration is silent (rule 12, PAD-711)
     - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_an_expand_only_revision_is_silent
     - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_downgrade_is_never_read
+    - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_no_pr_migrations_says_so_and_passes
+    - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_an_unreadable_file_is_not_counted_as_expand_only
     - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_a_not_null_column_with_a_server_default_is_expand
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-23** A vhost enabled by symlink counts (rule 6, B-662)
     - test: `backend/padel_app/tests/test_pad588_rollout.py` › test_a_vhost_enabled_by_symlink_is_seen_and_the_deploy_rolls
@@ -7653,7 +7655,7 @@ Untagged tests: 4280
 - `backend/padel_app/tests/test_b302_structural_config_before_lock.py`: 2
 - `backend/padel_app/tests/test_b619_engine_routes_check_ownership.py`: 1
 - `backend/padel_app/tests/test_b665_no_untrusted_text_in_workflow_scripts.py`: 2
-- `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py`: 6
+- `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py`: 7
 - `backend/padel_app/tests/test_backend_500_fixes.py`: 2
 - `backend/padel_app/tests/test_backup_script.py`: 11
 - `backend/padel_app/tests/test_boolean_coercion.py`: 9
@@ -7993,7 +7995,7 @@ Untagged tests: 4280
 - `backend/padel_app/tests/test_pad697_events_role.py`: 7
 - `backend/padel_app/tests/test_pad699_push_outbox.py`: 9
 - `backend/padel_app/tests/test_pad704_second_copy.py`: 4
-- `backend/padel_app/tests/test_pad711_expand_contract_guard.py`: 3
+- `backend/padel_app/tests/test_pad711_expand_contract_guard.py`: 2
 - `backend/padel_app/tests/test_pad713_push_title_in_the_students_language.py`: 1
 - `backend/padel_app/tests/test_pad715_join_accept_closes_the_right_side.py`: 5
 - `backend/padel_app/tests/test_pad718_migrate_timeouts.py`: 4
