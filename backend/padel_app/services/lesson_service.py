@@ -2212,6 +2212,42 @@ def _remove_single_occurrence_from_lesson(*, lesson, date):
     lesson.save()
 
 
+#: classes.delete rule 9 (PAD-840): the longest cancellation reason.
+CANCEL_REASON_MAX = 200
+
+
+def parse_cancel_reason(data):
+    """Rule 9: ``(reason, send)`` of a cancellation, trimmed; ``send`` is False without a reason.
+    None when the reason cannot be accepted."""
+    reason = data.get("reason")
+    if reason is None:
+        reason = ""
+    if not isinstance(reason, str):
+        return None
+    reason = reason.strip()
+    if len(reason) > CANCEL_REASON_MAX:
+        return None
+    return reason, bool(reason) and data.get("sendReason") is not False
+
+
+def _keep_cancel_reason(lesson, *, date, scope, reason, sent):
+    """Rule 11: the reason is kept on a class that survives the removal."""
+    from padel_app.utils.dates import to_utc_iso, utcnow_naive
+
+    lesson.cancellation_reasons = [
+        *(lesson.cancellation_reasons or []),
+        {"date": date.isoformat(), "scope": scope, "reason": reason, "sentToStudents": sent,
+         "at": to_utc_iso(utcnow_naive())},
+    ]
+    lesson.save()
+
+
+def lesson_cancellations(lesson):
+    """Rule 14: the class's kept cancellations, newest removed date first."""
+    entries = sorted(lesson.cancellation_reasons or [], key=lambda e: (e["date"], e["at"]), reverse=True)
+    return [{k: e[k] for k in ("date", "scope", "reason", "sentToStudents")} for e in entries]
+
+
 def remove_class_service(data):
     """Scope-aware class removal. Returns (result_dict, http_status_code).
 
@@ -2239,6 +2275,12 @@ def remove_class_service(data):
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
 
+    # PAD-840 (rule 9): refused before anything is removed, settled or sent.
+    parsed = parse_cancel_reason(data)
+    if parsed is None:
+        return {"error": f"reason must be text of at most {CANCEL_REASON_MAX} characters", "fields": ["reason"]}, 400
+    reason, send_reason = parsed
+
     obj = models_map[model_name].query.get_or_404(class_id)
 
     # Snapshot cancellation recipients BEFORE removal — the roster/coach relations
@@ -2246,7 +2288,7 @@ def remove_class_service(data):
     cancellation_recipients = []
     try:
         from padel_app.services.system_messages import collect_cancellation_recipients
-        cancellation_recipients = collect_cancellation_recipients(obj)
+        cancellation_recipients = collect_cancellation_recipients(obj, reason if send_reason else "")
     except Exception:
         cancellation_recipients = []
 
@@ -2266,8 +2308,14 @@ def remove_class_service(data):
     # Lesson re-projecting the occurrence — the B-096 symptom by another door.
     from padel_app.tools.unit_of_work import unit_of_work
 
+    lesson = obj if model_name == "Lesson" else obj.lesson
     with unit_of_work():
         result, status = _dispatch_remove_class(obj, model_name, scope, event_date)
+        # PAD-840 (rule 11): in the removal's own transaction, when the class survives it.
+        kept_scope = {"single_removed": "single", "recurrence_truncated": "future"}.get(result.get("status"))
+        if reason and kept_scope and lesson is not None:
+            _keep_cancel_reason(lesson, date=event_date, scope=kept_scope, reason=reason,
+                                sent=send_reason and bool(cancellation_recipients))
 
     if 200 <= status < 300 and cancellation_recipients:
         try:

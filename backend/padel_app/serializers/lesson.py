@@ -234,6 +234,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         # conversation with this user (`POST /app/conversation` takes user ids).
         "coachUserId": str(_coach.user_id) if _coach is not None else None,
         "name": obj.title,
+        # PAD-840 (classes.delete rule 14): whose cancellations the detail reads, whichever way it was opened.
+        "lessonId": str(lesson.id),
         "levelId": (
             str(lesson.default_level_id)
             if lesson.default_level_id

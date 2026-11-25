@@ -78,6 +78,7 @@ from padel_app.utils.push_notifications import send_push_notification
 from padel_app.services.message_text import (  # noqa: F401
     class_placeholders,
     _CLASS_TYPE_WORDS,
+    _drop_reason_sentences,
     _EMPTY_COURT_CONNECTORS,
     _EMPTY_PLACEHOLDER_CONNECTORS,
     _format_class_when,
@@ -90,8 +91,11 @@ from padel_app.services.message_text import (  # noqa: F401
     _LEADING_PUNCTUATION,
     _PLACE_KEYS,
     _PT_WEEKDAYS,
+    _put_reason,
+    _REASON_SLOT,
     render_template_preview,
     _resolve_locale,
+    _SENTENCE_END,
     _side_phrase,
     _SIDE_PHRASES,
     template_preview_examples,
@@ -100,6 +104,9 @@ from padel_app.services.message_text import (  # noqa: F401
 )
 from padel_app.services.system_messages import (  # noqa: F401
     _BLOCKABLE_MESSAGE_TYPES,
+    _cancellation_text,
+    _cancellation_voice,
+    cancellation_preview,
     collect_cancellation_recipients,
     _get_or_create_direct_conversation,
     _notify_coach_of_cancellation,

@@ -9,6 +9,8 @@ all send through here.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from padel_app.sql_db import db
 from padel_app.models import LessonInstance, NotificationConfig
 from padel_app.models.notification_config import default_templates_for_locale, resolve_message_template
@@ -497,7 +499,54 @@ def notify_student_removed(source, player_id, *, series=False):
         return None
 
 
-def collect_cancellation_recipients(source) -> list[dict]:
+def _cancellation_voice(source):
+    """``(coach_user_id, templates, locale)`` a cancellation of ``source`` is written with; None
+    without a coach."""
+    from padel_app.models import Coach
+
+    coach_rels = list(getattr(source, "coaches_relations", []) or [])
+    coach = None
+    if coach_rels:
+        coach = getattr(coach_rels[0], "coach", None) or Coach.query.get(
+            coach_rels[0].coach_id
+        )
+    coach_user_id = coach.user_id if coach else None
+    if not coach_user_id:
+        return None
+
+    from padel_app.services.notification_service import get_or_create_config
+
+    locale = _resolve_locale(coach)
+    config = get_or_create_config(coach.id)
+    return coach_user_id, config.get_message_templates(locale), locale
+
+
+def _cancellation_text(templates, locale, player, source, reason) -> str:
+    values = template_variables(player, source, locale)
+    text = _format_template(resolve_message_template(templates, "class_cancelled", locale), **values, reason=reason)
+    if text:
+        return text
+    # PAD-840 (message-templates rule 25): a coach's text that is one sentence with {reason} in it
+    # leaves nothing without a reason; the student is still told (classes.delete rule 10).
+    return _format_template(default_templates_for_locale(locale)["class_cancelled"], **values, reason=reason)
+
+
+def cancellation_preview(source, reason) -> dict:
+    """PAD-840 (classes.delete rule 12): the message the first student by name would get, and how many
+    would be told; with nobody to tell, the text for a generic name."""
+    recipients = collect_cancellation_recipients(source, reason)
+    if recipients:
+        first = min(recipients, key=lambda r: (r["player_name"].casefold(), r["player_user_id"]))
+        return {"text": first["text"], "recipients": len(recipients)}
+    voice = _cancellation_voice(source)
+    if voice is None:
+        return {"text": "", "recipients": 0}
+    _coach_user_id, templates, locale = voice
+    nobody = SimpleNamespace(user=SimpleNamespace(name="Aluno" if locale == "pt" else "Student"))
+    return {"text": _cancellation_text(templates, locale, nobody, source, reason), "recipients": 0}
+
+
+def collect_cancellation_recipients(source, reason="") -> list[dict]:
     """Snapshot what's needed to tell each enrolled student a class was cancelled.
 
     PAD-75: when a coach cancels/removes a scheduled class, every enrolled student
@@ -510,25 +559,15 @@ def collect_cancellation_recipients(source) -> list[dict]:
     ``coaches_relations``, ``players_relations``, ``title``, ``start_datetime`` and
     ``level``. MUST be called BEFORE removal, because removal cascade-deletes those
     relations. Returns ``[]`` when there is no coach or no enrolled student, so the
-    caller sends nothing.
+    caller sends nothing. ``reason`` is the one the coach chose to send, or empty (PAD-840,
+    classes.delete rule 10).
     """
-    from padel_app.models import Coach, LessonInstance, Player
+    from padel_app.models import LessonInstance, Player
 
-    coach_rels = list(getattr(source, "coaches_relations", []) or [])
-    coach = None
-    if coach_rels:
-        coach = getattr(coach_rels[0], "coach", None) or Coach.query.get(
-            coach_rels[0].coach_id
-        )
-    coach_user_id = coach.user_id if coach else None
-    if not coach_user_id:
+    voice = _cancellation_voice(source)
+    if voice is None:
         return []
-
-    from padel_app.services.notification_service import get_or_create_config
-
-    locale = _resolve_locale(coach)
-    config = get_or_create_config(coach.id)
-    templates = config.get_message_templates(locale)
+    coach_user_id, templates, locale = voice
 
     # Only a materialized LessonInstance carries an id the mobile app can route to.
     instance_id = source.id if isinstance(source, LessonInstance) else None
@@ -541,16 +580,14 @@ def collect_cancellation_recipients(source) -> list[dict]:
         player_user_id = player.user_id if player else None
         if not player_user_id:
             continue
-        text = _format_template(
-            resolve_message_template(templates, "class_cancelled", locale),
-            **template_variables(player, source, locale),
-        )
         recipients.append(
             {
                 "coach_user_id": coach_user_id,
                 "player_user_id": player_user_id,
-                "text": text,
+                "player_name": (player.user.name if player.user else None) or "",
+                "text": _cancellation_text(templates, locale, player, source, reason),
                 "instance_id": instance_id,
+                "cancel_reason": reason or None,
             }
         )
     return recipients
@@ -565,7 +602,7 @@ def notify_students_of_cancellation(recipients: list[dict]) -> int:
     """
     sent = 0
     for r in recipients or []:
-        metadata = {"classCancellation": True}
+        metadata = {"classCancellation": True, "cancelReason": r.get("cancel_reason")}
         if r.get("instance_id") is not None:
             metadata["lessonInstanceId"] = r["instance_id"]
         msg = _send_system_message(
