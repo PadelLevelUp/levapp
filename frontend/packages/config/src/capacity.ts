@@ -19,6 +19,8 @@
 /** Minimal shape needed from a presence row. */
 export interface PresenceLike {
   status?: string | null;
+  /** The student answered (yes or no): only a not-absent row with this is a yes. */
+  confirmed?: boolean | null;
 }
 
 /** A presence row that names its player, for matching against a participant list. */
@@ -78,11 +80,14 @@ export function participantsHeader(filled: number, max: number | null | undefine
 }
 
 /**
- * Confirmed spots for a LISTED set of participants (calendar.event-detail rule 27, UI idea 3):
- * the listed students whose presence status is `present`, i.e. `LessonInstance.confirmed_spots`
- * applied to the list, as `effectiveFilledSpotsOf` applies `effective_filled_spots`. A `present`
- * row for someone off the list is not counted, and the result never exceeds the filled spots of
- * the same lists. Ids compare as strings. It feeds the coach's fill bar and is never printed.
+ * Confirmed spots for a LISTED set of participants (calendar.view rule 25, calendar.event-detail
+ * rule 27): the listed students who are coming or came — a row that is not absent and is marked
+ * `present` or answered yes (`confirmed`) — i.e. `LessonInstance.confirmed_spots` applied to the
+ * list, as `effectiveFilledSpotsOf` applies `effective_filled_spots`. Absent is read first: a
+ * decline writes `confirmed` too. Not `attendanceStateOf`: a mark whose validation was undone
+ * stays a mark here. A row for someone off the list is not counted, and the result never exceeds
+ * the filled spots of the same lists. Ids compare as strings. It feeds the coach's fill bar and is
+ * never printed.
  */
 export function confirmedSpotsOf(
   participants: readonly { id: string | number }[],
@@ -91,7 +96,13 @@ export function confirmedSpotsOf(
   const listed = new Set(participants.map((p) => String(p.id)));
   const coming = new Set(
     (presences ?? [])
-      .filter((p) => p.status === "present" && p.playerId != null && listed.has(String(p.playerId)))
+      .filter(
+        (p) =>
+          p.status !== "absent" &&
+          (p.status === "present" || !!p.confirmed) &&
+          p.playerId != null &&
+          listed.has(String(p.playerId))
+      )
       .map((p) => String(p.playerId))
   );
   return Math.min(coming.size, effectiveFilledSpotsOf(participants, presences));

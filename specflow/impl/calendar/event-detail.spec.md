@@ -357,7 +357,7 @@ approval.**
 27. **The coach's capacity box shows the calendar's fill bar (UI idea 3; owner's yes, 2026-11-25; numbering
     self-assigned).** Under the `X/Y` of the capacity box, a coach reading a class sees the calendar card's own
     `ClassFillBar`: confirmed, awaiting, free. `filled` is the box's own X (rule 5), `confirmed` is the listed
-    students whose presence status is `present`, from one shared helper in `@levelup/config` that applies
+    students who are coming or came (`calendar.view` rule 25), from one shared helper in `@levelup/config` that applies
     `LessonInstance.confirmed_spots` to the listed students, as `effectiveFilledSpotsOf` does for the filled
     ones, and `capacity` is Y. So for a saved class the bar, the box and the calendar card agree. The confirmed
     count is never printed as a number: rule 5's X stays the sheet's one displayed count. The bar is amber
@@ -641,8 +641,8 @@ test: `frontend/apps/mobile/src/features/calendar/class-detail-new-engine.test.t
 test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_an_old_engine_invitee_carries_no_tier_source`
 
 #### CALENDAR-EVENT-DETAIL-40: The confirmed count is one shared rule (rule 27)
-- **Given** a list of participants and presence rows, one listed student `present`, one `absent`, one unanswered, and a `present` row for a student not on the list
-- **Then** the shared helper counts 1, never more than `effectiveFilledSpotsOf` of the same lists, and 0 for no rows
+- **Given** a list of participants and presence rows, one listed student `present`, one who answered yes, one `absent` (and `confirmed`, as a decline writes), one unanswered, and a `present` row for a student not on the list
+- **Then** the shared helper counts 2, never more than `effectiveFilledSpotsOf` of the same lists, and 0 for no rows
 test: `frontend/packages/config/src/capacity.test.ts` › `confirmedSpotsOf counts the listed present students only`
 
 #### CALENDAR-EVENT-DETAIL-41: The coach's capacity box shows the bar on web (rule 27)

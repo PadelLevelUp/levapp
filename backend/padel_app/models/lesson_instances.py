@@ -190,17 +190,21 @@ class LessonInstance(db.Model, model.Model):
 
     @property
     def confirmed_spots(self) -> int:
-        """Players who have actively CONFIRMED they are coming.
+        """Players who are COMING or came (calendar.view rule 25).
 
-        ``Presence.status`` is "present" / "absent" / NULL. Only "present" is a
-        confirmation; NULL means the player has not answered yet and still
-        holds their spot. So this is always <= ``effective_filled_spots``, and
-        the difference between the two is "enrolled but unanswered".
+        The holding presences (never absent) that the coach marked ``present`` or
+        the student answered yes to (``confirmed``). A decline also writes
+        ``confirmed``, so absent is excluded first (``holding_presences``), as in
+        ``attendance_state`` (B-073). It is not ``attendance_state`` in ("coming",
+        "attended"): a coach's mark whose validation was undone reads "planned"
+        there, but stays a mark here. So this is always <= ``effective_filled_spots``,
+        and the difference is "enrolled but unanswered".
 
         Consumed by the calendar event payload (``confirmedCount``) so a block
         can show confirmed / awaiting / free without a per-class round trip.
+        Walks the presences the serializer already loaded: no query of its own.
         """
-        return sum(1 for p in self.presences if p.status == "present")
+        return sum(1 for p in self.holding_presences if p.status == "present" or p.confirmed)
 
     def __repr__(self):
         return f"<LessonInstance {self.id} {self.title} {self.start_datetime.strftime('%Y-%m-%d %H:%M')}>"

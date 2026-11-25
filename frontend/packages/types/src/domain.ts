@@ -788,7 +788,7 @@ export interface CalendarEvent {
   status?: ClassInstanceStatus;
   /** Spots taken: enrolled minus declined. Includes players who have not answered. */
   participantCount?: number;
-  /** Of those taken spots, how many actively confirmed. Always <= participantCount. */
+  /** Of those taken spots, how many are coming or came (calendar.view rule 25). Always <= participantCount. */
   confirmedCount?: number;
   maxPlayers?: number;
   /** Coach level for this class, used for the block's level chip. */

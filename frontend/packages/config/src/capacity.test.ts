@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import cases from "./confirmed-spots.cases.json";
 import { capacityBarOf, confirmedSpotsOf, effectiveFilledSpots, effectiveFilledSpotsOf, participantsHeader } from "./capacity";
 
 describe("effectiveFilledSpots (PAD-71)", () => {
@@ -81,17 +82,18 @@ describe("participantsHeader (PAD-771, calendar.event-detail rule 5)", () => {
   });
 });
 
-describe("confirmedSpotsOf (calendar.event-detail rule 27, UI idea 3)", () => {
-  const listed = [{ id: "1" }, { id: "2" }, { id: "3" }];
+describe("confirmedSpotsOf (calendar.view rule 25, calendar.event-detail rule 27)", () => {
+  const listed = [{ id: "1" }, { id: "2" }, { id: "3" }, { id: "4" }, { id: "5" }];
   const rows = [
     { playerId: "1", status: "present" },
-    { playerId: "2", status: "absent" },
+    { playerId: "2", status: null, confirmed: true }, // answered yes
+    { playerId: "3", status: "absent", confirmed: true }, // a decline also writes `confirmed`
+    // 4 has no row: unanswered
     { playerId: "9", status: "present" }, // not on the list
   ];
 
-  it("[CALENDAR-EVENT-DETAIL-40] confirmedSpotsOf counts the listed present students only", () => {
-    // one present, one absent, one unanswered (3 has no row), and a present row for a student not listed
-    expect(confirmedSpotsOf(listed, rows)).toBe(1);
+  it("[CALENDAR-EVENT-DETAIL-40] confirmedSpotsOf counts the listed students who are coming or came", () => {
+    expect(confirmedSpotsOf(listed, rows)).toBe(2);
     expect(confirmedSpotsOf(listed, rows)).toBeLessThanOrEqual(effectiveFilledSpotsOf(listed, rows));
     expect(confirmedSpotsOf(listed, [])).toBe(0);
     expect(confirmedSpotsOf(listed, undefined)).toBe(0);
@@ -104,6 +106,14 @@ describe("confirmedSpotsOf (calendar.event-detail rule 27, UI idea 3)", () => {
       { playerId: 2, status: "present" },
     ];
     expect(confirmedSpotsOf([{ id: 1 }, { id: "2" }], dup)).toBeLessThanOrEqual(2);
+  });
+
+  it("[CALENDAR-VIEW-32] confirmedSpotsOf counts who is coming", () => {
+    // The server twin reads the same table: backend/padel_app/tests/test_confirmed_means_coming.py.
+    for (const c of cases) {
+      const row = [{ playerId: "1", status: c.status, confirmed: c.confirmed, validated: c.validated }];
+      expect(confirmedSpotsOf([{ id: 1 }], row), JSON.stringify(c)).toBe(c.counts ? 1 : 0);
+    }
   });
 });
 
