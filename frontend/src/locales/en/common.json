@@ -19,6 +19,11 @@
     "close": "Close",
     "back": "Back",
     "next": "Next",
+    "routeError": {
+      "title": "This page couldn't be opened",
+      "body": "The connection failed or the app was updated. Reload to continue.",
+      "reload": "Reload"
+    },
     "previous": "Previous",
     "loading": "Loading…",
     "search": "Search",

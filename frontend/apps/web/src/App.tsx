@@ -47,6 +47,7 @@ import {
   ViewAsPage,
 } from "@/routes/lazyPages";
 import { RouteFallback } from "@/routes/RouteFallback";
+import { RouteErrorBoundary } from "@/routes/RouteErrorBoundary";
 import { ViewAsBanner } from "@/components/view-as/ViewAsBanner";
 
 import { AuthProvider } from "@/auth/AuthContext";
@@ -84,7 +85,9 @@ const App = () => (
           <BrowserRouter>
             <LaunchOverlayProvider>
             <ViewAsBanner />
-            {/* client.route-loading rule 2 (PAD-585): every page is a lazy chunk. */}
+            {/* client.route-loading rule 2 (PAD-585): every page is a lazy chunk; rule 9 (PAD-866): a chunk
+                that fails twice shows an error screen, not a blank page. */}
+            <RouteErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
@@ -353,6 +356,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
+            </RouteErrorBoundary>
             </LaunchOverlayProvider>
           </BrowserRouter>
         </LayoutProvider>
