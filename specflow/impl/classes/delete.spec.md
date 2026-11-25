@@ -100,7 +100,7 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    text. The edited text goes in `POST /api/app/remove_class` (and the preview route) as `messageOverride`, at most **1000 characters**
    (a longer one is refused with 400 and nothing is removed or sent), is rendered per
    student exactly as a template (rules 5–9 of `notifications.message-templates` hold, a blank override
-   falls back to the template, and so does a dialog whose message the coach emptied), and is never saved into the coach's templates. A server without this rule ignores the field and sends the template; a client whose preview answer has no `template` shows no editor.
+   falls back to the template, and so does one that renders to nothing, which falls back to the coach's own template and only then the built-in default; an editor the coach emptied sends no override, and the preview under it shows the template that will go; a message over the limit disables the confirm buttons, as the reason field does, and may always be shortened), and is never saved into the coach's templates. A server without this rule ignores the field and sends the template; a client whose preview answer has no `template` shows no editor.
 
 ### Acceptance Criteria
 
@@ -263,6 +263,7 @@ test: `frontend/apps/mobile/src/features/calendar/class-cancellations-section.te
 4. Phase 2 (rule 13, -18): its own work, not started.
 
 ### Open questions
+- **What an edited message may contain (messages-m3, 25 Nov; review of PAD-840 phase 2).** A `{word}` that is not a placeholder is dropped from the override before it is sent (rule 5 of `notifications.message-templates`); a brace form with spaces or dots (`{ name }`, `{a.b}`) is not read as a placeholder and goes as typed; the rendered preview shows both as they will arrive. Not asked of the owner; reversible.
 - **Q4.** (b) The checkbox ticked as soon as a reason is written: **yes (owner, 25 Nov 2026).** (a) Phase 1
   first and phase 2 later, and (c) the 200-character limit, were not asked again: the lead's picks,
   reversible.
