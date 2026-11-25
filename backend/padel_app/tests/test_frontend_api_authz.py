@@ -876,3 +876,38 @@ def test_confirm_training_rejection_does_not_materialize_an_instance(
     assert res.status_code == 403
     with app.app_context():
         assert LessonInstance.query.filter_by(lesson_id=w["lesson_rec"]).count() == 0
+
+
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-10")
+def test_confirm_training_by_the_owner_materializes_a_missing_instance(
+    app, client, training_world
+):
+    """The owner's side of the on-demand rule: a Lesson-shaped body for a date with
+    no instance row answers 200, creates the LessonInstance, and plans on it."""
+    from padel_app.models import LessonInstance
+
+    w = training_world
+    with app.app_context():
+        assert LessonInstance.query.filter_by(lesson_id=w["lesson_rec"]).count() == 0
+
+    body = {
+        "classInstance": {
+            "model": "Lesson",
+            "originalId": str(w["lesson_rec"]),
+            "date": w["rec_date"],
+        },
+        "exerciseIds": [str(w["ex_a"])],
+    }
+    res = client.post(
+        "/api/app/class_instance/training/confirm",
+        json=body,
+        headers=_auth_header(app, w["user_a"]),
+    )
+
+    assert res.status_code == 200
+    with app.app_context():
+        rows = LessonInstance.query.filter_by(lesson_id=w["lesson_rec"]).all()
+        assert len(rows) == 1
+        assert rows[0].original_lesson_occurence_date.isoformat() == w["rec_date"]
+        instance_id = rows[0].id
+    assert _planned_exercise_ids(app, instance_id) == [w["ex_a"]]
