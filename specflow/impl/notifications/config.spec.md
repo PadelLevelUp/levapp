@@ -446,8 +446,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       had: the pass reads a coach's classes with their primary coaches in one query and their
       not-yet-started occurrences' dates in one more, walks a class's occurrences in start order only
       until the first one not yet due (its due time grows with its start), and the cutover pass reads
-      nothing when the scheduler holds no old-engine job, and otherwise only the occurrences, classes
-      and vacancies those jobs name. Every occurrence still materialises and is adopted at the same
+      the scheduler's jobs once per run (in prod a read of the job store's table), reads nothing more
+      when none is an old-engine job, and otherwise finds each job's coach in a fixed number of queries
+      and asks only a coach who owns one whether they are drained. Every occurrence still materialises and is adopted at the same
       run as before. One coach's failure in the adoption pass is logged and rolled back, and the run
       goes on with the other coaches, the cutover pass, the sessions and the outbox.
 19. **A new-engine coach's settings come from the stored configuration (swap plan §2; PAD-913).** For a
@@ -1098,8 +1099,10 @@ test: `backend/padel_app/tests/test_new_coach_starts_on_the_new_engine.py` › `
 Given switched coaches with weekly classes and past occurrences, drained, and a minute at which nothing
 becomes due, when `engine_tick`'s adoption pass (`adopt_due`) and cutover pass (`cutover_pass`) run, then
 they issue the same number of SQL statements with 10 classes per coach as with 40, and with 4 weeks of
-past occurrences as with 30.
-test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_the_runs_queries_do_not_grow_with_classes_or_history`
+past occurrences as with 30. And with old-engine jobs still armed for an undrained coach, the cutover
+pass reads the scheduler's jobs once and issues the same statements whether or not more drained coaches
+with classes and history are switched; once that coach drains, their jobs are removed.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_the_runs_queries_do_not_grow_with_classes_or_history` (+1 more)
 
 #### NOTIFICATIONS-CONFIG-86: Every due occurrence is still materialised at its run (rule 18)
 Given a switched coach whose invitations start 9 days before (so two weekly occurrences fall due in one
