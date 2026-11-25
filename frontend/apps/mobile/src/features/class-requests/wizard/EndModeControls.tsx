@@ -56,9 +56,9 @@ export function EndModeControls({
               testID={`request-end-mode-${mode}`}
               accessibilityState={{ selected, checked: selected }}
               onPress={() => onModeChange(mode)}
-              className={cn("h-8 flex-1 items-center justify-center rounded", selected && "bg-background")}
+              className={cn("h-8 flex-1 items-center justify-center rounded", selected && "bg-primary")}
             >
-              <Text className={cn("text-xs font-medium", selected ? "text-foreground" : "text-muted-foreground")}>
+              <Text className={cn("text-xs font-medium", selected ? "text-primary-foreground" : "text-muted-foreground")}>
                 {t(`classRequestWizard.endMode.${mode}`)}
               </Text>
             </Pressable>

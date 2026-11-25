@@ -54,4 +54,16 @@ describe("EndModeControls", () => {
     for (let i = 0; i < MAX_REQUEST_CLASSES + 5; i++) await view.press("request-end-count-inc");
     expect(seen[seen.length - 1]).toBe(MAX_REQUEST_CLASSES);
   });
+
+  it("[CLASSES-CLASS-REQUESTS-44] the selected segment has the primary fill, the other keeps the muted track", async () => {
+    const view = await renderNative(<Harness initialMode="date" initialCount={4} spy={() => undefined} />);
+    const cls = (id: string) => String(view.byTestId(id).props.className);
+    // Before: bg-background on the bg-muted track, the same grey on iOS, so the choice could not be seen.
+    expect(cls("request-end-mode-date")).toContain("bg-primary");
+    expect(cls("request-end-mode-date")).not.toContain("bg-background");
+    expect(cls("request-end-mode-count")).not.toContain("bg-primary");
+    await view.press("request-end-mode-count");
+    expect(cls("request-end-mode-count")).toContain("bg-primary");
+    expect(cls("request-end-mode-date")).not.toContain("bg-primary");
+  });
 });

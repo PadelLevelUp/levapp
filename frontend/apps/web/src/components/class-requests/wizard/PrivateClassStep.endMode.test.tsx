@@ -186,3 +186,18 @@ describe("\"on a date\" (rule 14a, PAD-428)", () => {
     );
   });
 });
+
+describe("the end-mode control (rule 14a, PAD-926)", () => {
+  it("[CLASSES-CLASS-REQUESTS-44] the selected segment has the primary fill, the other keeps the muted track", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: { "2026-10-06": [WINDOW] }, workingHoursSource: "custom" });
+    renderStep();
+    await goWeekly(["wizard-weekday-2"], "2026-10-06");
+    const date = screen.getByTestId("request-end-mode-date");
+    const count = screen.getByTestId("request-end-mode-count");
+    expect(date.className).toContain("bg-primary");
+    expect(count.className).not.toContain("bg-primary");
+    fireEvent.click(count);
+    expect(count.className).toContain("bg-primary");
+    expect(date.className).not.toContain("bg-primary");
+  });
+});

@@ -337,7 +337,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                     onClick={() => setEndMode(mode)}
                     className={cn(
                       "h-8 rounded px-2 text-xs font-medium",
-                      endMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                      endMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
                     )}
                   >
                     {t(`classRequestWizard.endMode.${mode}`)}
