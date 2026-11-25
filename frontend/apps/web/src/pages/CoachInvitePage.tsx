@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { InviteWelcome } from "@/components/auth/InviteWelcome";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -220,18 +221,8 @@ const CoachInvitePage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            {t("auth.coachInvite.title", { clubName })}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {t("auth.coachInvite.description")}
-          </CardDescription>
-        </CardHeader>
+    <InviteWelcome title={t("auth.coachInvite.title", { clubName })} description={t("auth.coachInvite.description")}>
 
-        <CardContent>
           {/* noValidate, as sign-up: zod owns the messages; the browser's email tooltip would pre-empt emailInvalid. */}
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {[
@@ -309,13 +300,12 @@ const CoachInvitePage = () => {
               <p className="text-sm text-destructive">{submitError}</p>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button type="submit" className="w-full min-h-11" disabled={submitting}>
               {submitting ? t("auth.coachInvite.joining") : t("auth.coachInvite.join")}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+
+    </InviteWelcome>
   );
 };
 
