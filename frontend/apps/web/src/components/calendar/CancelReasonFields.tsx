@@ -5,6 +5,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { CancelMessageEditor } from "./CancelMessageEditor";
+
 /**
  * classes.delete rule 12 (PAD-840): the cancel dialog's reason, whether the students are told it, and the
  * message they would get. Nobody enrolled: the dialog says so instead of the last two.
@@ -12,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 export function CancelReasonFields({ state }: { state: CancelReasonState }) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between">
           <Label htmlFor="cancel-reason">{t("calendar.cancelReason.label")}</Label>
@@ -49,9 +51,12 @@ export function CancelReasonFields({ state }: { state: CancelReasonState }) {
               {t("calendar.cancelReason.send")}
             </Label>
           </div>
+          <CancelMessageEditor state={state} />
           {state.preview && (
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
-              <p className="mb-1 text-xs text-muted-foreground">{t("calendar.cancelReason.preview")}</p>
+              <p className="mb-1 text-xs text-muted-foreground">
+                {t(state.messageParts ? "calendar.cancelReason.renderedPreview" : "calendar.cancelReason.preview")}
+              </p>
               <p className="whitespace-pre-wrap break-words" data-testid="cancel-reason-preview">
                 {state.preview.text}
               </p>

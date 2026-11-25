@@ -55,8 +55,10 @@ export async function addClass(data: any) {
 
 /** classes.delete rule 9 (PAD-840): why the class is cancelled, and whether the students are told why. */
 export interface CancelReason {
-  reason: string;
-  sendReason: boolean;
+  reason?: string;
+  sendReason?: boolean;
+  /** Rule 13 (phase 2): the coach's edited message for this cancellation, with its placeholders. */
+  messageOverride?: string;
 }
 
 export async function removeClass(
@@ -75,7 +77,7 @@ export async function removeClass(
 export async function previewClassCancellation(
   event: CalendarEvent,
   cancel: CancelReason
-): Promise<{ text: string; recipients: number }> {
+): Promise<{ text: string; recipients: number; template?: string }> {
   const res = await getApi().post(`/app/class_cancellation_preview`, { event, scope: "single", ...cancel });
   return res.data;
 }

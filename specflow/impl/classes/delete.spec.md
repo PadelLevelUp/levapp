@@ -42,7 +42,7 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    at most **200 characters** (the lead's pick, reversible: Q4); a longer one is refused with 400 and nothing is
    removed or sent. `sendReason` defaults to true when the trimmed reason is not empty and is ignored
    when it is empty. A removal of several occurrences at once ("this and all future") shares one
-   reason. A client that sends neither field gets today's behaviour exactly (rule 8, no reason).
+   reason. A client that sends none of these fields gets today's behaviour exactly (rule 8, no reason).
 10. **The message names the reason only when it is sent (PAD-840).** Rule 8's message is the
    `class_cancelled` template; its reason sentence (`notifications.message-templates` rule 25) is
    filled with the reason when `sendReason` is true and the reason is not empty, and disappears whole
@@ -71,7 +71,7 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    - a read-only preview of the message, `cancel-reason-preview`: the server renders it
      (`POST /api/app/class_cancellation_preview` with the dialog's event, reason and
      `sendReason`; the scope is not chosen yet and changes neither the text nor who gets it; the same rendering as the real send, rules 8 and 10; it answers
-     `{text, recipients}`, the text and how many students would be told, to the class's own coach
+     `{text, recipients, template}`, the text, how many students would be told, and the coach's `class_cancelled` text with its placeholders (rule 13), to the class's own coach
      only) for the first enrolled student by name, or with the name "Aluno" / "Student" when nobody is enrolled. The preview follows
      the field and the checkbox as the coach types (debounced, at most one request in flight). When
      nobody would be told, the dialog says so ("Nenhum aluno será avisado." / "No student will be
@@ -80,7 +80,7 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    holds a text field, so it is the shared dialog, which sits above the keyboard
    (`mobile.android-runtime` rule 15, PAD-838), and its fields scroll so its buttons stay above it too.
    The preview is asked for about a third of a second after the last change. A removal with no reason
-   written sends neither field (rule 9).
+   written sends neither reason field (rule 9), and `messageOverride` only when the coach edited the message (rule 13).
 14. **The class detail lists its cancellations (PAD-840, phase 1; web and iOS together).** The reasons
    rule 11 keeps are read back by `GET /api/app/class/<lesson_id>/cancellations`: the class's
    `cancellation_reasons`, newest removed date first, each as `{date, scope, reason, sentToStudents}`;
@@ -93,14 +93,14 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    entry, the reason as written, and "Enviado aos alunos" / "Sent to the students" or "Não enviado aos
    alunos" / "Not sent to the students". Students never see the section. A deleted one-off or whole class
    has no detail, so nothing shows its reason (rule 11; Open questions).
-13. **Phase 2: the coach may edit this one message (PAD-840, phase 2: specified, not built; phase 1
-   first is the lead's pick, Q4).** The preview becomes editable for this cancellation only: the
+13. **Phase 2: the coach may edit this one message (PAD-840, phase 2; web and iOS together).** The dialog shows the template's text (the preview route's `template`) as an editable message for this cancellation only, with the rendered preview of rule 12 under it following the edit: the
    placeholders in it (`{name}` and the class ones, `notifications.message-templates` rule 3a, and
    `{reason}`) show as protected tokens that cannot be partly edited or typed over, only removed whole
    or left; a "Repor mensagem original" / "Restore original message" button puts back the template's
-   text. The edited text goes in `POST /api/app/remove_class` as `messageOverride`, is rendered per
+   text. The edited text goes in `POST /api/app/remove_class` (and the preview route) as `messageOverride`, at most **1000 characters**
+   (a longer one is refused with 400 and nothing is removed or sent), is rendered per
    student exactly as a template (rules 5–9 of `notifications.message-templates` hold, a blank override
-   falls back to the template), and is never saved into the coach's templates.
+   falls back to the template, and so does one that renders to nothing, which falls back to the coach's own template and only then the built-in default; an editor the coach emptied sends no override, and the preview under it shows the template that will go; a message over the limit disables the confirm buttons, as the reason field does, and may always be shortened), and is never saved into the coach's templates. A server without this rule ignores the field and sends the template; a client whose preview answer has no `template` shows no editor.
 
 ### Acceptance Criteria
 
@@ -216,7 +216,7 @@ test: `frontend/apps/web/src/components/calendar/ClassCancelReason.test.tsx` ›
 - **Then** the counter, the checkbox and the preview behave as on web, and "Only this class" sends `reason` and `sendReason` as shown
 test: `frontend/apps/mobile/src/features/calendar/cancel-reason.test.tsx` › `[CLASSES-DELETE-17] the dialog sends the reason it previews`
 
-#### CLASSES-DELETE-18: Phase 2: an edited message goes to this cancellation only (rule 13; phase 2, not built)
+#### CLASSES-DELETE-18: Phase 2: an edited message goes to this cancellation only (rule 13)
 - **Given** a coach who edits the preview, keeping `{name}` and the reason token
 - **When** they confirm the removal
 - **Then** each student gets the edited text with their own name, and the coach's `class_cancelled` template is unchanged
@@ -263,6 +263,7 @@ test: `frontend/apps/mobile/src/features/calendar/class-cancellations-section.te
 4. Phase 2 (rule 13, -18): its own work, not started.
 
 ### Open questions
+- **What an edited message may contain (messages-m3, 25 Nov; review of PAD-840 phase 2).** A `{word}` that is not a placeholder is dropped from the override before it is sent (rule 5 of `notifications.message-templates`); a brace form with spaces or dots (`{ name }`, `{a.b}`) is not read as a placeholder and goes as typed; the rendered preview shows both as they will arrive. Not asked of the owner; reversible.
 - **Q4.** (b) The checkbox ticked as soon as a reason is written: **yes (owner, 25 Nov 2026).** (a) Phase 1
   first and phase 2 later, and (c) the 200-character limit, were not asked again: the lead's picks,
   reversible.

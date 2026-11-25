@@ -123,3 +123,85 @@ describe("the iOS delete dialog's cancellation reason (PAD-840)", () => {
     expect(dialog).toMatch(/<ScrollView style=\{\{ flexShrink: 1 \}\} keyboardShouldPersistTaps="handled">/);
   });
 });
+
+describe("the iOS delete dialog's editable cancellation message (PAD-840, phase 2)", () => {
+  const TEMPLATE = "Olá {name}, aula às {time}. Motivo: {reason}.";
+
+  beforeEach(() => {
+    api.preview.mockReset().mockImplementation(async (_event, cancel) => ({
+      text: cancel.messageOverride ? `[${cancel.messageOverride}]` : "Olá Ana.", recipients: 1, template: TEMPLATE,
+    }));
+  });
+
+  it("[CLASSES-DELETE-18] shows the template as chips and sends nothing extra while it is untouched", async () => {
+    const ui = await open(false);
+    await settle();
+    expect(ui.byTestId("cancel-message-editor")).toBeTruthy();
+    for (const name of ["name", "time", "reason"]) expect(ui.byTestId(`cancel-message-token-${name}`)).toBeTruthy();
+    expect(ui.byTestId("cancel-message-text-0").props.value).toBe("Olá ");
+    expect(ui.byTestId("cancel-message-restore").props.disabled).toBe(true);
+    await ui.press("class-delete-confirm");
+    expect(onConfirm).toHaveBeenCalledWith("single", undefined);
+  });
+
+  it("[CLASSES-DELETE-18] sends the edited text, removes a placeholder whole, and restores the original", async () => {
+    const ui = await open(false);
+    await settle();
+    await ui.changeText("cancel-message-text-0", "Oi ");
+    await settle();
+    expect(api.preview).toHaveBeenLastCalledWith(
+      event, expect.objectContaining({ messageOverride: "Oi {name}, aula às {time}. Motivo: {reason}." }),
+    );
+    expect(textOf(ui.byTestId("cancel-reason-preview"))).toContain("[Oi {name}");
+
+    await ui.press("cancel-message-token-remove-time");
+    expect(ui.queryByTestId("cancel-message-token-time")).toBeNull();
+    expect(ui.byTestId("cancel-message-text-2").props.value).toBe(", aula às . Motivo: ");
+    await ui.press("class-delete-confirm");
+    expect(onConfirm).toHaveBeenLastCalledWith("single", { messageOverride: "Oi {name}, aula às . Motivo: {reason}." });
+
+    await ui.press("cancel-message-restore");
+    expect(ui.byTestId("cancel-message-token-time")).toBeTruthy();
+    expect(ui.byTestId("cancel-message-text-0").props.value).toBe("Olá ");
+    await ui.press("class-delete-confirm");
+    expect(onConfirm).toHaveBeenLastCalledWith("single", undefined);
+  });
+
+  it("[CLASSES-DELETE-18] an old server sends no template, so there is no editor", async () => {
+    api.preview.mockReset().mockResolvedValue({ text: "Olá Ana.", recipients: 1 });
+    const ui = await open(false);
+    await settle();
+    expect(ui.queryByTestId("cancel-message-editor")).toBeNull();
+    expect(textOf(ui.byTestId("cancel-reason-preview"))).toBe("Olá Ana.");
+  });
+
+  it("[CLASSES-DELETE-18] an emptied editor sends no override, typing beside a chip leaves it, and Repor is the way back", async () => {
+    const ui = await open(false);
+    await settle();
+    await ui.changeText("cancel-message-text-2", ", e depois, aula às ");
+    await ui.press("class-delete-confirm");
+    expect(onConfirm).toHaveBeenLastCalledWith("single", {
+      messageOverride: "Olá {name}, e depois, aula às {time}. Motivo: {reason}.",
+    });
+    for (const name of ["name", "time", "reason"]) await ui.press(`cancel-message-token-remove-${name}`);
+    await ui.changeText("cancel-message-text-0", "");
+    expect(ui.queryByTestId("cancel-message-token-name")).toBeNull(); // no snap-back
+    await ui.press("class-delete-confirm");
+    expect(onConfirm).toHaveBeenLastCalledWith("single", undefined);
+    await ui.press("cancel-message-restore");
+    expect(ui.byTestId("cancel-message-token-name")).toBeTruthy();
+  });
+
+  it("[CLASSES-DELETE-18] a repeated placeholder has its own test id, and over the limit the confirm is off until it fits", async () => {
+    api.preview.mockResolvedValue({ text: "x", recipients: 1, template: `{name} e {name} ${"a".repeat(1100)}` });
+    const ui = await open(false);
+    await settle();
+    expect(ui.byTestId("cancel-message-token-name-2")).toBeTruthy();
+    expect(ui.byTestId("class-delete-confirm").props.disabled).toBeFalsy(); // untouched: the template as saved
+    await ui.press("cancel-message-token-remove-name-2"); // shorter: allowed
+    expect(ui.byTestId("class-delete-confirm").props.disabled).toBe(true);
+    expect(textOf(ui.byTestId("cancel-message-counter"))).toMatch(/^1\d{3}\/1000$/);
+    await ui.changeText("cancel-message-text-0", "b".repeat(1200)); // longer while over: ignored
+    expect(ui.byTestId("cancel-message-text-0").props.value.length).toBeLessThan(1200);
+  });
+});

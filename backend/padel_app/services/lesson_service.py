@@ -2214,6 +2214,8 @@ def _remove_single_occurrence_from_lesson(*, lesson, date):
 
 #: classes.delete rule 9 (PAD-840): the longest cancellation reason.
 CANCEL_REASON_MAX = 200
+#: classes.delete rule 13 (PAD-840 phase 2): the longest edited cancellation message.
+MESSAGE_OVERRIDE_MAX = 1000
 
 
 def parse_cancel_reason(data):
@@ -2228,6 +2230,17 @@ def parse_cancel_reason(data):
     if len(reason) > CANCEL_REASON_MAX:
         return None
     return reason, bool(reason) and data.get("sendReason") is not False
+
+
+def parse_message_override(data):
+    """Rule 13: the coach's edited cancellation message, or "" for the template. None when it cannot be
+    accepted (not text, or over the limit)."""
+    override = data.get("messageOverride")
+    if override is None:
+        return ""
+    if not isinstance(override, str) or len(override) > MESSAGE_OVERRIDE_MAX:
+        return None
+    return override if override.strip() else ""
 
 
 def _keep_cancel_reason(lesson, *, date, scope, reason, sent):
@@ -2280,6 +2293,10 @@ def remove_class_service(data):
     if parsed is None:
         return {"error": f"reason must be text of at most {CANCEL_REASON_MAX} characters", "fields": ["reason"]}, 400
     reason, send_reason = parsed
+    override = parse_message_override(data)
+    if override is None:
+        return {"error": f"messageOverride must be text of at most {MESSAGE_OVERRIDE_MAX} characters",
+                "fields": ["messageOverride"]}, 400
 
     obj = models_map[model_name].query.get_or_404(class_id)
 
@@ -2288,7 +2305,7 @@ def remove_class_service(data):
     cancellation_recipients = []
     try:
         from padel_app.services.system_messages import collect_cancellation_recipients
-        cancellation_recipients = collect_cancellation_recipients(obj, reason if send_reason else "")
+        cancellation_recipients = collect_cancellation_recipients(obj, reason if send_reason else "", override)
     except Exception:
         cancellation_recipients = []
 

@@ -243,7 +243,8 @@ def test_the_preview_renders_the_first_students_message(app, client):
     ids = _seed(app)
     shown = _preview(client, ids, reason="Chuva forte", sendReason=True)
     assert shown == {"recipients": 2, "text": "Olá Ana, a tua aula de terça-feira às 19:00 foi cancelada. "
-                                              "Motivo indicado pelo professor: Chuva forte. " + SORRY}
+                                              "Motivo indicado pelo professor: Chuva forte. " + SORRY,
+                     "template": DEFAULT_MESSAGE_TEMPLATES_PT["class_cancelled"]}
     assert "Motivo" not in _preview(client, ids, reason="Chuva forte", sendReason=False)["text"]
     assert _messages(app) == [] and _kept(app, ids) is None
     _remove(client, ids, reason="Chuva forte", sendReason=True)
@@ -379,3 +380,100 @@ def test_the_settings_preview_shows_the_example_reason_only_under_its_key(app, c
     assert preview()["examples"]["reason"] == "Chuva forte"
     for fields in ({}, {"key": "invite"}, {"key": ["class_cancelled"]}):
         assert preview(**fields)["text"] == "Olá."
+
+
+# --- phase 2: the coach edits this one message (rule 13) ------------------------------------------
+
+EDITED = "Oi {name}, sem aula de {weekday} às {time} - {reason}. Até já!"
+
+
+def _stored_templates(app, ids):
+    from padel_app.services.notification_service import get_or_create_config
+
+    with app.app_context():
+        return dict(get_or_create_config(ids["coach_id"]).message_templates or {})
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+def test_an_edited_message_goes_to_every_student_with_their_own_name(app, client):
+    ids = _seed(app)
+    _template(app, ids, "Modelo {name}. {reason}")
+    stored = _stored_templates(app, ids)
+    resp = _remove(client, ids, reason="Chuva", sendReason=True, messageOverride=EDITED)
+    assert resp.status_code == 200
+    texts = sorted(text for text, _ in _messages(app))
+    assert texts == [
+        "Oi Ana, sem aula de terça-feira às 19:00 - Chuva. Até já!",
+        "Oi Bruno, sem aula de terça-feira às 19:00 - Chuva. Até já!",
+    ]
+    assert not any("Modelo" in t for t in texts)
+    # The coach's own template is not touched (rule 13).
+    assert _stored_templates(app, ids) == stored
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+def test_an_edited_message_without_a_reason_loses_the_reason_sentence_only(app, client):
+    ids = _seed(app, names=("Ana Silva",))
+    assert _remove(client, ids, messageOverride="Olá {name}. Aula cancelada. Motivo: {reason}.").status_code == 200
+    (text, metadata), = _messages(app)
+    assert text == "Olá Ana. Aula cancelada." and metadata["cancelReason"] is None
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+@pytest.mark.parametrize("override", ["", "   \n ", None])
+def test_a_blank_override_sends_the_template(app, client, override):
+    ids = _seed(app, names=("Ana Silva",))
+    assert _remove(client, ids, messageOverride=override).status_code == 200
+    assert _messages(app)[0][0] == "Olá Ana, a tua aula de terça-feira às 19:00 foi cancelada. " + SORRY
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+def test_an_edited_message_never_carries_a_raw_token(app, client):
+    ids = _seed(app, names=("Ana Silva",))
+    assert _remove(client, ids, messageOverride="{name}: {nonsense} {side} {count} ZZ {weekday}").status_code == 200
+    text = _messages(app)[0][0]
+    assert "Ana" in text and "ZZ terça-feira" in text
+    assert "{" not in text and "}" not in text
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+@pytest.mark.parametrize("override", ["x" * 1001, 7, ["Oi"]])
+def test_an_override_over_the_limit_is_refused_whole(app, client, override):
+    ids = _seed(app)
+    with patch("padel_app.services.engine_entry.withdraw_before_removal") as withdraw:
+        resp = _remove(client, ids, messageOverride=override)
+    assert resp.status_code == 400 and resp.get_json()["fields"] == ["messageOverride"]
+    assert not withdraw.called and _messages(app) == []
+    assert _remove(client, ids, messageOverride="x" * 1000).status_code == 200
+    assert len(_messages(app)) == 2
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+def test_the_preview_answers_the_template_and_follows_an_override(app, client):
+    ids = _seed(app)
+    _template(app, ids, "Modelo {name}. {reason}")
+    answer = _preview(client, ids)
+    assert answer["template"] == "Modelo {name}. {reason}" and answer["recipients"] == 2
+    answer = _preview(client, ids, reason="Chuva", sendReason=True, messageOverride=EDITED)
+    assert answer["text"] == "Oi Ana, sem aula de terça-feira às 19:00 - Chuva. Até já!"
+    assert answer["template"] == "Modelo {name}. {reason}"
+    assert _messages(app) == []  # a preview sends nothing
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+@pytest.mark.parametrize("override", ["{reason}", "{nonsense}", "{0}"])
+def test_an_override_that_renders_to_nothing_sends_the_coachs_template(app, client, override):
+    ids = _seed(app, names=("Ana Silva",))
+    _template(app, ids, "Modelo {name}")
+    assert _remove(client, ids, messageOverride=override).status_code == 200
+    assert _messages(app)[0][0] == "Modelo Ana"
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+def test_the_preview_refuses_an_override_over_the_limit(app, client):
+    ids = _seed(app)
+    resp = client.post("/api/app/class_cancellation_preview", json=_body(ids, messageOverride="x" * 1001),
+                       headers=ids["headers"])
+    assert resp.status_code == 400
+    assert client.post("/api/app/class_cancellation_preview", json=_body(ids, messageOverride="x" * 1000),
+                       headers=ids["headers"]).status_code == 200
