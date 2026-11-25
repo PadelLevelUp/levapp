@@ -52,7 +52,6 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    own, the rule only filters and that sort stands: the **Players tab** (always by name or level;
    PAD-521's "a search keeps the level order" holds) and the **presences table** (its column sort;
    `presenceRows` sorts after the filter).
-   - Code to follow: correct the comment at `report-state.ts:122-125`, which says best match first for the presences table; the sort wins.
    Where a list has no sort of its own, non-blank queries order by tier, then name (folded, then as
    written), then id: the type-ahead `notify/player_search` (applied **before** its limit of 20),
    the claim candidates (a same-name candidate still first, then tier), the class pickers, the
@@ -135,7 +134,6 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
 - **And** each row's id is the player's id, not the account's
 - **And** a blank `q`, `%`, `_` and a text nobody matches each answer an empty list
 test: `backend/padel_app/tests/test_player_search.py` › `test_blank_or_wildcard_query_does_not_dump_the_roster` (+6 more)
-- Code to follow: `test_search_returns_player_ids_not_user_ids` asserts that the player's id and the account's id differ in its fixture.
 
 #### PLAYERS-SEARCH-10: A blank query keeps the whole list in its order, and a query with no letter or digit finds nobody (rule 3)
 - **Given** a list of people in the order its screen gives them
