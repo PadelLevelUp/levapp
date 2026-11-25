@@ -32,6 +32,7 @@ export * from "./invite-simulation";
 export * from "./calendar-overlap";
 export * from "./calendar-grid";
 export * from "./calendar-month";
+export * from "./day-list";
 export * from "./notify-blocked";
 export * from "./blocker-draft";
 export * from "./availability-schedule";
