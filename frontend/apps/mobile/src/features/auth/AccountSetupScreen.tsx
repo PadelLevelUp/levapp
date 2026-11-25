@@ -142,7 +142,6 @@ export function AccountSetupForm({
   testID,
   footer,
   welcome = false,
-  names,
 }: {
   title: string;
   description: string;
@@ -160,12 +159,10 @@ export function AccountSetupForm({
   footer?: React.ReactNode;
   /** auth.invite-welcome: the words stand on the navy, outside the card (the two invitation screens). */
   welcome?: boolean;
-  /** auth.invite-welcome (a): the coach and the club on the band, when the preview carries them. */
-  names?: { coach: string; club: string };
 }) {
   return (
     <PreAuthShell testID={testID}>
-      {welcome ? <WelcomeBand title={title} description={description} names={names} /> : null}
+      {welcome ? <WelcomeBand title={title} description={description} /> : null}
       <Card className="w-full">
         {welcome ? null : (
           <CardHeader>

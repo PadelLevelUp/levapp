@@ -2,7 +2,6 @@ import { formatBirthInput } from "@/features/auth/signup-form";
 import { invitationsApi } from "@levelup/api";
 import { router } from "expo-router";
 import * as React from "react";
-import { inviteCopyKey } from "@levelup/config";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
 import { toast } from "@/components/ui/toast";
@@ -37,7 +36,7 @@ type Status = "loading" | "valid" | "invalid";
  * through the authenticated route, not this form.
  */
 export function CoachInviteScreen({ token }: { token: string | null }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { login, refreshUser } = useAuth();
 
   const [status, setStatus] = React.useState<Status>(
@@ -223,8 +222,8 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
     <AccountSetupForm
       welcome
       testID="coach-invite"
-      title={t(inviteCopyKey("auth.coachInvite.title", i18n.language), { clubName })}
-      description={t(inviteCopyKey("auth.coachInvite.description", i18n.language))}
+      title={t("auth.coachInvite.title", { clubName })}
+      description={t("auth.coachInvite.description")}
       fields={fields}
       values={values}
       errors={errors}

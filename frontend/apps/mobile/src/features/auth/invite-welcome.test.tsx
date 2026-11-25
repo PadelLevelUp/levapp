@@ -151,14 +151,13 @@ describe("the iOS invite screens' navy (auth.invite-welcome rules 2-4)", () => {
     auth.isAuthenticated = false;
     n = await renderNative(createElement(CoachInviteScreen, { token: "tok" }));
     await n.flush();
-    // Point (b): the pt screens say tu (the key carries a Tu suffix).
-    expectBand(n, "auth.coachInvite.titleTu|Club Name", "auth.coachInvite.descriptionTu");
+    expectBand(n, "auth.coachInvite.title|Club Name", "auth.coachInvite.description");
     expect(inside(n.byTestId("coach-invite"), "coach-invite-submit")).toBe(true);
 
     // The player invitation: form, claim, coach, claimed.
     n = await renderNative(createElement(PlayerInviteScreen, { token: "tok" }));
     await n.flush();
-    expectBand(n, "auth.playerInvite.titleTu|Ana", "auth.playerInvite.descriptionTu");
+    expectBand(n, "auth.playerInvite.title|Ana", "auth.playerInvite.description");
     expect(inside(n.byTestId("player-invite"), "player-invite-submit")).toBe(true);
 
     auth.isAuthenticated = true;
@@ -211,21 +210,12 @@ describe("the iOS invite screens' navy (auth.invite-welcome rules 2-4)", () => {
     expect(all).toContain("Club Name");
     expect(all).not.toMatch(/LEAK/);
 
-    // Point (a), on the owner's pick (INVITE_NAMES_INVITER): the names show when the preview carries them; no other
-    // field does. Today's preview carries only the player's name.
-    api.playerInvitation.mockResolvedValue({ playerName: "Ana", email: "LEAK-email" });
+    api.playerInvitation.mockResolvedValue({ playerName: "Ana", coachName: "LEAK-coach", clubName: "LEAK-club" });
     n = await renderNative(createElement(PlayerInviteScreen, { token: "tok" }));
     await n.flush();
     all = texts(n).join(" ");
     expect(all).toContain("Ana");
     expect(all).not.toMatch(/LEAK/);
-
-    api.playerInvitation.mockResolvedValue({ playerName: "Ana", coachName: "Coach Name", clubName: "Club Name", email: "LEAK-email" });
-    n = await renderNative(createElement(PlayerInviteScreen, { token: "tok" }));
-    await n.flush();
-    expect(bandText(n)).toContain("Coach Name");
-    expect(bandText(n)).toContain("Club Name");
-    expect(texts(n).join(" ")).not.toMatch(/LEAK/);
   });
 
   it("[AUTH-INVITE-WELCOME-5] every screen scrolls and the player page's sign-in link sits in the flow under the form", async () => {

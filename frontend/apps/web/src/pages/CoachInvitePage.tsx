@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { COUNTRIES, countryName, inviteCopyKey, isUnderSignupAge, typedChosenUsername } from "@levelup/config";
+import { COUNTRIES, countryName, isUnderSignupAge, typedChosenUsername } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TermsAcceptField } from "@/components/auth/TermsAcceptField";
 
@@ -221,10 +221,7 @@ const CoachInvitePage = () => {
   }
 
   return (
-    <InviteWelcome
-      title={t(inviteCopyKey("auth.coachInvite.title", i18n.language), { clubName })}
-      description={t(inviteCopyKey("auth.coachInvite.description", i18n.language))}
-    >
+    <InviteWelcome title={t("auth.coachInvite.title", { clubName })} description={t("auth.coachInvite.description")}>
 
           {/* noValidate, as sign-up: zod owns the messages; the browser's email tooltip would pre-empt emailInvalid. */}
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
