@@ -32,6 +32,7 @@ import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
+import { ClassCapacityBar } from "./ClassCapacityBar";
 import { ClassPlanningSection } from "./ClassPlanningSection";
 
 import type {
@@ -1466,6 +1467,18 @@ export function ClassDetailSheet({
                         {openSpots > 0 && (
                           <p className="text-xs text-muted-foreground" data-testid="class-open-spots">{pendingInvites > 0 ? t("calendar.detail.openSpotsPending", { count: openSpots, pending: pendingInvites }) : t("calendar.detail.openSpots", { count: openSpots })}</p>
                         )}
+                        {/* calendar.event-detail rule 27 (UI idea 3): the calendar card's fill bar,
+                            fed by this box's own count. */}
+                        <ClassCapacityBar
+                          participants={active.participants}
+                          presences={active.presences}
+                          capacity={active.maxPlayers}
+                          filled={effectiveFilled}
+                          status={active.status}
+                          ended={classEnded}
+                          canManage={canManage}
+                          editing={isEditing}
+                        />
                       </>
                     );
                   })()}

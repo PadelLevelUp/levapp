@@ -107,6 +107,7 @@ import {
   hasClassStarted,
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
+import { ClassCapacityBar } from "@/features/calendar/ClassCapacityBar";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { classCourtsQuery } from "@/features/calendar/class-courts";
 import { InviteeOutcome, OpenSpotsLine } from "@/features/calendar/invitee-outcome";
@@ -1449,6 +1450,18 @@ export default function ClassDetailScreen() {
                     {isCoach ? (
                       <OpenSpotsLine openSpots={maxPlayers - filled} invitations={invitations} />
                     ) : null}
+                    {/* calendar.event-detail rule 27 (UI idea 3): the calendar card's fill bar,
+                        fed by this box's own count. */}
+                    <ClassCapacityBar
+                      participants={countedParticipants}
+                      presences={instance?.presences}
+                      capacity={maxPlayers}
+                      filled={filled}
+                      status={active?.status ?? event.status}
+                      ended={classEnded}
+                      canManage={isCoach}
+                      editing={isEditing}
+                    />
                   </>
                 )}
               </View>
