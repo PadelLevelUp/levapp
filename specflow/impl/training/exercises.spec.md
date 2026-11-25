@@ -19,10 +19,8 @@ Coaches create and manage a library of padel exercises with types, difficulty, c
 ### Rules
 1. Types: attack, defense, serve, return, volley, transition, warm_up, footwork, custom. The server
    refuses a type outside this list, for every client.
-   - Code to follow: `POST` and `PUT /api/app/exercises` must answer 400 for a type outside the list; today only `exerciseFormSchema` checks it.
 2. `custom_type` used when type is "custom"
 3. Difficulty: 1 (Beginner) to 5 (Expert). The server refuses a difficulty outside 1 to 5, for every client.
-   - Code to follow: `POST` and `PUT /api/app/exercises` must answer 400 for a difficulty outside 1 to 5; today only `exerciseFormSchema` checks it.
 4. `level_ids`: JSON array of CoachLevel IDs this exercise targets
 5. `diagram`: opaque JSON owned by the board spec. Two shapes exist: legacy v1
    `{elements: [{id, type, x, y, endX, endY, label, curve, rotation}]}` (`training.court-diagram`)
@@ -83,3 +81,10 @@ test: `backend/padel_app/tests/test_training_players_role_authz.py` › `test_an
 - **Then** the form's schema accepts the first and refuses each of the others
 - **And** difficulty 1 and difficulty 5 are accepted
 test: `frontend/packages/validation/src/index.test.ts` › `parses valid input` (+3 more)
+
+#### TRAINING-EXERCISES-8: The server refuses a type or difficulty that rules 1 and 3 do not allow (rules 1, 3)
+- **Given** a coach
+- **When** they create an exercise through `POST /api/app/exercises` with no type, with the type `smash`, or with difficulty 0, 6 or 2.5, and then with the type `volley` and difficulty 5
+- **And** they edit an exercise of theirs through `PUT /api/app/exercises/<id>` with the type `smash`, or with difficulty 0
+- **Then** each refused request answers 400 and writes nothing
+- **And** the valid exercise is created with 201
