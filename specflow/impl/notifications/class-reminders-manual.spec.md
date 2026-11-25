@@ -34,9 +34,9 @@ Coaches manually trigger class reminders (outside the automatic schedule).
    notifications, with their reason, `notifications.student-block-preferences`), `already_confirmed`
    (answered, an invitation acceptor placed after the first send, or marked present by the coach),
    `not_coming` (said they are not coming, or marked absent by the coach, `notifications.reminders`
-   rule 23), or `reminder_limit` (already asked `attendance_request.max` times in all, counting attempts
-   as `notifications.reminders` rule 19 does). The route works out `unavailable`, `preference`, the
-   coach's marks and `reminder_limit` in one helper shared with the app's flow, and names those students
+   rule 23), or `reminder_limit` (already asked `attendance_request.max` times in all, scheduled and coach's
+   together, `notifications.engine-timeline` rule 2). The route works out `unavailable`, `preference` and
+   the coach's marks in one helper shared with the app's flow, and names those students
    to the engine as skipped; the engine gives the rest their cause. So a 0 is never silent: everyone
    going is either asked or named.
 7. **Web and iOS show every cause.** Both apps split `blocked` by cause through one shared function
