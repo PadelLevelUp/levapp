@@ -179,6 +179,9 @@ Manage conversations between users (1:1 or group chats).
       arrived, or when it fails, the conversation rows answer alone.
     - **The box is there with no conversation.** A coach whose list loaded with no conversation still
       sees the search box (iOS hid it); the empty state stays under it while the box is blank.
+    - **Active students only.** A student of the coach who has not activated their account, or a block
+      either way, is outside rule 7's set, so no start row shows for them, as in the "+" picker. The
+      roster only adds names to search by; it never adds a person.
     - **A student viewer is unchanged** (`players.search` rule 8, PLAYERS-SEARCH-11): their search
       filters the loaded rows by the plain substring, and no start row appears.
 
@@ -465,6 +468,14 @@ test: `frontend/apps/mobile/src/features/messages/messages-search.test.tsx` › 
 - iOS: `frontend/apps/mobile/src/features/messages/messages-search.test.tsx` › `[MESSAGING-CONVERSATIONS-40] a student's search offers no start row`
 test: `frontend/apps/web/src/components/messages/ConversationList.search.test.tsx` › `[MESSAGING-CONVERSATIONS-40] a student's search offers no start row` (+1 more)
 
+#### MESSAGING-CONVERSATIONS-41: A student who has not activated, or is blocked, is not found (rules 7, 20)
+- **Given** a coach whose roster holds "Nuno Novo", inactive, and "Bia Bloco", active and blocked by the coach, with no conversation with either
+- **When** the coach reads who they may message, starts a conversation with each, and searches `nuno` and `bia` on the Messages tab
+- **Then** neither is in `GET /api/app/messageable-users` and each start is 403
+- **And** the search shows no start row for either, though both are on the roster it reads
+- Client: `frontend/packages/config/src/player-search.test.ts` › `[MESSAGING-CONVERSATIONS-41] a roster student outside the messageable list is not offered`
+test: `backend/padel_app/tests/test_messaging_roster_scope.py` › `test_an_inactive_or_blocked_roster_student_is_not_messageable` (+1 more)
+
 ### Today (PAD-831)
 - The Messages search runs over the loaded conversation rows only: web `frontend/apps/web/src/components/messages/ConversationList.tsx:47` and iOS `frontend/apps/mobile/app/(tabs)/messages.tsx:92` call `searchPeopleByName` (`frontend/packages/config/src/player-search.ts`) on `useConversations(1, 20, …)` plus the pages fetched by scrolling (`PAGE_SIZE` 20). A student whose conversation is on a later page, or who has none, is not found: Egor and Eurico failed on iOS, and Eurico was found on web, where his conversation was loaded.
 - Neither list passes `nicknameOf`: a row is searched by `participantName` only, which the server fills with the coach's nickname when it is shown as the name (`backend/padel_app/serializers/conversation.py` `serialize_conversation`, PAD-660). Such a student is not found by their real name, and a nickname kept off the name never finds its row.
@@ -474,7 +485,7 @@ test: `frontend/apps/web/src/components/messages/ConversationList.search.test.ts
 - Pinned by `ConversationList.test.tsx` (PLAYERS-SEARCH-11, student), `ConversationList.filter.test.tsx` and `messages-unread-filter.test.tsx` (rule 17).
 
 ### Waves
-1. MESSAGING-CONVERSATIONS-36, 37 — `@levelup/config` `player-search.ts`: one helper both shells call, taking the loaded rows, the messageable people and the roster, answering the conversation rows and the start rows.
+1. MESSAGING-CONVERSATIONS-36, 37, 41 — `@levelup/config` `player-search.ts`: one helper both shells call, taking the loaded rows, the messageable people and the roster, answering the conversation rows and the start rows.
 2. MESSAGING-CONVERSATIONS-34, 35, 38, 40 — web `ConversationList.tsx`, `MessagesPage.tsx`, locale key `messages.startConversation`.
 3. MESSAGING-CONVERSATIONS-34, 35, 38, 39, 40 — iOS `app/(tabs)/messages.tsx`, mobile locales (static import, `frontend/CLAUDE.md`).
 Waves 2 and 3 ship in the same change (web and iOS ship together).
