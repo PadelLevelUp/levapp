@@ -404,7 +404,7 @@ class TableStore:
         if missing:                                        # a regular or a waiting student off the coach's roster
             students.update(self._students(coach_id, [], {}, extra=missing))
         return SessionSnapshot(
-            id=session, level=self._level(ladder_index_map(coach_id), inst.level_id), capacity=inst.effective_max_players, start=start,
+            id=session, level=self._level(ladder_index_map(coach_id), inst.effective_level_id), capacity=inst.effective_max_players, start=start,
             end=end,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,

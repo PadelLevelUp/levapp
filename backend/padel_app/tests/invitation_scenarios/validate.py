@@ -105,7 +105,7 @@ COHORT_RE = re.compile(r"^L[1-6][LRB](-[a-z0-9]+(-[a-z0-9]+)*)?$")
 FILE_RE = re.compile(r"^(P?\d{2})([a-z]?)-[a-z0-9]+(-[a-z0-9]+)*\.yaml$")
 REGULAR_MEMBER_RE = re.compile(r"^([LRB])-(\d+)$")
 
-BOOL_VALUE_KEYS = {"derived", "nothing_sent", "class_created", "coach_alert"}
+BOOL_VALUE_KEYS = {"derived", "nothing_sent", "class_created", "coach_alert", "level_inherited"}
 
 
 def parse_at(value: str) -> datetime:
@@ -702,7 +702,7 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
         if not isinstance(cls, dict):
             rep.err("class", "expected {level, capacity, start, created_at}")
         else:
-            check_keys(cls, "class", rep, {"level", "capacity", "start", "created_at"})
+            check_keys(cls, "class", rep, {"level", "capacity", "start", "created_at", "level_inherited"})
             if "level" in cls:
                 check_level(cls["level"], "class.level", rep, nullable=True)  # null: a class with no level (D3, S27)
             if "capacity" in cls:
@@ -711,6 +711,8 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
                 check_at(cls["start"], "class.start", rep)
             if "created_at" in cls:
                 check_at(cls["created_at"], "class.created_at", rep, nullable=True)
+            if "level_inherited" in cls and not isinstance(cls["level_inherited"], bool):
+                rep.err("class.level_inherited", "expected true or false")
 
     people = People()
     class_ids: set[str] = set()

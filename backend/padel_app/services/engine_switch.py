@@ -121,7 +121,7 @@ def _adopt(store, instance, coach_id: int, now: datetime) -> bool:
             return False
         for vacancy in Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").all():
             vacancy.status = "expired"                     # never invited (CONFIG-61): the old tick keeps off
-        store.add_session(session, store._level(ladder_index_map(coach_id), instance.level_id),
+        store.add_session(session, store._level(ladder_index_map(coach_id), instance.effective_level_id),
                           instance.effective_max_players, instance.start_datetime, regulars, now)
         for p in absent:                                   # rule 10: the old engine's absence, kept as it is
             p.left_reason = "regular_no" if p.enrolment_source == "roster" else "cancel"

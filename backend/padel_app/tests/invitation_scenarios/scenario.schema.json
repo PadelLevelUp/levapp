@@ -157,6 +157,10 @@
               "type": "null"
             }
           ]
+        },
+        "level_inherited": {
+          "type": "boolean",
+          "description": "The occurrence has no level of its own (LessonInstance.level_id NULL) and inherits its lesson's default level, as a recurring occurrence does (engine-store STORE-22). Default false."
         }
       }
     },
