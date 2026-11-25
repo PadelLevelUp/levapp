@@ -8,10 +8,8 @@ import {
   clampSheetTop,
   gridBottomInset,
   eventBlockGeometry,
-  groupOverlappingEvents,
   desktopHourRange,
   layoutDayColumn,
-  layoutDayEvents,
   resolveHourRange,
   sheetTopBounds,
   isSheetRaised,
@@ -97,30 +95,7 @@ describe("eventBlockGeometry", () => {
   });
 });
 
-describe("groupOverlappingEvents", () => {
-  it("puts intersecting events in one group and adjacent ones apart", () => {
-    const a = ev("a", "15:00", "16:00");
-    const b = ev("b", "15:30", "16:30");
-    const c = ev("c", "16:30", "17:00");
-    expect(groupOverlappingEvents([a, b, c])).toEqual([[a, b], [c]]);
-  });
-});
-
-describe("layoutDayEvents", () => {
-  it("gives overlapping events side-by-side columns", () => {
-    const laid = layoutDayEvents(
-      [ev("a", "15:00", "16:00"), ev("b", "15:30", "16:30"), ev("c", "17:00", "18:00")],
-      { startHour: 8, rowHeight: 40 }
-    );
-    expect(laid.map((l) => [l.event.id, l.column, l.columns, l.top, l.height])).toEqual([
-      ["a", 0, 2, 280, 40],
-      ["b", 1, 2, 300, 40],
-      ["c", 0, 1, 360, 40],
-    ]);
-  });
-});
-
-describe("layoutDayEvents — a dense day (PAD-625, B-543)", () => {
+describe("layoutDayColumn — a dense day (PAD-625, B-543)", () => {
   // 22 classes, 60 min each, one every 40 min: each overlaps only its neighbours, so at
   // most TWO run at any moment — the day needs two columns, not twenty-two.
   const chain = Array.from({ length: 22 }, (_, i) => {
@@ -130,17 +105,17 @@ describe("layoutDayEvents — a dense day (PAD-625, B-543)", () => {
   });
 
   it("[CALENDAR-MOBILE-VIEWS-7] packs a chain of overlaps into as many columns as run at once", () => {
-    const laid = layoutDayEvents(chain, { startHour: 7, rowHeight: 60 });
+    const laid = layoutDayColumn(chain, { startHour: 7, rowHeight: 60 }).blocks;
     expect(laid).toHaveLength(22);
     expect(Math.max(...laid.map((l) => l.columns))).toBe(2);
     expect(laid.map((l) => l.column)).toEqual(chain.map((_, i) => i % 2));
   });
 
   it("[CALENDAR-MOBILE-VIEWS-7] a lane freed by an ended class is reused", () => {
-    const laid = layoutDayEvents(
+    const laid = layoutDayColumn(
       [ev("a", "09:00", "11:00"), ev("b", "09:30", "10:00"), ev("c", "10:00", "10:30")],
       { startHour: 7, rowHeight: 60 }
-    );
+    ).blocks;
     expect(laid.map((l) => [l.event.id, l.column, l.columns])).toEqual([
       ["a", 0, 2],
       ["b", 1, 2],

@@ -2,7 +2,7 @@
  * The first day of every week a coach or student sees (calendar.view rule 5a, PAD-682).
  *
  * 0 = Sunday, in the `Date.getDay()` / date-fns `weekStartsOn` numbering. Global, not a setting.
- * The backend's own weeks start on the same day (`padel_app/utils/week.py`); a backend test
+ * The backend's own weeks start on the same day (`padel_app/utils/dates.py`); a backend test
  * reads this file to keep the two in step.
  */
 export const WEEK_STARTS_ON = 0 as const;

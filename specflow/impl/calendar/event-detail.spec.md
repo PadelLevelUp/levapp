@@ -282,8 +282,6 @@ approval.**
     toggle on mobile has the web's test id, `attendance-edit`.
     A student's initials are the same on every row that shows them: the grouped list, the pop-up and
     the marking row all take the first and the last name's initials, and `?` when there is no name.
-   - Code to follow: the marking row (`AttendanceRow.tsx` and its iOS twin) uses the one initials helper of
-     the grouped list and the pop-up, with its `?` fallback.
 
 23. **The player pop-up (PAD-659).** Tapping a row's name or avatar opens that player's profile
     over the class: a dialog on web (`role="dialog"`, focus trapped, focus returned to the
@@ -337,8 +335,6 @@ approval.**
     always told whether its class has ended: `classEnded` is a required prop, with no default, so a
     caller that leaves it out does not compile instead of wording an unfinished class as "Presente"
     or "Faltou".
-   - Code to follow: make `classEnded` a required prop of web `AttendanceRow.tsx` and iOS `ParticipantRow`,
-     and pass it from every caller.
 26. **The accepted-request line shows only while the student holds a place (PAD-842; numbering
     unconfirmed).** The student's join block (the request button, PAD-131) shows only while the
     student holds no place in the occurrence. Its status line names the student's latest request
@@ -382,8 +378,6 @@ approval.**
 - **When** the coach opens it on web or iOS
 - **Then** the participants header reads "12/16 · 4 vagas", the 4 stay listed under "Não vão"
 - **And** with all 16 coming it reads "16/16 · completa"
-- Code to follow: the test that counts the listed students compares with the number of students set up, not
-  the literal 1.
 
 #### CALENDAR-EVENT-DETAIL-3: A student invited again shows the new invite (rules 8, 16, PAD-773)
 - **Given** case 11 was invited by hand to the class's last spot, and case 12's request to join
@@ -421,7 +415,6 @@ approval.**
 - **And** after each close the class detail is still open at the same scroll position and focus
   is back on that player's name
 - **And** clicking the side chip opens nothing
-- Code to follow: `ParticipantPopup.test.tsx` presses the pop-up's actions instead of only reading two labels.
 
 #### CALENDAR-EVENT-DETAIL-8: A student's answer regroups the open class live (rule 24)
 - **Given** the coach has a class open with Ana in "POR RESPONDER"
@@ -471,9 +464,9 @@ approval.**
 
 - **Given** a route with neither usable params nor a usable id
 - **Then** the screen says the class could not be found, as before
-- Code to follow: tag Maestro flows 170 and 219 (`frontend/apps/mobile/.maestro/flows/`) to this criterion
-  and to CALENDAR-EVENT-DETAIL-22, 23, 24 and 25, as the proof of the iOS class screen; the nine
-  source-reading unit tests of that screen stop standing in for it.
+test: `frontend/apps/mobile/.maestro/flows/170-class-waiting-list.yaml` (tag `CALENDAR-EVENT-DETAIL-13`)
+test: `frontend/apps/mobile/.maestro/flows/219-class-waiting-list-scopes.yaml` (tag `CALENDAR-EVENT-DETAIL-13`)
+- Code to follow: CALENDAR-EVENT-DETAIL-22 still has no device proof: neither Maestro flow shows the "managed in Settings" row.
 
 
 #### CALENDAR-EVENT-DETAIL-14: Deep link opens the class in its own week
@@ -537,19 +530,22 @@ approval.**
 - **When** the coach adds Dinis choosing "Durante um período" with 3 classes
 - **Then** Dinis's row reads "Até <the third occurrence's date>"
 - **And** a non-recurring class offers "Só esta aula" only
+test: `frontend/apps/mobile/.maestro/flows/170-class-waiting-list.yaml` (tag `CALENDAR-EVENT-DETAIL-23`)
+test: `frontend/apps/mobile/.maestro/flows/219-class-waiting-list-scopes.yaml` (tag `CALENDAR-EVENT-DETAIL-23`)
 #### CALENDAR-EVENT-DETAIL-24: The coach changes a row's scope from the class (rules 19–20, PAD-560)
 - **Given** Carla on the class's list "Só esta aula", on web and on iOS
 - **When** the coach opens her row's edit control and chooses "Toda a série"
 - **Then** the dialog shows her name with no search, and after saving her row reads "Toda a série"
 - **And** opening the edit again shows "Toda a série" selected
+test: `frontend/apps/mobile/.maestro/flows/219-class-waiting-list-scopes.yaml` (tag `CALENDAR-EVENT-DETAIL-24`)
 #### CALENDAR-EVENT-DETAIL-25: The waiting-list picker searches by name (rule 20, PAD-558)
 - **Given** the add picker of a class whose candidates include "Álvaro Sousa", "Ana Pinto" and "Bruno Álves", on web and on iOS
 - **When** the coach types "sousa alv" in its search
 - **Then** only Álvaro Sousa's row is shown, and there is no other control listing the candidates (B-421)
 - **And** clearing the search shows all three again
 - **And** a student chosen before the search changed stays chosen and listed even when the search no longer matches them
-- Code to follow: `class-waiting-list-search.test.ts` shows that only the candidates the caller passed are
-  offered, with a query that matches someone, not a query that matches nobody.
+test: `frontend/apps/mobile/.maestro/flows/170-class-waiting-list.yaml` (tag `CALENDAR-EVENT-DETAIL-25`)
+test: `frontend/apps/mobile/.maestro/flows/219-class-waiting-list-scopes.yaml` (tag `CALENDAR-EVENT-DETAIL-25`)
 
 #### CALENDAR-EVENT-DETAIL-26: A grouped row says who the student is on this coach's roster and where their answer puts them (rules 5, 22; `classes.instance-enrollment` rule 13a)
 - **Given** a class with students in every attendance state, some of them not on the coach's roster
@@ -569,8 +565,6 @@ test: `frontend/apps/web/src/components/calendar/ParticipantGroups.test.tsx` ›
 - **And** until the class ends a coach's mark is worded as the intent, and afterwards as the record; `planned`, `coming` and `not_coming` read the same before and after
 - **And** a class that ends at 24:00 ends with its day on the club's clock, and a class whose end time cannot be read counts as not ended
 test: `frontend/packages/config/src/participant-groups.test.ts` › `a midnight end (24:00) is the end of that day, and an unreadable time is not ended` (+11 more)
-- Code to follow: the validated-row test in `AttendanceRow.test.tsx` asserts the word shown as well as
-  `data-state`.
 
 #### CALENDAR-EVENT-DETAIL-28: The cancellation and reminder lines show only while they still mean something (rules 3a, 23)
 - **Given** a student who cancelled, and a student who was sent a reminder

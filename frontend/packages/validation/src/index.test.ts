@@ -9,7 +9,6 @@ import {
   playerFormSchema,
   classFormSchema,
   exerciseFormSchema,
-  availabilityBlockerSchema,
 } from "./index";
 
 const firstIssue = (result: { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } }) =>
@@ -259,38 +258,5 @@ describe("exerciseFormSchema", () => {
     expect(exerciseFormSchema.safeParse({ ...valid, difficulty: 0 }).success).toBe(false);
     expect(exerciseFormSchema.safeParse({ ...valid, difficulty: 6 }).success).toBe(false);
     expect(exerciseFormSchema.safeParse({ ...valid, difficulty: 2.5 }).success).toBe(false);
-  });
-});
-
-describe("availabilityBlockerSchema", () => {
-  const valid = {
-    date: "2026-07-06",
-    startTime: "09:00",
-    endTime: "10:00",
-    isRecurring: false,
-  };
-
-  it("parses valid input (title/endDate optional and nullable)", () => {
-    expect(availabilityBlockerSchema.safeParse(valid).success).toBe(true);
-    expect(
-      availabilityBlockerSchema.safeParse({
-        ...valid,
-        title: null,
-        endDate: null,
-      }).success
-    ).toBe(true);
-  });
-
-  it("rejects an empty date", () => {
-    const result = availabilityBlockerSchema.safeParse({ ...valid, date: "" });
-    expect(result.success).toBe(false);
-    expect(firstIssue(result).message).toBe("Date required");
-  });
-
-  it("requires startTime and endTime to be present", () => {
-    const { startTime: _s, ...noStart } = valid;
-    const { endTime: _e, ...noEnd } = valid;
-    expect(availabilityBlockerSchema.safeParse(noStart).success).toBe(false);
-    expect(availabilityBlockerSchema.safeParse(noEnd).success).toBe(false);
   });
 });
