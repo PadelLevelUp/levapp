@@ -5,10 +5,12 @@
  * - What is loaded (26c): opening Dia, or moving to a day outside what is loaded, makes ONE read of whole weeks
  *   (2 before the selected day's week to 4 after it). Within a week of its end it reads the next 4 weeks, once.
  *   Nothing is ever added above. So Dia holds at most two reads; scrolling and selecting inside make none.
- * - The range belongs to Dia: it is its own query, and its placeholder is only an earlier Dia range
- *   (`client.query-cache` rule 5, 26d), never a week another mode read. It is kept while it contains the selected
- *   day, so coming back from Semana or Mês does not centre it again.
- * - A target (26b) is the selected day BEFORE the list moves, and stays so until the shell says it settled.
+ * - The range belongs to Dia: its reads are its own queries, and what shows while the next range answers is the
+ *   last Dia range that did (`client.query-cache` rule 5, 26d), never a week another mode read. It is kept while it
+ *   contains the selected day, so coming back from Semana or Mês does not centre it again.
+ * - A target (26b) is the selected day BEFORE the list moves, and stays so until the shell says it settled. Any
+ *   selected day the list did not pick itself through `scrolledTo` is one (a date, a chevron, Hoje, a day picked in
+ *   Mês or Semana, a link), and so is the day Dia opens on.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
@@ -24,7 +26,6 @@ import {
   type DayListRange,
 } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
-import { queryKeys } from "./queryKeys";
 import { useCalendarEvents } from "./queries";
 
 type WeekStart = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -53,6 +54,28 @@ export function useDayList({ active, selectedDay, selectDay, weekStartsOn = WEEK
   const [tailRequested, setTailRequested] = useState(false);
   const [target, setTarget] = useState<Date | null>(null);
   const targetSince = useRef(0);
+  const selfSelected = useRef<string | null>(null);
+  const [wasActive, setWasActive] = useState(false);
+  const [seenDay, setSeenDay] = useState(() => iso(selectedDay));
+
+  // 26b: every activation, and every selected day the list did not pick itself, is a target — so the old days'
+  // scroll, or a first report at offset 0 before the list has moved, cannot choose another day.
+  const selectedIso = iso(selectedDay);
+  if (active !== wasActive) {
+    setWasActive(active);
+    if (active) {
+      setTarget(selectedDay);
+      targetSince.current = now();
+    }
+  }
+  if (selectedIso !== seenDay) {
+    setSeenDay(selectedIso);
+    if (active && wasActive && selfSelected.current !== selectedIso && (!target || iso(target) !== selectedIso)) {
+      setTarget(selectedDay);
+      targetSince.current = now();
+    }
+    selfSelected.current = null;
+  }
 
   // The range is kept while it holds the selected day (with the tail, once it is asked for); otherwise Dia
   // opens a new one around the selected day. Derived while rendering so the very first read is for the right weeks.
@@ -69,23 +92,14 @@ export function useDayList({ active, selectedDay, selectDay, weekStartsOn = WEEK
   const firstParams = ranges ? dayListReadParams(ranges.first) : { from: "", to: "" };
   const tailParams = ranges ? dayListReadParams(ranges.tail) : { from: "", to: "" };
 
-  // Only Dia's own earlier ranges may stand in for a range being read.
-  const diaKeys = useRef(new Set<string>());
-  if (ranges) {
-    diaKeys.current.add(JSON.stringify(queryKeys.calendarEvents(firstParams.from, firstParams.to)));
-    diaKeys.current.add(JSON.stringify(queryKeys.calendarEvents(tailParams.from, tailParams.to)));
-  }
-
   const first = useCalendarEvents(firstParams.from, firstParams.to, {
     enabled: active && ranges !== null,
-    placeholderData: (previous, previousQuery) =>
-      previousQuery && diaKeys.current.has(JSON.stringify(previousQuery.queryKey)) ? previous : undefined,
   });
   const tail = useCalendarEvents(tailParams.from, tailParams.to, {
     enabled: active && ranges !== null && tailRequested,
   });
 
-  const firstReady = first.data !== undefined && !first.isPlaceholderData;
+  const firstReady = first.data !== undefined;
   const tailReady = tail.data !== undefined;
 
   // The days on screen: the current range once it answers; until then (a jump, a retry) the last one that did.
@@ -137,6 +151,20 @@ export function useDayList({ active, selectedDay, selectDay, weekStartsOn = WEEK
   // 26b: the target holds until its section is on screen AND the shell says the movement settled.
   const targetLoaded = target !== null && days.some((d) => iso(d) === iso(target));
   const jumping = target !== null && !targetLoaded;
+  // The second's clock starts when the section is there to move to, not when the jump began: a read slower than a
+  // second must not hand the list back to its own scroll (rule 26b).
+  const stampedFor = useRef<string | null>(null);
+  const targetIso = target ? iso(target) : null;
+  useEffect(() => {
+    if (!targetIso) {
+      stampedFor.current = null;
+      return;
+    }
+    if (targetLoaded && stampedFor.current !== targetIso) {
+      stampedFor.current = targetIso;
+      targetSince.current = now();
+    }
+  }, [targetIso, targetLoaded, now]);
 
   const goTo = useCallback(
     (date: Date) => {
@@ -161,7 +189,10 @@ export function useDayList({ active, selectedDay, selectDay, weekStartsOn = WEEK
       });
       if (!top) return;
       if (target && top !== iso(target)) setTarget(null); // a touch or the second's end: the list's own scroll rules
-      if (top !== iso(selectedDay)) selectDay(parseISO(top));
+      if (top !== iso(selectedDay)) {
+        selfSelected.current = top;
+        selectDay(parseISO(top));
+      }
     },
     [target, selectedDay, selectDay, now]
   );

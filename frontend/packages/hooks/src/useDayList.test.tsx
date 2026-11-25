@@ -66,7 +66,7 @@ function makeWrapper() {
 }
 
 /** The page the shells build around the hook: Semana's week read, Dia's list, one selected day. */
-function usePage(props: { mode: "day" | "week"; initialDate: Date }) {
+function usePage(props: { mode: "day" | "week" | "month"; initialDate: Date; now?: () => number }) {
   const calendar = useCalendar([], { initialDate: props.initialDate, initialViewMode: props.mode });
   const fetchFrom = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
   const fetchTo = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
@@ -79,6 +79,7 @@ function usePage(props: { mode: "day" | "week"; initialDate: Date }) {
     active: props.mode === "day",
     selectedDay: calendar.selectedDay,
     selectDay: calendar.selectDay,
+    now: props.now,
   });
   return { calendar, page, list };
 }
@@ -104,6 +105,8 @@ describe("the continuous Dia's list state", () => {
     expect(getCalendarEvents).toHaveBeenCalledWith("2026-11-08T00:00:00", "2026-12-26T23:59:59");
     expect(result.current.list.days).toHaveLength(49);
     expect(iso(result.current.list.days[0])).toBe("2026-11-08");
+    // Dia opened on the selected day (a target); the list has moved there, so the user's own scroll rules from here.
+    await act(async () => result.current.list.settled());
 
     // Scroll through every loaded day, down and back up; the second read comes once, within a week of the end.
     for (let pass = 0; pass < 2; pass++) {
@@ -225,5 +228,113 @@ describe("the continuous Dia's list state", () => {
     expect(result.current.list.status).toBe("ready");
     expect(result.current.list.days).toHaveLength(49);
     expect(getCalendarEvents).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("a selected day the list did not pick itself is a target too (rule 26b)", () => {
+  const report = (r: { current: ReturnType<typeof usePage> }, offset: number) =>
+    act(async () => {
+      r.current.list.scrolledTo({ days: positions(r.current.list.days), offset });
+    });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] a read slower than a second does not undo the jump", async () => {
+    let clock = 0;
+    const { result } = renderHook(() => usePage({ mode: "day", initialDate: WEDNESDAY, now: () => clock }), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.list.status).toBe("ready"));
+
+    const slow = gate();
+    getCalendarEvents.mockImplementationOnce(() => slow.promise);
+    await act(async () => result.current.list.goTo(day(2027, 3, 10)));
+    clock = 3000; // the answer comes three seconds after the jump began
+    await act(async () => slow.resolve(eventsBetween("2027-02-21T00:00:00", "2027-04-10T23:59:59")));
+    await waitFor(() => expect(result.current.list.jumping).toBe(false));
+
+    // The new list's first report comes before the shell has moved it: offset 0, the range's first day.
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe("2027-03-10");
+    await act(async () => result.current.list.settled());
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe("2027-02-21");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] a day picked in Mês outside the kept range holds while Dia reads, and until settled()", async () => {
+    const { result, rerender } = renderHook((p: { mode: "day" | "week" | "month" }) => usePage({ ...p, initialDate: WEDNESDAY }), {
+      wrapper: makeWrapper(),
+      initialProps: { mode: "day" },
+    });
+    await waitFor(() => expect(result.current.list.status).toBe("ready"));
+    const oldDays = result.current.list.days;
+
+    rerender({ mode: "month" });
+    await act(async () => result.current.calendar.selectDay(day(2027, 5, 5)));
+    const slow = gate();
+    getCalendarEvents.mockImplementationOnce(() => slow.promise);
+    rerender({ mode: "day" });
+
+    // The old days scroll while the new range loads: they select nothing.
+    await act(async () => {
+      result.current.list.scrolledTo({ days: positions(oldDays), offset: 300 });
+    });
+    expect(iso(result.current.calendar.selectedDay)).toBe("2027-05-05");
+
+    await act(async () => slow.resolve(eventsBetween("2027-04-18T00:00:00", "2027-06-05T23:59:59")));
+    await waitFor(() => expect(result.current.list.jumping).toBe(false));
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe("2027-05-05");
+    await act(async () => result.current.list.settled());
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe("2027-04-18");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] entering Dia on a day in the middle of the kept range holds it until settled()", async () => {
+    const { result, rerender } = renderHook((p: { mode: "day" | "week" | "month" }) => usePage({ ...p, initialDate: WEDNESDAY }), {
+      wrapper: makeWrapper(),
+      initialProps: { mode: "day" },
+    });
+    await waitFor(() => expect(result.current.list.status).toBe("ready"));
+    await act(async () => result.current.list.settled());
+
+    rerender({ mode: "week" });
+    await act(async () => result.current.calendar.selectDay(day(2026, 12, 2)));
+    rerender({ mode: "day" });
+    // The kept range, no new read of it (Semana's own week reads are not Dia's).
+    expect(getCalendarEvents.mock.calls.filter((c) => c[1] === "2026-12-26T23:59:59")).toHaveLength(1);
+
+    // The list mounts and reports offset 0 before it has moved to the selected day.
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe("2026-12-02");
+    await act(async () => result.current.list.settled());
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe("2026-11-08");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] a chevron inside the range holds its day until settled()", async () => {
+    const { result } = renderHook(() => usePage({ mode: "day", initialDate: WEDNESDAY }), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.list.status).toBe("ready"));
+    await act(async () => result.current.list.settled());
+
+    await act(async () => result.current.calendar.navigateWeek("next"));
+    const after = iso(result.current.calendar.selectedDay);
+    expect(after).not.toBe("2026-11-25");
+    expect(getCalendarEvents).toHaveBeenCalledTimes(1);
+
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe(after);
+    await act(async () => result.current.list.settled());
+    await report(result, 0);
+    expect(iso(result.current.calendar.selectedDay)).toBe("2026-11-08");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] a scroll the list made itself is never a target", async () => {
+    const { result } = renderHook(() => usePage({ mode: "day", initialDate: WEDNESDAY }), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.list.status).toBe("ready"));
+    await act(async () => result.current.list.settled());
+
+    await report(result, 1000); // the list's own scroll, to its eleventh day
+    const picked = iso(result.current.calendar.selectedDay);
+    expect(picked).toBe(iso(result.current.list.days[10]));
+    expect(result.current.list.target).toBeNull();
+    await report(result, 1500);
+    expect(iso(result.current.calendar.selectedDay)).toBe(iso(result.current.list.days[15]));
   });
 });
