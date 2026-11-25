@@ -215,8 +215,6 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
      home** — "Unread messages: 0" as the largest card on the screen is the flaw the redesign
      removed; an unread message reaches the user as a `reply` queue item instead.
    - **(PAD-167)** `notification_activity` and `pending_confirmations` were removed as dead.
-     - Code to follow: delete the unused `count_pending_confirmations` helper and its test; only
-       `notify_pending_confirmations` stays.
    - **(PAD-202)** `class_list` and `grid` were removed. The student payload was the last emitter;
      the student's "Your upcoming lessons" is now `schedule_7d` and "Invites to confirm" is the
      `invite` kind of `needs_you`. The old "Invites to confirm" list could never populate: it
@@ -480,8 +478,6 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
 - **Then** they land on `/presences?validate=1…` (never the 404 page), the validate view is
   already open on that week, and the tab's trigger shows the same number of classes the card
   showed
-- Code to follow: tighten the "count is the endpoint's number for its week" test in
-  `test_dashboard_coach_home.py` so it also covers a backlog spread over more than one week.
 
 #### DASHBOARD-BLOCKS-4: A reply card opens the conversation (PAD-284, B-078)
 - **Given** the seeded `e2e-coach` with an unread message from `e2e-student`
@@ -750,8 +746,6 @@ test: `backend/padel_app/tests/test_dashboard_coach_home.py` › `test_hero_is_o
 - **And** a class that already ended this week is not offered
 - **And** a coach with nothing outstanding gets the block with `count: 0` and no items
 test: `backend/padel_app/tests/test_pad740_needs_you_current_week.py` › `test_a_class_that_already_ended_this_week_is_not_offered` (+6 more)
-- Code to follow: make the queue-order test seed a reply, so the order of free seats, replies and validation
-  is proved with all three present.
 
 #### DASHBOARD-BLOCKS-39: Snoozing a card again restarts its day (rule 3)
 - **Given** a free-seats card snoozed at 10:00
@@ -766,8 +760,6 @@ test: `backend/padel_app/tests/test_dashboard_needs_you_snooze.py` › `test_sno
 - **And** each coach row's `inviteHref` is its `href` plus `&notify=1`, the same link the queue's free-seats card for that class carries
 - **And** a student's rows carry no `inviteHref`
 test: `backend/padel_app/tests/test_pad425_schedule_invite_href.py` › `test_every_coach_schedule_row_links_to_the_invite_flow` (+3 more)
-- Code to follow: make the `totalCount` test seed more classes than the rows it lists, so the total is shown
-  to exceed the rows.
 
 #### DASHBOARD-BLOCKS-41: The week pulse carries its denominators, and a delta only when there is a week to compare (rule 3)
 - **Given** a coach with four players signed up to tomorrow's full class, and a coach with no classes
@@ -822,8 +814,6 @@ test: `frontend/apps/web/src/components/dashboard/coach/ComeBackSlot.test.tsx` �
 - **And** a date is read and written as the viewer's local calendar day: 00:30 local on 9 August is `2026-08-09`
 - **And** dates render in the active language (agosto, August), and the Portuguese column weekday is upper case with no full stop
 test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCAL date, not the UTC one` (+9 more)
-- Code to follow: make the "always exactly one calendar day" test check that the end is exactly one calendar
-  day after the start, not only after it.
 
 #### DASHBOARD-BLOCKS-47: The iOS app sends a card's link to its native screen, and nowhere for a path it does not know (rule 10)
 - **Given** the web paths the server puts on dashboard cards
