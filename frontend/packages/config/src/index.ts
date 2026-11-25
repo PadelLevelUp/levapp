@@ -63,6 +63,7 @@ export * from "./recurrence-end";
 export * from "./email-prompt";
 export * from "./class-time";
 export * from "./class-when";
+export * from "./class-when-header";
 export * from "./standing-end";
 
 /**
