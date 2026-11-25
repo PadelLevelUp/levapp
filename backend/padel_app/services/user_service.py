@@ -173,7 +173,9 @@ def _refused_activation_fields(sent, user):
     still holds its generated placeholder (rule 10 blanks it in the form exactly so
     the student chooses one — activating under `pending-…` is not a login); and an
     empty OR ABSENT password — activation IS setting it; an empty one used to leave
-    the account active with none at all (PAD-389)."""
+    the account active with none at all (PAD-389) — or one under sign-up's minimum
+    (rule 11, owner decision 2026-11-10: 8 everywhere, PAD-858)."""
+    from padel_app.services.registration_service import PASSWORD_MIN_LENGTH
     from padel_app.tools.username_tools import is_placeholder_username
 
     refused = []
@@ -183,6 +185,8 @@ def _refused_activation_fields(sent, user):
     if "username" not in sent and is_placeholder_username(user.username):
         refused.append("username")
     if "password" not in sent or sent["password"] is None or not str(sent["password"]).strip():
+        refused.append("password")
+    elif len(str(sent["password"])) < PASSWORD_MIN_LENGTH:
         refused.append("password")
     return refused
 

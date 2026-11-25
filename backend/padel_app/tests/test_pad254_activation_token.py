@@ -205,3 +205,33 @@ def test_the_roster_carries_the_secret_until_activation(app, coach_id):
         row = next(r for r in roster if r["playerId"] == player.id)
         assert row["activationToken"] is None
         assert Player.query.get(player.id).coach_player_info(coach_id)["activationToken"] is None
+
+
+# ---------------------------------------------------------------------------
+# rule 11 — a password under 8 characters is refused (owner decision 2026-11-10, PAD-858)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.criterion("AUTH-ACTIVATE-11")
+def test_a_password_of_seven_is_refused_and_the_account_stays_inactive(app, client):
+    uid = _inactive_user(app)
+    res = client.post(
+        f"/api/app/activate/user/{uid}",
+        json={"token": _token(app, uid), "birthDate": "1990-01-01", "password": "Abc1234",
+              "name": "Bruno", "username": "bruno"},
+    )
+    assert res.status_code == 400
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["password"]}
+    after = _fresh(app, uid)
+    assert after["status"] == "inactive" and after["password"] is None and after["username"] == "pending-b034"
+
+
+@pytest.mark.criterion("AUTH-ACTIVATE-11")
+def test_a_password_of_eight_activates(app, client):
+    uid = _inactive_user(app)
+    res = client.post(
+        f"/api/app/activate/user/{uid}",
+        json={"token": _token(app, uid), "birthDate": "1990-01-01", "password": "Abc12345",
+              "name": "Bruno", "username": "bruno"},
+    )
+    assert res.status_code == 200
+    assert _fresh(app, uid)["status"] == "active"

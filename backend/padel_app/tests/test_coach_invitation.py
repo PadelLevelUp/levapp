@@ -263,6 +263,27 @@ def test_accept_with_missing_fields_400(client, app):
     assert resp.status_code == 400
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-17")
+def test_accept_with_a_password_of_seven_400_and_still_pending(client, app):
+    """Rule 10 (PAD-867): 8 characters, the sign-up minimum, refused on `password`."""
+    _, coach_id, club_id = _make_coach_with_club(app)
+    token = _make_invitation(app, club_id, coach_id)
+
+    resp = client.post(
+        f"/api/app/coach-invitations/{token}/accept",
+        json={"birthDate": "1990-01-01", "name": "Seven", "username": "seven_chars", "password": "Abc1234",
+              "email": "seven@example.com", "country": "PT", "termsAccepted": True},
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["field"] == "password"
+
+    from padel_app.models import User
+
+    with app.app_context():
+        assert _inv(token).one().status == "pending"
+        assert User.query.filter_by(username="seven_chars").first() is None
+
+
 def test_accept_with_duplicate_username_409(client, app):
     _, coach_id, club_id = _make_coach_with_club(app, username="taken_username")
     token = _make_invitation(app, club_id, coach_id)
