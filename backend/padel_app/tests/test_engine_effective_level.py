@@ -155,5 +155,42 @@ def test_state_stored_with_no_level_reads_as_the_sessions_level(app):
     with store.unit((session,)):
         store.apply(again)
     db.session.expire_all()
-    assert sorted(db.session.get(EngineSession, int(session)).alerted) == sorted(
-        [[e.spot_type.side, n3, e.spots] for e in alerts])
+    assert {tuple(a) for a in db.session.get(EngineSession, int(session)).alerted} == {
+        (e.spot_type.side, n3, e.spots) for e in alerts}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-24")
+def test_the_card_and_the_admin_coverage_read_a_no_level_spot_type_at_the_sessions_level(app):
+    """The transition outside the snapshot: an approval request queued before the fix and sent after, and
+    the admin coverage of invitations offered before the fix."""
+    from types import SimpleNamespace
+
+    from padel_app.invitation_engine.planner import spot_types
+    from padel_app.invitation_engine.snapshot import SpotType
+    from padel_app.services.admin.engine_health import _level_names, _open_spots
+    from padel_app.services.engine_outbox import card
+    from padel_app.services.engine_switch import switch_coach
+
+    coach_id, session, same, above, (n2, n3) = _inheriting(app)
+    switch_coach(coach_id, now=NOW)
+    db.session.expire_all()
+    at = LATER - timedelta(hours=23)
+    types = [t for t, n in spot_types(_snapshot(session, at)) if n]
+    assert types and all(t.level == n3 for t in types)
+
+    def row(level):
+        queues = [[[t.side, level], [same, above]] for t in types]
+        return SimpleNamespace(lesson_instance_id=int(session), payload={"request": "r", "tier": 0, "queues": queues})
+
+    levelled = card(row(n3))
+    assert all(t["count"] > 0 and t["levelLabel"] == "N3" for t in levelled["spotTypes"])
+    assert card(row(None)) == levelled
+
+    def offers(level):
+        return [SimpleNamespace(session=int(session), tier=0, counting=True,
+                                offer_types={SpotType(t.side, level) for t in types})]
+
+    names = _level_names(coach_id)
+    _, uncovered_levelled = _open_spots(session, coach_id, names, offers(n3), at)
+    _, uncovered_no_level = _open_spots(session, coach_id, names, offers(None), at)
+    assert uncovered_no_level == uncovered_levelled

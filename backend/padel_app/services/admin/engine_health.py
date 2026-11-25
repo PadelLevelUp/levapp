@@ -320,6 +320,7 @@ def _open_spots(session: str, coach_id: int, names: dict, invitations, now) -> t
     """A session's open spots by type as the engine counts them (engine-spots rule 6), and how many
     are uncovered: per type, its spots minus the counting invitations whose offer counts for it."""
     from padel_app.invitation_engine import planner
+    from padel_app.invitation_engine.snapshot import SpotType
     from padel_app.services.engine_store import TableStore, settings_for
 
     snapshot = TableStore(clock=lambda: now).snapshot(session)
@@ -330,7 +331,10 @@ def _open_spots(session: str, coach_id: int, names: dict, invitations, now) -> t
     counts = planner.spot_counts(snapshot, settings) if settings is not None else planner.spot_counts(snapshot)
     out, uncovered = [], 0
     for spot_type, n in planner.spot_types(snapshot, counts):
-        covered = sum(1 for inv in invitations if spot_type in inv.offer_types)
+        # Engine-store rule 12: an offer stored with no level (sent before the effective level) is the session's.
+        covered = sum(1 for inv in invitations
+                      if spot_type in {SpotType(t.side, snapshot.level if t.level is None else t.level)
+                                       for t in inv.offer_types})
         uncovered += max(0, n - covered)
         level_id, label = names.get(spot_type.level, (None, None)) if spot_type.level is not None else (None, None)
         out.append({"side": _app_side(spot_type.side), "levelId": level_id, "levelLabel": label, "open": n})
