@@ -40,6 +40,7 @@ import {
   joinRefusalKey,
   joinRefusalOf,
   isEngineApproval,
+  classTypeChipKey,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -648,6 +649,7 @@ export default function ClassDetailScreen() {
   const title =
     active?.name || event.title || t("classDetail.classFallbackTitle");
   const isCanceled = (active?.status ?? event.status) === "canceled";
+  const chipKey = classTypeChipKey(active?.classType ?? event.classType);
   // B-422: a deep-linked open has no calendar event; the payload's flag (or its series end) says it.
   const isRecurring = event.isRecurring || instance?.isRecurring === true || instance?.recurrenceEnd != null;
   // PAD-335 (`classes.delete` rule 7): the delete dialog says when the coach's
@@ -1268,7 +1270,7 @@ export default function ClassDetailScreen() {
     <Screen edges={["top"]} testID="class-detail">
       <Stack.Screen options={{ gestureEnabled: !hasUnsavedEdit }} />
       {/* Header */}
-      <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
+      <View className="flex-row items-center gap-2 border-b border-border py-2 pl-2 pr-4">
         <Pressable
           testID="class-detail-back"
           accessibilityLabel={t("common.back")}
@@ -1292,12 +1294,17 @@ export default function ClassDetailScreen() {
           <Text
             role="heading"
             aria-level={1}
-            className="flex-1 text-lg font-bold"
+            className="shrink text-lg font-bold"
             numberOfLines={1}
           >
             {title}
           </Text>
         )}
+        {chipKey && !isEditing ? (
+          <Badge variant="secondary" testID="class-type-chip" className="self-center">
+            <Text>{t(chipKey)}</Text>
+          </Badge>
+        ) : null}
         {isCanceled ? (
           <Badge variant="destructive">
             <Text>{t("classDetail.canceled")}</Text>

@@ -48,7 +48,7 @@ import type {
 } from "@/types";
 
 
-import { assignedSideOf, blockedNames, classBarRefusal, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
+import { assignedSideOf, blockedNames, classBarRefusal, classTypeChipKey, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
 import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -616,6 +616,7 @@ export function ClassDetailSheet({
   }, [open, canManage, token]);
 
   const active = draft ?? classInstance;
+  const chipKey = classTypeChipKey(active?.classType ?? event?.classType);
   const isCanceled = active?.status === "canceled";
 
   // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
@@ -1331,6 +1332,12 @@ export function ClassDetailSheet({
                 <span className="truncate" data-testid="class-detail-title">{active.name}</span>
               )}
             </SheetTitle>
+            {/* PAD-925 (classes.detail-visibility rule 6): the class type beside the title. */}
+            {chipKey ? (
+              <Badge variant="secondary" data-testid="class-type-chip" className="shrink-0">
+                {t(chipKey)}
+              </Badge>
+            ) : null}
           </div>
         </SheetHeader>
 
