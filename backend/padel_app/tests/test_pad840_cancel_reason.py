@@ -243,7 +243,8 @@ def test_the_preview_renders_the_first_students_message(app, client):
     ids = _seed(app)
     shown = _preview(client, ids, reason="Chuva forte", sendReason=True)
     assert shown == {"recipients": 2, "text": "Olá Ana, a tua aula de terça-feira às 19:00 foi cancelada. "
-                                              "Motivo indicado pelo professor: Chuva forte. " + SORRY}
+                                              "Motivo indicado pelo professor: Chuva forte. " + SORRY,
+                     "template": DEFAULT_MESSAGE_TEMPLATES_PT["class_cancelled"]}
     assert "Motivo" not in _preview(client, ids, reason="Chuva forte", sendReason=False)["text"]
     assert _messages(app) == [] and _kept(app, ids) is None
     _remove(client, ids, reason="Chuva forte", sendReason=True)

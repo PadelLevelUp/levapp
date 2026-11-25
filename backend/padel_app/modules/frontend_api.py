@@ -61,6 +61,7 @@ from padel_app.services.lesson_service import (
     edit_class_service,
     lesson_cancellations,
     parse_cancel_reason,
+    parse_message_override,
     remove_class_service,
 )
 from padel_app.services.player_service import (
@@ -2989,10 +2990,11 @@ def class_cancellation_preview():
     data = request.get_json() or {}
     source = _assert_owns_class_payload(require_coach(), data)
     parsed = parse_cancel_reason(data)
-    if source is None or parsed is None:
+    override = parse_message_override(data)
+    if source is None or parsed is None or override is None:
         return jsonify({"error": "Invalid payload"}), 400
     reason, send = parsed
-    return jsonify(cancellation_preview(source, reason if send else ""))
+    return jsonify(cancellation_preview(source, reason if send else "", override))
 
 
 @bp.get("/class/<int:lesson_id>/cancellations")
