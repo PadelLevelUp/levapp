@@ -1,5 +1,5 @@
 /**
- * PAD-789 — auth.push-subscription rule 10: the web Messages page's push line is one pure decision
+ * PAD-789 — auth.push-subscription rule 12: the web Messages page's push line is one pure decision
  * of the browser's state, and the page renders only the line it names. The page itself is checked
  * statically, as the other `MessagesPage` tests are (the unit harness does not mount it).
  */
@@ -11,8 +11,8 @@ import { messagesPushBanner, type MessagesPushBannerInput } from "./messagesPush
 
 const base: MessagesPushBannerInput = { ready: true, isSupported: true, permission: "default", isSubscribed: false, saveState: "idle" };
 
-describe("messagesPushBanner (rule 10, PAD-789)", () => {
-  it("[AUTH-PUSH-SUBSCRIPTION-9] each browser state gives one line, and none without a Push API or before the subscription is read", () => {
+describe("messagesPushBanner (rule 12, PAD-789)", () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-16] each browser state gives one line, and none without a Push API or before the subscription is read", () => {
     const cases: [string, Partial<MessagesPushBannerInput>, ReturnType<typeof messagesPushBanner>][] = [
       ["no Push API", { isSupported: false, permission: "unsupported" }, "none"],
       ["subscription not read yet", { ready: false, permission: "granted" }, "none"],
@@ -28,7 +28,7 @@ describe("messagesPushBanner (rule 10, PAD-789)", () => {
     }
   });
 
-  it("[AUTH-PUSH-SUBSCRIPTION-9] the Messages page takes its line from the decision and renders each line only for its result", () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-16] the Messages page takes its line from the decision and renders each line only for its result", () => {
     const page = readFileSync(join(__dirname, "..", "pages", "MessagesPage.tsx"), "utf8");
     expect(page).toMatch(/const pushBanner = messagesPushBanner\(\{/);
     for (const [result, testId] of [

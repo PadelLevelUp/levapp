@@ -103,7 +103,7 @@ describe("Engine health page (PAD-534)", () => {
     expect(screen.getByTestId("admin-eh-incidents-24h-push_dropped")).toHaveTextContent("1");
   });
 
-  it("[ADMIN-ENGINE-HEALTH-33] shows message recipients without a channel, and no recipients row when the summary lacks it", async () => {
+  it("[ADMIN-ENGINE-HEALTH-34] shows message recipients without a channel, and no recipients row when the summary lacks it", async () => {
     storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
     window.history.pushState({}, "", "/engine-health");
     const reach = { total: 167, noChannel: 33, webPushOnly: 19, nativeOnly: 112, nativeAndWebPush: 3 };

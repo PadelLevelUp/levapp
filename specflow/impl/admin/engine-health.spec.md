@@ -359,14 +359,20 @@ test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the e
 - **And** the web's report goes with the user's own token, outside the API client
 test: `frontend/apps/web/src/utils/pushFailureReport.test.ts` › `a save answered 503 sends one report with the closed fields and the user's token` (+9 more)
 
-#### ADMIN-ENGINE-HEALTH-30: Message recipients are counted by channel, apart from active students (rule 13)
+#### ADMIN-ENGINE-HEALTH-30: A student with two browsers counts once (PAD-753)
+- **Given** an active student with two web-push subscriptions and no device token
+- **When** the push-reach summary is read
+- **Then** `webPushOnly` counts them once and `total` once
+test: `backend/padel_app/tests/test_pad746_push_reach.py` › `test_a_student_with_two_browsers_counts_once`
+
+#### ADMIN-ENGINE-HEALTH-31: Message recipients are counted by channel, apart from active students (rule 13)
 - **Given** a fixed now and, each a user with a `players` row: A received a message from their coach 2 days before now, with no channel; B received one too, `inactive`, with no channel; C received one, with web push only; D received one, with an iOS token only, and marked a conversation read 2 days before now; E received one 2 days before now that was deleted since, with both channels; F who only sent a message of their own 2 days before now and marked a conversation read 2 days before now; G whose only received message is const:MESSAGE_RECIPIENT_WINDOW_DAYS + 1 days old; H who joined a conversation after its only message was sent; and a coach with no `players` row who received a message 1 day before now
 - **When** the push block is computed for that now (`engine_health._push(now)`, not through the route, whose admin gate needs the real clock)
 - **Then** `push.messageRecipients` is `{windowDays: const:MESSAGE_RECIPIENT_WINDOW_DAYS, total: 5, noChannel: 2, webPushOnly: 1, nativeOnly: 1, nativeAndWebPush: 1}`
 - **And** `push.activeStudents7d.total` is 2 (D and F), so the two populations are counted apart
 test: `backend/padel_app/tests/test_pad789_message_recipient_reach.py` › `test_message_recipients_are_counted_by_channel`
 
-#### ADMIN-ENGINE-HEALTH-31: A recipient counts once, and the block holds only counts (rule 13)
+#### ADMIN-ENGINE-HEALTH-32: A recipient counts once, and the block holds only counts (rule 13)
 - **Given** a student who received messages in two conversations within the window
 - **When** support GETs `/admin/api/engine-health`
 - **Then** `push.messageRecipients.total` is 1
@@ -374,13 +380,13 @@ test: `backend/padel_app/tests/test_pad789_message_recipient_reach.py` › `test
 - **And** the student's name, username and email appear nowhere in the response body
 test: `backend/padel_app/tests/test_pad789_message_recipient_reach.py` › `test_a_recipient_counts_once_and_the_block_holds_only_counts`
 
-#### ADMIN-ENGINE-HEALTH-32: The recipient count costs the same statements for 3 students as for 30 (rules 7, 13)
+#### ADMIN-ENGINE-HEALTH-33: The recipient count costs the same statements for 3 students as for 30 (rules 7, 13)
 - **Given** 3 message recipients, then 30
 - **When** the `push` block is computed, counting the SQL statements issued
 - **Then** both reads issue the same number of statements
 test: `backend/padel_app/tests/test_pad789_message_recipient_reach.py` › `test_the_recipient_count_does_not_grow_with_students`
 
-#### ADMIN-ENGINE-HEALTH-33: The page shows message recipients without a channel, and leaves the row out when the summary lacks it (rules 8c, 13)
+#### ADMIN-ENGINE-HEALTH-34: The page shows message recipients without a channel, and leaves the row out when the summary lacks it (rules 8c, 13)
 - **Given** support on `/engine-health` and a summary whose `push` block carries `messageRecipients` with `windowDays` 7
 - **Then** the recipients' total, no-channel and web-push-only counts show (`admin-eh-push-recipients`, `admin-eh-push-recipients-no-channel`, `admin-eh-push-recipients-web-only`) in the push card, under a label carrying the block's `windowDays`, and the active-student counts still show
 - **And** a `push` block without `messageRecipients` (a server before this change) shows the active-student counts and no recipients row
@@ -466,10 +472,10 @@ test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the n
   (`services/admin/users_service.py:152`); this change names no user anywhere.
 
 ### Waves (PAD-789)
-1. ADMIN-ENGINE-HEALTH-30, ADMIN-ENGINE-HEALTH-31, ADMIN-ENGINE-HEALTH-32 — backend
+1. ADMIN-ENGINE-HEALTH-31, ADMIN-ENGINE-HEALTH-32, ADMIN-ENGINE-HEALTH-33 — backend
    (`services/admin/engine_health.py` `_push`), no migration. Statement counting as in
    `test_pad262_dashboard_pipeline.py` `_statements`.
-2. ADMIN-ENGINE-HEALTH-33 — admin app (`EngineHealthPage.tsx`, `lib/api.ts` type, both admin
+2. ADMIN-ENGINE-HEALTH-34 — admin app (`EngineHealthPage.tsx`, `lib/api.ts` type, both admin
    locales: the card title and the active row's label change, the recipients row is new).
 Wave 3 (the in-app prompt) is in `messaging.push-notifications` and `auth.push-subscription`.
 

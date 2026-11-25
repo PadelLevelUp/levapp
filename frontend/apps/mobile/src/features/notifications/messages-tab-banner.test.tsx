@@ -72,7 +72,7 @@ beforeEach(() => {
 });
 
 describe("Messages tab — the notification banner (rule 17, PAD-789)", () => {
-  it("[MESSAGING-PUSH-NOTIFICATIONS-38] the Messages tab shows the banner above the list in each case and prompts only on its tap", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-41] the Messages tab shows the banner above the list in each case and prompts only on its tap", async () => {
     for (const roles of [["player"], ["coach"]]) {
       viewer.roles = roles;
       for (const c of CASES) {

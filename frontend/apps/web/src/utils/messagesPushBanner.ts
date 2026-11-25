@@ -1,7 +1,7 @@
 import type { PushSaveState } from "@/hooks/usePushNotifications";
 
 /**
- * auth.push-subscription rule 10 (PAD-789): which push line the Messages page shows, from the
+ * auth.push-subscription rule 12 (PAD-789): which push line the Messages page shows, from the
  * browser's state alone. One line at most; none while push cannot work here or the browser's
  * subscription has not been read yet (so a subscribed browser never flashes the enable prompt).
  * The iOS/Android counterpart is `notificationBanner` (messaging.push-notifications rule 17).

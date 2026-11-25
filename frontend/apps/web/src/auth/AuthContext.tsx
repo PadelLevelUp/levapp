@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
 import { getMe, MeResponse } from "@/api/auth";
-import { api } from "@/api/client";
+import { signOutOnServer } from "@/auth/signOutRequest";
 import { USE_MOCK_DATA } from "@/config";
 import { startPushFailureReport } from "@/utils/pushFailureReport";
 import { requestAndSubscribe } from "@/utils/pushNotifications";
@@ -134,8 +134,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const currentToken = localStorage.getItem("accessToken");
     if (currentToken && !USE_MOCK_DATA) {
-      // Best-effort server-side invalidation — don't await to avoid blocking UI
-      api.post("/auth/logout").catch(() => undefined);
+      // Best-effort server-side invalidation — don't await to avoid blocking UI. The token is
+      // handed over now, before it is removed below (auth.logout rule 4, PAD-753).
+      void signOutOnServer(currentToken);
     }
     localStorage.removeItem("accessToken");
     setToken(USE_MOCK_DATA ? "mock-token" : null);

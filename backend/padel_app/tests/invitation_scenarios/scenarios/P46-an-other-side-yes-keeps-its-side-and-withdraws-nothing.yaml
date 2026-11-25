@@ -1,0 +1,69 @@
+id: P46
+title: an other-side Yes keeps its side and withdraws nothing
+source: {section: "PAD-813 (coach's report: two right spots, right invitations out, a left student's Yes)", lines: [1, 1]}
+what_it_tests: a left-sider's Yes on a right spot is placed and counted right, the right invitations stay open with no message, and the last spot stays right
+tags: [sides, other-side, groups, timers, aviso]
+derived_from: [D4]
+corrections: []
+notes: >
+  PAD-813's sequence on the new engine (the gap noted in the PAD-813 triage). The real class had
+  capacity 16 with 5 right and 7 left going, 1 right and 1 left unanswered and 3 right and 1 left not
+  going; unanswered regulars count as going, so the engine sees 8 left and 6 right and two right spots
+  (must(R) 2). It is encoded as 8 left and 6 right regulars, capacity 16, which gives the same counts.
+  Invitations start at 07:00 the day before (first_invite 1 day before at 07:00, the end of the default
+  quiet hours). At 07:00 the 6 same-side right-siders are invited (X = 3 per spot). When they stop counting
+  at 08:00 the other-side tier asks the 6 left-siders, naming the right side.
+  The 21:50 step takes the regulars' reminders (17:00, 19:00 and 21:00 under the default reminder
+  settings), so the 21:54 step's `nothing_sent` sees only what the Yes causes. At 21:54 a left-sider says Yes.
+  On the old engine the right invitations then ended as "Vaga preenchida" (spot filled) and the remaining
+  spot invited left-siders. Here: she is placed on R (the spot type she filled, stored as her side for this
+  class), so R needs 1 more and L needs none (had she counted left, R would still need 2); the 11 other
+  invitations stay open and nothing is sent, so no right invitation is withdrawn or told the spot filled
+  (engine-planning rule 10, D4). A right-sider's later Yes fills the last spot: 8 and 8.
+
+settings:
+  invites_per_spot: 3
+  first_invite: {days_before: 1, at: "07:00"}
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 16, start: 2026-11-02 10:30}
+
+roster:
+  regulars: {L: 8, R: 6}
+students:
+  - {cohort: L3R, count: 6, level: 3, side: R}
+  - {cohort: L3L, count: 6, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 07:00
+    expect:
+      invitations: [{cohort: L3R, count: 6, side_named: null, group: 3}]
+      missing: {L: 0, R: 2}
+  - at: 2026-11-01 08:00
+    expect:
+      invitations: [{cohort: L3L, count: 6, side_named: R, group: 4}]
+      open_unanswered: 12
+  - at: 2026-11-01 21:50
+    expect:
+      reminders: {to: [regulars]}
+      invitations: none
+      open_unanswered: 12
+  - at: 2026-11-01 21:54
+    events: [{accepts: {cohort: L3L, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 1}
+      open_unanswered: 11
+      nothing_sent: true
+  - at: 2026-11-01 22:10
+    events: [{accepts: {cohort: L3R, state: invited, as: b}}]
+    expect:
+      placed: [{who: b, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+      open_unanswered: 10
+final:
+  roster: {L: 8, R: 8}

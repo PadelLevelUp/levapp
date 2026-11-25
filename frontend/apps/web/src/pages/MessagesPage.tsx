@@ -62,7 +62,7 @@ export default function MessagesPage() {
   // PAD-568: only a student is ever offered the connect-with-a-coach shortcut.
   const canConnectWithCoach = !(user?.roles?.includes("coach") ?? false);
   const { isSupported, ready, permission, isSubscribed, saveState, subscribe } = usePushNotifications(token);
-  // auth.push-subscription rule 10 (PAD-789): one push line at most, decided in one place.
+  // auth.push-subscription rule 12 (PAD-789): one push line at most, decided in one place.
   const pushBanner = messagesPushBanner({ ready, isSupported, permission, isSubscribed, saveState });
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();

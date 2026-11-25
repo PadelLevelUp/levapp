@@ -76,7 +76,7 @@ def _statements(app):
         event.remove(engine, "before_cursor_execute", _record)
 
 
-@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-30")
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-31")
 def test_message_recipients_are_counted_by_channel(app):
     from padel_app.services.admin.engine_health import _push
 
@@ -108,7 +108,7 @@ def test_message_recipients_are_counted_by_channel(app):
     assert push["activeStudents7d"]["total"] == 2
 
 
-@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-31")
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-32")
 def test_a_recipient_counts_once_and_the_block_holds_only_counts(app, client):
     now = utcnow_naive()  # the admin gate checks its token against the real clock
     headers = bearer(admin_token(app, make_role(app, "sam@levapp.app", "support")))
@@ -131,7 +131,7 @@ def test_a_recipient_counts_once_and_the_block_holds_only_counts(app, client):
     assert "p789twice" not in json.dumps(push)
 
 
-@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-32")
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-33")
 def test_the_recipient_count_does_not_grow_with_students(app):
     from padel_app.services.admin.engine_health import _push
 
