@@ -17,6 +17,7 @@ import {
   createConversation,
   markConversationRead,
 } from "@/api/messages";
+import { getMessageableUsers } from "@/api/users";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
@@ -28,7 +29,9 @@ import {
   mergeOlderPage,
   queryKeys,
   threadLoadErrorKey,
+  useCoachRoster,
   useConversations,
+  useMessageableUsers,
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
@@ -115,6 +118,10 @@ export default function MessagesPage() {
   const unreadOnly = filter === "unread";
   const listQuery = useConversations(1, 20, undefined, unreadOnly);
   const initialLoading = listQuery.isPending;
+  // messaging.conversations rule 20 (PAD-831): what a coach's search reads besides the rows.
+  const isCoach = user?.roles?.includes("coach") ?? false;
+  const messageable = useMessageableUsers({ enabled: isCoach, fetchUsers: getMessageableUsers });
+  const { data: roster } = useCoachRoster({ enabled: isCoach });
   const [extraPages, setExtraPages] = useState<Conversation[]>([]);
   const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
   // Safe across a page-1 refetch: once a later page was loaded, that page's own `hasMore` rules
@@ -548,7 +555,7 @@ export default function MessagesPage() {
   };
 
   const handleNewConversation = async (userId: string) => {
-    const existing = conversations.find((c) => c.participantId === userId);
+    const existing = conversations.find((c) => normalizeConversationId(c.participantId) === String(userId));
     if (existing) {
       navigate(`/messages/${existing.id}`);
       setSelectedConversation(existing);
@@ -649,7 +656,9 @@ export default function MessagesPage() {
                 // PAD-568: a student with no linked coach is sent to "Connect with a coach"
                 // (players.join-token rule 8); coaches never see the shortcut.
                 onConnectWithCoach={canConnectWithCoach ? () => navigate("/connect") : undefined}
-                isCoach={user?.roles?.includes("coach") ?? false}
+                isCoach={isCoach}
+                people={messageable.data}
+                roster={roster}
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}

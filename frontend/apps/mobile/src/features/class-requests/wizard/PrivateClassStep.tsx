@@ -14,7 +14,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   CLASS_REQUEST_DURATIONS,
   FIRST_FREE_DAY_HORIZON_DAYS,
-  MAX_REQUEST_CLASSES,
   clubTodayISO,
   endDateAfterClasses,
   firstFreeDay,
@@ -30,6 +29,7 @@ import { requestAvailabilityApi } from "@levelup/api";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
+import { EndModeControls, type EndMode } from "./EndModeControls";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
@@ -57,7 +57,6 @@ type Recurring = "single" | "weekly";
 // classes.class-requests rule 14a (PAD-428): "on a date" keeps the pre-PAD-428
 // default end (28 days out); "after N classes" turns a class count into that
 // same `endDate` field through @levelup/config's shared arithmetic.
-type EndMode = "date" | "count";
 const DEFAULT_END_COUNT = 4;
 
 /** A round choice button: selected fills with the primary colour. */
@@ -96,22 +95,6 @@ function Chip({
   );
 }
 
-/** A radio dot mirroring web's plain-button radio: selected fills with the primary colour. */
-function RadioDot({ selected, onPress, testID }: { selected: boolean; onPress: () => void; testID: string }) {
-  return (
-    <Pressable
-      role="radio"
-      testID={testID}
-      accessibilityState={{ selected, checked: selected }}
-      onPress={onPress}
-      className={cn(
-        "h-4 w-4 shrink-0 rounded-full border-2",
-        selected ? "border-primary bg-primary" : "border-muted-foreground bg-background"
-      )}
-    />
-  );
-}
-
 export function PrivateClassStep({
   coachId,
   onDone,
@@ -140,9 +123,6 @@ export function PrivateClassStep({
   const [endDate, setEndDate] = React.useState(addDaysIso(today, 28));
   const [endMode, setEndMode] = React.useState<EndMode>("date");
   const [endCount, setEndCount] = React.useState(DEFAULT_END_COUNT);
-  // The field's own text: it may be empty while the student retypes it ("4" -> "" -> "3"),
-  // which the numeric count cannot be. Blur puts back the last valid count.
-  const [endCountText, setEndCountText] = React.useState(String(DEFAULT_END_COUNT));
 
   // ── Slot ──
   const [duration, setDuration] = React.useState<number>(60);
@@ -393,46 +373,16 @@ export function PrivateClassStep({
               onChange={setStartDate}
             />
 
-            {/* Rule 14a (PAD-428): the two ways a weekly request can end, like a calendar app. */}
+            {/* Rule 14a (PAD-428, PAD-926): the two ways a weekly request can end. */}
             <View className="gap-2">
-              <View className="flex-row items-center gap-2">
-                <RadioDot selected={endMode === "date"} onPress={() => setEndMode("date")} testID="request-end-mode-date" />
-                <Text className="text-xs shrink-0">{t("classRequestWizard.endMode.date")}</Text>
-                <View className="flex-1">
-                  <DatePickerInput
-                    testID="wizard-end-date"
-                    value={endDate}
-                    disabled={endMode !== "date"}
-                    onChange={(v) => {
-                      setEndMode("date");
-                      setEndDate(v);
-                    }}
-                  />
-                </View>
-              </View>
-              <View className="flex-row items-center gap-2">
-                <RadioDot selected={endMode === "count"} onPress={() => setEndMode("count")} testID="request-end-mode-count" />
-                <Text className="text-xs shrink-0">{t("classRequestWizard.endMode.count")}</Text>
-                <View className="w-20">
-                  <Input
-                    testID="request-end-count"
-                    value={endCountText}
-                    editable={endMode === "count"}
-                    keyboardType="number-pad"
-                    onFocus={() => setEndMode("count")}
-                    onChangeText={(text) => {
-                      setEndMode("count");
-                      setEndCountText(text);
-                      const n = Math.round(Number(text));
-                      if (text.trim() !== "" && Number.isFinite(n)) {
-                        setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
-                      }
-                    }}
-                    onBlur={() => setEndCountText(String(endCount))}
-                  />
-                </View>
-                <Text className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</Text>
-              </View>
+              <EndModeControls
+                endMode={endMode}
+                onModeChange={setEndMode}
+                endDate={endDate}
+                onEndDateChange={setEndDate}
+                endCount={endCount}
+                onEndCountChange={setEndCount}
+              />
               {endMode === "count" ? (
                 <Text className="text-xs text-muted-foreground" testID="request-end-count-last-date">
                   {computedEndDate

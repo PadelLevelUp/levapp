@@ -309,6 +309,11 @@ def add_coach_note_service(coach, data):
     if not text:
         return {"error": "text is required"}, 400
 
+    # players.notes rule 3: the column's own length, refused before it reaches the database.
+    max_length = CoachPlayerNote.text.type.length
+    if len(text) > max_length:
+        return {"error": f"text must be at most {max_length} characters"}, 400
+
     if note_type not in ("strength", "weakness"):
         return {"error": "type must be 'strength' or 'weakness'"}, 400
 

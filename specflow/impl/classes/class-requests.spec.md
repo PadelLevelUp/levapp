@@ -180,8 +180,9 @@ held on the coach's calendar while the request is open.
     PAD-330's enrolment notice (`notifications.reminders` rule 18 keeps them asked). Invitees
     never accept or decline anything.
 14a. **The student chooses how a weekly request ends (PAD-428).** The wizard (web and iOS) asks for
-    the start date, then one of two endings, as a calendar app does: **"Termina no dia [data]"** (on a
-    date) or **"Termina ao fim de [N] aulas"** (after N classes, 1–52).
+    the start date, then one of two endings, chosen on a segmented control that shows one field at a
+    time (PAD-926): **"Até uma data"** (on a date, a date field) or **"N.º de aulas"** (after N
+    classes, 1–52, a stepper).
     - N counts CLASSES, not weeks: on Tuesdays and Thursdays, 4 classes is two weeks. The label says
       "aulas" / "classes".
     - "After N" is turned into `endDate` on the client, as the date of the Nth occurrence on the
@@ -190,8 +191,8 @@ held on the coach's calendar while the request is open.
     - The request on the wire is unchanged (`recurrence {weekdays, startDate, endDate}`), so the
       backend, rules 14–17 and older builds are untouched.
     - Changing the weekdays or the start date recomputes the end while "after N" is chosen.
-    - The count field can be empty while the student retypes it ("4" → "" → "3" gives 3, not 13).
-      An empty or invalid entry leaves the last valid count in force, and leaving the field puts it back.
+    - The count is a stepper, not a text field: minus and plus move it by one class, the minus stops
+      at 1 and the plus at 52, and each is disabled at its end. The count is never empty or invalid.
     - The coach's own class creation keeps its current fields; the same pattern there is PAD-463.
     - "After N" is only how the student PICKS `endDate`; the request stores a date, not a count.
       So when a proposal re-anchors a weekly series (rule 16: `startDate` moves, `endDate` stays),
@@ -532,12 +533,12 @@ test: `backend/padel_app/tests/test_pad256_request_slots.py` › `test_the_modul
 - **And** a proposal from before slots were stored stays answerable while the request is `countered`; while the request is loading, or on a message that carries none, nothing is added
 test: `frontend/packages/config/src/class-request-message.test.ts` › `shows the coach their own proposal as waiting` (+8 more)
 
-#### CLASSES-CLASS-REQUESTS-36: The class count can be retyped: empty while typing, and back to the last valid count on leaving (rule 14a)
-- **Given** the wizard on "after N classes" with a weekday chosen
-- **When** the student clears the field and types 3
-- **Then** the field reads empty, then 3, and the last date follows the count
-- **And** leaving the field empty puts the last valid count back
-test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx` › `clearing the field and typing 3 gives 3, not 13` (+1 more)
+#### CLASSES-CLASS-REQUESTS-36: The class count is a stepper that stops at 1 and at 52, and the last date follows it (rule 14a)
+- **Given** the wizard on "N.º de aulas" with a weekday chosen
+- **When** the student presses minus or plus, or presses either end past its limit
+- **Then** the count moves by one class, never below 1 or above 52, with the button disabled at that end
+- **And** the last date follows the count, and a count of 6 is sent as the date of the sixth class
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx` › `steps by one class and the last date follows the count` (+3 more), `frontend/apps/mobile/src/features/class-requests/wizard/EndModeControls.test.tsx` › `the stepper steps by one and stops at 1 and at the largest count` (+1 more), `frontend/packages/config/src/recurrence-end.test.ts` › `stepEndCount`
 
 #### CLASSES-CLASS-REQUESTS-37: A request is refused as `slot_taken` when an invitee or a later occurrence is not free (rules 7, 13, 15)
 - **Given** an invitee whose own calendar is blocked on Tuesday 18:00 to 19:00
@@ -579,3 +580,9 @@ test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wi
 - **When** the coach accepts
 - **Then** the declaring client gets `409` `busy_same_hour` and the other `409` `slot_taken`, each with the same `message` and the same one clash naming Ana and the other class
 
+
+#### CLASSES-CLASS-REQUESTS-44: The selected end mode is visibly different from the track, on web and iOS (rule 14a)
+- **Given** the wizard on a weekly request, with "Até uma data" and "N.º de aulas" side by side
+- **When** either is selected
+- **Then** the selected segment has the primary fill with its readable foreground, and the other keeps the muted track with muted text, so the choice can be seen without a shadow (iOS draws none)
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx`, `frontend/apps/mobile/src/features/class-requests/wizard/EndModeControls.test.tsx`
