@@ -350,6 +350,16 @@ approval.**
     keeps its own, and a withdrawn one shows none, as before. One helper in `@levelup/config`
     (`joinRequestStatusKey`) decides it for web and iOS.
 
+27. **A link the server sends to a class is the deep link of rule 10 (numbering self-assigned,
+    unconfirmed).** Every URL the server builds to open one class on the calendar (today: the
+    coach's "Aula cheia" / "Class full" push, sent when a spot filled and pending requests were
+    closed) is `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>`, the shape `class_href`
+    builds for the dashboard, with `date` the class's own date as the calendar shows it (the start
+    datetime's date, as the engine's coach alert already does). A URL with another key
+    (`classInstanceId`) opens nothing: the calendar reads only `classId` and `date`, so the coach
+    lands on today's calendar with the class not open. One builder (`class_href`) makes the link,
+    for a one-off and for a series occurrence alike.
+
 ### Acceptance Criteria
 
 #### CALENDAR-EVENT-DETAIL-1: Sixteen players fit on a laptop, grouped and ordered (rule 22, PAD-659)
@@ -634,6 +644,12 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.
 - **Then** it gives no key for `accepted` and `withdrawn` (or no request), and `calendar.joinRequest.<status>` for `pending`, `rejected` and `superseded`
 - **And** the iOS class screen's join block takes its status line from that helper
 test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no line for an accepted or withdrawn request` (+1 more)
+
+#### CALENDAR-EVENT-DETAIL-41: The "Aula cheia" push opens the class it is about (rule 27)
+- **Given** a class that filled while student requests were pending, so the coach is sent the "Aula cheia" push
+- **Then** the push's url is exactly `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>` of that class, for a one-off and for a series occurrence alike
+- **And** the web calendar, given exactly that url, selects that week and opens that class's detail sheet (rules 10, 11)
+test: `backend/padel_app/tests/test_pad_superseded_push_link.py` › `[CALENDAR-EVENT-DETAIL-41]` (+ `frontend/apps/web/src/pages/CalendarPage.supersededLink.test.tsx`)
 
 ### Open questions
 - "N pending" on a new-engine session — decision (S, owner away, PAD-913; the owner can reverse it): it counts counting invitations only, because an invitation that no longer counts holds no spot; the row still shows it as "not counting".
