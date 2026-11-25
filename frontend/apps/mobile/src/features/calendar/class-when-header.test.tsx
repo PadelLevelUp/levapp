@@ -1,0 +1,103 @@
+/**
+ * calendar.event-detail rule 28 (UI idea 6), iOS: reading a class starts with when it is. The header block is
+ * rendered here; the class screen's mount (the block while reading, the boxes while editing, its one repeat line)
+ * is pinned by reading its source, as class-capacity-bar.test.tsx does (the screen is too large to render).
+ */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import * as React from "react";
+import { Text } from "@/components/ui/text";
+import type { ReactTestInstance } from "react-test-renderer";
+import { describe, expect, it, vi } from "vitest";
+import { renderNative } from "@/test/render-native";
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }),
+}));
+
+import { ClassWhenHeader } from "./ClassWhenHeader";
+
+const text = (node: ReactTestInstance): string => node.children.map((c) => (typeof c === "string" ? c : text(c))).join("");
+const base = { date: "2026-11-24", startTime: "10:30", endTime: "12:00" };
+
+describe("the class screen's header block (iOS)", () => {
+  it("[CALENDAR-EVENT-DETAIL-44] reading shows the header block and editing the boxes", async () => {
+    // A class with a level, a club and a court; its capacity line is the screen's own.
+    const n = await renderNative(
+      <ClassWhenHeader editing={false} {...base} levelCode="I2" clubName="Clube Norte" courtName="Campo 3">
+        <Text testID="class-detail-capacity">3/8</Text>
+      </ClassWhenHeader>
+    );
+    const block = n.byTestId("class-detail-when");
+
+    // The tile reads out as one full date and says weekday, day and month.
+    const tile = n.byTestId("class-detail-date-tile");
+    expect(tile.props.accessibilityLabel).toBe("terça-feira, 24 de novembro de 2026");
+    expect(text(tile)).toContain("ter");
+    expect(text(tile)).toContain("24");
+    expect(text(tile)).toContain("nov");
+    // The time on one line, shrinking to its line at larger text sizes, in the display face.
+    const time = n.byTestId("class-detail-time");
+    expect(text(time)).toBe("10:30 – 12:00");
+    expect(time.props.numberOfLines).toBe(1);
+    expect(time.props.adjustsFontSizeToFit).toBe(true);
+    expect(String(time.props.className)).toContain("font-display");
+    // The facts line: the level, then the club and court; the labels the boxes had are the values' names.
+    const facts = n.byTestId("class-detail-facts");
+    expect(text(facts)).toContain("I2");
+    expect(text(facts)).toContain("·");
+    expect(text(n.byTestId("class-detail-place"))).toBe("Clube Norte · Campo 3");
+    expect(n.byTestId("class-detail-level").props.accessibilityLabel).toBe("calendar.detail.level");
+    expect(n.byTestId("class-detail-place").props.accessibilityLabel).toBe("calendar.detail.club");
+    expect(n.byTestId("class-detail-time").props.accessibilityLabel).toBe("calendar.detail.time");
+    expect(tile.props.accessibilityLabel).not.toBe("calendar.detail.date");
+    expect(n.queryByTestId("class-detail-until")).toBeNull(); // the series' end is the screen's one repeat line
+    // The capacity line is the block's last child.
+    expect(block.findAll((x) => x.props?.testID === "class-detail-capacity" && typeof x.type === "string")).toHaveLength(1);
+
+    // A one-off class with neither level, club nor court: no facts line.
+    const bare = await renderNative(
+      <ClassWhenHeader editing={false} {...base}>
+        <Text testID="class-detail-capacity">—</Text>
+      </ClassWhenHeader>
+    );
+    expect(bare.queryByTestId("class-detail-facts")).toBeNull();
+    expect(bare.queryByTestId("class-detail-place")).toBeNull();
+    expect(text(bare.byTestId("class-detail-capacity"))).toBe("—");
+
+    // Editing: no block, the children are the boxes.
+    const editing = await renderNative(
+      <ClassWhenHeader editing {...base} levelCode="I2">
+        <Text testID="a-box">box</Text>
+      </ClassWhenHeader>
+    );
+    expect(editing.queryByTestId("class-detail-when")).toBeNull();
+    expect(editing.queryByTestId("class-detail-date-tile")).toBeNull();
+    expect(editing.queryByTestId("a-box")).not.toBeNull();
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-44] a student's facts line is the place only", async () => {
+    const n = await renderNative(
+      <ClassWhenHeader editing={false} {...base} clubName="Clube Norte">
+        <Text testID="class-detail-capacity">3/8</Text>
+      </ClassWhenHeader>
+    );
+    expect(n.queryByTestId("class-detail-level")).toBeNull();
+    expect(text(n.byTestId("class-detail-facts"))).not.toContain("·");
+    expect(text(n.byTestId("class-detail-facts"))).not.toContain("—");
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-44] the screen mounts the block while reading, the boxes while editing, and keeps its one repeat line", () => {
+    const src = readFileSync(join(__dirname, "../../../app/class/[id].tsx"), "utf8");
+    expect(src).toMatch(/<ClassWhenHeader[\s\S]*?editing=\{isEditing\}/);
+    // The date, time and level boxes are drawn only while editing; the capacity box (its count, "—" without a capacity) stays.
+    const afterHeader = src.slice(src.indexOf("<ClassWhenHeader"), src.indexOf("</ClassWhenHeader>"));
+    expect(afterHeader).toMatch(/\{isEditing \? \(\s*<View className="flex-row gap-3">/);
+    expect(afterHeader).toContain('testID="class-detail-capacity"');
+    expect(afterHeader).toMatch(/maxPlayers \? `\$\{filled\}\/\$\{maxPlayers\}` : "—"/);
+    expect(src.match(/testID="class-detail-capacity"/g)?.length).toBe(1);
+    // The one repeat line below the block, as today (the series' end is said once, there).
+    expect(src).toContain('{isRecurring && !isEditing ? (');
+    expect(src).toContain('t("calendar.detail.recurringClassUntil"');
+  });
+});
