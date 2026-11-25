@@ -48,15 +48,6 @@ def _occurrence_court(client, lesson_id):
         return (card or {}).get("id"), detail
 
 
-def _assert_refused_or_kept(res, client, lesson_id, court2):
-    body = res.get_json()
-    if res.status_code == 400:
-        assert "courtId" in (body.get("fields") or []), body
-        return
-    assert res.status_code == 200, body
-    assert _occurrence_court(client, lesson_id) == (court2, court2)
-
-
 @pytest.mark.criterion("CLUBS-COURTS-7")
 def test_single_occurrence_court_on_a_materialised_instance(client, world):
     from padel_app.models import Lesson
@@ -71,7 +62,8 @@ def test_single_occurrence_court_on_a_materialised_instance(client, world):
     instance_event = {**event, "model": "LessonInstance", "originalId": instance_id, "date": OCCURRENCE}
     payload = {"event": instance_event, "scope": "single", "updates": {"courtId": court2}}
     res = client.post("/api/app/edit_class", json=payload, headers=world["a"])
-    _assert_refused_or_kept(res, client, lesson_id, court2)
+    assert res.status_code == 200, res.get_json()
+    assert _occurrence_court(client, lesson_id) == (court2, court2)
 
 
 @pytest.mark.criterion("CLUBS-COURTS-7")
@@ -84,10 +76,7 @@ def test_single_occurrence_court_before_materialisation(client, world):
 
     payload = {"event": {**event, "date": OCCURRENCE}, "scope": "single", "updates": {"courtId": court2}}
     res = client.post("/api/app/edit_class", json=payload, headers=world["a"])
-    if res.status_code == 400:
-        assert "courtId" in (res.get_json().get("fields") or []), res.get_json()
-        return
-    assert res.status_code in (200, 201), res.get_json()
+    assert res.status_code == 201, res.get_json()
     assert _occurrence_court(client, lesson_id) == (court2, court2)
 
 
