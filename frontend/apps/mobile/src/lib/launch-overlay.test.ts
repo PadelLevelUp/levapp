@@ -14,7 +14,7 @@ describe("the launch overlay's release (PAD-587, mobile.launch rule 2)", () => {
     expect(overlayMayRelease({ fontsReady: true, firstScreenReady: true })).toBe(true);
   });
 
-  it("the grace is short: a slow network, not the animation, is what the user waits for", () => {
-    expect(LAUNCH_RELEASE_GRACE_MS).toBeLessThanOrEqual(500);
+  it("[MOBILE-LAUNCH-2] the grace is 300 ms: a slow network, not the animation, is what the user waits for", () => {
+    expect(LAUNCH_RELEASE_GRACE_MS).toBe(300);
   });
 });
