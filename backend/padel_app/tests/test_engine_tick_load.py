@@ -359,8 +359,5 @@ def test_a_session_with_nothing_due_reads_a_bounded_amount_whatever_the_history(
         lesson = db.session.get(Lesson, row.lesson_id)
         _history(lesson, 30, before=lesson.start_datetime)
     listed_after, _, effects, large = _sessions_tick(NOW + timedelta(minutes=3))
-    assert effects == [] and listed_after >= listed
-    if listed_after == listed:
-        assert (large.n, large.loaded, large.params) == (small.n, small.loaded, small.params)
-    assert large.n <= STATEMENTS_PER_IDLE_SESSION * listed_after + 2
-    assert large.params == small.params
+    assert effects == [] and listed_after == listed          # the other coach's classes are on no engine row
+    assert (large.n, large.loaded, large.params) == (small.n, small.loaded, small.params)
