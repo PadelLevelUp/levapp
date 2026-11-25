@@ -54,6 +54,10 @@ def test_the_class_full_push_for_a_one_off_class_opens_that_class(app, pushes):
     assert closed == 1
     urls = [p["url"] for p in pushes if p.get("url", "").startswith("/calendar")]
     assert urls == [f"/calendar?classId=lessoninstance-{ids['instance_id']}&date={date}"]
+    # Rule 27: the same string `class_href` builds for this class, so the two cannot drift.
+    from padel_app.helpers.dashboard.coach_home import class_href
+
+    assert urls == [class_href({"id": f"lessoninstance-{ids['instance_id']}", "date": date})]
 
 
 @pytest.mark.criterion("CALENDAR-EVENT-DETAIL-41")
@@ -82,3 +86,6 @@ def test_the_class_full_push_for_a_series_occurrence_opens_that_occurrence(app, 
     assert closed == 1 and date == next_week.isoformat()
     urls = [p["url"] for p in pushes if p.get("url", "").startswith("/calendar")]
     assert urls == [f"/calendar?classId=lessoninstance-{occurrence_id}&date={next_week.isoformat()}"]
+    from padel_app.helpers.dashboard.coach_home import class_href
+
+    assert urls == [class_href({"id": f"lessoninstance-{occurrence_id}", "date": next_week.isoformat()})]
