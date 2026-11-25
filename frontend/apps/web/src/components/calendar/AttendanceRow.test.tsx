@@ -42,6 +42,7 @@ function row(presence: Record<string, unknown>, audience: "student" | "coach" = 
         justification: presence.justification as "justified" | "unjustified" | undefined,
       }}
       onChange={() => {}}
+      classEnded
       disabled
       presence={presence}
       audience={audience}
@@ -97,6 +98,7 @@ describe("one state word per row", () => {
       validated: true,
     });
     expect(badge).toHaveAttribute("data-state", "missed");
+    expect(badge).toHaveTextContent("calendar.attendanceState.missed.coach");
   });
 });
 
@@ -144,12 +146,12 @@ describe("PAD-567: pressing the selected status clears the row", () => {
     const onChange = vi.fn();
     const player = { id: "7", name: "Rui Santos" } as unknown as Player;
     const { rerender } = render(
-      <AttendanceRow player={player} attendance={{ status: "present" }} onChange={onChange} />
+      <AttendanceRow player={player} attendance={{ status: "present" }} onChange={onChange} classEnded />
     );
     screen.getByTestId("attendance-present").click();
     expect(onChange).toHaveBeenLastCalledWith({ status: null, justification: undefined });
     rerender(
-      <AttendanceRow player={player} attendance={{ status: "absent", justification: "justified" }} onChange={onChange} />
+      <AttendanceRow player={player} attendance={{ status: "absent", justification: "justified" }} onChange={onChange} classEnded />
     );
     screen.getByTestId("attendance-absent").click();
     expect(onChange).toHaveBeenLastCalledWith({ status: null, justification: undefined });

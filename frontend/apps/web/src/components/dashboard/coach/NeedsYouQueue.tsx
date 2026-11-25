@@ -98,6 +98,34 @@ function QueueItem({
 }
 
 /**
+ * Dashboard.blocks rule 14 (UI idea 1): the title, the detail line and "Abrir" at the right of the title,
+ * its touch area 44px high. The Yes / No strip is the card's foot, outside its padding.
+ */
+function AskHead({
+  title,
+  detail,
+  openLabel,
+  onOpen,
+}: {
+  title: string;
+  detail: string;
+  openLabel: string;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-[15px] font-bold">{title}</span>
+        <span className="text-[13px] text-muted-foreground tabular-nums">{detail}</span>
+      </div>
+      <Button variant="ghost" size="sm" className="-mr-2 -mt-2 h-11 shrink-0" onClick={onOpen}>
+        {openLabel}
+      </Button>
+    </div>
+  );
+}
+
+/**
  * PAD-920 (dashboard.blocks NA1–NA2): the new engine found nobody left to invite for a spot type.
  * First in the queue; the card opens the class, and "Mais tarde" snoozes it as it snoozes
  * `empty_seats`. Its words come from the copy helper iOS shares.
@@ -244,33 +272,31 @@ function InviteCard({
   const canAnswer = typeof item.lessonInstanceId === "number";
 
   return (
-    <ActionCard accent="attention" className="flex flex-col gap-3.5" testId="dashboard-queue-invite">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[15px] font-bold">
-          {t("dashboard.needsYou.invite.title", { class: item.classTitle })}
-        </span>
-        <span className="text-[13px] text-muted-foreground tabular-nums">
-          {t("dashboard.needsYou.invite.detail", {
-            date: shortDate(item.date, i18n.language),
-            time: item.timeLabel,
-            filled: item.filled,
-            capacity: item.capacity,
-          })}
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        {canAnswer && (
+    <ActionCard
+      accent="attention"
+      className="flex flex-col gap-3.5"
+      testId="dashboard-queue-invite"
+      foot={
+        canAnswer ? (
           <AnswerButtons
-            className="flex items-center gap-2"
+            layout="strip"
             busy={busyId === item.lessonInstanceId}
             onAnswer={(action) => answer(item.lessonInstanceId as number, action)}
           />
-        )}
-        <span className="flex-1" />
-        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(item.href)}>
-          {t("dashboard.needsYou.invite.open")}
-        </Button>
-      </div>
+        ) : undefined
+      }
+    >
+      <AskHead
+        title={t("dashboard.needsYou.invite.title", { class: item.classTitle })}
+        detail={t("dashboard.needsYou.invite.detail", {
+          date: shortDate(item.date, i18n.language),
+          time: item.timeLabel,
+          filled: item.filled,
+          capacity: item.capacity,
+        })}
+        openLabel={t("dashboard.needsYou.invite.open")}
+        onOpen={() => navigate(item.href)}
+      />
     </ActionCard>
   );
 }
@@ -302,31 +328,25 @@ function VacancyInviteCard({
       accent="attention"
       className="flex flex-col gap-3.5"
       testId="dashboard-queue-vacancy-invite"
-    >
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[15px] font-bold">
-          {t("dashboard.needsYou.vacancyInvite.title", { class: item.classTitle })}
-        </span>
-        <span className="text-[13px] text-muted-foreground tabular-nums">
-          {t("dashboard.needsYou.vacancyInvite.detail", {
-            date: shortDate(item.date, i18n.language),
-            time: item.timeLabel,
-            filled: item.filled,
-            capacity: item.capacity,
-          })}
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
+      foot={
         <AnswerButtons
-          className="flex items-center gap-2"
+          layout="strip"
           busy={busyId === answerId}
           onAnswer={(action) => answerId !== undefined && answer(answerId, action)}
         />
-        <span className="flex-1" />
-        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(item.href)}>
-          {t("dashboard.needsYou.vacancyInvite.open")}
-        </Button>
-      </div>
+      }
+    >
+      <AskHead
+        title={t("dashboard.needsYou.vacancyInvite.title", { class: item.classTitle })}
+        detail={t("dashboard.needsYou.vacancyInvite.detail", {
+          date: shortDate(item.date, i18n.language),
+          time: item.timeLabel,
+          filled: item.filled,
+          capacity: item.capacity,
+        })}
+        openLabel={t("dashboard.needsYou.vacancyInvite.open")}
+        onOpen={() => navigate(item.href)}
+      />
     </ActionCard>
   );
 }
@@ -348,29 +368,23 @@ function WaitingListOfferCard({
       accent="attention"
       className="flex flex-col gap-3.5"
       testId="dashboard-queue-waiting-list-offer"
-    >
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[15px] font-bold">
-          {t("dashboard.needsYou.waitingListOffer.title", { class: item.classTitle })}
-        </span>
-        <span className="text-[13px] text-muted-foreground tabular-nums">
-          {t("dashboard.needsYou.waitingListOffer.detail", {
-            date: shortDate(item.date, i18n.language),
-            time: item.timeLabel,
-          })}
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
+      foot={
         <AnswerButtons
-          className="flex items-center gap-2"
+          layout="strip"
           busy={busyId === item.lessonInstanceId}
           onAnswer={(action) => answer(item.lessonInstanceId, action)}
         />
-        <span className="flex-1" />
-        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(item.href)}>
-          {t("dashboard.needsYou.waitingListOffer.open")}
-        </Button>
-      </div>
+      }
+    >
+      <AskHead
+        title={t("dashboard.needsYou.waitingListOffer.title", { class: item.classTitle })}
+        detail={t("dashboard.needsYou.waitingListOffer.detail", {
+          date: shortDate(item.date, i18n.language),
+          time: item.timeLabel,
+        })}
+        openLabel={t("dashboard.needsYou.waitingListOffer.open")}
+        onOpen={() => navigate(item.href)}
+      />
     </ActionCard>
   );
 }

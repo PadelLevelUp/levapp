@@ -164,8 +164,6 @@ reminder fan-out reads `blocked_players_for_instance` in `notification_service.p
 - **Then** the first coach is told the student is blocked; the second gets 200 with nobody listed
 - **And** when the check fails it returns no warning, so the form saves
 test: `frontend/apps/mobile/src/features/calendar/unavailable-check.test.ts` › `a failed lookup saves anyway` (+1 more)
-- Code to follow: add a web test that a failed conflict check never stops the save, covering the catch in
-  `AddClassSheet.tsx`, as the iOS `unavailable-check.test.ts` does for its helper.
 
 #### CALENDAR-STUDENT-BLOCKERS-12: The sheet turns what the student filled in into the block that is saved (rules 15, 16)
 - **Given** the Criar bloqueio sheet
@@ -175,9 +173,6 @@ test: `frontend/apps/mobile/src/features/calendar/unavailable-check.test.ts` ›
 - **And** with no weekday chosen it repeats on the start date's weekday, and with no end date it ends three months after the start
 - **And** an existing block opens in the sheet with its own values
 test: `frontend/packages/config/src/blocker-draft.test.ts` › `builds a recurring block from its weekdays and end date` (+3 more)
-- Code to follow: delete `availabilityBlockerSchema` from `frontend/packages/validation/src/index.ts` and
-  its test in `index.test.ts`; nothing imports it, and `blockerDraftError` is the shared validation (rule
-  16).
 
 #### CALENDAR-STUDENT-BLOCKERS-13: A student's edit writes what was sent, and a blocker made one-off stops repeating (rule 3, and rule 17 "An edit writes what was sent")
 - **Given** a student's weekly blocker on Mondays with a reason
@@ -185,9 +180,6 @@ test: `frontend/packages/config/src/blocker-draft.test.ts` › `builds a recurri
 - **Then** the emptied reason is cleared, and the null end date is 400 naming `endDate`, with the end date unchanged
 - **And** once it is a one-off the student is blocked on that Monday only, and free two Mondays later
 test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_a_students_blocker_edit_clears_an_emptied_title_and_refuses_a_null_end_while_recurring` (+2 more)
-- Code to follow: rename
-  `test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week` in
-  `test_pad367_falsy_values_at_the_route.py` to say the student is free again two weeks later.
 
 #### CALENDAR-STUDENT-BLOCKERS-14: Deleting or moving one occurrence keeps the rest of the series a blocker (rules 3, 5; B-727)
 - **Given** a student's weekly blocker on Mondays 10:00–11:00 from 2026-10-05 to 2026-10-26

@@ -42,7 +42,7 @@ const acceptSchema = z
     username: z.string().min(3, "usernameMin"),
     // clubs.coach-invitation rule 9 (PAD-477): the coach confirms this address with a code.
     email: z.string().trim().email("emailInvalid"),
-    password: z.string().min(6, "passwordMin"),
+    password: z.string().min(8, "passwordMin"), // owner decision 2026-11-10: 8 everywhere
     repeatPassword: z.string(),
     // PAD-457: adults only — this form creates a login.
     birthDate: z
@@ -160,6 +160,11 @@ const CoachInvitePage = () => {
       const birthKey = BIRTH_CODE_KEYS[error?.response?.data?.code ?? ""];
       if (code === 400 && error?.response?.data?.field === "birthDate" && birthKey) {
         setErrors((prev) => ({ ...prev, birthDate: t(`auth.coachInvite.${birthKey}`) }));
+        return;
+      }
+      // clubs.coach-invitation rule 10 (PAD-867): a password under 8 belongs on its field.
+      if (code === 400 && error?.response?.data?.field === "password") {
+        setErrors((prev) => ({ ...prev, password: t("auth.coachInvite.passwordMin") }));
         return;
       }
       // PAD-637: a Terms refusal belongs on the box.

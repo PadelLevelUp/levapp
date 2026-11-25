@@ -147,6 +147,8 @@
       "markUnjustified": "Marcar a falta de {{name}} como injustificada"
     },
     "detail": {
+      "typePrivate": "Particular",
+      "typeAcademy": "Academia",
       "date": "Data",
       "until": "Até",
       "untilDate": "Até {{date}}",
@@ -411,6 +413,9 @@
       "classStarted": "Esta aula já começou; já não é possível convidar.",
       "alreadyInvited": "Já têm um convite em aberto para esta aula: {{names}}",
       "blockedByPreference": "Não foi possível notificar: {{names}} (bloqueou notificações)",
+      "remindAlreadyConfirmed": "Já confirmaram, por isso sem lembrete: {{names}}",
+      "remindNotComing": "Não vêm, por isso sem lembrete: {{names}}",
+      "remindLimitReached": "Já receberam o número máximo de lembretes: {{names}}",
       "searchStudents": "Pesquisar alunos"
     },
     "playerSelector": {

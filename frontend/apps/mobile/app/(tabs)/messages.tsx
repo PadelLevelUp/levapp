@@ -1,13 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { messagesApi } from "@levelup/api";
-import { useConversations } from "@levelup/hooks";
-import type { Conversation } from "@levelup/types";
-import { router } from "expo-router";
+import {
+  queryKeys,
+  useCoachDisplayNameByUser,
+  useCoachRoster,
+  useConversations,
+  useMessageableUsers,
+} from "@levelup/hooks";
+import type { Conversation, User } from "@levelup/types";
+import { useQueryClient } from "@tanstack/react-query";
+import { router, useFocusEffect } from "expo-router";
 import { openConversation } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, View } from "react-native";
-import { lightTheme, searchPeopleByName } from "@levelup/config";
+import { lightTheme, searchMessages } from "@levelup/config";
 import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -15,13 +22,19 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { ConversationItem } from "@/features/messages/components/conversation-item";
+import { StartConversationItem } from "@/features/messages/components/start-conversation-item";
 import { normalizeId } from "@/features/messages/utils";
+import { describeApiError } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { refetchAll } from "@/lib/pull-refresh";
 import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
+import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 
 const PAGE_SIZE = 20;
+
+/** A row of the list: a conversation, or a person a coach's search found (rule 20). */
+type ListRow = Conversation | { startUser: User };
 
 function ConversationListSkeleton() {
   return (
@@ -85,17 +98,52 @@ export default function MessagesScreen() {
   // Mirrors web's ConversationList.tsx client-side participantName filter.
   // PAD-203: `participantName` is null for a conversation whose counterpart is
   // gone, so it falls back to the same label the row renders.
-  const filteredConversations = React.useMemo(() => {
-    if (!search) return conversations;
-    // PAD-665 (players.search rule 8): a coach's filter uses the shared name rule; a student
-    // keeps the plain substring match.
-    return searchPeopleByName(
+  // PAD-665 (players.search rule 8): a coach's filter uses the shared name rule; a student
+  // keeps the plain substring match. Rule 20 (PAD-831): a coach's search also offers the people
+  // they may message; under "Não lidas" it filters the unread rows only.
+  const queryClient = useQueryClient();
+  const { data: people } = useMessageableUsers({ enabled: isCoach });
+  const { data: roster } = useCoachRoster({ enabled: isCoach });
+  const coachNameOf = useCoachDisplayNameByUser({ enabled: isCoach });
+  // Once per visit: the tab stays mounted, so a student added elsewhere shows on the next visit.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isCoach) return;
+      void queryClient.invalidateQueries(
+        { queryKey: queryKeys.messageableUsers },
+        { cancelRefetch: false }
+      );
+    }, [isCoach, queryClient])
+  );
+  const rows = React.useMemo((): ListRow[] => {
+    const found = searchMessages(
       conversations,
       search,
       (c) => c.participantName ?? t("messages.deletedUser"),
-      { coach: isCoach }
+      { coach: isCoach, people: unreadOnly ? undefined : people, roster }
     );
-  }, [conversations, search, t, isCoach]);
+    return [...found.conversations, ...found.people.map((startUser) => ({ startUser }))];
+  }, [conversations, search, t, isCoach, unreadOnly, people, roster]);
+
+  const [startingId, setStartingId] = React.useState<string | null>(null);
+  const [startError, setStartError] = React.useState<string | null>(null);
+  const handleStart = async (userId: string) => {
+    if (startingId) return;
+    setStartingId(userId);
+    setStartError(null);
+    try {
+      const conversation = await messagesApi.createConversation({ otherParticipants: [userId] });
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      openConversation(router, `/conversation/${conversation.id}`);
+    } catch (error) {
+      const info = describeApiError(error);
+      if (info.network) setStartError(t("auth.login.networkError"));
+      else if (info.status === 403) setStartError(t("messages.cannotMessageUser"));
+      else setStartError(t("messages.somethingWentWrong"));
+    } finally {
+      setStartingId(null);
+    }
+  };
 
   const loadMore = React.useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -157,20 +205,35 @@ export default function MessagesScreen() {
 
   return (
     <View className="flex-1 bg-background" testID="screen-messages">
+      {/* messaging.push-notifications rule 17 (PAD-789): the thread's notification banner, one line
+          above the list, with the same cases; its tap is the only prompt. */}
+      <NotificationsBlockedBanner />
       {/* With "Não lidas" on, the controls stay even when nothing is unread, so it can be undone. */}
-      {!isLoading && !isError && (conversations.length > 0 || unreadOnly) ? (
+      {!isLoading && !isError && (conversations.length > 0 || unreadOnly || isCoach) ? (
         <View className="gap-3 px-4 pb-3 pt-3">
           <Input
             testID="conversations-search"
             accessibilityLabel={t("messages.searchConversationAria")}
             placeholder={t("messages.searchConversationPlaceholder")}
             value={search}
-            onChangeText={setSearch}
+            onChangeText={(value) => {
+              setSearch(value);
+              setStartError(null);
+            }}
           />
           <View className="flex-row gap-2" accessibilityLabel={t("messages.filterAria")}>
             {filterChip(false, "conversations-filter-all", t("messages.filterAll"))}
             {filterChip(true, "conversations-filter-unread", t("messages.filterUnread"))}
           </View>
+          {startError ? (
+            <Text
+              accessibilityRole="alert"
+              testID="conversation-start-error"
+              className="text-sm text-destructive"
+            >
+              {startError}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -187,14 +250,14 @@ export default function MessagesScreen() {
           icon="checkmark-done-outline"
           title={t("messages.noUnreadConversations")}
         />
-      ) : conversations.length === 0 ? (
+      ) : conversations.length === 0 && !(isCoach && search.trim()) ? (
         <EmptyState
           testID="conversations-empty-none"
           icon="chatbubbles-outline"
           title={t("messages.noConversationsYet")}
           message={t("messages.startWithPlusButton")}
         />
-      ) : filteredConversations.length === 0 ? (
+      ) : rows.length === 0 ? (
         // players.search rule 10: a coach's search that finds nobody says so, with the query.
         isCoach && search.trim() ? (
           <View className="items-center px-6 py-8">
@@ -208,14 +271,25 @@ export default function MessagesScreen() {
         )
       ) : (
         <FlatList
-          data={filteredConversations}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => (
-            <ConversationItem
-              conversation={item}
-              onPress={() => openConversation(router, `/conversation/${item.id}`)}
-            />
-          )}
+          data={rows}
+          keyExtractor={(item) => ("startUser" in item ? `start-${item.startUser.id}` : String(item.id))}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) =>
+            "startUser" in item ? (
+              <StartConversationItem
+                person={item.startUser}
+                name={coachNameOf(item.startUser.id, item.startUser.name)}
+                starting={startingId === String(item.startUser.id)}
+                disabled={startingId !== null}
+                onPress={() => void handleStart(String(item.startUser.id))}
+              />
+            ) : (
+              <ConversationItem
+                conversation={item}
+                onPress={() => openConversation(router, `/conversation/${item.id}`)}
+              />
+            )
+          }
           contentContainerStyle={{ paddingBottom: 96 }}
           refreshControl={
             <RefreshControl

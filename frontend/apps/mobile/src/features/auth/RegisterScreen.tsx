@@ -15,6 +15,7 @@ import {
   ACTIVATION_COUNTRY_CODES,
   registerSchema,
   validateAccountForm,
+  passwordRefusedByServer,
 } from "@/features/auth/account-setup";
 import { formatBirthInput, toIso } from "@/features/auth/signup-form";
 
@@ -163,6 +164,11 @@ export function RegisterScreen({
       const key = data?.data?.code ? ACTIVATION_BIRTH_CODES[data.data.code] : undefined;
       if (data?.status === 400 && data.data?.field === "birthDate" && key) {
         setErrors({ birthDate: t(`auth.register.${key}`) });
+        return;
+      }
+      // PAD-858/859: the server's password refusal belongs on the field, in the form's words.
+      if (passwordRefusedByServer(err)) {
+        setErrors({ password: t("auth.register.passwordMin") });
         return;
       }
       // PAD-637: a Terms refusal belongs on the box.

@@ -141,7 +141,6 @@ shown on the card and the detail, and named by the `{court}` message placeholder
 - **When** the coach edits it with `courtId: null`
 - **Then** the response is 400 naming `courtId` and the occurrence still shows "Campo 1"
 - **And** the same holds for an occurrence not yet materialised (a `Lesson` event and its date)
-- Code to follow: `test_single_occurrence_court_on_a_materialised_instance` and `test_single_occurrence_court_before_materialisation` (`test_pad513_occurrence_court.py`) accept a 400 today; tighten them to 200 and 201.
 
 #### CLUBS-COURTS-8: A series court change reaches the occurrences from the boundary on
 - **Given** occurrences of 2026-10-12 and 2026-10-26, both on "Campo 2" of their own

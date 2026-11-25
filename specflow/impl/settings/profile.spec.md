@@ -165,8 +165,6 @@ test: `backend/padel_app/tests/test_pad640_profile_birth_date.py` › `test_a_pa
 - **And** the bad email answers 400 and the stored email stays
 - **And** the long abbreviation is stored as `ABCD`
 test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_own_profile_an_empty_phone_clears_it` (+3 more)
-- Code to follow: `test_empty_phone_clears_it` in `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py`
-  asserts the stored phone `is None`, not `None` or `""`.
 
 #### SETTINGS-PROFILE-14: Once saved, the form follows the server again (rule 8)
 - **Given** the iOS profile form after the coach edited the phone and saved

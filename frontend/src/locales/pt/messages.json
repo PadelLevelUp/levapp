@@ -102,6 +102,7 @@
     },
     "conversationWithAria": "Conversa com {{name}}",
     "startConversationWithAria": "Iniciar conversa com {{name}}",
+    "startConversation": "Iniciar conversa",
     "searchPeopleAria": "Pesquisar pessoas",
     "searchPeoplePlaceholder": "Pesquisar pessoas…",
     "couldNotLoadPeople": "Não foi possível carregar as pessoas.",

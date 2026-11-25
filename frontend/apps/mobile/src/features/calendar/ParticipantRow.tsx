@@ -20,6 +20,7 @@ import {
   attendanceStateTone,
   cancellationDetail,
   displayStateOf,
+  participantInitials,
   reminderHint,
   type StateAudience,
   type StateTone,
@@ -42,15 +43,6 @@ const BADGE_VARIANT: Record<StateTone, "secondary" | "success" | "warning" | "de
   warning: "warning",
   negative: "destructive",
 };
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 type ParticipantRowProps = {
   player: Player;
@@ -76,7 +68,7 @@ type ParticipantRowProps = {
    * is worded as the intent it records ("Vai"), so the badge word and tone follow
    * `displayStateOf`. The test id below keeps the STORED state.
    */
-  classEnded?: boolean;
+  classEnded: boolean;
 };
 
 /** Mobile analogue of the web AttendanceRow: name + presence badges, with
@@ -89,7 +81,7 @@ export function ParticipantRow({
   canMark,
   audience = "coach",
   side,
-  classEnded = true,
+  classEnded,
 }: ParticipantRowProps) {
   // PAD-660: a coach reads the nickname they gave the student; the student's own row keeps their name.
   const displayName = useCoachDisplayName({ enabled: audience === "coach" });
@@ -129,7 +121,7 @@ export function ParticipantRow({
       <View className="flex-row items-center gap-2">
         <Avatar alt={name} className="h-8 w-8">
           <AvatarFallback>
-            <Text className="text-xs">{initials(name)}</Text>
+            <Text className="text-xs">{participantInitials(name)}</Text>
           </AvatarFallback>
         </Avatar>
         <Text className="flex-1 text-sm font-medium" numberOfLines={1}>

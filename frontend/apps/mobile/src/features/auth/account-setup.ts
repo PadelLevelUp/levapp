@@ -92,7 +92,8 @@ export function registerTokenFromParam(
 /* ---------- form validation ---------- */
 
 const passwordPair = {
-  password: z.string().min(6, "passwordMin"),
+  // Owner decision 2026-11-10: 8 for every new password (auth.register rule 4); sign-in keeps 6.
+  password: z.string().min(8, "passwordMin"),
   repeatPassword: z.string(),
 };
 
@@ -226,6 +227,19 @@ export function submitOutcomeForStatus(
 export function statusFromError(error: unknown): number | undefined {
   const response = (error as { response?: { status?: number } } | null)?.response;
   return typeof response?.status === "number" ? response.status : undefined;
+}
+
+/**
+ * A server 400 that names the password (PAD-858/859): the invitations answer as sign-up does
+ * (`field: "password"`), activation answers `invalid_fields` with a `fields` list. The forms refuse
+ * under 8 before sending, so this is the server having the last word; it shows on the field.
+ */
+export function passwordRefusedByServer(error: unknown): boolean {
+  const res = (error as { response?: { status?: number; data?: { field?: string; fields?: unknown } } } | null)
+    ?.response;
+  if (res?.status !== 400) return false;
+  const fields = res.data?.fields;
+  return res.data?.field === "password" || (Array.isArray(fields) && fields.includes("password"));
 }
 
 /** Convenience: `statusFromError` + `submitOutcomeForStatus`. */

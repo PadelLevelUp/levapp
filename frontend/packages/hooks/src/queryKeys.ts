@@ -13,9 +13,15 @@ export const queryKeys = {
     ["calendar-events", { from, to }] as const,
   classInstance: (event: Pick<CalendarEvent, "model" | "originalId" | "date">) =>
     ["class-instance", event.model, event.originalId, event.date] as const,
+  // The class screen's by-id read (calendar.event-detail rule 15): under the class-instance family so every
+  // broad invalidation of it (the live events in requestEvents.ts, the calendar mutations) refreshes it too.
+  lessonInstanceById: (instanceId: number | null | undefined) =>
+    ["class-instance", "by-id", instanceId ?? "none"] as const,
   // The coach's whole roster (`GET /app/coach_players`): mobile's coachPlayersKey, and the
   // source of PAD-660's display names (useCoachDisplayName).
   coachPlayers: ["coach-players"] as const,
+  // Who the viewer may start a conversation with (messaging.conversations rule 7).
+  messageableUsers: ["messageable-users"] as const,
   coachPlayersPaginated: (params: PlayersQueryParams = {}) =>
     ["coach-players-paginated", params] as const,
   // client.query-cache: the prefix every roster write invalidates (all pages and filters).

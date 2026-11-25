@@ -147,6 +147,8 @@
       "markUnjustified": "Mark {{name}}'s absence unjustified"
     },
     "detail": {
+      "typePrivate": "Private",
+      "typeAcademy": "Academy",
       "date": "Date",
       "until": "Until",
       "untilDate": "Until {{date}}",
@@ -411,6 +413,9 @@
       "classStarted": "This class has already started; invitations are closed.",
       "alreadyInvited": "Already holding an open invitation for this class: {{names}}",
       "blockedByPreference": "Could not notify: {{names}} (notifications blocked)",
+      "remindAlreadyConfirmed": "Already confirmed, so not reminded: {{names}}",
+      "remindNotComing": "Not coming, so not reminded: {{names}}",
+      "remindLimitReached": "Already reminded the maximum number of times: {{names}}",
       "searchStudents": "Search students"
     },
     "playerSelector": {

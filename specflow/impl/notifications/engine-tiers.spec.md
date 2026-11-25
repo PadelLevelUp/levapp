@@ -192,6 +192,7 @@ test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test
 Given the only open spot is a right spot at level 3 and a level-2 left-sider on the students' list,
 when the run plans, then the left-sider is invited before any group, the side named.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P23-waiting-list-ignores-side-and-level]`
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P44-a-both-regular-lets-a-one-sided-waiting-entry-in]`
 
 #### NOTIFICATIONS-ENGINE-TIERS-4: No automatic tier invites a student who fails a gate (rule 3; S25)
 Given three students on the students' list, one excluded by the coach (absent from `pool`), one in

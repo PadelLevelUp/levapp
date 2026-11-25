@@ -32,6 +32,7 @@ import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
+import { ClassCapacityBar } from "./ClassCapacityBar";
 import { ClassPlanningSection } from "./ClassPlanningSection";
 
 import type {
@@ -47,7 +48,7 @@ import type {
 } from "@/types";
 
 
-import { assignedSideOf, blockedNames, classBarRefusal, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, sideLongKeyOf, sideWordKey } from "@levelup/config";
+import { assignedSideOf, blockedNames, classBarRefusal, classTypeChipKey, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
 import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -83,6 +84,7 @@ import { ManualNotificationModal } from "./ManualNotificationModal";
 import { Badge } from "@/components/ui/badge";
 import { ClassWaitingListSection } from "./ClassWaitingListSection";
 import { ClassSideChoice } from "./ClassSideChoice";
+import { ClassWaitingListLeave } from "./ClassWaitingListLeave";
 import { busySameHourDescription } from "./busySameHourDescription";
 import { JoinRequestSide } from "./JoinRequestSide";
 import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
@@ -236,6 +238,8 @@ export function ClassDetailSheet({
   // PAD-672 (join-requests rule 20): the side sheet, and the side of the place just joined.
   const [sideSheet, setSideSheet] = useState<"request" | "waiting" | null>(null);
   const [joinedWaitingSide, setJoinedWaitingSide] = useState<PlayerSide | null>(null);
+  // PAD-934: the class whose waiting-list place the student just left from this sheet.
+  const [leftWaitingFor, setLeftWaitingFor] = useState<string | null>(null);
   const [pendingAccept, setPendingAccept] = useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -612,6 +616,7 @@ export function ClassDetailSheet({
   }, [open, canManage, token]);
 
   const active = draft ?? classInstance;
+  const chipKey = classTypeChipKey(active?.classType ?? event?.classType);
   const isCanceled = active?.status === "canceled";
 
   // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
@@ -677,6 +682,17 @@ export function ClassDetailSheet({
     setJoinedWaitingFor(String(event.id));
     setJoinedWaitingSide(side);
     toast({ title: t("calendar.waitingList.joined") });
+    void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    void refreshInstance();
+  };
+  // PAD-934: the lesson instance a waiting-list place is on (an occurrence the student waits for is materialised).
+  const waitingLeaveId =
+    event?.model === "LessonInstance" ? Number(event.originalId) : classInstance?.id != null ? Number(classInstance.id) : null;
+  const handleWaitingLeft = () => {
+    if (!event) return;
+    setLeftWaitingFor(String(event.id));
+    setJoinedWaitingFor(null);
+    setJoinedWaitingSide(null);
     void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
     void refreshInstance();
   };
@@ -1316,6 +1332,12 @@ export function ClassDetailSheet({
                 <span className="truncate" data-testid="class-detail-title">{active.name}</span>
               )}
             </SheetTitle>
+            {/* PAD-925 (classes.detail-visibility rule 6): the class type beside the title. */}
+            {chipKey ? (
+              <Badge variant="secondary" data-testid="class-type-chip" className="shrink-0">
+                {t(chipKey)}
+              </Badge>
+            ) : null}
           </div>
         </SheetHeader>
 
@@ -1466,6 +1488,18 @@ export function ClassDetailSheet({
                         {openSpots > 0 && (
                           <p className="text-xs text-muted-foreground" data-testid="class-open-spots">{pendingInvites > 0 ? t("calendar.detail.openSpotsPending", { count: openSpots, pending: pendingInvites }) : t("calendar.detail.openSpots", { count: openSpots })}</p>
                         )}
+                        {/* calendar.event-detail rule 27 (UI idea 3): the calendar card's fill bar,
+                            fed by this box's own count. */}
+                        <ClassCapacityBar
+                          participants={active.participants}
+                          presences={active.presences}
+                          capacity={active.maxPlayers}
+                          filled={effectiveFilled}
+                          status={active.status}
+                          ended={classEnded}
+                          canManage={canManage}
+                          editing={isEditing}
+                        />
                       </>
                     );
                   })()}
@@ -1883,7 +1917,7 @@ export function ClassDetailSheet({
             !isCanceled &&
             !classStarted &&
             !isStudentParticipant &&
-            (event.studentRelation === "waiting" || joinedWaitingFor === String(event.id) ? (
+            ((event.studentRelation === "waiting" && leftWaitingFor !== String(event.id)) || joinedWaitingFor === String(event.id) ? (
               <div
                 className="space-y-1 rounded-md border border-border bg-muted/30 px-3 py-2"
                 data-testid="class-waiting-list-student"
@@ -1910,8 +1944,11 @@ export function ClassDetailSheet({
                     <p className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</p>
                   </>
                 )}
+                {waitingLeaveId != null && (
+                  <ClassWaitingListLeave lessonInstanceId={waitingLeaveId} onLeft={handleWaitingLeft} />
+                )}
               </div>
-            ) : event.studentRelation === "full" ? (
+            ) : event.studentRelation === "full" || leftWaitingFor === String(event.id) ? (
               <div
                 className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2"
                 data-testid="class-waiting-list-student"
@@ -2284,6 +2321,7 @@ export function ClassDetailSheet({
                       <Button
                         variant="outline"
                         className="flex-1"
+                        data-testid="class-send-reminders"
                         disabled={isValidating || sendingReminders}
                         onClick={async () => {
                           if (!event) return;
@@ -2294,12 +2332,11 @@ export function ClassDetailSheet({
                               String(event.originalId),
                               event.date
                             );
-                            // Two unrelated reasons a student is skipped, and
-                            // the coach is told a different thing for each, so
-                            // split `blocked` by cause instead of showing one
-                            // undifferentiated list.
-                            const unavailable = blocked.filter((b) => b.cause !== "preference");
-                            const optedOut = blocked.filter((b) => b.cause === "preference");
+                            // Each cause a student is skipped for is told apart
+                            // (one shared split, class-reminders-manual rule 7),
+                            // instead of one undifferentiated list.
+                            const { unavailable, optedOut, alreadyConfirmed, notComing, reminderLimit } =
+                              splitBlockedByCause(blocked);
 
                             // PAD-107: name whoever could not be reached because
                             // they marked themselves unavailable for this slot.
@@ -2323,9 +2360,22 @@ export function ClassDetailSheet({
                                 }),
                               });
                             }
+                            // Engine #16 (class-reminders-manual rule 6): on a
+                            // new-engine class every going student not asked is
+                            // named, one line per cause.
+                            const notAsked = [
+                              [alreadyConfirmed, "calendar.notify.remindAlreadyConfirmed"],
+                              [notComing, "calendar.notify.remindNotComing"],
+                              [reminderLimit, "calendar.notify.remindLimitReached"],
+                            ] as const;
+                            for (const [rows, key] of notAsked) {
+                              if (rows.length > 0) {
+                                toast({ title: t(key, { names: blockedNames(rows, displayName) }) });
+                              }
+                            }
                             // PAD-107's ordering: no "reminders sent to 0" when
                             // everyone was skipped — that already got its toast.
-                            if (sent > 0 || blocked.length === 0) {
+                            if (shouldReportSent(sent, blocked)) {
                               toast({ title: t("calendar.detail.remindersSent", { count: sent }) });
                             }
                           } catch {

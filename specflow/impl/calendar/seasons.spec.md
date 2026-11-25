@@ -106,8 +106,6 @@ season each September.
     chosen date (rule 4's shared function). That client-side answer is a hint, never a gate: the shared helper
     reads a timestamp by its day and treats a half-typed date as no answer, and the server has no twin of
     those two cases. Web renders the backend's `no_season_covers_date` rejection in place as before. The message now says "Define your season in Settings → Calendar".
-   - Code to follow: the header of `season-coverage.test.ts` stops saying that the same cases pin the Python
-     twin.
 14. **Stats by season (web and iOS).** The attendance and absence history views gain a **Época /
     Season** range preset next to 1W / 1M / 1Y, shown only to a coach whose definition has a
     current occurrence; picking it re-queries `/attendance_history` or `/absence_history` with the
@@ -170,8 +168,6 @@ season each September.
 - **Then** the response is 400 `no_season_covers_date` and no lesson exists
 - **When** they create a recurring class with `recursUntilSeasonEnd: false` and `endDate` 2026-12-31
 - **Then** the lesson's `recurrence_end` is 2026-12-31, the date they typed
-- Code to follow: `test_toggle_off_still_honours_an_explicit_end_date` in `test_recurs_until_season_end.py`
-  asserts the end date equals 2026-12-31, not only that it is not None.
 
 #### CALENDAR-SEASONS-8: Migration collapses the old rows
 - **Given** the migration source

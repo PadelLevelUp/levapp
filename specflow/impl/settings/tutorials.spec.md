@@ -126,8 +126,6 @@ The new-engine tutorial (swap step 8, PAD-920), on web and iOS alike:
    `frontend/CLAUDE.md` — or every string renders as its key. Every `stage`, gate `code`,
    `sendStatus` and priority key from the simulation has a translation entry; an unknown code
    renders a neutral fallback, never the raw code.
-   - Code to follow: `describeGate` and `describeSendStatus` in `frontend/packages/config/src/invite-simulation.ts`
-     fall back to a neutral line for an unknown code, as `describeStage` does, each with a test.
 7. Web uses the shadcn primitives (R-015) and `@/` imports (R-011). iOS mirrors the drill-in
    pattern of the existing settings sections (section list → section → tutorial) and carries a
    `testID` on the section row, each step's picker and the results container for Maestro.

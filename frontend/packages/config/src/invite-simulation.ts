@@ -141,9 +141,22 @@ export function describeEligibilityFailure(f: EligibilityFailure): I18nText {
 // Gates, stages, rounds, badges, priorities
 // ---------------------------------------------------------------------------
 
+/** Every gate code this build has words for; a code a newer server adds falls back to a neutral
+ * line instead of its raw key (settings.tutorials rule 6). */
+const KNOWN_GATES: ReadonlySet<string> = new Set<InviteSimulationGate["code"]>([
+  "auto_notify_disabled", "class_notifications_disabled", "class_over", "invitation_window",
+  "quiet_hours", "min_time_before_class", "max_total_reached", "last_invite_before",
+  "class_auto_invites_off",
+]);
+
+/** Every send status this build has words for (same fallback as the gates). */
+const KNOWN_SEND_STATUSES: ReadonlySet<string> = new Set<InviteSendStatus>([
+  "first_batch", "queued", "daily_quota",
+]);
+
 export function describeGate(g: InviteSimulationGate): I18nText {
   return {
-    key: `${NS}.gates.${g.code}`,
+    key: `${NS}.gates.${KNOWN_GATES.has(g.code) ? g.code : "unknown"}`,
     params: {
       until: g.until ?? "",
       opensAt: formatClubDateTime(g.opensAt),
@@ -217,7 +230,7 @@ export function describeSideRoster(spot: Pick<InviteSimulationSpot, "sideCounts"
 }
 
 export function describeSendStatus(status: InviteSendStatus): I18nText {
-  return { key: `${NS}.sendStatus.${status}` };
+  return { key: `${NS}.sendStatus.${KNOWN_SEND_STATUSES.has(status) ? status : "unknown"}` };
 }
 
 export function describePriority(p: InviteSimulationPriority): I18nText {

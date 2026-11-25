@@ -315,8 +315,10 @@
         }
       },
       "push": {
-        "title": "Alcance do push (alunos ativos em 7 dias)",
-        "active": "Alunos ativos",
+        "title": "Alcance do push",
+        "active": "Alunos ativos em 7 dias",
+        "recipients": "Alunos que receberam uma mensagem nos últimos {{days}} dias",
+        "recipientsTotal": "Destinatários de mensagens",
         "noChannel": "Sem canal de push",
         "webPushOnly": "Só web push",
         "native": "Com token no telemóvel",

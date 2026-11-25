@@ -8,6 +8,7 @@ import {
   newDiagram,
   removePlayer,
   simplifyStroke,
+  interpolateStep,
 } from "./court-diagram";
 import {
   INITIAL_BOARD_STATE,
@@ -206,6 +207,16 @@ describe("mode switching (rules 2–3)", () => {
     const withCone = boardPress(game(), { ...INITIAL_BOARD_STATE, tool: "cone" }, { x: 50, y: 40 }, null).diagram!;
     expect(boardHasContent(withCone)).toBe(true);
     expect(boardHasContent(basket())).toBe(false);
+    // A step with something drawn in it counts too, on a board with no other change.
+    const withStep = boardPress(
+      game(), boardPress(game(), { ...INITIAL_BOARD_STATE, tool: "movement" }, { x: 32, y: 26 }, a1).state,
+      { x: 20, y: 40 }, null,
+    ).diagram!;
+    expect(withStep.steps).toHaveLength(1);
+    expect(withStep.pieces).toEqual(GAME_START_POSITION);
+    expect(boardHasContent(withStep)).toBe(true);
+    // Adding an empty step to a fresh board adds nothing to lose.
+    expect(boardHasContent(boardAddStep(game(), INITIAL_BOARD_STATE).diagram)).toBe(false);
   });
 
   it("switching resets to the target mode's starting position", () => {
@@ -271,6 +282,17 @@ describe("Magnético pieces (rule 16)", () => {
     expect(boardHasContent(d)).toBe(true);
     expect(boardDeleteSelected(d, { ...INITIAL_BOARD_STATE, selectedId: "a1" }).diagram?.pieces).toEqual([]);
   });
+
+  it("[TRAINING-TACTICAL-BOARD-33] a cone and a loose ball, which are not players, can be deleted too", () => {
+    const withCone = boardPress(magnetic(), { ...INITIAL_BOARD_STATE, tool: "cone" }, { x: 20, y: 20 }, null);
+    const withBall = boardPress(withCone.diagram!, { ...INITIAL_BOARD_STATE, tool: "ball" }, { x: 40, y: 40 }, null);
+    const d = withBall.diagram!;
+    expect(d.pieces.map((p) => p.id)).toEqual(["cone-1", "ball-1"]);
+    const noCone = boardDeleteSelected(d, { ...INITIAL_BOARD_STATE, selectedId: "cone-1" });
+    expect(noCone.diagram?.pieces.map((p) => p.id)).toEqual(["ball-1"]);
+    const noBall = boardDeleteSelected(noCone.diagram!, { ...INITIAL_BOARD_STATE, selectedId: "ball-1" });
+    expect(noBall.diagram?.pieces).toEqual([]);
+  });
 });
 
 // ── Wave 4 — steps (rule 18, PAD-245) ───────────────────────────────────────
@@ -295,6 +317,20 @@ describe("step management (rule 18)", () => {
     expect(r2.diagram?.steps[0].ball).toBeUndefined();
     expect(boardToggleBallStyle(r2.diagram!, 1).steps[1].ball?.style).toBe("lob");
     expect(boardToggleBallStyle(r2.diagram!, 0)).toBe(r2.diagram);
+  });
+
+  it("[TRAINING-TACTICAL-BOARD-29] a step's movements start from the previous step's end", () => {
+    const s0 = { ...INITIAL_BOARD_STATE, tool: "movement" as const };
+    const d1 = boardPress(game(), boardPress(game(), s0, { x: 32, y: 26 }, a1).state, { x: 20, y: 40 }, null).diagram!;
+    const added = boardAddStep(d1, s0);
+    // On step 2 A1 stands where step 1 left it, and a new leg for A1 is drawn from there.
+    const armed = boardPress(added.diagram, added.state, { x: 20, y: 40 }, { ...a1, x: 20, y: 40 });
+    const d2 = boardPress(added.diagram, armed.state, { x: 60, y: 60 }, null).diagram!;
+    expect(d2.steps[1].movements).toMatchObject([{ pieceId: "a1", to: { x: 60, y: 60 } }]);
+    const at = (t: number) => interpolateStep(d2, 1, t).pieces.find((p) => p.id === "a1") as { x: number; y: number };
+    expect(at(0)).toMatchObject({ x: 20, y: 40 });
+    expect(at(0.5)).toMatchObject({ x: 40, y: 50 });
+    expect(at(1)).toMatchObject({ x: 60, y: 60 });
   });
 
   it("deleting the current step removes it and clamps the index", () => {

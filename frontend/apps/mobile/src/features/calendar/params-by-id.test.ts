@@ -104,17 +104,21 @@ describe("the screen asks, and then says which kind of failure it was", () => {
     "../../../app/class/[id].tsx"
   );
   const src = () => fs.readFileSync(SCREEN, "utf8");
+  // CALENDAR-EVENT-DETAIL-47: the screen takes its event from `useClassRouteEvent`, which holds the id read.
+  const HOOK = path.join(path.dirname(fileURLToPath(import.meta.url)), "useClassRouteEvent.ts");
+  const hookSrc = () => fs.readFileSync(HOOK, "utf8");
 
   it("resolves from the id when the params do not carry an event", () => {
-    expect(src()).toMatch(/instanceIdFromParams\(/);
-    expect(src()).toMatch(/useLessonInstanceById\(/);
-    expect(src()).toMatch(/eventFromLessonInstance\(/);
+    expect(src()).toMatch(/useClassRouteEvent\(params\)/);
+    expect(hookSrc()).toMatch(/instanceIdFromParams\(/);
+    expect(hookSrc()).toMatch(/useLessonInstanceById\(/);
+    expect(hookSrc()).toMatch(/eventFromLessonInstance\(/);
   });
 
   it("keeps the params path free of a round trip", () => {
     // `fallbackId` is null whenever the params already built an event, which is
     // what disables the query — an in-app tap must not gain a fetch.
-    expect(src()).toMatch(/paramsEvent \? null : instanceIdFromParams\(params\)/);
+    expect(hookSrc()).toMatch(/paramsEvent \? null : instanceIdFromParams\(params\)/);
   });
 
   it("separates gone from broken, and never offers a Retry for gone", () => {
