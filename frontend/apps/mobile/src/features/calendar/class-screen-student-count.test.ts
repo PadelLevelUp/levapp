@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 const SCREEN = readFileSync(resolve(__dirname, "../../../app/class/[id].tsx"), "utf8");
 
 describe("the class screen's count", () => {
-  it("[CALENDAR-EVENT-DETAIL-42] takes a student's count from the payload through the shared helper", () => {
+  it("[CALENDAR-EVENT-DETAIL-49] takes a student's count from the payload through the shared helper", () => {
     expect(SCREEN).toMatch(/viewFilledSpots\(\s*instance\?\.participantCount,\s*isCoach,/);
   });
 });

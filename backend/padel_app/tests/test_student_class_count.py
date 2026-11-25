@@ -1,4 +1,4 @@
-"""calendar.event-detail rule 5 / CALENDAR-EVENT-DETAIL-42 (PO M-7384, M-7512): a student's class payload carries
+"""calendar.event-detail rule 5 / CALENDAR-EVENT-DETAIL-49 (PO M-7384, M-7512): a student's class payload carries
 the class's filled-spots count, the number the calendar event shows (`participantCount`), from the same helper;
 no names or ids, and the payload is scoped as before (an outsider still gets 403 and no count)."""
 import pytest
@@ -35,7 +35,7 @@ def _event_count(app, client, world, who):
     return [e for e in events if e.get("originalId") == world["instance"] and e.get("model") == "LessonInstance"][0]["participantCount"]
 
 
-@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-42")
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-49")
 def test_enrolled_student_payload_count_equals_the_calendar_event(app, client, world):
     _enrol(app, world, [_sara(app, world)])  # rui (the enrolled student) + one more
     res = _payload(app, client, world, "rui")
@@ -44,19 +44,19 @@ def test_enrolled_student_payload_count_equals_the_calendar_event(app, client, w
     assert len(res.get_json()["participants"]) == 1  # names stay hidden: only the viewer
 
 
-@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-42")
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-49")
 def test_a_declined_student_is_not_counted(app, client, world):
     pid = _sara(app, world)
     _enrol(app, world, [pid], declined=[pid])
     assert _payload(app, client, world, "rui").get_json()["participantCount"] == 1
 
 
-@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-42")
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-49")
 def test_the_coach_payload_carries_the_same_number(app, client, world):
     assert _payload(app, client, world, "ana").get_json()["participantCount"] == _event_count(app, client, world, "ana")
 
 
-@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-42")
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-49")
 def test_an_outsider_still_gets_403_and_no_count(app, client, world):
     res = _payload(app, client, world, "sara")
     assert res.status_code == 403 and "participantCount" not in res.get_data(as_text=True)
