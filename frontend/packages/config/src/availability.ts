@@ -180,8 +180,16 @@ const addDays = (date: string, n: number): string => {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 };
 
-/** Every date of the recurrence, in order, startDate and endDate inclusive. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** A `YYYY-MM-DD` date string (an emptied date field is `""`, never a date). */
+export const isIsoDate = (v: string): boolean => ISO_DATE.test(v);
+
+/**
+ * Every date of the recurrence, in order, startDate and endDate inclusive. An empty or malformed
+ * start or end has no occurrences (a cleared date field is "not chosen yet", never a failure).
+ */
 export function occurrenceDates(rec: Recurrence): string[] {
+  if (!isIsoDate(rec.startDate) || !isIsoDate(rec.endDate)) return [];
   const wanted = new Set(rec.weekdays);
   const out: string[] = [];
   for (let day = rec.startDate; day <= rec.endDate; day = addDays(day, 1)) {

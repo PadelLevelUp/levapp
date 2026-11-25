@@ -17,6 +17,7 @@ import {
   stepEndCount,
   clubTodayISO,
   endDateAfterClasses,
+  duplicateInvitees,
   firstFreeDay,
   formatShortDate,
   availabilityReadKey,
@@ -100,7 +101,10 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
 
   const invitees = usernames.slice(0, people - 1).map((u) => u.trim()).filter(Boolean);
   const inviteesKey = invitees.join(",");
-  const allInviteesOk = invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true);
+  // Rule 12: a name repeated on a later field is refused here, as the server refuses it.
+  const repeated = duplicateInvitees(usernames.slice(0, people - 1));
+  const allInviteesOk =
+    invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true) && !repeated.some(Boolean);
 
   // Keep one username field per invitee.
   useEffect(() => {
@@ -109,7 +113,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
 
   // Rule 12: each username checked against this coach's roster (debounced).
   useEffect(() => {
-    const pending = invitees.filter((u) => !checks[u]);
+    // A repeated name is checked once (the server answers its first spelling).
+    const pending = invitees.filter((u, i, all) => !checks[u] && all.findIndex((x) => x.toLowerCase() === u.toLowerCase()) === i);
     if (pending.length === 0) return;
     const timer = setTimeout(() => {
       requestAvailabilityApi.getRequestParticipants(coachId, pending)
@@ -146,6 +151,12 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coachId, recurring, inviteesKey, allInviteesOk]);
+
+  // Rule 13: a picked time is for the length it was picked at; a new length starts the pick over,
+  // so the request never posts the old end.
+  useEffect(() => {
+    setSlot(null);
+  }, [duration]);
 
   // Rule 13: everyone's free windows for the chosen day or recurrence range.
   useEffect(() => {
@@ -269,8 +280,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
             </p>
             {usernames.map((u, i) => {
               const check = checks[u.trim()];
-              const code = checkCode(check);
-              const state = !u.trim() ? "empty" : !check ? "checking" : code ?? "ok";
+              const code = repeated[i] ? "DUPLICATE_INVITEE" : checkCode(check);
+              const state = !u.trim() ? "empty" : repeated[i] ? "DUPLICATE_INVITEE" : !check ? "checking" : code ?? "ok";
               return (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center gap-2">

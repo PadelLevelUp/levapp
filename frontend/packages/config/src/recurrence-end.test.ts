@@ -125,3 +125,15 @@ describe("stepEndCount (PAD-926, classes.class-requests rule 14a)", () => {
     expect(stepEndCount(MAX_REQUEST_CLASSES, 1)).toBe(MAX_REQUEST_CLASSES);
   });
 });
+
+describe("an empty or malformed start date (wizard bug, rule 14a)", () => {
+  it("[CLASSES-CLASS-REQUESTS-55] an empty or malformed start date has no occurrences and no last date", async () => {
+    const { occurrenceDates } = await import("./availability");
+    for (const startDate of ["", "2026-1-5", "not a date"]) {
+      expect(occurrenceDates({ weekdays: [1], startDate, endDate: "2026-12-01" })).toEqual([]);
+      expect(endDateAfterClasses(startDate, [1], 4)).toBeNull();
+    }
+    expect(occurrenceDates({ weekdays: [1], startDate: "2026-11-02", endDate: "" })).toEqual([]);
+    expect(occurrenceDates({ weekdays: [1], startDate: "2026-11-02", endDate: "2026-11-09" })).toEqual(["2026-11-02", "2026-11-09"]);
+  });
+});
