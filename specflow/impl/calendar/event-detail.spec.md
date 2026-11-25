@@ -644,18 +644,18 @@ test: `frontend/apps/mobile/src/features/calendar/class-detail-new-engine.test.t
 - **Then** the old-engine invitee has no `tierSource` key at all, and the manual one has `tierSource` null; the shared helper shows "convite manual" only for the second
 test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_an_old_engine_invitee_carries_no_tier_source`
 
-#### CALENDAR-EVENT-DETAIL-40: The confirmed count is one shared rule (rule 29)
+#### CALENDAR-EVENT-DETAIL-40: The confirmed count is one shared rule (rule 27)
 - **Given** a list of participants and presence rows, one listed student `present`, one `absent`, one unanswered, and a `present` row for a student not on the list
 - **Then** the shared helper counts 1, never more than `effectiveFilledSpotsOf` of the same lists, and 0 for no rows
 test: `frontend/packages/config/src/capacity.test.ts` › `confirmedSpotsOf counts the listed present students only`
 
-#### CALENDAR-EVENT-DETAIL-48: The coach's capacity box shows the bar on web (rule 29)
+#### CALENDAR-EVENT-DETAIL-41: The coach's capacity box shows the bar on web (rule 27)
 - **Given** a coach reading a class of 8 with 3 confirmed and 2 unanswered students, not ended
 - **Then** `class-detail-capacity` holds a `class-fill-bar` with `data-confirmed` 3, `data-filled` 5, `data-capacity` 8 and `data-fill-tone` `warning`; when the class is full, has ended, or is completed before its end, the tone is `current`
 - **And** there is no bar while editing, on a canceled class, with no capacity, or for a student
 test: `frontend/apps/web/src/components/calendar/ClassCapacityBar.test.tsx` › `the bar follows the capacity box's own numbers`
 
-#### CALENDAR-EVENT-DETAIL-42: The same on iOS (rule 29)
+#### CALENDAR-EVENT-DETAIL-42: The same on iOS (rule 27)
 - **Given** the same class and the same five no-bar cases on iOS
 - **Then** the capacity box holds `class-fill-bar-warning` while the tone is amber and `class-fill-bar` otherwise, its accessibility value is 3 of 8, the filled part is 5 of 8, and there is no bar in those cases
 test: `frontend/apps/mobile/src/features/calendar/class-capacity-bar.test.tsx` › `the bar follows the capacity box's own numbers`
