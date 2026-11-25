@@ -142,8 +142,10 @@ asks by exact username and the student accepts.
       `MessageReport.reporter_id`: re-point. `MessageReaction` (unique per message and emoji)
       and `BlockedUser` (both directions; a self-block is deleted): re-point, dropping the
       duplicates.
-      `PushSubscription` (one per user) and `DeviceToken` (unique per user and token): the
-      claimant's row is kept and the placeholder's duplicate dropped.
+      `DeviceToken` (unique per user and token): the claimant's row is kept and the placeholder's
+      duplicate dropped. `PushSubscription` (one per browser since PAD-753; an endpoint has one row,
+      so the two accounts never hold the same one): re-pointed, and of both accounts' rows only the
+      most recently updated stay, up to the web-push cap (`auth.push-subscription` rule 1).
    f. Delete the placeholder Player row; disable the placeholder User the way
       `delete_account_service` does (status `disabled`, name "Merged user", email/phone null,
       username replaced by a fresh placeholder so the original one is free). Never hard-delete
@@ -409,6 +411,13 @@ test: `backend/padel_app/tests/test_player_claim_requests.py` › `test_claim_vi
 - **Then** every such table is in the merge's own lists, and no list names a table that is gone
 - **And** every unique key is either handled by the merge or listed as impossible to collide, with a reason
 test: `backend/padel_app/tests/test_player_claim_merge.py` › `test_every_players_fk_is_covered_by_the_merge` (+2 more)
+
+#### PLAYERS-CLAIM-34: Push subscriptions of both accounts are kept, up to the cap (rule 5e, PAD-753)
+- **Given** a placeholder with a subscription for browser X, and a claimant with one for browser Y
+- **When** the claim merges
+- **Then** the claimant holds X and Y, and the placeholder holds none
+- **And** when the two hold more than the web-push cap between them, the claimant keeps the cap's number, the most recently updated, whichever account they came from
+test: `backend/padel_app/tests/test_pad528_merge_flow.py` › `test_push_subscriptions_of_both_accounts_are_kept_up_to_the_cap`
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 4.
