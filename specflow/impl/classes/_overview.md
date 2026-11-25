@@ -19,6 +19,7 @@ The classes domain.
 - `classes.class-requests` — implemented (PAD-104: a student books a class in the coach's free time; PAD-357 adds people and a weekly recurrence)
 - `classes.availability` — draft (PAD-357: the one free-slot computation — pure module in `packages/config` + `GET /app/availability` — shared by web and iOS)
 - `classes.academy-class-booking` — draft (PAD-358: from the "Marcar Aula" wizard, a student requests a coach's academy class or joins its waiting list)
+- `classes.coach-requests-table` — draft (PAD-795: the coach's "Pedidos de Aula" as one paged, sortable, filterable table of both request kinds, Em aberto / Histórico, web and mobile)
 
 ## Why it's grouped this way
 
