@@ -183,7 +183,7 @@ describe("onRegistrationFailure (the PAD-746 hook)", () => {
     expect(JSON.stringify(failures)).not.toContain("secret");
   });
 
-  it("a token fetch that throws is the token phase; a denial and a simulator report nothing", async () => {
+  it("a token fetch that throws is the token phase; a denial fires no failure", async () => {
     const { getExpoPushTokenAsync } = await import("expo-notifications");
     vi.mocked(getExpoPushTokenAsync).mockRejectedValueOnce(new TypeError("no aps-environment"));
     const registrar = new ExpoPushRegistrar();
