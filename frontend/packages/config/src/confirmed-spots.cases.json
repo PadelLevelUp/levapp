@@ -1,0 +1,74 @@
+[
+  {
+    "status": null,
+    "confirmed": false,
+    "validated": false,
+    "counts": false
+  },
+  {
+    "status": null,
+    "confirmed": false,
+    "validated": true,
+    "counts": false
+  },
+  {
+    "status": null,
+    "confirmed": true,
+    "validated": false,
+    "counts": true
+  },
+  {
+    "status": null,
+    "confirmed": true,
+    "validated": true,
+    "counts": true
+  },
+  {
+    "status": "present",
+    "confirmed": false,
+    "validated": false,
+    "counts": true
+  },
+  {
+    "status": "present",
+    "confirmed": false,
+    "validated": true,
+    "counts": true
+  },
+  {
+    "status": "present",
+    "confirmed": true,
+    "validated": false,
+    "counts": true
+  },
+  {
+    "status": "present",
+    "confirmed": true,
+    "validated": true,
+    "counts": true
+  },
+  {
+    "status": "absent",
+    "confirmed": false,
+    "validated": false,
+    "counts": false
+  },
+  {
+    "status": "absent",
+    "confirmed": false,
+    "validated": true,
+    "counts": false
+  },
+  {
+    "status": "absent",
+    "confirmed": true,
+    "validated": false,
+    "counts": false
+  },
+  {
+    "status": "absent",
+    "confirmed": true,
+    "validated": true,
+    "counts": false
+  }
+]

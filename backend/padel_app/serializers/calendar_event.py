@@ -106,7 +106,7 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 # same value the class-detail "capacity" field shows. Declined
                 # students free their spot and must not be counted here.
                 "participantCount": obj.effective_filled_spots,
-                # Of those filled spots, how many actively confirmed. Lets the
+                # Of those filled spots, how many are coming or came (calendar.view rule 25). Lets the
                 # calendar block show confirmed / awaiting / free in one bar
                 # without a per-class request.
                 "confirmedCount": obj.confirmed_spots,
