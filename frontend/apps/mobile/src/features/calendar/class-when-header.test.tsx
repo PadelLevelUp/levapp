@@ -98,6 +98,30 @@ describe("the class screen's header block (iOS)", () => {
     expect(editing.queryByTestId("a-box")).not.toBeNull();
   });
 
+  it("[CALENDAR-EVENT-DETAIL-44] the date tile has no fixed width, keeps each line whole and caps its text scaling", async () => {
+    // At the largest accessibility text size a fixed 56pt tile wrapped its text one character per line (simulator,
+    // 2026-11-25). Wrapping cannot be seen here; this pins what prevents it: a width that follows the content (a
+    // minimum, not a fixed w-14), one line per part, and a cap on how far the tile's text scales.
+    const n = await renderNative(
+      <ClassWhenHeader editing={false} {...base} levelCode="I2">
+        <Text testID="class-detail-capacity">3/8</Text>
+      </ClassWhenHeader>
+    );
+    const tile = n.byTestId("class-detail-date-tile");
+    const tileClasses = String(tile.props.className).split(/\s+/);
+    expect(tileClasses).not.toContain("w-14");
+    expect(tileClasses).toContain("min-w-14");
+    expect(tileClasses).toContain("shrink-0");
+    const lines = tile.findAll((x) => typeof x.type === "string" && x.props.numberOfLines !== undefined);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) {
+      expect(line.props.numberOfLines).toBe(1);
+      expect(line.props.maxFontSizeMultiplier).toBeLessThanOrEqual(1.3);
+    }
+    // No fixed height on the tile or the time's row.
+    expect(tileClasses.some((c) => /^h-\d/.test(c))).toBe(false);
+  });
+
   it("[CALENDAR-EVENT-DETAIL-44] a student's facts line is the place only", async () => {
     const n = await renderNative(
       <ClassWhenHeader editing={false} {...base} clubName="Clube Norte">

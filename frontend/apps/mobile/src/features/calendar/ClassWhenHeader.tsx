@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
  * (level, then club and court) of what exists, and then its children, which are the capacity line the screen already
  * has. The series' end is NOT here: the screen's one repeat line says it. No count is computed here.
  *
+ * The tile has a minimum width, not a fixed one, each of its three lines is one line, and its text scales to 1.3 at
+ * most: at the largest accessibility size a fixed 56pt tile wrapped one character per line and pushed the title out.
+ *
  * The labels the boxes showed stay as the accessible names of the values: read out, not drawn. VoiceOver reads an
  * element's label and value, so the tile, the time and the facts line (one element) carry them; the capacity's is on
  * its count Text, in the screen.
@@ -58,11 +61,11 @@ export function ClassWhenHeader({
           accessibilityRole="image"
           accessibilityLabel={t("calendar.detail.date")}
           accessibilityValue={{ text: when.spokenDate }}
-          className="w-14 items-center rounded-lg border border-border bg-card py-1.5"
+          className="min-w-14 shrink-0 items-center rounded-lg border border-border bg-card py-1.5"
         >
-          <Text className="text-[11px] font-sans-semibold uppercase text-muted-foreground">{when.weekday}</Text>
-          <Text className="my-0.5 font-display text-3xl text-foreground">{when.day}</Text>
-          <Text className="text-[11px] font-sans-semibold uppercase text-muted-foreground">{when.month}</Text>
+          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} className="text-[11px] font-sans-semibold uppercase text-muted-foreground">{when.weekday}</Text>
+          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} className="my-0.5 font-display text-3xl text-foreground">{when.day}</Text>
+          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} className="text-[11px] font-sans-semibold uppercase text-muted-foreground">{when.month}</Text>
         </View>
         <View className="min-w-0 flex-1">
           <Text
