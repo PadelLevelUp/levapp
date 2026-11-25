@@ -314,11 +314,18 @@ def test_healthz_is_ready_at_head_and_ahead(client, gated):
     assert r.status_code == 200 and r.get_json() == {"status": "schema_ahead"}
 
 
-def test_healthz_reads_the_schema_at_most_every_ten_seconds(client, gated):
+def test_healthz_reads_the_schema_at_most_every_ten_seconds(client, gated, monkeypatch):
+    import time
+
+    now = [1000.0]  # the reading is timed on time.monotonic(); pin it
+    monkeypatch.setattr(time, "monotonic", lambda: now[0])
     gated(HEAD)
     assert client.get("/api/app/healthz").status_code == 200
     gated(OLDER, reset_cache=False)  # still the cached reading
+    now[0] += 9.5
     assert client.get("/api/app/healthz").status_code == 200
+    now[0] += 0.5  # ten seconds after the first reading: it is read again
+    assert client.get("/api/app/healthz").status_code == 503
 
 
 @pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-15")
