@@ -49,7 +49,7 @@ and the lane's failure does not need the animator.
 
 **Not checked:** whether a person sees it on a real phone; iOS shows no failure in flow 09.
 
-**Status:** open. No fix chosen.
+**Status:** open. The fix (rule 10, B-731) is written; the Android lane has not run it yet.
 
 ```yaml
 type: product-defect
