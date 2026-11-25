@@ -52,6 +52,7 @@ export function DayList({
   const bottom = useRef<HTMLDivElement>(null);
   const touched = useRef(false);
   const standing = useRef(false);
+  const moving = useRef(false);
   const anchor = useRef<{ day: string; delta: number } | null>(null);
   const [filler, setFiller] = useState(FAB_CLEARANCE_PX);
 
@@ -73,10 +74,17 @@ export function DayList({
     if (at) anchor.current = { day: at.date, delta: el.scrollTop - at.top };
   }, [days, list]);
 
-  // A touch or the wheel ends a movement at once (26b).
+  // A touch or the wheel ends a movement at once (26b): the animation is cancelled where the list stands (a browser
+  // does not always do that for its own smooth scroll) and the list reports, so the day at the top is the selection.
   const markTouched = useCallback(() => {
     touched.current = true;
-  }, []);
+    const el = scroller.current;
+    if (el && moving.current) {
+      moving.current = false;
+      setScrollTop(el, el.scrollTop, false);
+      report();
+    }
+  }, [report]);
 
   // Moving the list to the target (26b): jump with reduced motion and the first time; otherwise a movement that
   // ends at `scrollend` where the browser has it, and when the list has been still for a moment where it has not.
@@ -87,6 +95,7 @@ export function DayList({
     if (!section) return;
     touched.current = false;
     const finish = () => {
+      moving.current = false;
       standing.current = true;
       // The place a refresh keeps is now the target's top.
       anchor.current = { day: targetIso, delta: 0 };
@@ -98,6 +107,7 @@ export function DayList({
       finish();
       return;
     }
+    moving.current = true;
     setScrollTop(el, top, true);
     const timers: ReturnType<typeof setTimeout>[] = [setTimeout(finish, MOVE_LIMIT_MS)];
     let off: () => void;
@@ -119,6 +129,7 @@ export function DayList({
       };
     }
     return () => {
+      moving.current = false;
       off();
       timers.forEach(clearTimeout);
     };
@@ -187,6 +198,20 @@ export function DayList({
       onTouchStart={markTouched}
       onPointerDown={markTouched}
     >
+      {status === "error" && (
+        // A read that failed while earlier days are on screen (a jump outside the range): say why (26b, 26d).
+        <div data-testid="calendar-day-error" className="flex flex-col items-center gap-3 px-5 py-4 text-center">
+          <p className="text-muted-foreground">{t("calendar.mobile.loadFailed")}</p>
+          <button
+            type="button"
+            data-testid="calendar-day-retry"
+            onClick={list.retry}
+            className="h-11 rounded-md border border-border px-4 text-sm font-medium"
+          >
+            {t("calendar.mobile.retry")}
+          </button>
+        </div>
+      )}
       {list.edges && (
         <EdgeRow testId="calendar-day-edge-before" onClick={() => list.goTo(list.edges!.before)}>
           {t("calendar.mobile.weeksBefore")}
@@ -205,12 +230,10 @@ export function DayList({
             data-testid={`calendar-day-section-${key}`}
           >
             <div data-testid={`calendar-day-header-${key}`} className="sticky top-0 z-10 bg-background">
-              <DayHeader day={day} count={dayEvents.length} />
+              <DayHeader day={day} count={dayEvents.length} empty={dayEvents.length === 0} />
             </div>
             {dayEvents.length === 0 ? (
-              <p data-testid="calendar-day-empty" className="px-5 pb-3 text-muted-foreground">
-                {t("calendar.mobile.noClassesScheduled")}
-              </p>
+              <div className="pb-2" />
             ) : (
               <div className="flex flex-col gap-3 px-5 pb-4 pt-1">
                 {dayEvents.map((event) => (

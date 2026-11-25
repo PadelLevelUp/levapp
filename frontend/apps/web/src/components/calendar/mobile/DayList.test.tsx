@@ -281,4 +281,69 @@ describe("Dia's list of days on web (rule 26)", () => {
     expect(list.scrollTop).toBe(1000);
     expect(screen.getByTestId("selected")).toHaveTextContent(keys[10]);
   });
+
+  it("[CALENDAR-MOBILE-VIEWS-46] a failed jump outside the range says so at the top, with the earlier days still below", async () => {
+    const { select } = mount();
+    await waitFor(() => expect(sections()).toHaveLength(49));
+    await waitFor(() => expect(screen.getByTestId("target")).toHaveTextContent(""));
+    // The read for a day far outside the range fails.
+    getCalendarEvents.mockImplementation(async (from: string, to: string) => {
+      if (from.startsWith("2027-02")) throw new Error("offline");
+      return eventsFor(from, to);
+    });
+    await select(new Date(2027, 2, 10));
+    const error = await screen.findByTestId("calendar-day-error");
+    expect(error).toHaveTextContent("calendar.mobile.loadFailed");
+    expect(sections()).toHaveLength(49); // the earlier days stay
+    // The error is the first thing in the list.
+    const list = screen.getByTestId("calendar-day-list");
+    expect(list.firstElementChild).toBe(error);
+
+    getCalendarEvents.mockImplementation(async (from: string, to: string) => eventsFor(from, to));
+    fireEvent.click(screen.getByTestId("calendar-day-retry"));
+    await waitFor(() => expect(screen.queryByTestId("calendar-day-error")).toBeNull());
+    await waitFor(() => expect(screen.getByTestId("calendar-day-section-2027-03-10")).toBeInTheDocument());
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-41] an empty day says it once: the header's own line is the empty line", async () => {
+    mount();
+    await waitFor(() => expect(sections()).toHaveLength(49));
+    const empty = screen.getByTestId("calendar-day-section-2026-11-26");
+    expect(within(empty).getAllByTestId("calendar-day-empty")).toHaveLength(1);
+    expect(within(empty).getByTestId("calendar-day-empty")).toHaveTextContent("calendar.mobile.noClassesScheduled");
+    // The header does not also count its classes ("0 classes").
+    expect(empty).not.toHaveTextContent("calendar.mobile.classCount");
+    expect(within(empty).getByTestId("calendar-day-header-2026-11-26")).toContainElement(within(empty).getByTestId("calendar-day-empty"));
+    // A day with classes keeps its count.
+    expect(screen.getByTestId("calendar-day-section-2026-11-25")).toHaveTextContent("calendar.mobile.classCount");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-40] a wheel or a touch during the movement stops it and hands the list back", async () => {
+    const { select } = mount();
+    await waitFor(() => expect(sections()).toHaveLength(49));
+    await waitFor(() => expect(screen.getByTestId("target")).toHaveTextContent(""));
+    const scrollTo = Element.prototype.scrollTo as unknown as ReturnType<typeof vi.fn>;
+    scrollTo.mockClear();
+    const list = screen.getByTestId("calendar-day-list");
+
+    await select(new Date(2026, 11, 3));
+    expect(screen.getByTestId("target")).toHaveTextContent("2026-12-03");
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: "smooth" }));
+
+    // The reader's wheel: the animation is cancelled where the list stands (a scroll to its own place), and the
+    // target ends at once, with no scroll event needed.
+    await act(async () => {
+      fireEvent.wheel(list);
+    });
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: "auto", top: list.scrollTop }));
+    expect(screen.getByTestId("target")).toHaveTextContent("");
+
+    // And a touch, the same.
+    await select(new Date(2026, 11, 9));
+    expect(screen.getByTestId("target")).toHaveTextContent("2026-12-09");
+    await act(async () => {
+      fireEvent.touchStart(list);
+    });
+    expect(screen.getByTestId("target")).toHaveTextContent("");
+  });
 });

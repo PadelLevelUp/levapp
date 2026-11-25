@@ -206,7 +206,8 @@ export function MobileCalendar({
           type="button"
           data-testid="calendar-day-today"
           onClick={onToday}
-          className="absolute bottom-24 left-1/2 z-30 h-11 -translate-x-1/2 rounded-full border border-border bg-card px-5 text-sm font-semibold text-foreground shadow-lg"
+          // Bottom left, its centre on the + button's centre line (88px up + 28px = 116px; the chip is 44px high), 16px from the edge.
+          className="fixed bottom-[94px] left-4 z-30 h-11 rounded-full border border-border bg-card px-5 text-sm font-semibold text-foreground shadow-lg"
         >
           {t("calendar.toolbar.today")}
         </button>

@@ -277,3 +277,81 @@ test("[CALENDAR-MOBILE-VIEWS-48] reduced motion jumps and the edge rows reopen t
   await page.getByTestId("calendar-day-edge-after").click();
   await expectAtTop(page, iso(addDays(new Date(`${lastKey}T00:00:00`), 1)));
 });
+
+test("[CALENDAR-MOBILE-VIEWS-46] a failed jump outside the range says so, with the earlier days still below", async ({ page }) => {
+  await openDia(page);
+  await page.waitForLoadState("networkidle");
+  const before = await page.locator("[data-testid^='calendar-day-section-']").count();
+
+  // The read for the week just outside the range fails.
+  let failing = true;
+  await page.route(/\/api\/app\/calendar\?/, (route) =>
+    failing ? route.fulfill({ status: 500, contentType: "application/json", body: "{}" }) : route.continue()
+  );
+  await page.getByTestId("calendar-day-edge-before").click();
+  const error = page.getByTestId("calendar-day-error");
+  await expect(error).toBeVisible({ timeout: 15_000 });
+  // The earlier days stay under the error, and the strip names the day that was asked for.
+  expect(await page.locator("[data-testid^='calendar-day-section-']").count()).toBe(before);
+  const outside = iso(addDays(SUNDAY, -21));
+  await expect(stripDay(page, outside)).toHaveAttribute("aria-pressed", "true");
+
+  // The retry brings the days and puts the list on the day.
+  failing = false;
+  await page.getByTestId("calendar-day-retry").click();
+  await expect(error).toHaveCount(0);
+  await expectAtTop(page, outside);
+});
+
+test.describe("[CALENDAR-MOBILE-VIEWS-40] smooth movement in a browser", () => {
+  /** Reduced motion OFF (the login helper turns it on): the movements below animate. */
+  async function openSmooth(page: Page) {
+    await openDia(page);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.waitForLoadState("networkidle");
+  }
+
+  /** The target is at the top, stays selected, and is still there a moment later. */
+  async function endsAt(page: Page, key: string) {
+    await expectAtTop(page, key);
+    await page.waitForTimeout(1_500);
+    expect(await offsetFromTop(page, key)).toBeLessThanOrEqual(2);
+    await expect(stripDay(page, key)).toHaveAttribute("aria-pressed", "true");
+  }
+
+  test("a strip date, a chevron and Hoje animate to their day and stay", async ({ page }) => {
+    await openSmooth(page);
+    const friday = iso(addDays(SUNDAY, 5));
+    await stripDay(page, friday).click();
+    await endsAt(page, friday);
+
+    await page.getByTestId("calendar-next-week").click();
+    await endsAt(page, iso(addDays(SUNDAY, 7)));
+
+    await page.getByTestId("calendar-day-today").click();
+    await endsAt(page, iso(TODAY));
+  });
+
+  test("a wheel during the movement takes over", async ({ page }) => {
+    await openSmooth(page);
+    // Far down first (a long way back for Hoje), then Hoje and, at once, the wheel.
+    await scrollToDay(page, iso(addDays(SUNDAY, 30)));
+    await expect(stripDay(page, iso(addDays(SUNDAY, 30)))).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("calendar-day-today").click();
+    // A moment later, while the list is still travelling (it has 30 days to cover), the wheel.
+    await page.waitForTimeout(150);
+    await page.mouse.move(195, 500);
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(2_000);
+
+    // The list is wherever the wheel left it, and the strip follows it: the pressed day is the one at the top.
+    const keys = await page.locator("[data-testid^='calendar-day-header-']").evaluateAll((els) =>
+      els.map((e) => ({ key: (e.getAttribute("data-testid") ?? "").replace("calendar-day-header-", ""), y: e.getBoundingClientRect().y }))
+    );
+    const listTop = (await list(page).boundingBox())!.y;
+    const atTop = keys.filter((k) => k.y <= listTop + 2).sort((a, b) => b.y - a.y)[0];
+    expect(atTop, "a header at the top").toBeTruthy();
+    await expect(stripDay(page, atTop.key)).toHaveAttribute("aria-pressed", "true");
+    expect(atTop.key, "the wheel took over from the movement to Hoje").not.toBe(iso(TODAY));
+  });
+});
