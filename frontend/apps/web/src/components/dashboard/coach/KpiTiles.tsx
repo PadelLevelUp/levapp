@@ -11,7 +11,7 @@ import type { DashboardKpiGridBlock } from "@levelup/types";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Eyebrow } from "./primitives";
+import { Eyebrow, METRIC_NUMBER_CLASS } from "./primitives";
 
 type KpiItem = DashboardKpiGridBlock["data"]["items"][number];
 
@@ -97,7 +97,7 @@ function KpiTile({ item }: { item: KpiItem }) {
           so a test that wants the value must not scrape the whole tile. */}
       <span
         data-testid={`dashboard-kpi-${slug}-value`}
-        className="font-display text-2xl font-bold tracking-tight tabular-nums"
+        className={METRIC_NUMBER_CLASS}
       >
         {item.prefix ?? ""}
         {item.value}

@@ -1136,6 +1136,14 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
   );
 }
 
+/**
+ * dashboard.blocks rule 15 (UI idea 7): the number on a metric tile (the coach's `week_pulse`
+ * cards, the student's `kpi_grid` tiles) is the largest text on it: 32px, display face, tabular.
+ * The Text carries `numberOfLines={1}` and `adjustsFontSizeToFit` too, so a larger text size
+ * shrinks the number to its tile instead of cutting it. `Stat` and `KpiTiles` both read this.
+ */
+export const METRIC_NUMBER_CLASS = "font-display text-[32px] tabular-nums text-foreground";
+
 export function Stat({
   label,
   value,
@@ -1157,7 +1165,9 @@ export function Stat({
       className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4"
     >
       <Text className="text-[13px] font-sans-semibold text-muted-foreground">{label}</Text>
-      <Text className="font-display text-2xl text-foreground">{value}</Text>
+      <Text className={METRIC_NUMBER_CLASS} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+        {value}
+      </Text>
       <Text className="text-[11px] text-muted-foreground">{sub}</Text>
     </View>
   );
@@ -1219,7 +1229,9 @@ export function KpiTiles({ block }: { block: DashboardKpiGridBlock }) {
             const card = (
               <View className="grow gap-1.5 rounded-2xl border border-border bg-card p-4">
                 <Text className="text-[13px] font-sans-semibold text-muted-foreground">{label}</Text>
-                <Text className="font-display text-2xl text-foreground">{value}</Text>
+                <Text className={METRIC_NUMBER_CLASS} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+                  {value}
+                </Text>
                 <Text className="text-[11px] text-muted-foreground">{sub}</Text>
               </View>
             );
