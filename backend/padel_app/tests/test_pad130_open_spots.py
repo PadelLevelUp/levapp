@@ -6,7 +6,7 @@ with `_add_student`; the calendar is read through `load_open_spot_events_for_pla
 and the route.
 """
 import pytest
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from padel_app.sql_db import db
 from padel_app.models import Presence
@@ -176,3 +176,25 @@ def test_calendar_route_appends_open_spots_for_students_only(app, client):
     assert [e.get("openSpot") for e in as_student] == [True]
     as_coach = client.get("/api/app/calendar", query_string=window, headers={"Authorization": f"Bearer {coach_token}"}).get_json()
     assert all(not e.get("openSpot") for e in as_coach)
+
+
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-17")
+@pytest.mark.parametrize("utc_now, offered", [
+    # 2027-07-13 is summer (UTC+1): 09:00 UTC is 10:00 in Lisbon, the class's start.
+    (datetime(2027, 7, 13, 9, 0), False),
+    (datetime(2027, 7, 13, 8, 59), True),
+])
+def test_a_class_starting_right_now_is_not_offered(app, utc_now, offered):
+    """Rule 7: open spots close at the start, `<=`, as join requests do."""
+    from padel_app.helpers.calendar_helpers import load_open_spot_events_for_player
+    from padel_app.tests.test_pad256_class_over import _class_at
+
+    ids = _seed(app, eligibility_rules=None)
+    _config(app, ids, open_spots_visible=True)
+    pid = _student(app, ids, "looker")
+    start = datetime(2027, 7, 13, 10, 0)
+    with app.app_context():
+        _class_at(ids, start)
+        day = start.replace(hour=0)
+        events = load_open_spot_events_for_player(pid, day, day + timedelta(hours=23, minutes=59), now=utc_now)
+    assert bool(events) is offered, events

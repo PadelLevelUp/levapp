@@ -597,6 +597,13 @@ test: `backend/padel_app/tests/test_pad808_accept_warns_when_the_side_is_gone.py
 - **And** when the engine refuses the student's join (the coach excluded them from the session), the request stays `pending`, no list entry is written and nothing is sent
 test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_on_a_new_engine_class_a_request_whose_side_fills_moves_through_the_engine`
 
+#### CLASSES-JOIN-REQUESTS-41: The side sheets' primary buttons have the primary fill and a legible disabled look on iOS (PAD-843, rule 20)
+- **Given** a student on iOS opening the side-choice sheet ("Em que lado queres jogar nesta aula?") or its "Não há vaga" body
+- **When** a side is chosen, and when none is yet (the action disabled)
+- **Then** "Enviar pedido" and "Estou disposto a jogar em ambos" show the design system's primary fill with white text, and the disabled one keeps that fill dimmed (half opacity) with a readable label
+- **And** the buttons set their look as a plain style object, never a `style` function, which loses its whole style under NativeWind on the phone
+test: `frontend/apps/mobile/src/features/calendar/side-sheet-button.test.tsx` › `a primary button has the primary fill and white text` (+3 more)
+
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.

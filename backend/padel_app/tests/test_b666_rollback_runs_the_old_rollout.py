@@ -104,6 +104,17 @@ def test_the_current_rollout_gets_every_option(sb, workflow):  # noqa: F811
     assert "not passing it" not in r.stderr
     assert "migrate yes" in r.stdout, "--migrate reached the script"
     assert any(c.startswith("curl nginx https://") for c in calls), "--probe-host reached the script"
+    # --drain is staging's alone until it is measured there (rule 16): the script says what it did.
+    assert ("[rollout] drain:" in r.stdout) == (workflow == "deploy-staging.yaml"), "--drain: staging only"
+
+
+@pytest.mark.parametrize("workflow", ["deploy-prod.yaml", "deploy-staging.yaml"])
+def test_the_current_rollout_gets_worker_and_copies_when_the_env_asks(sb, workflow):  # noqa: F811
+    # The stub worker never answers /livez, so the run ends in the worker step (exit 1): the plan line,
+    # printed before any container moves, is where --migrate, --worker and --copies show up.
+    r, _, _ = run_workflow_lines(sb, workflow, CURRENT, worker_opt="--worker", copies="2")
+    assert "not passing it" not in r.stderr
+    assert "migrate yes, worker yes, copies 2" in r.stdout, r.stdout + r.stderr
 
 
 def test_the_old_script_really_rejects_the_new_options(sb, tmp_path):  # noqa: F811
