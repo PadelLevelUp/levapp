@@ -35,7 +35,10 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    and the class's) is its position on the session's coach's ladder, 1 the strongest and consecutive,
    counted as the app's `ladder_index` counts it, whatever the stored `display_order` values; a level
    that is not on that coach's ladder (another coach's level) reaches the engine as none: for a student
-   that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
+   that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). The class's
+   level is the occurrence's effective level: its own when set, else its lesson's default level
+   (`LessonInstance.effective_level_id`, `classes.edit` rule 4), at adoption and in every snapshot; an
+   occurrence that inherits its level is never handed to the engine as a class with no level. A student's `subscription_status` is their
    account's `User.status`. Each session's end is its start plus its lesson's duration, and the
    sessions a student is going to of the same coach are handed with their intervals, for
    `notifications.engine-tiers` rule 3's overlap. A presence is **going** unless the student left: a
@@ -259,6 +262,14 @@ row, then `credits_used` grows and the entry stays open; and when the coach acce
 student holding a standing row with two credits, then exactly one credit is spent.
 test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_entry_no_limit_and_a_coachs_accept_spend_as_rule_11_says`
 
+#### NOTIFICATIONS-ENGINE-STORE-22: An occurrence with no level of its own takes its lesson's default level (rule 4)
+Given a coach with level-based groups (the class's level first, one level away second) and an occurrence whose own
+`level_id` is NULL and whose lesson's default level is set, when the coach is switched (adoption) and the store
+builds the session's snapshots, then the level adoption hands `add_session` and the level of every snapshot are the
+lesson's default level's ladder position (not none), and a student one level away from it is invited in the second
+group, after the same-level students, not with them.
+test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_an_inherited_level_reaches_the_engine_at_adoption_and_in_every_snapshot` (+ `test_an_inherited_level_keeps_the_level_groups_in_order`, `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P47-an-inherited-class-level-keeps-the-level-groups]`)
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -268,6 +279,8 @@ test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_e
    engine-answers ANSWERS-32.
 4. (switch keeps lists, 2026-11-19) STORE-15 to STORE-17 — `services/engine_switch.py` (`_adopt`) and
    `services/engine_store.py` (`add_session`); STORE-18, STORE-19 — `services/engine_store.py` (`Placed`).
+5. (engine effective level, 2026-11-25) STORE-22 — `services/engine_store.py` (`snapshot`) and
+   `services/engine_switch.py` (`_adopt`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
