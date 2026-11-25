@@ -83,6 +83,7 @@ import { ManualNotificationModal } from "./ManualNotificationModal";
 import { Badge } from "@/components/ui/badge";
 import { ClassWaitingListSection } from "./ClassWaitingListSection";
 import { ClassSideChoice } from "./ClassSideChoice";
+import { ClassWaitingListLeave } from "./ClassWaitingListLeave";
 import { busySameHourDescription } from "./busySameHourDescription";
 import { JoinRequestSide } from "./JoinRequestSide";
 import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
@@ -236,6 +237,8 @@ export function ClassDetailSheet({
   // PAD-672 (join-requests rule 20): the side sheet, and the side of the place just joined.
   const [sideSheet, setSideSheet] = useState<"request" | "waiting" | null>(null);
   const [joinedWaitingSide, setJoinedWaitingSide] = useState<PlayerSide | null>(null);
+  // PAD-934: the class whose waiting-list place the student just left from this sheet.
+  const [leftWaitingFor, setLeftWaitingFor] = useState<string | null>(null);
   const [pendingAccept, setPendingAccept] = useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -677,6 +680,17 @@ export function ClassDetailSheet({
     setJoinedWaitingFor(String(event.id));
     setJoinedWaitingSide(side);
     toast({ title: t("calendar.waitingList.joined") });
+    void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    void refreshInstance();
+  };
+  // PAD-934: the lesson instance a waiting-list place is on (an occurrence the student waits for is materialised).
+  const waitingLeaveId =
+    event?.model === "LessonInstance" ? Number(event.originalId) : classInstance?.id != null ? Number(classInstance.id) : null;
+  const handleWaitingLeft = () => {
+    if (!event) return;
+    setLeftWaitingFor(String(event.id));
+    setJoinedWaitingFor(null);
+    setJoinedWaitingSide(null);
     void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
     void refreshInstance();
   };
@@ -1883,7 +1897,7 @@ export function ClassDetailSheet({
             !isCanceled &&
             !classStarted &&
             !isStudentParticipant &&
-            (event.studentRelation === "waiting" || joinedWaitingFor === String(event.id) ? (
+            ((event.studentRelation === "waiting" && leftWaitingFor !== String(event.id)) || joinedWaitingFor === String(event.id) ? (
               <div
                 className="space-y-1 rounded-md border border-border bg-muted/30 px-3 py-2"
                 data-testid="class-waiting-list-student"
@@ -1910,8 +1924,11 @@ export function ClassDetailSheet({
                     <p className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</p>
                   </>
                 )}
+                {waitingLeaveId != null && (
+                  <ClassWaitingListLeave lessonInstanceId={waitingLeaveId} onLeft={handleWaitingLeft} />
+                )}
               </div>
-            ) : event.studentRelation === "full" ? (
+            ) : event.studentRelation === "full" || leftWaitingFor === String(event.id) ? (
               <div
                 className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2"
                 data-testid="class-waiting-list-student"
