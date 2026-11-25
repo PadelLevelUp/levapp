@@ -125,6 +125,8 @@ describe("capacityBarOf (calendar.event-detail rule 27, UI idea 3)", () => {
     expect(capacityBarOf({ ...base, status: "canceled" })).toBeNull();
     expect(capacityBarOf({ ...base, capacity: 0 })).toBeNull();
     expect(capacityBarOf({ ...base, canManage: false })).toBeNull();
+  });
+});
 
 describe("viewFilledSpots (calendar.event-detail rule 5, PO M-7512)", () => {
   it("[CALENDAR-EVENT-DETAIL-49] a student takes the payload's count over a recount of their own row", () => {
