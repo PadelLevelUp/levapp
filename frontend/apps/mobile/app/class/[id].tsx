@@ -1281,7 +1281,7 @@ export default function ClassDetailScreen() {
     <Screen edges={["top"]} testID="class-detail">
       <Stack.Screen options={{ gestureEnabled: !hasUnsavedEdit }} />
       {/* Header */}
-      <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
+      <View className="flex-row items-center gap-2 border-b border-border py-2 pl-2 pr-4">
         <Pressable
           testID="class-detail-back"
           accessibilityLabel={t("common.back")}
@@ -1305,14 +1305,14 @@ export default function ClassDetailScreen() {
           <Text
             role="heading"
             aria-level={1}
-            className="flex-1 text-lg font-bold"
+            className="shrink text-lg font-bold"
             numberOfLines={1}
           >
             {title}
           </Text>
         )}
         {chipKey && !isEditing ? (
-          <Badge variant="secondary" testID="class-type-chip">
+          <Badge variant="secondary" testID="class-type-chip" className="self-center">
             <Text>{t(chipKey)}</Text>
           </Badge>
         ) : null}
