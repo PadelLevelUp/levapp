@@ -217,21 +217,35 @@ function ActionCard({
   onPress,
   children,
   testID,
+  foot,
 }: {
   accent?: "attention" | "accent";
   onPress?: () => void;
   children: React.ReactNode;
   testID?: string;
+  /**
+   * A foot drawn outside the card's padding, edge to edge (dashboard.blocks rule 14: the answer strip).
+   * The card then clips to its rounded corners, and the accent bar runs down the whole height past it.
+   */
+  foot?: React.ReactNode;
 }) {
   const body = (
     <View
       className={cn(
-        "rounded-2xl border border-border bg-card p-4",
+        "rounded-2xl border border-border bg-card",
+        foot ? "overflow-hidden" : "p-4",
         accent === "attention" && "border-l-4 border-l-warning",
         accent === "accent" && "border-l-4 border-l-primary",
       )}
     >
-      {children}
+      {foot ? (
+        <>
+          <View className="p-4">{children}</View>
+          {foot}
+        </>
+      ) : (
+        children
+      )}
     </View>
   );
 
@@ -244,6 +258,72 @@ function ActionCard({
 }
 
 /**
+ * The Yes / No pair. `row` (default): the schedule rows' 36px pair. `strip` (rule 14, UI idea 1): the
+ * student's ask cards, a full-width strip at the card's foot. `hero`: the student hero's pair, 44px and
+ * sharing the hero's width under its label, with no strip. Test ids and words are rule 3a's.
+ */
+type AnswerLayout = "row" | "strip" | "hero";
+
+function AnswerPair({
+  busy,
+  onAnswer,
+  onNavy,
+  layout = "row",
+}: {
+  busy: boolean;
+  onAnswer: (action: "yes" | "no") => void;
+  onNavy?: boolean;
+  layout?: AnswerLayout;
+}) {
+  const { t } = useTranslation();
+  // 44px at every width, and an equal share of the pair's width.
+  const size = layout === "row" ? undefined : "h-11 flex-1";
+  const yes = (
+    <Button
+      size="sm"
+      disabled={busy}
+      testID="dashboard-confirm-yes"
+      className={cn(size, onNavy && "bg-sidebar-primary")}
+      onPress={() => onAnswer("yes")}
+    >
+      <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-primary-foreground" : "text-primary-foreground")}>
+        {t("dashboard.answer.yes")}
+      </Text>
+    </Button>
+  );
+  const no = (
+    <Button
+      size="sm"
+      variant={layout === "strip" ? "ghost" : "outline"}
+      disabled={busy}
+      testID="dashboard-confirm-no"
+      className={cn(size, onNavy && "border-sidebar-foreground/30 bg-transparent")}
+      onPress={() => onAnswer("no")}
+    >
+      <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-foreground" : "text-foreground")}>
+        {t("dashboard.answer.no")}
+      </Text>
+    </Button>
+  );
+  if (layout === "strip") {
+    return (
+      <View testID="dashboard-confirm">
+        <View testID="dashboard-answer-strip" className="flex-row items-center gap-2 bg-secondary p-2">
+          {yes}
+          {no}
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View className={cn("flex-row items-center gap-2", layout === "hero" && "w-full")} testID="dashboard-confirm">
+      {yes}
+      {no}
+    </View>
+  );
+}
+
+/**
  * Yes / No for a class the student was asked to confirm (PAD-202 correction,
  * dashboard.blocks rule 3a). Same endpoint as the chat's reminder message; the
  * hook's onSuccess invalidates the dashboard (so the buttons disappear because
@@ -252,9 +332,11 @@ function ActionCard({
 function AnswerButtons({
   lessonInstanceId,
   onNavy,
+  layout,
 }: {
   lessonInstanceId: number;
   onNavy?: boolean;
+  layout?: AnswerLayout;
 }) {
   const { t } = useTranslation();
   const respond = useRespondReminder();
@@ -278,33 +360,7 @@ function AnswerButtons({
         onError: () => toast.error(t("dashboard.answer.failed")),
       },
     );
-  return (
-    <View className="flex-row items-center gap-2" testID="dashboard-confirm">
-      <Button
-        size="sm"
-        disabled={busy}
-        testID="dashboard-confirm-yes"
-        className={cn(onNavy && "bg-sidebar-primary")}
-        onPress={() => answer("yes")}
-      >
-        <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-primary-foreground" : "text-primary-foreground")}>
-          {t("dashboard.answer.yes")}
-        </Text>
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={busy}
-        testID="dashboard-confirm-no"
-        className={cn(onNavy && "border-sidebar-foreground/30 bg-transparent")}
-        onPress={() => answer("no")}
-      >
-        <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-foreground" : "text-foreground")}>
-          {t("dashboard.answer.no")}
-        </Text>
-      </Button>
-    </View>
-  );
+  return <AnswerPair busy={busy} onAnswer={answer} onNavy={onNavy} layout={layout} />;
 }
 
 /**
@@ -429,21 +485,13 @@ function ComeBackSlot({
 function AskButtons({
   busy,
   onAnswer,
+  layout,
 }: {
   busy: boolean;
   onAnswer: (action: "yes" | "no") => void;
+  layout?: AnswerLayout;
 }) {
-  const { t } = useTranslation();
-  return (
-    <View className="flex-row items-center gap-2" testID="dashboard-confirm">
-      <Button size="sm" disabled={busy} testID="dashboard-confirm-yes" onPress={() => onAnswer("yes")}>
-        <Text className="font-sans-semibold text-primary-foreground">{t("dashboard.answer.yes")}</Text>
-      </Button>
-      <Button size="sm" variant="outline" disabled={busy} testID="dashboard-confirm-no" onPress={() => onAnswer("no")}>
-        <Text className="font-sans-semibold text-foreground">{t("dashboard.answer.no")}</Text>
-      </Button>
-    </View>
-  );
+  return <AnswerPair busy={busy} onAnswer={onAnswer} layout={layout} />;
 }
 
 /**
@@ -508,6 +556,34 @@ function DeclineButton({
   );
 }
 
+/**
+ * Dashboard.blocks rule 14 (UI idea 1): the title, the detail line and "Abrir" at the right of the title,
+ * its touch area 44px high. The Yes / No strip is the card's foot, outside its padding.
+ */
+function AskHead({
+  title,
+  detail,
+  openLabel,
+  onOpen,
+}: {
+  title: string;
+  detail: string;
+  openLabel: string;
+  onOpen: () => void;
+}) {
+  return (
+    <View className="flex-row items-start justify-between gap-2">
+      <View className="min-w-0 flex-1 gap-0.5">
+        <Text className="text-[15px] font-sans-bold text-foreground">{title}</Text>
+        <Text className="text-[13px] text-muted-foreground">{detail}</Text>
+      </View>
+      <Pressable onPress={onOpen} accessibilityRole="button" className="-mr-2 -mt-2 h-11 justify-center px-3">
+        <Text className="text-[13px] font-sans-semibold text-primary">{openLabel}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
   const { t, i18n } = useTranslation();
   const respond = useRespondInvite();
@@ -546,33 +622,22 @@ function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
     );
   };
   return (
-    <ActionCard accent="attention" testID="dashboard-queue-vacancy-invite">
-      <View className="gap-0.5">
-        <Text className="text-[15px] font-sans-bold text-foreground">
-          {t("dashboard.needsYou.vacancyInvite.title", { class: item.classTitle })}
-        </Text>
-        <Text className="text-[13px] text-muted-foreground">
-          {t("dashboard.needsYou.vacancyInvite.detail", {
-            date: shortDate(item.date, i18n.language),
-            time: item.timeLabel,
-            filled: item.filled,
-            capacity: item.capacity,
-          })}
-        </Text>
-      </View>
-      <View className="mt-3.5 flex-row items-center gap-2">
-        <AskButtons busy={respond.isPending || respondEngine.isPending} onAnswer={answer} />
-        <View className="flex-1" />
-        <Pressable
-          onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
-          accessibilityRole="button"
-          className="px-2 py-2"
-        >
-          <Text className="text-[13px] font-sans-semibold text-primary">
-            {t("dashboard.needsYou.vacancyInvite.open")}
-          </Text>
-        </Pressable>
-      </View>
+    <ActionCard
+      accent="attention"
+      testID="dashboard-queue-vacancy-invite"
+      foot={<AskButtons layout="strip" busy={respond.isPending || respondEngine.isPending} onAnswer={answer} />}
+    >
+      <AskHead
+        title={t("dashboard.needsYou.vacancyInvite.title", { class: item.classTitle })}
+        detail={t("dashboard.needsYou.vacancyInvite.detail", {
+          date: shortDate(item.date, i18n.language),
+          time: item.timeLabel,
+          filled: item.filled,
+          capacity: item.capacity,
+        })}
+        openLabel={t("dashboard.needsYou.vacancyInvite.open")}
+        onOpen={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
+      />
     </ActionCard>
   );
 }
@@ -594,31 +659,20 @@ function WaitingListOfferCard({ item }: { item: DashboardNeedsYouWaitingListOffe
       },
     );
   return (
-    <ActionCard accent="attention" testID="dashboard-queue-waiting-list-offer">
-      <View className="gap-0.5">
-        <Text className="text-[15px] font-sans-bold text-foreground">
-          {t("dashboard.needsYou.waitingListOffer.title", { class: item.classTitle })}
-        </Text>
-        <Text className="text-[13px] text-muted-foreground">
-          {t("dashboard.needsYou.waitingListOffer.detail", {
-            date: shortDate(item.date, i18n.language),
-            time: item.timeLabel,
-          })}
-        </Text>
-      </View>
-      <View className="mt-3.5 flex-row items-center gap-2">
-        <AskButtons busy={respond.isPending} onAnswer={answer} />
-        <View className="flex-1" />
-        <Pressable
-          onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
-          accessibilityRole="button"
-          className="px-2 py-2"
-        >
-          <Text className="text-[13px] font-sans-semibold text-primary">
-            {t("dashboard.needsYou.waitingListOffer.open")}
-          </Text>
-        </Pressable>
-      </View>
+    <ActionCard
+      accent="attention"
+      testID="dashboard-queue-waiting-list-offer"
+      foot={<AskButtons layout="strip" busy={respond.isPending} onAnswer={answer} />}
+    >
+      <AskHead
+        title={t("dashboard.needsYou.waitingListOffer.title", { class: item.classTitle })}
+        detail={t("dashboard.needsYou.waitingListOffer.detail", {
+          date: shortDate(item.date, i18n.language),
+          time: item.timeLabel,
+        })}
+        openLabel={t("dashboard.needsYou.waitingListOffer.open")}
+        onOpen={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
+      />
     </ActionCard>
   );
 }
@@ -696,11 +750,11 @@ function HeroCard({
 
       {/* PAD-570 (dashboard.blocks rule 3a): the server's flag and state word decide. */}
       {heroAction === "answer" && typeof d.lessonInstanceId === "number" && (
-        <View className="mt-4 flex-row items-center gap-3">
+        <View className="mt-4 flex-col gap-2">
           <Text className="text-[13px] font-sans-semibold text-sidebar-foreground/90">
             {t("dashboard.schedule.toConfirm")}
           </Text>
-          <AnswerButtons lessonInstanceId={d.lessonInstanceId} onNavy />
+          <AnswerButtons lessonInstanceId={d.lessonInstanceId} onNavy layout="hero" />
         </View>
       )}
       {heroAction === "decline" && heroDeclineTarget !== null && (
@@ -872,33 +926,26 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
     // confirm / decline in view.
     const it = item as DashboardNeedsYouInvite;
     return (
-      <ActionCard accent="attention" testID="dashboard-queue-invite">
-        <View className="gap-0.5">
-          <Text className="text-[15px] font-sans-bold text-foreground">
-            {t("dashboard.needsYou.invite.title", { class: it.classTitle })}
-          </Text>
-          <Text className="text-[13px] text-muted-foreground">
-            {t("dashboard.needsYou.invite.detail", {
-              date: shortDate(it.date, i18n.language),
-              time: it.timeLabel,
-              filled: it.filled,
-              capacity: it.capacity,
-            })}
-          </Text>
-        </View>
-        <View className="mt-3.5 flex-row items-center gap-2">
-          <AnswerButtons lessonInstanceId={it.lessonInstanceId} />
-          <View className="flex-1" />
-          <Pressable
-            onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}
-            accessibilityRole="button"
-            className="px-2 py-2"
-          >
-            <Text className="text-[13px] font-sans-semibold text-primary">
-              {t("dashboard.needsYou.invite.open")}
-            </Text>
-          </Pressable>
-        </View>
+      <ActionCard
+        accent="attention"
+        testID="dashboard-queue-invite"
+        foot={
+          typeof it.lessonInstanceId === "number" ? (
+            <AnswerButtons lessonInstanceId={it.lessonInstanceId} layout="strip" />
+          ) : undefined
+        }
+      >
+        <AskHead
+          title={t("dashboard.needsYou.invite.title", { class: it.classTitle })}
+          detail={t("dashboard.needsYou.invite.detail", {
+            date: shortDate(it.date, i18n.language),
+            time: it.timeLabel,
+            filled: it.filled,
+            capacity: it.capacity,
+          })}
+          openLabel={t("dashboard.needsYou.invite.open")}
+          onOpen={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}
+        />
       </ActionCard>
     );
   }

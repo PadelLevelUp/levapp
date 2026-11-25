@@ -180,12 +180,18 @@ export function ActionCard({
   children,
   onClick,
   testId,
+  foot,
 }: {
   accent?: "attention" | "accent";
   className?: string;
   children: ReactNode;
   onClick?: () => void;
   testId?: string;
+  /**
+   * A foot drawn outside the card's padding, edge to edge (dashboard.blocks rule 14: the answer strip).
+   * The card then clips to its rounded corners, and the accent bar runs down the whole height past it.
+   */
+  foot?: ReactNode;
 }) {
   const interactive = typeof onClick === "function";
 
@@ -207,14 +213,22 @@ export function ActionCard({
       }
       className={cn(
         // Border, not shadow — this is a card in a list.
-        "rounded-2xl border border-border bg-card p-4",
+        "rounded-2xl border border-border bg-card",
+        foot ? "overflow-hidden" : "p-4",
         accent === "attention" && "border-l-4 border-l-warning",
         accent === "accent" && "border-l-4 border-l-primary",
         interactive && "cursor-pointer transition-colors hover:bg-accent/40",
-        className,
+        !foot && className,
       )}
     >
-      {children}
+      {foot ? (
+        <>
+          <div className={cn("p-4", className)}>{children}</div>
+          {foot}
+        </>
+      ) : (
+        children
+      )}
     </div>
   );
 }
