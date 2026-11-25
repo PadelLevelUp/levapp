@@ -31,7 +31,6 @@ export async function signOutOnServer(token: string): Promise<void> {
   try {
     await fetch(`${API_BASE_URL}/auth/logout`, {
       method: "POST",
-      keepalive: true,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(pushEndpoint ? { pushEndpoint } : {}),
     });

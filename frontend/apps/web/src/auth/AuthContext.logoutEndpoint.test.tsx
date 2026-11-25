@@ -58,6 +58,8 @@ describe("web sign-out and this browser's push subscription", () => {
     const [url, init] = signOuts()[0];
     expect(init).toMatchObject({ method: "POST", headers: { Authorization: "Bearer session-token" } });
     expect(bodyOf([url, init])).toEqual({ pushEndpoint: ENDPOINT });
+    // Production's API is another origin, so this request is preflighted: no `keepalive`, which some engines refuse there.
+    expect(init).not.toHaveProperty("keepalive");
   });
 
   it("[AUTH-LOGOUT-10] a browser with no subscription sends none", async () => {
