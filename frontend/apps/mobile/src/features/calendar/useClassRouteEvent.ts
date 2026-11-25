@@ -1,4 +1,6 @@
 import * as React from "react";
+import type { QueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@levelup/hooks";
 import type { CalendarEvent } from "@levelup/types";
 import { useLessonInstanceById } from "@levelup/hooks";
 import {
@@ -61,4 +63,9 @@ export function useClassRouteEvent(params: Partial<Record<keyof ClassRouteParams
   }, [paramsEvent, completeId, instance]);
   const classEvent = completeId && byId.isPending ? null : event;
   return { event, fallbackId, byId, classEvent };
+}
+
+/** Refresh what the class screen shows after it changed the class (a save, a cancel, a scope change). */
+export function invalidateClassInstance(queryClient: QueryClient, event: CalendarEvent) {
+  return queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
 }

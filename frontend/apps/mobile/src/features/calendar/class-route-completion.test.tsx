@@ -7,17 +7,22 @@
  */
 import * as React from "react";
 import { act } from "react-test-renderer";
-import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderNative } from "@/test/render-native";
 
-const api = vi.hoisted(() => ({ getLessonInstanceById: vi.fn() }));
+const api = vi.hoisted(() => ({ getLessonInstanceById: vi.fn(), post: vi.fn() }));
+vi.mock("@levelup/api/src/client", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getApi: () => ({ post: api.post }),
+}));
 vi.mock("@levelup/api/src/resources/classes", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getLessonInstanceById: api.getLessonInstanceById,
 }));
 
-import { useClassRouteEvent } from "./useClassRouteEvent";
+import { getClassInstance } from "@levelup/api/src/resources/classes";
+import { invalidateClassInstance, useClassRouteEvent } from "./useClassRouteEvent";
 import { eventToParams, type ClassRouteParams } from "./params";
 import { nativeRouteForWebPath } from "@/features/dashboard/routes";
 
@@ -60,8 +65,13 @@ const dashboardParams = (href: string, hint = { title: "Aula", timeLabel: "19:30
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
   api.getLessonInstanceById.mockReset().mockResolvedValue({ lessonInstance: INSTANCE });
+  api.post.mockReset().mockResolvedValue({ data: {} });
+  onlineManager.setOnline(true);
 });
-afterEach(() => client.clear());
+afterEach(() => {
+  client.clear();
+  onlineManager.setOnline(true);
+});
 
 describe("a LessonInstance route with missing date, times or capacity is completed from its id", () => {
   it("[CALENDAR-EVENT-DETAIL-40] a dashboard route (date and a start label, no end time or capacity) reads once and shows them", async () => {
@@ -129,5 +139,61 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(seen.event).toMatchObject({ date: "2026-07-07", startTime: "19:30", title: "Aula" });
     expect(seen.classEvent).toMatchObject({ date: "2026-07-07" }); // class_instance still asked, with the date
     expect(seen.fallbackId).toBeNull(); // rule 15's gone/retry states belong to an id-only route
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-40] the read's date, times, capacity and status win as one set; the route keeps its title and colour", async () => {
+    // The card was drawn when the class was at 18:00; it has moved to 19:30-21:00 since.
+    await mount({
+      id: "lessoninstance-7", model: "LessonInstance", originalId: "7", date: "2026-07-07",
+      startTime: "18:00", title: "Aula (cartão)", color: "#abcdef", isRecurring: "0",
+    });
+    expect(seen.event).toMatchObject({
+      date: "2026-07-07", startTime: "19:30", endTime: "21:00", maxPlayers: 8, status: "scheduled",
+      title: "Aula (cartão)", color: "#abcdef",
+    });
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-40] the edit form's source starts from the real times, not the card's", async () => {
+    await mount({
+      id: "lessoninstance-7", model: "LessonInstance", originalId: "7", date: "2026-07-07", startTime: "18:00", title: "Aula",
+    });
+    // The class screen's `instance` (and so the edit draft, `structuredClone(instance)`) is `getClassInstance(classEvent)`,
+    // which copies the event's own times into its result.
+    const instance = await getClassInstance(seen.classEvent as never);
+    expect(instance).toMatchObject({ date: "2026-07-07", startTime: "19:30", endTime: "21:00" });
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-40] offline the read cannot run, and the class payload is still asked for from the route", async () => {
+    onlineManager.setOnline(false);
+    await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
+    expect(api.getLessonInstanceById).not.toHaveBeenCalled();
+    expect(seen.classEvent).toMatchObject({ date: "2026-07-07", title: "Aula" }); // not blocked on a read that is paused
+    await act(async () => onlineManager.setOnline(true)); // back online: the read runs and completes the event
+    await vi.waitFor(() => expect(seen.event).toMatchObject({ endTime: "21:00" }));
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-40] opening the class again reads again, and nothing loops", async () => {
+    const first = await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
+    expect(api.getLessonInstanceById).toHaveBeenCalledTimes(1);
+    await act(async () => first.view.root.unmount());
+    await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07")); // the same cache, a new open
+    expect(api.getLessonInstanceById).toHaveBeenCalledTimes(2);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(api.getLessonInstanceById).toHaveBeenCalledTimes(2);
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-40] saving or cancelling the class, or a live event for it, refreshes the read", async () => {
+    const { view } = await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
+    expect(api.getLessonInstanceById).toHaveBeenCalledTimes(1);
+    api.getLessonInstanceById.mockResolvedValue({ lessonInstance: { ...INSTANCE, startTime: "20:00", endTime: "21:30" } });
+    await act(async () => { await invalidateClassInstance(client, seen.event as never); }); // the screen's own save/cancel
+    await view.flush();
+    expect(api.getLessonInstanceById).toHaveBeenCalledTimes(2);
+    expect(seen.event).toMatchObject({ startTime: "20:00", endTime: "21:30" });
+    await act(async () => { await client.invalidateQueries({ queryKey: ["class-instance"] }); }); // requestEvents.ts / the SSE hub
+    await view.flush();
+    expect(api.getLessonInstanceById).toHaveBeenCalledTimes(3);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(api.getLessonInstanceById).toHaveBeenCalledTimes(3);
   });
 });
