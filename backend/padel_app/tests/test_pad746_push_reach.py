@@ -30,7 +30,7 @@ def _support(app):
 
 def _user(username, *, player=True, coach=False, read_at=None, token=False, webpush=False,
           status="active"):
-    """A user; with `read_at`, a conversation they marked read at that time."""
+    """A user; with `read_at`, a conversation they marked read at that time; `webpush` browsers."""
     from padel_app.models import (Coach, Conversation, ConversationParticipant, DeviceToken,
                                   Player, PushSubscription, User)
 
@@ -51,8 +51,9 @@ def _user(username, *, player=True, coach=False, read_at=None, token=False, webp
     if token:
         db.session.add(DeviceToken(user_id=u.id, token=f"ExponentPushToken[{username}]",
                                    platform="ios"))
-    if webpush:
-        db.session.add(PushSubscription(user_id=u.id, subscription_json="{}"))
+    for n in range(int(webpush)):
+        db.session.add(PushSubscription(
+            user_id=u.id, subscription_json=f'{{"endpoint": "https://push.example/{username}/{n}"}}'))
     db.session.flush()
     return u.id
 
@@ -101,6 +102,18 @@ def test_a_student_in_two_read_conversations_counts_once(app, client):
         db.session.commit()
     body = client.get("/admin/api/engine-health", headers=headers).get_json()
     assert body["push"]["activeStudents7d"]["total"] == 1
+
+
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-30")
+def test_a_student_with_two_browsers_counts_once(app, client):
+    headers = _support(app)
+    with app.app_context():
+        _user("p753two", read_at=utcnow_naive() - timedelta(days=1), webpush=2)
+        db.session.commit()
+    body = client.get("/admin/api/engine-health", headers=headers).get_json()
+    assert body["push"]["activeStudents7d"] == {
+        "total": 1, "noChannel": 0, "webPushOnly": 1, "nativeOnly": 0, "nativeAndWebPush": 0,
+    }
 
 
 @pytest.mark.criterion("ADMIN-ENGINE-HEALTH-13")

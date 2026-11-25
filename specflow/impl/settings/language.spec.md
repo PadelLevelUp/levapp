@@ -126,8 +126,6 @@ login (not only while the Settings screen is mounted).
 - **And** 15 October 2026 reads `15/10/2026` in Portuguese and `10/15/2026` in English, and a date is the same day in any time zone
 - **And** in iOS Settings the import history's timestamps and the invitations' expiry dates follow the app's language
 test: `frontend/apps/mobile/src/lib/native-locale.test.ts` › `maps the app's two languages to real region tags` (+12 more)
-- Code to follow: `resolveDateLocale` in `frontend/packages/config/src/dateLocale.ts` and
-  `frontend/apps/web/src/lib/dateLocale.ts` lower-cases the code, as `nativeLocaleTag` does, with a test for `EN`.
 
 #### SETTINGS-LANGUAGE-11: Only Portuguese and English exist, and the phone app has every string in both (rules 1, 10)
 - **Given** a signed-in user, and the phone app's two language bundles

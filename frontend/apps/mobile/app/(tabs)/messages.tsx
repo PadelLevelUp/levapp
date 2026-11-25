@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { refetchAll } from "@/lib/pull-refresh";
 import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
+import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 
 const PAGE_SIZE = 20;
 
@@ -204,6 +205,9 @@ export default function MessagesScreen() {
 
   return (
     <View className="flex-1 bg-background" testID="screen-messages">
+      {/* messaging.push-notifications rule 17 (PAD-789): the thread's notification banner, one line
+          above the list, with the same cases; its tap is the only prompt. */}
+      <NotificationsBlockedBanner />
       {/* With "Não lidas" on, the controls stay even when nothing is unread, so it can be undone. */}
       {!isLoading && !isError && (conversations.length > 0 || unreadOnly || isCoach) ? (
         <View className="gap-3 px-4 pb-3 pt-3">

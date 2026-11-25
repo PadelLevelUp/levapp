@@ -25,6 +25,12 @@ describe("resolveDateLocale", () => {
     expect(resolveDateLocale("pt-PT")).toBe(pt);
   });
 
+  it("lower-cases the code before the lookup, so EN and PT-pt still resolve", () => {
+    expect(resolveDateLocale("EN")).toBe(enUS);
+    expect(resolveDateLocale("En-GB")).toBe(enUS);
+    expect(resolveDateLocale("PT")).toBe(pt);
+  });
+
   it("falls back to Portuguese for unknown or missing languages", () => {
     // settings.language rule 4: the app-wide fallback locale is pt (PAD-39).
     expect(resolveDateLocale("fr")).toBe(pt);

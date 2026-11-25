@@ -73,11 +73,6 @@ def _all_pending_pairs(coach_id: int, now: Optional[datetime] = None) -> List[Tu
     return sorted(pairs)
 
 
-def count_pending_confirmations(*, coach_id: int, now: Optional[datetime] = None) -> int:
-    """Number of students still pending confirmation for tomorrow's classes."""
-    return len(_all_pending_pairs(coach_id, now))
-
-
 def get_pending_confirmation_targets(
     *, coach_id: int, now: Optional[datetime] = None
 ) -> List[Tuple[int, List[int]]]:

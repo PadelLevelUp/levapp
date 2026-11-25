@@ -24,7 +24,8 @@ database query or a log search, and failed sends are only in the logs.
   ReminderAttempt (`reminder_attempts`), NotificationConfig (`notification_configs`), User, Coach,
   the APScheduler job store (`apscheduler_jobs`, `SQLAlchemyJobStore` on the app database),
   `alembic_version`; for rule 8, Player, ConversationParticipant (`last_read_at`), DeviceToken,
-  PushSubscription; for rules 10–12 the new engine's tables (`engine_sessions`, `invitations`,
+  PushSubscription; for rule 13 also Message (`sent_at`, `sender_id`, `conversation_id`) and
+  ConversationParticipant (`joined_at`); for rules 10–12 the new engine's tables (`engine_sessions`, `invitations`,
   `engine_effects`; `notifications.engine-store`) and `NotificationConfig.engine_version`
 - **CREATES:** `delivery_incidents` — `id`, `created_at`, `kind`
   (`email_failed`|`push_failed`|`reminder_skipped_past_due`|`push_registration_failed`, the last
@@ -200,6 +201,25 @@ Readings:
     session that raised, it records one `delivery_incidents` row, kind `engine_session_failed`, channel
     `scheduler`, the lesson instance as subject, the error's class, in its own short transaction as rule
     3's rows are.
+13. **The push reach of message recipients (PAD-789; follows PAD-741's 2026-10-29 read).** Rule 8a
+    counts students who *read* a conversation; a student who never opens the app is not in it, and
+    that is the student a push is for. The summary's `push.messageRecipients` therefore counts, by
+    the same channel split as rule 8a (`total`, `noChannel`, `webPushOnly`, `nativeOnly`,
+    `nativeAndWebPush`), the **message recipients**: users with a `players` row who are a
+    participant of a conversation holding at least one message sent by someone else after
+    now − const:MESSAGE_RECIPIENT_WINDOW_DAYS days (strictly after, as rule 8a's window) and at or
+    after that participant's `joined_at`. The population is the students someone wrote to, the
+    people a push would serve, so every message type counts (a direct message, a system or
+    engine message, even one sent without a push) and a message deleted later still counts.
+    Counted once, whatever the user's status and even if they also coach, as rule 8a does. The
+    block also carries `windowDays`, the window it used, so the page's label reads it rather than
+    restating it. Rule 8a's `activeStudents7d` is unchanged and stays beside it, so both
+    baselines keep comparing. Counts only, in one aggregate query (rule 7): rule 8a's grouped
+    `EXISTS` shape over a recipients subquery. No id, name or username leaves.
+    On the page the push card is titled "Push reach" (no longer naming active students), its
+    first row is labelled as the active students of 7 days, and the recipients' total, no-channel
+    and web-push-only counts are a second row of the same card, labelled with `windowDays`,
+    above rule 8c's failures line.
 
 ### Acceptance Criteria
 
@@ -339,6 +359,39 @@ test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the e
 - **And** the web's report goes with the user's own token, outside the API client
 test: `frontend/apps/web/src/utils/pushFailureReport.test.ts` › `a save answered 503 sends one report with the closed fields and the user's token` (+9 more)
 
+#### ADMIN-ENGINE-HEALTH-30: A student with two browsers counts once (PAD-753)
+- **Given** an active student with two web-push subscriptions and no device token
+- **When** the push-reach summary is read
+- **Then** `webPushOnly` counts them once and `total` once
+test: `backend/padel_app/tests/test_pad746_push_reach.py` › `test_a_student_with_two_browsers_counts_once`
+
+#### ADMIN-ENGINE-HEALTH-31: Message recipients are counted by channel, apart from active students (rule 13)
+- **Given** a fixed now and, each a user with a `players` row: A received a message from their coach 2 days before now, with no channel; B received one too, `inactive`, with no channel; C received one, with web push only; D received one, with an iOS token only, and marked a conversation read 2 days before now; E received one 2 days before now that was deleted since, with both channels; F who only sent a message of their own 2 days before now and marked a conversation read 2 days before now; G whose only received message is const:MESSAGE_RECIPIENT_WINDOW_DAYS + 1 days old; H who joined a conversation after its only message was sent; and a coach with no `players` row who received a message 1 day before now
+- **When** the push block is computed for that now (`engine_health._push(now)`, not through the route, whose admin gate needs the real clock)
+- **Then** `push.messageRecipients` is `{windowDays: const:MESSAGE_RECIPIENT_WINDOW_DAYS, total: 5, noChannel: 2, webPushOnly: 1, nativeOnly: 1, nativeAndWebPush: 1}`
+- **And** `push.activeStudents7d.total` is 2 (D and F), so the two populations are counted apart
+test: `backend/padel_app/tests/test_pad789_message_recipient_reach.py` › `test_message_recipients_are_counted_by_channel`
+
+#### ADMIN-ENGINE-HEALTH-32: A recipient counts once, and the block holds only counts (rule 13)
+- **Given** a student who received messages in two conversations within the window
+- **When** support GETs `/admin/api/engine-health`
+- **Then** `push.messageRecipients.total` is 1
+- **And** the `push` block's keys are exactly `activeStudents7d`, `messageRecipients` and `registrationFailures7d`; `messageRecipients`' keys are exactly `windowDays`, `total`, `noChannel`, `webPushOnly`, `nativeOnly`, `nativeAndWebPush`, each an integer
+- **And** the student's name, username and email appear nowhere in the response body
+test: `backend/padel_app/tests/test_pad789_message_recipient_reach.py` › `test_a_recipient_counts_once_and_the_block_holds_only_counts`
+
+#### ADMIN-ENGINE-HEALTH-33: The recipient count costs the same statements for 3 students as for 30 (rules 7, 13)
+- **Given** 3 message recipients, then 30
+- **When** the `push` block is computed, counting the SQL statements issued
+- **Then** both reads issue the same number of statements
+test: `backend/padel_app/tests/test_pad789_message_recipient_reach.py` › `test_the_recipient_count_does_not_grow_with_students`
+
+#### ADMIN-ENGINE-HEALTH-34: The page shows message recipients without a channel, and leaves the row out when the summary lacks it (rules 8c, 13)
+- **Given** support on `/engine-health` and a summary whose `push` block carries `messageRecipients` with `windowDays` 7
+- **Then** the recipients' total, no-channel and web-push-only counts show (`admin-eh-push-recipients`, `admin-eh-push-recipients-no-channel`, `admin-eh-push-recipients-web-only`) in the push card, under a label carrying the block's `windowDays`, and the active-student counts still show
+- **And** a `push` block without `messageRecipients` (a server before this change) shows the active-student counts and no recipients row
+test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows message recipients without a channel, and no recipients row when the summary lacks it`
+
 ### Not this spec
 - Retrying, re-arming or running the engine by hand (`process_rounds`, "send now") — never from the
   console in this spec.
@@ -396,7 +449,58 @@ test: `backend/padel_app/tests/test_pad918_engine_health_new_engine.py` › `tes
 - **And** a summary without an `engine` block shows the page without it
 test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the new engine's block, and no block when the summary has none`
 
+
+### Today (PAD-789)
+- Channels are stored in `device_tokens` (`backend/padel_app/models/device_token.py`: `user_id`,
+  `token`, `platform`; written by `POST /api/notifications/device`,
+  `modules/notifications_api.py:register_device_token`) and `push_subscriptions`
+  (`models/push_subscriptions.py`: one row per user; `POST /api/notifications/save-subscription`).
+- The reach is produced by `backend/padel_app/services/admin/engine_health.py:_push` (rule 8a,
+  `ACTIVE_STUDENT_WINDOW = timedelta(days=7)`, one grouped `EXISTS` query over the active
+  students), served on `GET /admin/api/engine-health`; pinned by
+  `backend/padel_app/tests/test_pad746_push_reach.py` (ADMIN-ENGINE-HEALTH-11, -12). No count
+  of message *recipients* exists: a student who receives messages but never opens a
+  conversation is outside rule 8a.
+- A message is `messages` (`models/messages.py`: `conversation_id`, `sender_id`, `sent_at`,
+  `is_deleted`, `message_type`); recipients are the conversation's `conversation_participants`
+  (`models/conversation_participants.py`: `user_id`, `joined_at`, `last_read_at`).
+- The page is `frontend/apps/admin/src/pages/EngineHealthPage.tsx` (the `admin-eh-push` card:
+  active, no channel, web push only, native, and the failures line), its type
+  `frontend/apps/admin/src/lib/api.ts` `EngineHealth`; pinned by
+  `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` (ADMIN-ENGINE-HEALTH-22).
+- The admin user page already shows one user's `pushRegistered`
+  (`services/admin/users_service.py:152`); this change names no user anywhere.
+
+### Waves (PAD-789)
+1. ADMIN-ENGINE-HEALTH-31, ADMIN-ENGINE-HEALTH-32, ADMIN-ENGINE-HEALTH-33 — backend
+   (`services/admin/engine_health.py` `_push`), no migration. Statement counting as in
+   `test_pad262_dashboard_pipeline.py` `_statements`.
+2. ADMIN-ENGINE-HEALTH-34 — admin app (`EngineHealthPage.tsx`, `lib/api.ts` type, both admin
+   locales: the card title and the active row's label change, the recipients row is new).
+Wave 3 (the in-app prompt) is in `messaging.push-notifications` and `auth.push-subscription`.
+
 ### Open questions
+- **PAD-789: which population the new count uses.** Options: (a) a second block,
+  `messageRecipients`, beside rule 8a's; (b) change rule 8a's definition to recipients.
+  Decision (lead, 2026-11-25; the owner can reverse it): (a), written as rule 13: rule 8a says its definition is "kept as is so the count
+  compares with its production baseline of 2026-10-22", and (b) would break that comparison.
+  PAD-741's 2026-10-29 read (78 of 218 recipients with no channel, 23 web push only) covered
+  3 days, not the block's window, so it is not this block's baseline; the
+  first weekly read after release is.
+- **PAD-789: the window as a constant.** Decision (lead, 2026-11-25; the owner can reverse it):
+  const:MESSAGE_RECIPIENT_WINDOW_DAYS (`specflow/impl/admin/constants.md`), computed with by the
+  backend and sent as `windowDays`, which the page's label reads. Rule 8a's
+  7 days (`ACTIVE_STUDENT_WINDOW`, `engine_health.py`) stays its own, so changing one window
+  never moves the other baseline.
+- **PAD-789 item 3: report a denied permission (state only) beside rule 8b's failure report.**
+  **Conflict:** rule 8d says "a refused permission is not a failure and is never reported",
+  pinned by ADMIN-ENGINE-HEALTH-23 ("a refused permission and a simulator report nothing")
+  and MESSAGING-PUSH-NOTIFICATIONS-32 ("a denial sends nothing"). The ticket marks the item
+  optional. Options: (a) out of PAD-789; (b) amend rule 8d with a separate state report
+  (`platform`, `permission` only, deduplicated per user per day), which needs a
+  `Specflow-Amends` on rule 8d and both criteria, and a new count on this page. Default (a):
+  not built, no criterion, until the lead or owner rules on amending rule 8d. Decision (lead,
+  2026-11-25; the owner can reverse it): (a).
 - What the console reads once vacancies are gone (swap decision 1) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): a read-only projection
   per spot type during cutover only, then the engine's own state, because the console is the one
   reader that must see both engines while coaches move.

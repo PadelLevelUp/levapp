@@ -85,8 +85,8 @@ def test_save_subscription_creates_row(client, app):
 
 
 @pytest.mark.criterion("AUTH-PUSH-SUBSCRIPTION-1")
-def test_save_subscription_upserts_one_row_per_user(client, app):
-    """Rule 1: one subscription per user. Re-registering replaces, never adds."""
+def test_save_subscription_upserts_one_row_per_browser(client, app):
+    """Rule 1 (PAD-753): one subscription per browser. Re-registering the same one replaces, never adds."""
     from padel_app.models import PushSubscription
 
     with app.app_context():
@@ -97,14 +97,14 @@ def test_save_subscription_upserts_one_row_per_user(client, app):
     headers = _auth_header(app, user_id)
     first = client.post(
         "/api/notifications/save-subscription",
-        json={"subscription": _subscription("https://push.example.com/first")},
+        json={"subscription": _subscription("https://push.example.com/one")},
         headers=headers,
     )
     assert first.status_code == 201
 
     second = client.post(
         "/api/notifications/save-subscription",
-        json={"subscription": _subscription("https://push.example.com/second")},
+        json={"subscription": {**_subscription("https://push.example.com/one"), "expirationTime": 753}},
         headers=headers,
     )
     assert second.status_code == 201
@@ -112,11 +112,10 @@ def test_save_subscription_upserts_one_row_per_user(client, app):
     with app.app_context():
         rows = PushSubscription.query.filter_by(user_id=user_id).all()
         assert len(rows) == 1
-        # The endpoint must be the SECOND one — a no-op upsert would leave the
+        assert rows[0].endpoint == "https://push.example.com/one"
+        # The payload must be the SECOND one — a no-op upsert would leave the
         # first and still yield exactly one row.
-        assert json.loads(rows[0].subscription_json)["endpoint"] == (
-            "https://push.example.com/second"
-        )
+        assert json.loads(rows[0].subscription_json)["expirationTime"] == 753
 
 
 def test_save_subscription_rejects_missing_subscription(client, app):

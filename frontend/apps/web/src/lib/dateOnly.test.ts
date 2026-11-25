@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+
+// calendar.view rule 24: a device zone west of UTC, set before any test runs, so a helper that
+// drifts a bare date by reading it as UTC midnight fails here and not only on a western CI box.
+process.env.TZ = "America/Sao_Paulo";
+
 import { addMonthsToIsoDate, weekdayOfIsoDate } from "./dateOnly";
 
 // B-060: a bare "YYYY-MM-DD" is a calendar date. `new Date("2027-07-13")` is

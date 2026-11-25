@@ -85,8 +85,6 @@ budget holds the gain.
    PAD-656 site had brought to ~288 kB; the owner raised the budget rather than trim the entry.)
 9. **A chunk that fails twice shows an error screen, not a blank page.** An error boundary above
    the routes catches the rethrow of rule 4 and renders a screen with a reload action.
-   - Code to follow: add that error boundary above the routes in `App.tsx`; today the app unmounts
-     to a blank page when a chunk fails twice within 10 s.
 
 ### Acceptance Criteria
 
@@ -153,6 +151,12 @@ budget holds the gain.
 - **When** `prefetchAppPages()` runs again
 - **Then** only the Calendar page's loader runs, once
 test: `frontend/apps/web/src/routes/lazyPages.test.ts` › `retries a page whose prefetch failed on the next call`
+
+#### CLIENT-ROUTE-LOADING-11: A chunk that fails twice shows an error screen with a reload action (rule 9)
+- **Given** the routes' error boundary, and a lazy page whose chunk fails within 10 s of the last reload
+- **When** the page renders and rule 4 rethrows
+- **Then** the error screen shows a title, a line of text and a reload button, in the user's language, instead of a blank page
+- **And** pressing the button calls `window.location.reload`
 
 ### Notes
 - **Web-only (R-024 exception).** The iOS app bundles its JavaScript inside the binary; there is

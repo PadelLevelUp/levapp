@@ -19,6 +19,11 @@
     "close": "Fechar",
     "back": "Voltar",
     "next": "Seguinte",
+    "routeError": {
+      "title": "Não foi possível abrir esta página",
+      "body": "A ligação falhou ou a app foi atualizada. Recarrega para continuar.",
+      "reload": "Recarregar"
+    },
     "previous": "Anterior",
     "loading": "A carregar…",
     "search": "Pesquisar",

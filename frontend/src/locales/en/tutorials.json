@@ -42,7 +42,8 @@
     "sendStatus": {
       "first_batch": "first batch",
       "queued": "waiting",
-      "daily_quota": "over today's limit"
+      "daily_quota": "over today's limit",
+      "unknown": "not sent"
     },
     "gates": {
       "auto_notify_disabled": "The automatic invitation engine is switched off.",
@@ -53,7 +54,8 @@
       "min_time_before_class": "Less than {{minutes}} minutes remain before the class.",
       "max_total_reached": "{{sent}} invitations were already sent for this class (limit {{limit}}).",
       "last_invite_before": "Past the last invitation time",
-      "class_auto_invites_off": "Automatic invitations are off for this class"
+      "class_auto_invites_off": "Automatic invitations are off for this class",
+      "unknown": "This check is not recognised by this version of the app."
     },
     "gatesOk": {
       "auto_notify_disabled": "Invitation engine is on",

@@ -41,6 +41,7 @@ import {
   joinRefusalKey,
   joinRefusalOf,
   isEngineApproval,
+  classTypeChipKey,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -108,6 +109,7 @@ import {
   hasClassStarted,
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
+import { ClassCapacityBar } from "@/features/calendar/ClassCapacityBar";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { classCourtsQuery } from "@/features/calendar/class-courts";
 import { InviteeOutcome, OpenSpotsLine } from "@/features/calendar/invitee-outcome";
@@ -128,6 +130,7 @@ import { PlayerSelector } from "@/features/calendar/player-selector";
 import { useCoachPlayers } from "@/features/players/hooks";
 import { ClassWaitingListSection } from "@/features/calendar/class-waiting-list-section";
 import { ClassSideSheet } from "@/features/calendar/ClassSideSheet";
+import { WaitingListLeave } from "@/features/calendar/waiting-list-leave";
 import { JoinRequestSide } from "@/features/calendar/join-request-side";
 import {
   useCancelAttendance,
@@ -558,6 +561,8 @@ export default function ClassDetailScreen() {
   // PAD-672 (join-requests rule 20): the side sheet, and the side of the place just joined.
   const [sideSheet, setSideSheet] = React.useState<"request" | "waiting" | null>(null);
   const [joinedWaitingSide, setJoinedWaitingSide] = React.useState<PlayerSide | null>(null);
+  // PAD-934: the student left this class's waiting list from the screen.
+  const [leftWaiting, setLeftWaiting] = React.useState(false);
   const [pendingAccept, setPendingAccept] = React.useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -645,6 +650,7 @@ export default function ClassDetailScreen() {
   const title =
     active?.name || event.title || t("classDetail.classFallbackTitle");
   const isCanceled = (active?.status ?? event.status) === "canceled";
+  const chipKey = classTypeChipKey(active?.classType ?? event.classType);
   // B-422: a deep-linked open has no calendar event; the payload's flag (or its series end) says it.
   const isRecurring = event.isRecurring || instance?.isRecurring === true || instance?.recurrenceEnd != null;
   // PAD-335 (`classes.delete` rule 7): the delete dialog says when the coach's
@@ -1063,6 +1069,16 @@ export default function ClassDetailScreen() {
     toast.success(t("calendar.waitingList.joined"));
     void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
   };
+  // PAD-934: the lesson instance a waiting-list place is on (an occurrence the student waits for is materialised).
+  const waitingLeaveId =
+    event.model === "LessonInstance" ? Number(event.originalId) : instance?.id != null ? Number(instance.id) : null;
+  const handleWaitingLeft = () => {
+    setLeftWaiting(true);
+    setWaitingJoined(false);
+    setJoinedWaitingSide(null);
+    void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    void refreshInstance();
+  };
   const handleSideFailed = async (err: unknown, mode: "request" | "waiting") => {
     // PAD-920 (classes.join-requests NJ1–NJ2): a refusal of either join reads its code's own
     // line (a code this build does not know reads the generic one, never a raw key).
@@ -1260,7 +1276,7 @@ export default function ClassDetailScreen() {
     <Screen edges={["top"]} testID="class-detail">
       <Stack.Screen options={{ gestureEnabled: !hasUnsavedEdit }} />
       {/* Header */}
-      <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
+      <View className="flex-row items-center gap-2 border-b border-border py-2 pl-2 pr-4">
         <Pressable
           testID="class-detail-back"
           accessibilityLabel={t("common.back")}
@@ -1284,12 +1300,17 @@ export default function ClassDetailScreen() {
           <Text
             role="heading"
             aria-level={1}
-            className="flex-1 text-lg font-bold"
+            className="shrink text-lg font-bold"
             numberOfLines={1}
           >
             {title}
           </Text>
         )}
+        {chipKey && !isEditing ? (
+          <Badge variant="secondary" testID="class-type-chip" className="self-center">
+            <Text>{t(chipKey)}</Text>
+          </Badge>
+        ) : null}
         {isCanceled ? (
           <Badge variant="destructive">
             <Text>{t("classDetail.canceled")}</Text>
@@ -1455,6 +1476,18 @@ export default function ClassDetailScreen() {
                     {isCoach ? (
                       <OpenSpotsLine openSpots={maxPlayers - filled} invitations={invitations} />
                     ) : null}
+                    {/* calendar.event-detail rule 27 (UI idea 3): the calendar card's fill bar,
+                        fed by this box's own count. */}
+                    <ClassCapacityBar
+                      participants={countedParticipants}
+                      presences={instance?.presences}
+                      capacity={maxPlayers}
+                      filled={filled}
+                      status={active?.status ?? event.status}
+                      ended={classEnded}
+                      canManage={isCoach}
+                      editing={isEditing}
+                    />
                   </>
                 )}
               </View>
@@ -2021,7 +2054,7 @@ export default function ClassDetailScreen() {
           (event.studentRelation === "full" || event.studentRelation === "waiting" || waitingJoined) ? (
             <>
               <Separator />
-              {event.studentRelation === "waiting" || waitingJoined ? (
+              {(event.studentRelation === "waiting" && !leftWaiting) || waitingJoined ? (
                 <View
                   className="gap-1 rounded-md border border-border bg-muted/30 px-3 py-2"
                   testID="class-waiting-list-student"
@@ -2048,6 +2081,7 @@ export default function ClassDetailScreen() {
                       <Text className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</Text>
                     </>
                   )}
+                  {waitingLeaveId != null ? <WaitingListLeave lessonInstanceId={waitingLeaveId} onLeft={handleWaitingLeft} /> : null}
                 </View>
               ) : (
                 <View

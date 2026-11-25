@@ -98,3 +98,27 @@ test("PAD-235: Upcoming lessons KPI equals the schedule's totalCount", async ({ 
   await expect(upcomingCard).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId("dashboard-kpi-upcoming-lessons-value")).toHaveText(String(totalCount));
 });
+
+// dashboard.blocks rule 15 (UI idea 7, DASHBOARD-BLOCKS-68): the metric numbers are 32px (40px from
+// 1024px) and always fit their tile: never wider than the tile's content box, never wrapped.
+for (const [width, size] of [[320, "32px"], [1280, "40px"]] as const) {
+  test(`[DASHBOARD-BLOCKS-68] the KPI numbers fit their tiles at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByTestId("dashboard-kpis")).toBeVisible({ timeout: 10_000 });
+    for (const slug of ["attended", "missed", "upcoming-lessons", "invites"]) {
+      const value = page.getByTestId(`dashboard-kpi-${slug}-value`);
+      await expect(value).toBeVisible();
+      await expect(value).toHaveCSS("font-size", size);
+      const fit = await value.evaluate((el) => {
+        const tile = el.parentElement as HTMLElement;
+        const cs = getComputedStyle(tile);
+        const content = tile.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return { text: range.getBoundingClientRect().width, content, lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)) };
+      });
+      expect(fit.text, `${slug} text is no wider than its tile's content box`).toBeLessThanOrEqual(fit.content);
+      expect(fit.lines, `${slug} stays on one line`).toBe(1);
+    }
+  });
+}

@@ -1,7 +1,7 @@
 # Phase 5 — native push device-token storage.
 # - Mirrors padel_app/models/push_subscriptions.py (the existing browser Web-Push
 #   model): db.Model + model.Model mixin, created_at/updated_at come from model.Model.
-# - Unlike PushSubscription (unique per user_id, one browser sub per user), a
+# - Unlike PushSubscription (unique per endpoint, one row per browser), a
 #   DeviceToken is unique per (user, token): a user can have several device tokens
 #   (multiple phones/reinstalls), and registering never takes another user's row
 #   (messaging.push-notifications rule 9, PAD-269; it used to reassign it).

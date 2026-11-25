@@ -35,7 +35,8 @@ review D7).
    is not followed.
 4. **What is never included.** Password hashes, verification and activation codes, tokens and
    secrets: any column whose name contains `password`, `token` or `secret`, ends in `_hash`, or is
-   `generated_code`, `jti` or `subscription_json` (a web-push endpoint and its keys), prints as
+   `generated_code`, `jti`, `subscription_json` (a web-push endpoint and its keys) or the push
+   subscription's own `endpoint` column (PAD-753; owner decision), prints as
    `"[withheld]"`. Another person's messages, and the `admin_audit_log`
    and `deletion_audit` staff records, are left out.
 4a. **A coach's nickname for the student is the student's data too (PAD-660).** The relation row
@@ -87,6 +88,12 @@ review D7).
 - **Then** `push_subscriptions` lists the row with `subscription_json` printed as `"[withheld]"`, and the endpoint and keys appear nowhere in the output
 - **And** `tables` has no `admin_audit_log` and no `deletion_audit` key
 test: `backend/padel_app/tests/test_pad640_export_user_data.py` › `test_a_push_subscription_prints_withheld` (+1 more)
+
+#### ADMIN-DATA-EXPORT-7: The push subscription's endpoint column is withheld (rule 4, PAD-753)
+- **Given** a student with two browser subscriptions, each with its `endpoint` column filled
+- **When** they are exported
+- **Then** each `push_subscriptions` row prints `endpoint` and `subscription_json` as `"[withheld]"`, and neither endpoint URL appears anywhere in the output
+test: `backend/padel_app/tests/test_pad640_export_user_data.py` › `test_a_push_subscription_endpoint_prints_withheld`
 
 ### Notes
 - Source: PAD-640 (privacy review PAD-602, D7). The 30-day deadline is GDPR article 12(3).

@@ -1,8 +1,9 @@
-"""PAD-652 / B-581: two save-subscription calls at once for one user both succeed and leave ONE row.
+"""PAD-652 / B-581: two save-subscription calls at once for one browser both succeed and leave ONE row.
 
 Prod, 2026-10-12 12:30Z: the web app saves the subscription twice on sign-in (`login()` and the
 token effect both call `requestAndSubscribe`). `save_subscription` looked the row up and then
 inserted it, so the call that lost the race failed on `ix_push_subscriptions_user_id` with a 500.
+Since PAD-753 the row is the browser's, so the collision is on `ix_push_subscriptions_endpoint`.
 
 Two cells:
 - the loser's path, forced on any database: the lookup is made to miss although the winner's
@@ -51,8 +52,11 @@ def _headers(app, user_id):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
 
 
+ENDPOINT = "https://push.example.com/ep"
+
+
 def _subscription(n):
-    return {"endpoint": f"https://push.example.com/ep-{n}", "keys": {"p256dh": "BKxQ_fake_key", "auth": "fake_auth"}}
+    return {"endpoint": ENDPOINT, "keys": {"p256dh": f"BKxQ_fake_key_{n}", "auth": "fake_auth"}}
 
 
 def _rows(app, user_id):
@@ -76,7 +80,7 @@ def test_a_save_whose_insert_collides_updates_the_winners_row(app, client, monke
 
     def _first_lookup_misses(self, **kwargs):
         query = real_filter_by(self, **kwargs)
-        if kwargs == {"user_id": user_id} and misses["left"]:
+        if kwargs == {"endpoint": ENDPOINT} and misses["left"]:
             misses["left"] -= 1
             return query.filter(db.false())
         return query

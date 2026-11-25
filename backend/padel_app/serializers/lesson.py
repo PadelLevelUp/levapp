@@ -235,6 +235,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         # conversation with this user (`POST /app/conversation` takes user ids).
         "coachUserId": str(_coach.user_id) if _coach is not None else None,
         "name": obj.title,
+        # classes.detail-visibility rule 6 (PAD-925): the type for the detail's chip, so a class opened
+        # from the dashboard, a message or a push (no calendar event to read it from) still shows it.
+        "classType": lesson.type,
         # calendar.event-detail rule 5 (PO M-7512): the class's filled spots, one number with no names, from the
         # helper the calendar event uses. A student's `participants` lists only themselves, so the sheet needs it.
         "participantCount": filled_spots(obj),
