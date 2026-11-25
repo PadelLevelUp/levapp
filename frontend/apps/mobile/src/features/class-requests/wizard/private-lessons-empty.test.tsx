@@ -2,7 +2,8 @@
  * PAD-929 (classes.class-requests rule 13b), the phone's half: when the private step's availability
  * answer for the request on screen leaves no start time, and the request has no invitees, the step
  * lists the coach's visible private lessons (`type=private`) under today's message, with the state in
- * the test id. Rows only: their actions come with the private-lesson warning (wave 3). Located by
+ * the test id; each row's one action goes through the private-lesson warning (classes.join-requests
+ * rule 22). Located by
  * test id, never by copy (`t` returns the key).
  */
 import * as React from "react";
@@ -24,6 +25,24 @@ vi.mock("@/components/ui/date-picker-input", () => ({
   DatePickerInput: ({ testID }: { testID: string }) => <View testID={testID} />,
 }));
 vi.mock("@levelup/api/src/resources/classRequests", () => ({ createClassRequest: vi.fn(), classRequestRefusal: () => null }));
+const joinApi = vi.hoisted(() => ({ createClassJoinRequest: vi.fn(), joinClassWaitingList: vi.fn() }));
+vi.mock("@levelup/api/src/resources/classJoinRequests", () => ({ createClassJoinRequest: joinApi.createClassJoinRequest }));
+vi.mock("@levelup/api/src/resources/academyClasses", () => ({ joinClassWaitingList: joinApi.joinClassWaitingList }));
+vi.mock("@/components/ui/alert-dialog", async () => {
+  const { Pressable, View } = await import("react-native");
+  const box = (p: { children?: React.ReactNode; testID?: string }) => React.createElement(View, { testID: p.testID }, p.children);
+  const button = (p: { children?: React.ReactNode; testID?: string; onPress?: () => void }) =>
+    React.createElement(Pressable, { testID: p.testID, onPress: p.onPress }, p.children);
+  return {
+    AlertDialog: (p: { open: boolean; children?: React.ReactNode }) => (p.open ? React.createElement(View, null, p.children) : null),
+    AlertDialogContent: box,
+    AlertDialogHeader: box,
+    AlertDialogFooter: box,
+    AlertDialogDescription: box,
+    AlertDialogCancel: button,
+    AlertDialogAction: button,
+  };
+});
 
 const availabilityApi = vi.hoisted(() => ({
   getRequestParticipants: vi.fn().mockResolvedValue([]),
@@ -61,6 +80,8 @@ async function mount(): Promise<Native> {
 }
 
 afterEach(() => {
+  joinApi.createClassJoinRequest.mockReset();
+  joinApi.joinClassWaitingList.mockReset();
   availabilityApi.getCoachAvailability.mockReset();
   availabilityApi.getRequestParticipants.mockReset().mockResolvedValue([]);
   academyApi.listAcademyClasses.mockReset();
@@ -80,8 +101,9 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     expect(open).toContain('classRequests.minutes:{"count":90}');
     expect(open).toContain("Douro Padel");
     expect(view.byTestId("wizard-private-lesson-row-full")).toBeTruthy();
-    expect(view.queryByTestId("wizard-private-lesson-request")).toBeNull();
-    expect(view.queryByTestId("wizard-private-lesson-waitlist")).toBeNull();
+    // Each row offers its one action: request when open, the waiting list when full.
+    expect(view.queryByTestId("wizard-private-lesson-request")).not.toBeNull();
+    expect(view.queryByTestId("wizard-private-lesson-waitlist")).not.toBeNull();
 
     // Weekly too.
     await view.press("wizard-recurrence-weekly");
@@ -143,5 +165,37 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     expect(view.byTestId("wizard-slots-empty")).toBeTruthy();
     expect(view.queryByTestId("wizard-private-lessons")).toBeNull();
     expect(academyApi.listAcademyClasses.mock.calls.length).toBe(readsAlone);
+  });
+});
+
+describe("a list row joins through the warning (classes.join-requests rule 22)", () => {
+  it("[CLASSES-JOIN-REQUESTS-43] a list row joins through the warning", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
+    academyApi.listAcademyClasses.mockResolvedValue({ classes: [lesson("1", "open"), lesson("2", "full")] });
+    joinApi.createClassJoinRequest.mockResolvedValue({ id: 9, status: "pending", side: "right" });
+    joinApi.joinClassWaitingList.mockResolvedValue({ onWaitingList: true });
+    const view = await mount();
+
+    // Open row: NÃO sends nothing; SIM opens the side sheet and the request carries the confirmation.
+    await view.press("wizard-private-lesson-request");
+    expect(view.queryByTestId("private-lesson-warning")).not.toBeNull();
+    await view.press("private-lesson-warning-no");
+    expect(joinApi.createClassJoinRequest).not.toHaveBeenCalled();
+    expect(view.queryByTestId("private-lesson-warning")).toBeNull();
+    await view.press("wizard-private-lesson-request");
+    await view.press("private-lesson-warning-yes");
+    await view.press("class-side-right");
+    await view.press("class-side-send");
+    await view.flush();
+    expect(joinApi.createClassJoinRequest).toHaveBeenCalledWith(expect.objectContaining({ originalId: "1" }), undefined, "right", true);
+
+    // Full row: the waiting-list join goes through the same warning.
+    await view.flush();
+    await view.press("wizard-private-lesson-waitlist");
+    await view.press("private-lesson-warning-yes");
+    await view.press("class-side-left");
+    await view.press("class-side-send");
+    await view.flush();
+    expect(joinApi.joinClassWaitingList).toHaveBeenCalledWith(expect.objectContaining({ originalId: "2" }), "left", undefined, true);
   });
 });

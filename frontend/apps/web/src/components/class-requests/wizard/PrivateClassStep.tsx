@@ -22,6 +22,10 @@ import {
   availabilityReadKey,
   lessonMinutes,
   occurrenceDates,
+  joinRefusalKey,
+  joinRefusalOf,
+  needsPrivateLessonWarning,
+  waitingListSideChoice,
   readsPrivateLessons,
   slotStarts,
   weeklyIntersection,
@@ -31,6 +35,7 @@ import { queryKeys } from "@levelup/hooks";
 import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
 import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
 import { classRequestRefusal, createClassRequest } from "@/api/classRequests";
+import { ClassSideChoice } from "@/components/calendar/ClassSideChoice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -183,8 +188,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   const slotsState = !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
 
   // PAD-929 (classes.class-requests rule 13b): no free time offers the coach's visible private
-  // lessons (classes.academy-class-booking rule 12). Rows only for now; their actions come with the
-  // private-lesson warning (classes.join-requests rule 22).
+  // lessons (classes.academy-class-booking rule 12); each row's one action goes through the
+  // private-lesson warning, then the side choice (classes.join-requests rule 22).
   const answered =
     answeredFor !== null &&
     answeredFor ===
@@ -201,6 +206,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     enabled: showPrivateLessons,
   });
   const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
+  const [lessonSideFor, setLessonSideFor] = useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
+  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
 
   const send = async () => {
     if (!slot) return;
@@ -489,9 +496,21 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                           {c.club?.name ? ` · ${c.club.name}` : ""}
                         </p>
                       </div>
-                      <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
-                        {c.state === "full" ? t("classRequests.academy.full") : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
-                      </Badge>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
+                          {c.state === "full" ? t("classRequests.academy.full") : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
+                        </Badge>
+                        {c.state === "open" && !c.myJoinRequest && (
+                          <Button size="sm" data-testid="wizard-private-lesson-request" onClick={() => setLessonSideFor({ c, mode: "request" })}>
+                            {t("classRequests.academy.request")}
+                          </Button>
+                        )}
+                        {c.state === "full" && !c.onWaitingList && (
+                          <Button size="sm" variant="destructive" data-testid="wizard-private-lesson-waitlist" onClick={() => setLessonSideFor({ c, mode: "waiting" })}>
+                            {t("classRequests.academy.joinWaitlist")}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -530,6 +549,34 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("classRequests.send")}
         </Button>
       </div>
+
+      {lessonSideFor && (
+        <ClassSideChoice
+          open
+          onOpenChange={(o) => {
+            if (!o) setLessonSideFor(null);
+          }}
+          mode={lessonSideFor.mode}
+          event={lessonSideFor.c}
+          profileSide={lessonSideFor.c.profileSide ?? privateLessons.data?.profileSide ?? null}
+          relativeChoice={waitingListSideChoice(lessonSideFor.c)}
+          privateWarning={needsPrivateLessonWarning(lessonSideFor.c, lessonSideFor.mode === "waiting" ? "waitlist" : "request")}
+          onPrivateUnconfirmed={refreshLessons}
+          onRequestSent={() => {
+            toast({ title: t("classRequests.academy.requestSent") });
+            refreshLessons();
+          }}
+          onWaitingListJoined={() => {
+            toast({ title: t("classRequests.academy.joinedWaitlist") });
+            refreshLessons();
+          }}
+          onFailed={(err) => {
+            const code = joinRefusalOf(err)?.code;
+            toast({ title: code ? t(joinRefusalKey(code)) : t("classRequests.academy.failed"), variant: code ? "default" : "destructive" });
+            refreshLessons();
+          }}
+        />
+      )}
     </div>
   );
 }

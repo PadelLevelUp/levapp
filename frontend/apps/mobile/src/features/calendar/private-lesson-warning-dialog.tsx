@@ -26,9 +26,21 @@ interface PrivateLessonWarningDialogProps {
  */
 export function PrivateLessonWarningDialog({ open, onCancel, onConfirm }: PrivateLessonWarningDialogProps) {
   const { t } = useTranslation();
+  // Both buttons also close the dialog through `onOpenChange`; only a dismissal is a NÃO there.
+  const answered = React.useRef(false);
+  const answer = (fn: () => void) => () => {
+    answered.current = true;
+    fn();
+  };
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => (!next ? onCancel() : null)}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !answered.current) onCancel();
+        answered.current = false;
+      }}
+    >
       <AlertDialogContent testID="private-lesson-warning">
         <AlertDialogHeader>
           <AlertDialogDescription testID="private-lesson-warning-body">
@@ -39,14 +51,14 @@ export function PrivateLessonWarningDialog({ open, onCancel, onConfirm }: Privat
           <AlertDialogCancel
             testID="private-lesson-warning-no"
             accessibilityLabel={t(PRIVATE_LESSON_WARNING_KEYS.no)}
-            onPress={onCancel}
+            onPress={answer(onCancel)}
           >
             <Text>{t(PRIVATE_LESSON_WARNING_KEYS.no)}</Text>
           </AlertDialogCancel>
           <AlertDialogAction
             testID="private-lesson-warning-yes"
             accessibilityLabel={t(PRIVATE_LESSON_WARNING_KEYS.yes)}
-            onPress={onConfirm}
+            onPress={answer(onConfirm)}
           >
             <Text>{t(PRIVATE_LESSON_WARNING_KEYS.yes)}</Text>
           </AlertDialogAction>

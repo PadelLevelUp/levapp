@@ -31,7 +31,7 @@ export async function joinClassWaitingList(event: {
   model: string;
   originalId: number | string;
   date?: string | null;
-}, side?: PlayerSide, sides?: WaitingListSides): Promise<WaitingListPlace> {
+}, side?: PlayerSide, sides?: WaitingListSides, privateConfirmed?: boolean): Promise<WaitingListPlace> {
   const res = await getApi().post("/app/class-waiting-list", {
     model: event.model,
     originalId: event.originalId,
@@ -40,6 +40,8 @@ export async function joinClassWaitingList(event: {
     ...(side ? { side } : {}),
     // PAD-920 (notifications.config rule 20): the relative choice, when the coach turned it on.
     ...(sides ? { sides } : {}),
+    // PAD-929 (join-requests rule 22): the student said SIM to a private lesson's warning.
+    ...(privateConfirmed ? { privateConfirmed: true } : {}),
   });
   return res.data;
 }

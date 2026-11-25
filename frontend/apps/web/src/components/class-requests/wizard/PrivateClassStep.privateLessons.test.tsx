@@ -1,8 +1,8 @@
 /**
  * classes.class-requests rule 13b (PAD-929 C): when the private step's availability read succeeds and
  * leaves no start time, and the request has no invitees, the step lists the coach's visible private
- * lessons (`type=private`, classes.academy-class-booking rule 12) under today's message. Rows only:
- * their actions come with the private-lesson warning (wave 3). Asserted by test id and call args,
+ * lessons (`type=private`, classes.academy-class-booking rule 12) under today's message; each row's
+ * one action goes through the private-lesson warning (classes.join-requests rule 22). Asserted by test id and call args,
  * never by rendered copy (`t` returns the key).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -17,6 +17,9 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/api/classRequests", () => ({ createClassRequest: vi.fn(), classRequestRefusal: () => null }));
+const joinApi = vi.hoisted(() => ({ createClassJoinRequest: vi.fn(), joinClassWaitingList: vi.fn() }));
+vi.mock("@/api/classJoinRequests", () => ({ createClassJoinRequest: joinApi.createClassJoinRequest }));
+vi.mock("@/api/academyClasses", () => ({ joinClassWaitingList: joinApi.joinClassWaitingList }));
 
 const availabilityApi = vi.hoisted(() => ({
   getRequestParticipants: vi.fn().mockResolvedValue([]),
@@ -51,6 +54,8 @@ async function emptyState() {
 }
 
 afterEach(() => {
+  joinApi.createClassJoinRequest.mockReset();
+  joinApi.joinClassWaitingList.mockReset();
   availabilityApi.getCoachAvailability.mockReset();
   availabilityApi.getRequestParticipants.mockReset().mockResolvedValue([]);
   academyApi.listAcademyClasses.mockReset();
@@ -70,9 +75,12 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     expect(open.textContent).toContain('classRequests.minutes:{"count":90}');
     expect(open.textContent).toContain("Douro Padel");
     expect(screen.getByTestId("wizard-private-lesson-row-full")).toBeTruthy();
-    // Wave 2: rows only, no join action yet.
-    expect(screen.queryByTestId("wizard-private-lesson-request")).toBeNull();
-    expect(screen.queryByTestId("wizard-private-lesson-waitlist")).toBeNull();
+    // Each row offers its one action: request when open, the waiting list when full.
+    expect(open.querySelector('[data-testid="wizard-private-lesson-request"]')).toBeTruthy();
+    expect(open.querySelector('[data-testid="wizard-private-lesson-waitlist"]')).toBeNull();
+    const full = screen.getByTestId("wizard-private-lesson-row-full");
+    expect(full.querySelector('[data-testid="wizard-private-lesson-waitlist"]')).toBeTruthy();
+    expect(full.querySelector('[data-testid="wizard-private-lesson-request"]')).toBeNull();
 
     // Weekly too.
     fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
@@ -138,5 +146,40 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     await emptyState();
     expect(screen.queryByTestId("wizard-private-lessons")).toBeNull();
     expect(academyApi.listAcademyClasses.mock.calls.length).toBe(readsAlone);
+  });
+});
+
+describe("a list row joins through the warning (classes.join-requests rule 22)", () => {
+  it("[CLASSES-JOIN-REQUESTS-43] a list row joins through the warning", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
+    academyApi.listAcademyClasses.mockResolvedValue({ classes: [lesson("1", "open"), lesson("2", "full")] });
+    joinApi.createClassJoinRequest.mockResolvedValue({ id: 9, status: "pending", side: "right" });
+    joinApi.joinClassWaitingList.mockResolvedValue({ onWaitingList: true });
+    renderStep();
+    await emptyState();
+
+    // Open row: NÃO sends nothing; SIM opens the side choice, and the request carries the confirmation.
+    fireEvent.click(await screen.findByTestId("wizard-private-lesson-request"));
+    expect(screen.getByTestId("private-lesson-warning")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("private-lesson-warning-no"));
+    expect(joinApi.createClassJoinRequest).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId("private-lesson-warning")).toBeNull());
+    fireEvent.click(screen.getByTestId("wizard-private-lesson-request"));
+    fireEvent.click(screen.getByTestId("private-lesson-warning-yes"));
+    fireEvent.click(await screen.findByTestId("class-side-right"));
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() =>
+      expect(joinApi.createClassJoinRequest).toHaveBeenCalledWith(expect.objectContaining({ originalId: "1" }), undefined, "right", true),
+    );
+
+    // Full row: the waiting-list join goes through the same warning.
+    await waitFor(() => expect(screen.queryByTestId("class-side-choice")).toBeNull());
+    fireEvent.click(screen.getByTestId("wizard-private-lesson-waitlist"));
+    fireEvent.click(screen.getByTestId("private-lesson-warning-yes"));
+    fireEvent.click(await screen.findByTestId("class-side-left"));
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() =>
+      expect(joinApi.joinClassWaitingList).toHaveBeenCalledWith(expect.objectContaining({ originalId: "2" }), "left", undefined, true),
+    );
   });
 });

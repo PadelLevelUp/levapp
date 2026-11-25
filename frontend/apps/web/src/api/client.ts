@@ -46,6 +46,7 @@ export const WEB_CAPABILITIES = [
   "full-classes",
   "join-side",
   "waiting-list-side",
+  "private-confirm",
 ] as const;
 
 initApi({
@@ -65,6 +66,9 @@ initApi({
   // a request without a side is answered 409 `side_full` only to a client that can show the choice.
   // PAD-803 (waiting-list rule 18a): `waiting-list-side` — declared with the side cards in the class's
   // waiting-list add: the server then requires a side for a student with no profile side.
+  // PAD-929 (join-requests rule 22): `private-confirm` — declared with the private-lesson warning
+  // (PrivateLessonWarningDialog): a private join sent without `privateConfirmed` is answered 409
+  // `private_unconfirmed` only to a client that can show the warning.
   capabilities: WEB_CAPABILITIES,
 });
 

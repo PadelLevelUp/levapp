@@ -10,7 +10,7 @@ export async function createClassJoinRequest(event: {
   model: string;
   originalId: number | string;
   date?: string | null;
-}, note?: string, side?: PlayerSide): Promise<ClassJoinRequest> {
+}, note?: string, side?: PlayerSide, privateConfirmed?: boolean): Promise<ClassJoinRequest> {
   const res = await getApi().post("/app/class-join-requests", {
     model: event.model,
     originalId: event.originalId,
@@ -19,6 +19,8 @@ export async function createClassJoinRequest(event: {
     ...(note && note.trim() ? { note: note.trim() } : {}),
     // PAD-672 (join-requests rule 20): the side the student will play; omitted by old callers.
     ...(side ? { side } : {}),
+    // PAD-929 (join-requests rule 22): the student said SIM to a private lesson's warning.
+    ...(privateConfirmed ? { privateConfirmed: true } : {}),
   });
   return res.data;
 }
