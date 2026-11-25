@@ -1,10 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { keepPreviousData } from "@tanstack/react-query";
-import { filterStudentEvents, findNextEventId, isClubToday, lightTheme } from "@levelup/config";
+import {
+  filterStudentEvents,
+  findNextEventId,
+  isClubToday,
+  lightTheme,
+  nextClassIdInTodayWeek,
+} from "@levelup/config";
 import {
   useCalendar,
   useCalendarEvents,
   useCoachLevels,
+  useDayList,
   type CalendarViewMode,
 } from "@levelup/hooks";
 import type { CalendarEvent } from "@levelup/types";
@@ -12,16 +19,15 @@ import { addDays, format } from "date-fns";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { Pressable, RefreshControl, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { CalendarViewerProvider } from "@/features/calendar/viewer-context";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DayHeader } from "@/features/calendar/DayHeader";
+import { DayList } from "@/features/calendar/DayList";
 import { DayStrip } from "@/features/calendar/DayStrip";
-import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
 import {
   StudentCalendarHeader,
@@ -30,7 +36,6 @@ import {
 import { ViewModeControl } from "@/features/calendar/ViewModeControl";
 import { WeekView } from "@/features/calendar/WeekView";
 import { MonthView } from "@/features/calendar/MonthView";
-import { FAB_CLEARANCE } from "@/features/calendar/layout";
 import { cn } from "@/lib/utils";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { refetchAll } from "@/lib/pull-refresh";
@@ -95,6 +100,14 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   // PAD-248: Mês fetches the whole grid (every week touching the month);
   // Dia and Semana fetch the visible week.
   const isMonth = calendar.viewMode === "month";
+  // calendar.mobile-views rule 26c: in Dia the list reads its own range (`useDayList`), so this screen's own week
+  // read is off while Dia shows, and Semana and Mês only ever get their own weeks.
+  const isDay = calendar.viewMode === "day";
+  const dayList = useDayList({
+    active: isDay,
+    selectedDay: calendar.selectedDay,
+    selectDay: calendar.selectDay,
+  });
   const rangeStart = isMonth ? calendar.monthRange.start : calendar.weekStart;
   const rangeEnd = isMonth ? calendar.monthRange.end : addDays(calendar.weekStart, 6);
   const from = format(rangeStart, "yyyy-MM-dd'T'00:00:00");
@@ -108,15 +121,18 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
     // PAD-592 (client.query-cache): a week/month change shows the last range until the next
     // answers, instead of a skeleton on every navigation.
     placeholderData: keepPreviousData,
+    enabled: !isDay,
   });
+  const sourceEvents = isDay ? dayList.events : fetchedEvents;
   const events = React.useMemo(
-    () => (fetchedEvents && !isCoach ? filterStudentEvents(fetchedEvents, studentFilter) : fetchedEvents),
-    [fetchedEvents, isCoach, studentFilter]
+    () => (sourceEvents && !isCoach ? filterStudentEvents(sourceEvents, studentFilter) : sourceEvents),
+    [sourceEvents, isCoach, studentFilter]
   );
   const { data: levels } = useCoachLevels();
   // PAD-786 (client.pull-to-refresh rule 1): the day list only. The week and month grids sit in
   // GridWithSheet, whose bottom sheet owns the vertical drag (rule 2).
-  const pull = usePullToRefresh(() => refetchAll(refetch));
+  // Dia refetches both of its reads, and says so when either fails (rule 26d).
+  const pull = usePullToRefresh(() => refetchAll(isDay ? dayList.refetchAll : refetch));
 
   // One pass over the week: the strip needs every day's events in start-time
   // order for its dots, and the detail list is just one of those buckets.
@@ -134,7 +150,6 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   }, [events]);
 
   const selectedDayKey = format(calendar.selectedDay, "yyyy-MM-dd");
-  const dayEvents = eventsByDay[selectedDayKey] ?? [];
 
   const levelCodeById = React.useMemo(
     () => new Map((levels ?? []).map((l) => [String(l.id), l.code])),
@@ -143,12 +158,15 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
 
   // "Next" is a property of the whole visible set, not of one card. The gate is
   // the WEEK containing today — the same rule the web view uses.
+  // In Dia (26e) it is searched in the week that holds today only, as Semana does, whatever weeks are loaded.
   const nextEventId = React.useMemo(
     () =>
-      (isMonth ? calendar.monthDays : calendar.weekDays).some((d) => isClubToday(d))
-        ? findNextEventId(events ?? [])
-        : undefined,
-    [events, isMonth, calendar.monthDays, calendar.weekDays]
+      isDay
+        ? nextClassIdInTodayWeek(events ?? [])
+        : (isMonth ? calendar.monthDays : calendar.weekDays).some((d) => isClubToday(d))
+          ? findNextEventId(events ?? [])
+          : undefined,
+    [events, isDay, isMonth, calendar.monthDays, calendar.weekDays]
   );
 
   // PAD-592: stable, so the memoised TimeGrid skips when the screen re-renders for other reasons.
@@ -182,7 +200,37 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
       />
       {!isCoach ? <StudentCalendarHeader filter={studentFilter} onChange={setStudentFilter} /> : null}
 
-      {isError ? (
+      {isDay ? (
+        <>
+          <DayStrip
+            weekDays={calendar.weekDays}
+            selectedDay={calendar.selectedDay}
+            onSelectDay={calendar.selectDay}
+            onPrev={() => calendar.navigateWeek("prev")}
+            onNext={() => calendar.navigateWeek("next")}
+            eventsByDay={eventsByDay}
+          />
+          <DayList
+            list={dayList}
+            eventsByDay={eventsByDay}
+            nextEventId={nextEventId}
+            levelCodeById={levelCodeById}
+            onEventPress={openEvent}
+            selectedDay={calendar.selectedDay}
+            onToday={calendar.goToToday}
+            // Centred on the add-event button (coach: 96pt up, 48pt tall; student: 24pt up).
+            todayBottom={isCoach ? 98 : 26}
+            // PAD-786 (client.pull-to-refresh rule 1): the day list pulls at its top.
+            refreshControl={
+              <RefreshControl
+                testID="calendar-refresh"
+                refreshing={pull.refreshing}
+                onRefresh={pull.onRefresh}
+              />
+            }
+          />
+        </>
+      ) : isError ? (
         <View className="flex-1">
           <ErrorState message={t("calendar.mobile.loadFailed")} onRetry={() => refetch()} />
         </View>
@@ -224,57 +272,7 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
           levelCodeById={levelCodeById}
           onEventPress={openEvent}
         />
-      ) : (
-        <>
-          <DayStrip
-            weekDays={calendar.weekDays}
-            selectedDay={calendar.selectedDay}
-            onSelectDay={calendar.selectDay}
-            onPrev={() => calendar.navigateWeek("prev")}
-            onNext={() => calendar.navigateWeek("next")}
-            eventsByDay={eventsByDay}
-          />
-          <ScrollView
-            testID="calendar-day-list"
-            className="flex-1"
-            refreshControl={
-              <RefreshControl
-                testID="calendar-refresh"
-                refreshing={pull.refreshing}
-                onRefresh={pull.onRefresh}
-              />
-            }
-            // Rule 18: clear of the floating add buttons at the end of the list.
-            contentContainerStyle={{ paddingBottom: FAB_CLEARANCE }}
-          >
-            <DayHeader day={calendar.selectedDay} count={dayEvents.length} />
-            <View className="gap-3 px-5 pt-3">
-              {dayEvents.length === 0 ? (
-                <EmptyState
-                  icon="calendar-outline"
-                  title={t("calendar.mobile.noClasses")}
-                  message={t("calendar.mobile.noClassesScheduled")}
-                  className="py-12"
-                />
-              ) : (
-                dayEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    onPress={openEvent}
-                    isNext={event.id === nextEventId}
-                    levelCode={
-                      event.levelId !== undefined
-                        ? levelCodeById.get(String(event.levelId))
-                        : undefined
-                    }
-                  />
-                ))
-              )}
-            </View>
-          </ScrollView>
-        </>
-      )}
+      ) : null}
 
       {/* Floating add actions (calendar.mobile-views rule 18): "Add event" for
           every role, "Add class" for coaches only. */}
