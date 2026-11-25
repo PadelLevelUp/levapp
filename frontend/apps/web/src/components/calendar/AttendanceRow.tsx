@@ -16,6 +16,7 @@ import {
   reminderHint,
   type AttendancePresenceLike,
   type StateAudience,
+  participantInitials,
   type StateTone,
 } from "@levelup/config";
 
@@ -48,10 +49,10 @@ interface AttendanceRowProps {
   side?: SideInOccurrence;
   /**
    * PAD-663 (`calendar.event-detail` rule 25): has the class ended? Until it has, a coach's
-   * validated mark is worded as the intent ("Vai", not "Presente"). Defaults to true, the
-   * record's own word, for a caller that does not know.
+   * validated mark is worded as the intent ("Vai", not "Presente"). Required, so a caller that
+   * leaves it out does not compile.
    */
-  classEnded?: boolean;
+  classEnded: boolean;
 }
 
 export function AttendanceRow({
@@ -62,22 +63,13 @@ export function AttendanceRow({
   presence,
   audience = "coach",
   side,
-  classEnded = true,
+  classEnded,
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
   // PAD-660 rule 8: only the coach's rows print the coach's name for the student; the student's own
   // row (no roster request) keeps their name.
   const displayName = useCoachDisplayName({ enabled: audience === "coach" });
   const name = displayName(player.id, player.user?.name ?? t("calendar.attendance.playerFallback"));
-
-  const getInitials = (n: string) => {
-    return n
-      .split(" ")
-      .map((x) => x[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   // PAD-313 (`attendance.confirm` rule 25): ONE state word, from one source.
   const state = attendanceStateOf(presence);
@@ -123,7 +115,7 @@ export function AttendanceRow({
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
             <AvatarFallback className="text-xs bg-primary text-primary-foreground font-bold">
-              {getInitials(name)}
+              {participantInitials(name)}
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium">{name}</span>

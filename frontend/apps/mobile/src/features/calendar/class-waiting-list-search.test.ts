@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { waitingListCandidates, waitingListPickerOptions } from "@levelup/config";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -26,6 +27,18 @@ describe("the iOS waiting-list picker searches by name (PAD-558)", () => {
     expect(list.indexOf("{offered.map(")).toBeGreaterThan(0);
     expect(list.indexOf("{offered.map(")).toBeLessThan(list.indexOf("class-waiting-list-candidate-"));
     expect(SHEET).not.toMatch(/\{candidates\.map\(\(c\) =>/);
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-25] a query that matches someone offers only the candidates the sheet passed, not a roster student already in the class", () => {
+    const roster = [
+      { playerId: 1, name: "Ana Pinto" },
+      { playerId: 2, name: "Ana Sousa" },
+      { playerId: 3, name: "Bruno Alves" },
+    ];
+    // Ana Pinto is in the class, so the sheet never passes her; the query "ana" matches both Anas.
+    const candidates = waitingListCandidates(roster, [1], []);
+    const offered = waitingListPickerOptions(candidates, "ana", null).map((p) => p.playerId);
+    expect(offered).toEqual([2]);
   });
 
   it("says how long each student is on the list, and only a coach-wide standing row that it is managed in Settings (PAD-560, rule 19)", () => {

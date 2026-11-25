@@ -25,7 +25,7 @@ beforeAll(() => {
 
 const player = (id: string, name: string) => ({ id, user: { name } }) as unknown as Player;
 const show = (p: Player, audience?: "coach" | "student") =>
-  render(<AttendanceRow player={p} attendance={{ status: null }} onChange={() => {}} audience={audience} />);
+  render(<AttendanceRow player={p} attendance={{ status: null }} onChange={() => {}} audience={audience} classEnded />);
 
 describe("AttendanceRow name", () => {
   it("is the coach's nickname on a coach row, and the real name for another student", () => {

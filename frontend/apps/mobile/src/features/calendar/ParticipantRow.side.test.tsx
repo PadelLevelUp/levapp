@@ -39,6 +39,7 @@ async function row(side?: Partial<NonNullable<Parameters<typeof ParticipantRow>[
         player,
         attendance: { status: null },
         canMark: false,
+        classEnded: true,
         side: side ? { current: "left", override: false, editable: true, onChange, ...side } : undefined,
       })
     )
