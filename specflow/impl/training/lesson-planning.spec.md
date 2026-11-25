@@ -99,4 +99,3 @@ test: `backend/padel_app/tests/test_frontend_api_authz.py` › `test_confirm_tra
 - **When** A confirms training for that lesson and date
 - **Then** the answer is 200 and a LessonInstance row exists for that lesson and date
 - **And** the plan on it holds that exercise
-- Code to follow: add the test for this criterion in `backend/padel_app/tests/test_frontend_api_authz.py`; none covers the owner's case today.
