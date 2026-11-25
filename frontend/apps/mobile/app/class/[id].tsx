@@ -52,7 +52,6 @@ import {
   useClassInstance,
   useCoachDisplayName,
   useCoachLevels,
-  useLessonInstanceById,
 } from "@levelup/hooks";
 import type {
   Court,
@@ -146,12 +145,8 @@ import {
   engineApprovalClassState,
 } from "@/features/notifications/engine-approval-class-state";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
-import {
-  eventFromLessonInstance,
-  instanceIdFromParams,
-  paramsToEvent,
-  type ClassRouteParams,
-} from "@/features/calendar/params";
+import { type ClassRouteParams } from "@/features/calendar/params";
+import { useClassRouteEvent } from "@/features/calendar/useClassRouteEvent";
 import { ParticipantGroups, type ParticipantGroupRow } from "@/features/calendar/ParticipantGroups";
 import { ParticipantSheet } from "@/features/calendar/ParticipantSheet";
 import type { SideInOccurrence } from "@/features/calendar/SideInOccurrenceControl";
@@ -194,26 +189,12 @@ export default function ClassDetailScreen() {
   // PAD-551: the participant whose side is being saved (declared with the other hooks, PAD-326).
   const [sideBusy, setSideBusy] = React.useState<string | null>(null);
 
-  const paramsEvent = React.useMemo(() => paramsToEvent(params), [
-    params.id,
-    params.model,
-    params.originalId,
-    params.date,
-  ]);
-
   // PAD-326 (`calendar.event-detail` rule 15): a route carrying only an id — a
   // push, a universal link from an email, the `lessonInstanceId` a message
   // already has — used to render "could not find this class" WITHOUT asking
   // anything. Now it asks. Full params stay the fast path: this query is
   // disabled whenever they are present.
-  const fallbackId = paramsEvent ? null : instanceIdFromParams(params);
-  const byId = useLessonInstanceById(fallbackId);
-  const event = React.useMemo(
-    () =>
-      paramsEvent ??
-      (byId.data?.lessonInstance ? eventFromLessonInstance(byId.data.lessonInstance) : null),
-    [paramsEvent, byId.data]
-  );
+  const { event, fallbackId, byId, classEvent } = useClassRouteEvent(params);
 
   const {
     data: instance,
@@ -221,7 +202,7 @@ export default function ClassDetailScreen() {
     isPending,
     isError,
     refetch,
-  } = useClassInstance(event);
+  } = useClassInstance(classEvent);
 
   // PAD-376 (evaluations.class-panel): whether "Avaliações" is offered is the SERVER's
   // answer — its read never materialises the occurrence and its `canRate` is false for
