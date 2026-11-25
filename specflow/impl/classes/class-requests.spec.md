@@ -580,3 +580,9 @@ test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wi
 - **When** the coach accepts
 - **Then** the declaring client gets `409` `busy_same_hour` and the other `409` `slot_taken`, each with the same `message` and the same one clash naming Ana and the other class
 
+
+#### CLASSES-CLASS-REQUESTS-44: The selected end mode is visibly different from the track, on web and iOS (rule 14a)
+- **Given** the wizard on a weekly request, with "Até uma data" and "N.º de aulas" side by side
+- **When** either is selected
+- **Then** the selected segment has the primary fill with its readable foreground, and the other keeps the muted track with muted text, so the choice can be seen without a shadow (iOS draws none)
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx`, `frontend/apps/mobile/src/features/class-requests/wizard/EndModeControls.test.tsx`
