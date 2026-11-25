@@ -79,7 +79,7 @@ through the history without the thread ever moving under the reader.
 9c. **A landing is repeated until its row is on screen (B-732, B-733; iOS and Android).** When the
    thread scrolls to a target on its own (rule 9a's first unread, a push or deep-link target) and the
    list settles without that row on screen, the scroll is issued again, found by message id (rule 9b),
-   a bounded number of times. The landing ends when the list settles with the row on screen, when the
+   a bounded number of times; an explicit target is highlighted again with each repeat. The landing ends when the list settles with the row on screen, when the
    reader drags, sends or jumps to the latest, when another thread opens, or when the row is no longer
    loaded.
 10. While the viewport is **away from the bottom** (beyond a small threshold — roughly one
@@ -108,7 +108,8 @@ through the history without the thread ever moving under the reader.
     - **(B-731) The scroll to the user's own message waits for its row (iOS and Android).** No scroll is
       issued at the moment of sending: the list does not hold the row yet. When the list reports the
       grown content, it scrolls to the end a frame later. If it then settles short of the end, the
-      scroll is repeated as a landing is (rule 9c: bounded, and ended by the reader).
+      scroll is repeated as a landing is (rule 9c: bounded, and ended by the reader). On iOS too the
+      send no longer scrolls by itself, and the scroll that shows the message is not animated.
 11. Reaching the **top of the loaded messages** fetches the previous page (`before` =
     `oldestMessageId`) and prepends it with the viewport **anchored to the message that was at the
     top** — the reader's position over the text does not jump. A small loading indicator shows
