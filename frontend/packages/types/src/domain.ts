@@ -508,6 +508,46 @@ export interface ClassJoinRequestListRow extends ClassJoinRequest {
 }
 
 /**
+ * classes.coach-requests-table (PAD-795) rule 1: one row of `GET /app/coach-requests`, a private
+ * class request or an academy join request, with the fields of both kinds (null / [] where a field
+ * belongs to the other kind). `createdAt` and `decidedAt` carry their UTC offset.
+ */
+export interface CoachRequestRow {
+  kind: "private" | "academy";
+  id: number;
+  playerId: string;
+  playerName: string;
+  nickname: string | null;
+  nicknameAsName: boolean;
+  displayName: string;
+  coachId: string;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  classTitle: string | null;
+  recurrence: ClassRequestRecurrence | null;
+  createdAt: string | null;
+  decidedAt: string | null;
+  decidedBy: "coach" | "student" | null;
+  note: string | null;
+  status: "pending" | "countered" | "accepted" | "declined" | "rejected" | "withdrawn" | "superseded";
+  side: PlayerSide | null;
+  participants: { playerId: string; name: string; username: string }[];
+  lessonId: string | null;
+  lessonInstanceId: string | null;
+  suggestedProfileSide: "left" | "right" | null;
+}
+
+export type CoachRequestsSection = "open" | "history";
+export type CoachRequestsSortKey = "class_date" | "class_time" | "requested_at" | "student" | "kind" | "side" | "status";
+
+export interface CoachRequestsPage {
+  items: CoachRequestRow[];
+  pagination: { page: number; perPage: number; total: number; pages: number; hasNext: boolean; hasPrev: boolean };
+  counts: { open: number; history: number };
+}
+
+/**
  * classes.academy-class-booking rule 11 (PAD-504): one of the student's per-class waiting-list
  * places, for their request history (`GET /app/class-waiting-list`). `status` is derived by the
  * server; `createdAt` equals `joinedAt` so the three kinds of row sort by one key.
