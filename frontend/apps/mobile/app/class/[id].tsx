@@ -1421,7 +1421,8 @@ export default function ClassDetailScreen() {
                 testID="class-detail-capacity"
                 className={isEditing ? "flex-1 gap-2 rounded-lg border border-border bg-card p-3" : "gap-1"}
               >
-                <View className={isEditing ? "flex-row items-center gap-1.5" : "absolute h-px w-px overflow-hidden opacity-0"}>
+                {isEditing ? (
+                <View className="flex-row items-center gap-1.5">
                   <Ionicons
                     name="people-outline"
                     size={14}
@@ -1431,6 +1432,7 @@ export default function ClassDetailScreen() {
                     {t("calendar.detail.capacity")}
                   </Text>
                 </View>
+                ) : null}
                 {isEditing && draft ? (
                   <View className="flex-row items-center gap-2">
                     <Pressable
@@ -1467,7 +1469,11 @@ export default function ClassDetailScreen() {
                   </View>
                 ) : (
                   <>
-                    <Text className="text-sm font-medium">
+                    <Text
+                      className="text-sm font-medium"
+                      accessibilityLabel={t("calendar.detail.capacity")}
+                      accessibilityValue={{ text: maxPlayers ? `${filled}/${maxPlayers}` : "—" }}
+                    >
                       {maxPlayers ? `${filled}/${maxPlayers}` : "—"}
                     </Text>
                     {/* PAD-920 (ND2): the open spots and "N pendentes", as on web. */}

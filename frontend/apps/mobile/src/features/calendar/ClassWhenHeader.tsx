@@ -13,7 +13,9 @@ import { Text } from "@/components/ui/text";
  * (level, then club and court) of what exists, and then its children, which are the capacity line the screen already
  * has. The series' end is NOT here: the screen's one repeat line says it. No count is computed here.
  *
- * The labels the boxes showed stay as the accessible names of the values: read out, not drawn.
+ * The labels the boxes showed stay as the accessible names of the values: read out, not drawn. VoiceOver reads an
+ * element's label and value, so the tile, the time and the facts line (one element) carry them; the capacity's is on
+ * its count Text, in the screen.
  */
 export function ClassWhenHeader({
   editing,
@@ -53,7 +55,8 @@ export function ClassWhenHeader({
           testID="class-detail-date-tile"
           accessible
           accessibilityRole="image"
-          accessibilityLabel={when.spokenDate}
+          accessibilityLabel={t("calendar.detail.date")}
+          accessibilityValue={{ text: when.spokenDate }}
           className="w-14 items-center rounded-lg border border-border bg-card py-1.5"
         >
           <Text className="text-[11px] font-sans-semibold uppercase text-muted-foreground">{when.weekday}</Text>
@@ -76,26 +79,27 @@ export function ClassWhenHeader({
       </View>
 
       {hasFacts ? (
-        <Text testID="class-detail-facts" className="text-sm text-muted-foreground">
+        // A Text nested in a Text is not an element on iOS, so this outer line is the one that is read: the labels
+        // the boxes had, with their values, in today's words ("Nível I1, Clube ...").
+        <Text
+          testID="class-detail-facts"
+          accessible
+          accessibilityLabel={[
+            levelCode ? `${t("calendar.detail.level")} ${levelCode}` : null,
+            place ? `${t("calendar.detail.club")} ${place}` : null,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+          className="text-sm text-muted-foreground"
+        >
           {levelCode ? (
-            <Text
-              testID="class-detail-level"
-              accessibilityLabel={t("calendar.detail.level")}
-              accessibilityValue={{ text: levelCode }}
-              className="font-sans-semibold text-foreground"
-            >
+            <Text testID="class-detail-level" className="font-sans-semibold text-foreground">
               {levelCode}
             </Text>
           ) : null}
           {levelCode && place ? " · " : null}
           {place ? (
-            <Text
-              testID="class-detail-place"
-              accessibilityLabel={t("calendar.detail.club")}
-              accessibilityValue={{ text: place }}
-            >
-              {place}
-            </Text>
+            <Text testID="class-detail-place">{place}</Text>
           ) : null}
         </Text>
       ) : null}

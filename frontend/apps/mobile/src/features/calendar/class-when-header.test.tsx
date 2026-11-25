@@ -32,7 +32,10 @@ describe("the class screen's header block (iOS)", () => {
 
     // The tile reads out as one full date and says weekday, day and month.
     const tile = n.byTestId("class-detail-date-tile");
-    expect(tile.props.accessibilityLabel).toBe("terça-feira, 24 de novembro de 2026");
+    // The tile is one element named by the date box's label, its value the full spoken date.
+    expect(tile.props.accessible).toBe(true);
+    expect(tile.props.accessibilityLabel).toBe("calendar.detail.date");
+    expect(tile.props.accessibilityValue).toEqual({ text: "terça-feira, 24 de novembro de 2026" });
     expect(text(tile)).toContain("ter");
     expect(text(tile)).toContain("24");
     expect(text(tile)).toContain("nov");
@@ -47,10 +50,14 @@ describe("the class screen's header block (iOS)", () => {
     expect(text(facts)).toContain("I2");
     expect(text(facts)).toContain("·");
     expect(text(n.byTestId("class-detail-place"))).toBe("Clube Norte · Campo 3");
-    expect(n.byTestId("class-detail-level").props.accessibilityLabel).toBe("calendar.detail.level");
-    expect(n.byTestId("class-detail-place").props.accessibilityLabel).toBe("calendar.detail.club");
+    // A Text nested in a Text is not an element on iOS: the OUTER facts line is the accessible element and says the
+    // labels with the values, in the words the boxes had ("Nível I2, Clube ...").
+    expect(facts.props.accessible).toBe(true);
+    expect(facts.props.accessibilityLabel).toBe("calendar.detail.level I2, calendar.detail.club Clube Norte · Campo 3");
+    expect(n.byTestId("class-detail-level").props.accessibilityLabel).toBeUndefined();
+    expect(n.byTestId("class-detail-place").props.accessibilityLabel).toBeUndefined();
     expect(n.byTestId("class-detail-time").props.accessibilityLabel).toBe("calendar.detail.time");
-    expect(tile.props.accessibilityLabel).not.toBe("calendar.detail.date");
+    expect(n.byTestId("class-detail-time").props.accessibilityValue).toEqual({ text: "10:30 – 12:00" });
     expect(n.queryByTestId("class-detail-until")).toBeNull(); // the series' end is the screen's one repeat line
     // The capacity line is the block's last child.
     expect(block.findAll((x) => x.props?.testID === "class-detail-capacity" && typeof x.type === "string")).toHaveLength(1);
@@ -85,6 +92,7 @@ describe("the class screen's header block (iOS)", () => {
     expect(n.queryByTestId("class-detail-level")).toBeNull();
     expect(text(n.byTestId("class-detail-facts"))).not.toContain("·");
     expect(text(n.byTestId("class-detail-facts"))).not.toContain("—");
+    expect(n.byTestId("class-detail-facts").props.accessibilityLabel).toBe("calendar.detail.club Clube Norte");
   });
 
   it("[CALENDAR-EVENT-DETAIL-44] the screen mounts the block while reading, the boxes while editing, and keeps its one repeat line", () => {
@@ -96,6 +104,9 @@ describe("the class screen's header block (iOS)", () => {
     expect(afterHeader).toContain('testID="class-detail-capacity"');
     expect(afterHeader).toMatch(/maxPlayers \? `\$\{filled\}\/\$\{maxPlayers\}` : "—"/);
     expect(src.match(/testID="class-detail-capacity"/g)?.length).toBe(1);
+    // The capacity's name rides on the count Text itself (a hidden row is not read by VoiceOver).
+    expect(afterHeader).not.toContain("absolute h-px w-px overflow-hidden opacity-0");
+    expect(afterHeader).toMatch(/accessibilityLabel=\{t\("calendar\.detail\.capacity"\)\}[\s\S]{0,160}accessibilityValue=\{\{ text: maxPlayers/);
     // The one repeat line below the block, as today (the series' end is said once, there).
     expect(src).toContain('{isRecurring && !isEditing ? (');
     expect(src).toContain('t("calendar.detail.recurringClassUntil"');
