@@ -53,7 +53,7 @@ import { useCancelReason, useClassEvaluations, useCoachDisplayName } from "@leve
 import type { CancelReason } from "@levelup/api/src/resources/classes";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, participantsHeader, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, viewFilledSpots, participantsHeader, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -1478,9 +1478,10 @@ export function ClassDetailSheet({
                     // (backend `LessonInstance.effective_filled_spots`).
                     // B-240: over the listed students only, so an edit's unticked
                     // declined student is not subtracted (calendar.event-detail rule 5).
-                    const effectiveFilled = effectiveFilledSpotsOf(
-                      active.participants,
-                      active.presences
+                    const effectiveFilled = viewFilledSpots(
+                      active.participantCount,
+                      canManage,
+                      effectiveFilledSpotsOf(active.participants, active.presences)
                     );
                     const openSpots = active.maxPlayers - effectiveFilled;
                     // PAD-920 (ND2): a new-engine session counts only the invitations that still count.
@@ -1748,7 +1749,11 @@ export function ClassDetailSheet({
                   // student made the two contradict each other — "0/4, 4 open"
                   // above "Participants (1/4)". A not-coming student is listed,
                   // visibly not coming, and not counted as filling a spot.
-                  current: effectiveFilledSpotsOf(active.participants, active.presences),
+                  current: viewFilledSpots(
+                    active.participantCount,
+                    canManage,
+                    effectiveFilledSpotsOf(active.participants, active.presences)
+                  ),
                   max: active.maxPlayers,
                 })}
               </h4>

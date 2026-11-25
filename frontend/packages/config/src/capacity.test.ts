@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import cases from "./confirmed-spots.cases.json";
-import { capacityBarOf, confirmedSpotsOf, effectiveFilledSpots, effectiveFilledSpotsOf, participantsHeader } from "./capacity";
+import { capacityBarOf, confirmedSpotsOf, effectiveFilledSpots, effectiveFilledSpotsOf, participantsHeader, viewFilledSpots } from "./capacity";
 
 describe("effectiveFilledSpots (PAD-71)", () => {
   it("[CLASSES-INSTANCE-ENROLLMENT-9] subtracts declined students from the enrolment count", () => {
@@ -135,5 +135,21 @@ describe("capacityBarOf (calendar.event-detail rule 27, UI idea 3)", () => {
     expect(capacityBarOf({ ...base, status: "canceled" })).toBeNull();
     expect(capacityBarOf({ ...base, capacity: 0 })).toBeNull();
     expect(capacityBarOf({ ...base, canManage: false })).toBeNull();
+  });
+});
+
+describe("viewFilledSpots (calendar.event-detail rule 5, PO M-7512)", () => {
+  it("[CALENDAR-EVENT-DETAIL-49] a student takes the payload's count over a recount of their own row", () => {
+    expect(viewFilledSpots(2, false, 1)).toBe(2);
+    expect(viewFilledSpots(0, false, 1)).toBe(0);
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-49] an older server (no count) keeps the local count", () => {
+    expect(viewFilledSpots(undefined, false, 1)).toBe(1);
+    expect(viewFilledSpots(null, false, 1)).toBe(1);
+  });
+
+  it("[CALENDAR-EVENT-DETAIL-49] the coach keeps the local count (B-240 draft, PAD-771 header)", () => {
+    expect(viewFilledSpots(2, true, 3)).toBe(3);
   });
 });

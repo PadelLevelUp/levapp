@@ -67,6 +67,16 @@ def _court_ref(obj):
     return {"id": court.id, "name": court.name} if court else None
 
 
+def filled_spots(obj) -> int:
+    """A class's filled spots: ONE helper for the calendar event card and the class payload, so the card and
+    a student's sheet cannot differ (calendar.view rules 8-9, calendar.event-detail rule 5). An occurrence:
+    enrolled minus declined (`LessonInstance.effective_filled_spots`, PAD-71). A Lesson template has no
+    presences (nobody can have declined a class that was never materialized), so its series roster is the count."""
+    if obj.model_name == "LessonInstance":
+        return obj.effective_filled_spots
+    return len(obj.players_relations)
+
+
 def serialize_calendar_event(obj, *, override_id: str | None = None, override_date: str | None = None, now: Optional[datetime] = None, hold_index: Optional[dict] = None) -> dict:
     """
     Serialize LessonInstance, Lesson or CalendarBlock into a CalendarEvent-compatible dict.
@@ -105,7 +115,7 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 # PAD-71: effective filled spots (enrolled minus declined), the
                 # same value the class-detail "capacity" field shows. Declined
                 # students free their spot and must not be counted here.
-                "participantCount": obj.effective_filled_spots,
+                "participantCount": filled_spots(obj),
                 # Of those filled spots, how many are coming or came (calendar.view rule 25). Lets the
                 # calendar block show confirmed / awaiting / free in one bar
                 # without a per-class request.
@@ -133,7 +143,7 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 # A Lesson template has no presences (nobody can have declined a
                 # class that was never materialized), so enrolment IS the
                 # effective filled count here. See LessonInstance.effective_filled_spots.
-                "participantCount": len(obj.players_relations),
+                "participantCount": filled_spots(obj),
                 # Nobody can have confirmed a class that does not exist yet.
                 "confirmedCount": 0,
                 "color": obj.color,

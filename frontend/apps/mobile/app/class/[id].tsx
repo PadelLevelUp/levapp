@@ -16,6 +16,7 @@ import {
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
+  viewFilledSpots,
   participantsHeader,
   inviteeActionsFor,
   outcomeAfterCoachAction,
@@ -649,9 +650,14 @@ export default function ClassDetailScreen() {
   // PAD-71: same rule as the calendar event card's X/Y badge. Students only ever
   // receive their OWN presence row, so subtracting declines would under-count
   // their view — the guard keeps that behaviour unchanged.
-  const filled = effectiveFilledSpots(
-    countedParticipants.length,
-    isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
+  // PO M-7512 (rule 5): a student takes the class's count from the payload, the card's number.
+  const filled = viewFilledSpots(
+    instance?.participantCount,
+    isCoach,
+    effectiveFilledSpots(
+      countedParticipants.length,
+      isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
+    )
   );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
   // PAD-771 (calendar.event-detail rule 5): the coach's participants header.

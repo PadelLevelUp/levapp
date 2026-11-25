@@ -96,7 +96,7 @@ approval.**
    `planned` with no reminder shows the state word alone, and that absence is itself the signal
    the coach acts on. Decided by the coordinator, 2026-09-12.
 4. Actions available: Mark attendance, Edit, Delete, Notify, Training planning
-5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both. **(PAD-313)** That is the ONE meaning of a count anywhere on this sheet: the capacity header, the participants list header and the coach's attendance header all render `effectiveFilledSpots`, so they cannot contradict each other the way "Capacity 0/4 — 4 open" above "Participants (1/4)" did. A not-coming student stays IN the list, visibly not coming by their state word, and out of every count. **(B-240)** While the coach edits the class, the counts are over the draft's students: a declined student the coach unticked is neither listed nor subtracted (`effectiveFilledSpotsOf`, `@levelup/config`). **(PAD-771) One named exception:** the coach's participants header reads 'X/M · K vagas' / 'X/M · K open', X being `effectiveFilledSpots` (going plus not yet answered; while the coach edits, the draft's count), M `maxPlayers` and K = M − X. With no free spot it reads 'X/M · completa' / 'X/M · full'. Not-coming students stay in the list under 'Não vão' and out of X. This replaces PAD-659's 'N/M inscritos', which counted not-coming students and read as a full class with free spots.
+5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both. **(PAD-313)** That is the ONE meaning of a count anywhere on this sheet: the capacity header, the participants list header and the coach's attendance header all render `effectiveFilledSpots`, so they cannot contradict each other the way "Capacity 0/4 — 4 open" above "Participants (1/4)" did. A not-coming student stays IN the list, visibly not coming by their state word, and out of every count. **(B-240)** While the coach edits the class, the counts are over the draft's students: a declined student the coach unticked is neither listed nor subtracted (`effectiveFilledSpotsOf`, `@levelup/config`). **(PAD-771) One named exception:** the coach's participants header reads 'X/M · K vagas' / 'X/M · K open', X being `effectiveFilledSpots` (going plus not yet answered; while the coach edits, the draft's count), M `maxPlayers` and K = M − X. With no free spot it reads 'X/M · completa' / 'X/M · full'. Not-coming students stay in the list under 'Não vão' and out of X. This replaces PAD-659's 'N/M inscritos', which counted not-coming students and read as a full class with free spots. **(PO M-7512)** A student's payload lists only their own row, so a student's sheet takes its count from the payload's `participantCount`: the same `LessonInstance.effective_filled_spots` value the card carries (one helper), never a recount of the rows the student has; an older server that sends none keeps today's count. The coach's counts (the B-240 draft and the PAD-771 header) do not change.
 6. The class-detail "invited" (convidados) list is keyed by STUDENT, not by invite record. A student who received several `NotificationEvent` rows for the same instance (multiple rounds, a manual invite plus an automatic one, a re-invite after a decline — all legitimate per notifications.invitations) appears exactly ONCE. The `invitations` array returned by the class-detail payload therefore contains at most one entry per `playerId`
 7. De-duplication happens in the backend serializer (`serialize_class_instance`) so every surface — web detail sheet, mobile — sees the same one-row-per-student list. No client performs its own de-duplication
 8. Tie-break when a student has several invite records for the same instance: an accepted one (`confirmed`) wins; otherwise the most recently created record wins (highest `id`), whatever its state, so a student invited again after an earlier invite expired, was filled or was declined shows the new invite's state (PAD-773). The surviving entry keeps that record's own `id`, so coach response actions still target a real `NotificationEvent`. The row keeps the position of the student's first invite.
@@ -321,7 +321,8 @@ approval.**
     by `liveInstanceIdOf` — a presence's `lessonInstanceId`, else a `lessoninstance-<n>` event id
     — never from the web sheet's `classInstance.id`, which is the calendar-event id; an occurrence
     opened before it was materialised matches by its lesson and date. A student receives no
-    such event: nothing in their own view depends on another student's presence.
+    such event. **(PO M-7512)** The one number in a student's view that depends on others' presence, the
+    filled-spots count (rule 5), is read when the sheet opens, like the card's, and no live event carries it.
 
 25. **"Vai / Não vai" whoever marked (PAD-663; numbering self-assigned, unconfirmed).** Before a
     class ends, every display of a student's state in that class says the INTENT — coach: "Vai" /
@@ -369,6 +370,17 @@ approval.**
      open-spots line. `ClassFillBar` exists on both shells and is used on calendar cards only. The web sheet's count
      test pins how many times it calls `effectiveFilledSpotsOf`; iOS reads `effectiveFilledSpots` with
      `presencesOfParticipants`. That test allows exactly three such calls: the bar takes the number the box already has.
+
+29. **A link the server sends to a class is the deep link of rule 10 (numbering self-assigned,
+    unconfirmed).** Every URL the server builds to open one class on the calendar (today: the
+    coach's "Aula cheia" / "Class full" push, sent when a spot filled and pending requests were
+    closed) is `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>`, the shape `class_href`
+    builds for the dashboard, with `date` the class's own date as the calendar shows it (the start
+    datetime's date, as the engine's coach alert already does). A URL with another key
+    (`classInstanceId`) opens nothing: the calendar reads only `classId` and `date`, so the coach
+    lands on today's calendar with the class not open. The link is the same string `class_href`
+    builds for the same class (a test holds the two together), for a one-off and for a series
+    occurrence alike.
 
 ### Acceptance Criteria
 
@@ -678,6 +690,20 @@ test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no l
 - **And** offline, where the read cannot run, the class payload is still requested from the route
 - **And** when the read fails, the screen keeps what the route renders, without the "this class no longer exists" state, which belongs to an id-only route
 test: `frontend/apps/mobile/src/features/calendar/class-route-completion.test.tsx`, `frontend/apps/mobile/src/features/dashboard/class-entry-id-only.test.ts`
+
+#### CALENDAR-EVENT-DETAIL-49: A student's sheet shows the class's count, the same number as the card (rule 5, PO M-7512)
+- **Given** a class of 4 with two students going, and one of them, enrolled, opening its sheet; the calendar card says 2/4
+- **When** the student's sheet loads
+- **Then** its capacity reads 2/4 with 2 open, and the participants header reads 2/4, not 1/4 and 3 open
+- **And** the payload carries `participantCount` (one number, no names or ids) from the helper the calendar event uses, a declined student is not counted, and a coach's payload carries the same number
+- **And** a server that sends no `participantCount` leaves the sheet as it was, and the coach's counts (B-240 draft, PAD-771 header) do not change
+test: `backend/padel_app/tests/test_student_class_count.py`, `frontend/apps/web/src/components/calendar/ClassDetailSheet.studentCount.test.tsx`, `frontend/packages/config/src/capacity.test.ts`
+
+#### CALENDAR-EVENT-DETAIL-48: The "Aula cheia" push opens the class it is about (rule 29)
+- **Given** a class that filled while student requests were pending, so the coach is sent the "Aula cheia" push
+- **Then** the push's url is exactly `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>` of that class, for a one-off and for a series occurrence alike
+- **And** the web calendar, given exactly that url, selects that week and opens that class's detail sheet (rules 10, 11)
+test: `backend/padel_app/tests/test_pad_superseded_push_link.py` › `[CALENDAR-EVENT-DETAIL-48]` (+ `frontend/apps/web/src/pages/CalendarPage.supersededLink.test.tsx`)
 
 ### Open questions
 - Rule 27 (UI idea 3) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can

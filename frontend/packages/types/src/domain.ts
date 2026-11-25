@@ -585,6 +585,8 @@ export interface ClassInstance {
   endTime: string;
   status: ClassInstanceStatus;
   classType?: string;
+  /** calendar.event-detail rule 5 (PO M-7512): the class's filled spots, the calendar event's number; one aggregate, no names. */
+  participantCount?: number;
   name?: string;
   color?: string;
   levelId?: string;
