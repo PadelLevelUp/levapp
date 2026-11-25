@@ -619,15 +619,21 @@ def primary_coach(instance):
     return coaches[0] if coaches else None
 
 
-def coach_instance_ids(coach_id):
+def coach_instance_ids(coach_id, among=None):
     """Ids of every occurrence ``coach_id`` coaches: through its own junction
-    row, or — when the occurrence has none — through its lesson's."""
+    row, or — when the occurrence has none — through its lesson's. With
+    ``among``, only those of these ids (the engine's per-session reads ask about
+    a handful of occurrences, never the coach's whole history; CONFIG-85)."""
     from sqlalchemy import and_, exists
 
-    own = {
-        row.lesson_instance_id
-        for row in Association_CoachLessonInstance.query.filter_by(coach_id=coach_id).all()
-    }
+    own_q = db.session.query(Association_CoachLessonInstance.lesson_instance_id).filter(
+        Association_CoachLessonInstance.coach_id == coach_id)
+    if among is not None:
+        among = [int(i) for i in among]
+        if not among:
+            return set()
+        own_q = own_q.filter(Association_CoachLessonInstance.lesson_instance_id.in_(among))
+    own = {lid for (lid,) in own_q.all()}
     no_junction = ~exists().where(
         Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id
     )
@@ -636,9 +642,27 @@ def coach_instance_ids(coach_id):
         .join(Lesson, Lesson.id == LessonInstance.lesson_id)
         .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
         .filter(and_(Association_CoachLesson.coach_id == coach_id, no_junction))
-        .all()
     )
-    return own | {row[0] for row in inherited}
+    if among is not None:
+        inherited = inherited.filter(LessonInstance.id.in_(among))
+    return own | {row[0] for row in inherited.all()}
+
+
+def coach_instance_ids_select(coach_id):
+    """``coach_instance_ids`` as SQL, for an ``in_()``: the database reads the coach's occurrences in
+    the query that needs them, and no id list of the coach's whole history is fetched or sent back
+    (the engine's per-session counts, CONFIG-85)."""
+    from sqlalchemy import and_, exists, select, union
+
+    no_junction = ~exists().where(Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id)
+    ids = union(
+        select(Association_CoachLessonInstance.lesson_instance_id.label("id"))
+        .where(Association_CoachLessonInstance.coach_id == coach_id),
+        select(LessonInstance.id.label("id"))
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == LessonInstance.lesson_id)
+        .where(and_(Association_CoachLesson.coach_id == coach_id, no_junction)),
+    ).subquery()
+    return select(ids.c.id)
 
 
 def create_lesson_instance_helper(data, parent_lesson=None, *, quiet=False):

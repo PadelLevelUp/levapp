@@ -1,8 +1,9 @@
 """The engine's front door: ``tick`` for the passage of time, ``handle`` for anything that happens.
 
 It owns the order of work and nothing else. Every decision is made by a rule module
-(``timeline``, ``messages``, ``planner``, ``answers``) from a fresh snapshot; the effects go to
-the store at once, so the next module sees them, and are returned to the caller.
+(``timeline``, ``messages``, ``planner``, ``answers``) from a snapshot that holds every effect applied
+before it (taken again after a step that applied any); the effects go to the store at once, so the next
+module sees them, and are returned to the caller.
 
 ``now`` is always passed in, as naive UTC; the engine never reads the wall clock.
 """
@@ -59,9 +60,19 @@ class Engine:
             try:
                 with self.store.unit((session,)):
                     settings = self.settings_for(session)
-                    done += self._commit(timeline.due(self.store.snapshot(session), settings, now))
-                    done += self._commit(messages.due(self.store.snapshot(session), settings, now))
-                    done += self._plan(session, now, settings)
+                    # A step that applied nothing left the session as it was, so the next step reads the
+                    # same snapshot instead of building it again (engine-store rule 7, STORE-21: a session
+                    # with nothing due costs one snapshot per run, not three).
+                    snapshot = self.store.snapshot(session)
+                    applied = self._commit(timeline.due(snapshot, settings, now))
+                    if applied:
+                        snapshot = self.store.snapshot(session)
+                    done += applied
+                    applied = self._commit(messages.due(snapshot, settings, now))
+                    if applied:
+                        snapshot = self.store.snapshot(session)
+                    done += applied
+                    done += self._commit(planner.decide(snapshot, settings, now).effects)
             except UnitConflict:            # rolled back: nothing of this session happened; next run
                 continue
             out += done
