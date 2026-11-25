@@ -26,7 +26,7 @@ describe("the class screen refetches when the reminder lands (rule 27, B-542)", 
   it("invalidates the class instance and the dashboard on a match", () => {
     const after = src.slice(src.indexOf("reminderArrivedFor("));
     const block = after.slice(0, after.indexOf("if (!isCoach) return;"));
-    // CALENDAR-EVENT-DETAIL-40: the helper refreshes the class payload and the by-id read
+    // CALENDAR-EVENT-DETAIL-47: the helper refreshes the class payload and the by-id read
     expect(block).toContain("invalidateClassInstance(queryClient, event)");
     expect(block).toContain('queryKey: ["dashboard"]');
   });

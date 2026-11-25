@@ -104,7 +104,7 @@ describe("the screen asks, and then says which kind of failure it was", () => {
     "../../../app/class/[id].tsx"
   );
   const src = () => fs.readFileSync(SCREEN, "utf8");
-  // CALENDAR-EVENT-DETAIL-40: the screen takes its event from `useClassRouteEvent`, which holds the id read.
+  // CALENDAR-EVENT-DETAIL-47: the screen takes its event from `useClassRouteEvent`, which holds the id read.
   const HOOK = path.join(path.dirname(fileURLToPath(import.meta.url)), "useClassRouteEvent.ts");
   const hookSrc = () => fs.readFileSync(HOOK, "utf8");
 

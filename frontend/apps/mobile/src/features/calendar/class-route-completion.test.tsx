@@ -1,5 +1,5 @@
 /**
- * calendar.event-detail rule 15 / CALENDAR-EVENT-DETAIL-40 (PO M-6994): a `LessonInstance` route that has an
+ * calendar.event-detail rule 15 / CALENDAR-EVENT-DETAIL-47 (PO M-6994): a `LessonInstance` route that has an
  * id but lacks `date`, `startTime`, `endTime` or `maxPlayers` (a dashboard card, a message link, the
  * attendance history, an href with no date) is completed from `GET /lesson_instance/<id>`, once per open;
  * a complete route (the calendar tap) and a `Lesson` series make no read; a failed read keeps what the route
@@ -74,7 +74,7 @@ afterEach(() => {
 });
 
 describe("a LessonInstance route with missing date, times or capacity is completed from its id", () => {
-  it("[CALENDAR-EVENT-DETAIL-40] a dashboard route (date and a start label, no end time or capacity) reads once and shows them", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] a dashboard route (date and a start label, no end time or capacity) reads once and shows them", async () => {
     const { view, again } = await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
     expect(api.getLessonInstanceById).toHaveBeenCalledTimes(1);
     expect(api.getLessonInstanceById).toHaveBeenCalledWith(7);
@@ -88,7 +88,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(api.getLessonInstanceById).toHaveBeenCalledTimes(1);
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] the class payload is not asked for until the read has given the date", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] the class payload is not asked for until the read has given the date", async () => {
     let release: (v: unknown) => void = () => undefined;
     api.getLessonInstanceById.mockReturnValue(new Promise((r) => (release = r)));
     const { view } = await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
@@ -99,7 +99,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(seen.classEvent).toMatchObject({ date: "2026-07-07" });
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] a message link with a date, an href with none, and an attendance-history row all complete", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] a message link with a date, an href with none, and an attendance-history row all complete", async () => {
     await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07", { title: "", timeLabel: "" }));
     expect(seen.event).toMatchObject({ date: "2026-07-07", startTime: "19:30", endTime: "21:00", maxPlayers: 8 });
     client.clear();
@@ -114,14 +114,14 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(seen.event).toMatchObject({ startTime: "19:30", endTime: "21:00", maxPlayers: 8 });
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] an id-only route is resolved as before (criterion 13)", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] an id-only route is resolved as before (criterion 13)", async () => {
     await mount({ id: "lessoninstance-7" });
     expect(api.getLessonInstanceById).toHaveBeenCalledTimes(1);
     expect(seen.fallbackId).toBe(7);
     expect(seen.event).toMatchObject({ date: "2026-07-07", endTime: "21:00" });
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] a complete route (the calendar tap) and a Lesson series make no read", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] a complete route (the calendar tap) and a Lesson series make no read", async () => {
     const complete = eventToParams({
       id: "lessoninstance-7", model: "LessonInstance", originalId: 7, type: "class", isRecurring: false,
       date: "2026-07-07", startTime: "19:30", endTime: "21:00", title: "Aula", maxPlayers: 8,
@@ -133,7 +133,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(api.getLessonInstanceById).not.toHaveBeenCalled();
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] a failed read keeps what the route shows, and is not the id-only 'gone' state", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] a failed read keeps what the route shows, and is not the id-only 'gone' state", async () => {
     api.getLessonInstanceById.mockRejectedValue(Object.assign(new Error("gone"), { response: { status: 404 } }));
     await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
     expect(seen.event).toMatchObject({ date: "2026-07-07", startTime: "19:30", title: "Aula" });
@@ -141,7 +141,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(seen.fallbackId).toBeNull(); // rule 15's gone/retry states belong to an id-only route
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] the read's date, times, capacity and status win as one set; the route keeps its title and colour", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] the read's date, times, capacity and status win as one set; the route keeps its title and colour", async () => {
     // The card was drawn when the class was at 18:00; it has moved to 19:30-21:00 since.
     await mount({
       id: "lessoninstance-7", model: "LessonInstance", originalId: "7", date: "2026-07-07",
@@ -153,7 +153,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     });
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] the edit form's source starts from the real times, not the card's", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] the edit form's source starts from the real times, not the card's", async () => {
     await mount({
       id: "lessoninstance-7", model: "LessonInstance", originalId: "7", date: "2026-07-07", startTime: "18:00", title: "Aula",
     });
@@ -163,7 +163,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(instance).toMatchObject({ date: "2026-07-07", startTime: "19:30", endTime: "21:00" });
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] offline the read cannot run, and the class payload is still asked for from the route", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] offline the read cannot run, and the class payload is still asked for from the route", async () => {
     onlineManager.setOnline(false);
     await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
     expect(api.getLessonInstanceById).not.toHaveBeenCalled();
@@ -172,7 +172,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     await vi.waitFor(() => expect(seen.event).toMatchObject({ endTime: "21:00" }));
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] opening the class again reads again, and nothing loops", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] opening the class again reads again, and nothing loops", async () => {
     const first = await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
     expect(api.getLessonInstanceById).toHaveBeenCalledTimes(1);
     await act(async () => first.view.root.unmount());
@@ -182,7 +182,7 @@ describe("a LessonInstance route with missing date, times or capacity is complet
     expect(api.getLessonInstanceById).toHaveBeenCalledTimes(2);
   });
 
-  it("[CALENDAR-EVENT-DETAIL-40] saving or cancelling the class, or a live event for it, refreshes the read", async () => {
+  it("[CALENDAR-EVENT-DETAIL-47] saving or cancelling the class, or a live event for it, refreshes the read", async () => {
     const { view } = await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
     expect(api.getLessonInstanceById).toHaveBeenCalledTimes(1);
     api.getLessonInstanceById.mockResolvedValue({ lessonInstance: { ...INSTANCE, startTime: "20:00", endTime: "21:30" } });

@@ -30,7 +30,7 @@ function completeEvent(route: CalendarEvent, instance: LessonInstancePayload): C
 }
 
 /**
- * calendar.event-detail rule 15, CALENDAR-EVENT-DETAIL-40: the event the class screen renders, from its route.
+ * calendar.event-detail rule 15, CALENDAR-EVENT-DETAIL-47: the event the class screen renders, from its route.
  * - Full params are the fast path: no read.
  * - A route with only an id is resolved by `GET /lesson_instance/<id>` (`fallbackId`; the gone/retry states).
  * - A `LessonInstance` route that has an id but lacks date, times or capacity (a dashboard card, a message
