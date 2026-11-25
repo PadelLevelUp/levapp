@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 
+import { CancelMessageEditor } from "./cancel-message-editor";
+
 /**
  * Ports web's CancelReasonFields (classes.delete rule 12, PAD-840): the reason, whether the students are
  * told it, and the message they would get. Nobody enrolled: the dialog says so instead of the last two.
@@ -50,9 +52,12 @@ export function CancelReasonFields({ state }: { state: CancelReasonState }) {
             />
             <Text className="flex-1 text-sm">{t("calendar.cancelReason.send")}</Text>
           </View>
+          <CancelMessageEditor state={state} />
           {state.preview ? (
             <View className="gap-1 rounded-md border border-border bg-muted/30 p-3">
-              <Text className="text-xs text-muted-foreground">{t("calendar.cancelReason.preview")}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {t(state.messageParts ? "calendar.cancelReason.renderedPreview" : "calendar.cancelReason.preview")}
+              </Text>
               <Text className="text-sm" testID="cancel-reason-preview">
                 {state.preview.text}
               </Text>

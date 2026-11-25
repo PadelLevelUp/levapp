@@ -752,7 +752,11 @@
       "placeholder": "Optional",
       "send": "Send the reason to the students",
       "preview": "Message to the students",
-      "nobody": "No student will be told."
+      "nobody": "No student will be told.",
+      "edit": "Edit the message",
+      "restore": "Restore original message",
+      "removeToken": "Remove {{name}}",
+      "renderedPreview": "What the students will receive"
     },
     "cancellations": {
       "title": "Cancelled classes",

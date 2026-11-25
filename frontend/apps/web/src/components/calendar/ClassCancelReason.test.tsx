@@ -146,3 +146,78 @@ describe("the class sheet's cancellation reason (PAD-840)", () => {
     expect(api.preview).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("the class sheet's editable cancellation message (PAD-840, phase 2)", () => {
+  const TEMPLATE = "Olá {name}, aula às {time}. Motivo: {reason}.";
+  const text = (i: number) => screen.getByTestId(`cancel-message-text-${i}`) as HTMLTextAreaElement;
+
+  beforeEach(() => {
+    api.preview.mockReset().mockImplementation(async (_event, cancel) => ({
+      text: cancel.messageOverride ? `[${cancel.messageOverride}]` : "Olá Ana.", recipients: 1, template: TEMPLATE,
+    }));
+  });
+
+  it("[CLASSES-DELETE-18] shows the template with its placeholders as chips, and sends nothing extra untouched", async () => {
+    const event = eventOf(false);
+    await openDelete(event);
+    await waitFor(() => expect(screen.getByTestId("cancel-message-editor")).toBeTruthy());
+    for (const name of ["name", "time", "reason"]) expect(screen.getByTestId(`cancel-message-token-${name}`)).toBeTruthy();
+    expect(text(0).value).toBe("Olá ");
+    expect(text(6).value).toBe(".");
+    expect(screen.getByTestId("cancel-message-restore").hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByTestId("class-delete-confirm"));
+    expect(onDelete).toHaveBeenCalledWith(event, "single", undefined);
+  });
+
+  it("[CLASSES-DELETE-18] sends the edited text for this cancellation, with no reason written", async () => {
+    const event = eventOf(false);
+    await openDelete(event);
+    await waitFor(() => expect(screen.getByTestId("cancel-message-editor")).toBeTruthy());
+    fireEvent.change(text(0), { target: { value: "Oi " } });
+    await waitFor(() => expect(api.preview).toHaveBeenLastCalledWith(
+      event, expect.objectContaining({ messageOverride: "Oi {name}, aula às {time}. Motivo: {reason}." }),
+    ));
+    await waitFor(() => expect(screen.getByTestId("cancel-reason-preview").textContent).toContain("[Oi {name}"));
+    fireEvent.click(screen.getByTestId("class-delete-confirm"));
+    expect(onDelete).toHaveBeenCalledWith(event, "single", {
+      messageOverride: "Oi {name}, aula às {time}. Motivo: {reason}.",
+    });
+  });
+
+  it("[CLASSES-DELETE-18] a placeholder is removed whole and cannot be partly edited", async () => {
+    const event = eventOf(false);
+    await openDelete(event);
+    await waitFor(() => expect(screen.getByTestId("cancel-message-editor")).toBeTruthy());
+    // A chip has no text field in it: only its remove control acts on it.
+    expect(screen.getByTestId("cancel-message-token-name").querySelector("textarea, input")).toBeNull();
+    fireEvent.click(screen.getByTestId("cancel-message-token-remove-time"));
+    expect(screen.queryByTestId("cancel-message-token-time")).toBeNull();
+    expect(text(2).value).toBe(", aula às . Motivo: ");
+    fireEvent.click(screen.getByTestId("class-delete-confirm"));
+    expect(onDelete).toHaveBeenCalledWith(event, "single", { messageOverride: "Olá {name}, aula às . Motivo: {reason}." });
+  });
+
+  it("[CLASSES-DELETE-18] Repor mensagem original puts the template back, and an emptied message is the template", async () => {
+    const event = eventOf(false);
+    await openDelete(event);
+    await waitFor(() => expect(screen.getByTestId("cancel-message-editor")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("cancel-message-token-remove-name"));
+    expect(screen.getByTestId("cancel-message-restore").hasAttribute("disabled")).toBe(false);
+    fireEvent.click(screen.getByTestId("cancel-message-restore"));
+    expect(screen.getByTestId("cancel-message-token-name")).toBeTruthy();
+    expect(text(0).value).toBe("Olá ");
+
+    for (const name of ["name", "time", "reason"]) fireEvent.click(screen.getByTestId(`cancel-message-token-remove-${name}`));
+    fireEvent.change(text(0), { target: { value: "" } });
+    expect(screen.getByTestId("cancel-message-token-name")).toBeTruthy(); // emptied: the template again
+    fireEvent.click(screen.getByTestId("class-delete-confirm"));
+    expect(onDelete).toHaveBeenCalledWith(event, "single", undefined);
+  });
+
+  it("[CLASSES-DELETE-18] an old server sends no template, so there is no editor and the preview stays read-only", async () => {
+    api.preview.mockReset().mockResolvedValue({ text: "Olá Ana.", recipients: 1 });
+    await openDelete(eventOf(false));
+    await waitFor(() => expect(screen.getByTestId("cancel-reason-preview")).toBeTruthy());
+    expect(screen.queryByTestId("cancel-message-editor")).toBeNull();
+  });
+});

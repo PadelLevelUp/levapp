@@ -752,7 +752,11 @@
       "placeholder": "Opcional",
       "send": "Enviar o motivo aos alunos",
       "preview": "Mensagem para os alunos",
-      "nobody": "Nenhum aluno será avisado."
+      "nobody": "Nenhum aluno será avisado.",
+      "edit": "Editar a mensagem",
+      "restore": "Repor mensagem original",
+      "removeToken": "Remover {{name}}",
+      "renderedPreview": "O que os alunos vão receber"
     },
     "cancellations": {
       "title": "Aulas canceladas",
