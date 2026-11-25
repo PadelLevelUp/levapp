@@ -102,7 +102,7 @@
     },
     "conversationWithAria": "Conversation with {{name}}",
     "startConversationWithAria": "Start conversation with {{name}}",
-    "startConversation": "Start a conversation",
+    "startConversationRow": "Start a conversation",
     "searchPeopleAria": "Search people",
     "searchPeoplePlaceholder": "Search people…",
     "couldNotLoadPeople": "Could not load people.",
