@@ -3222,6 +3222,42 @@ def answered_for_reminders(presence, first_reminder, *, new_engine: bool = False
     return placed is None or placed > first_reminder
 
 
+#: The coach's attendance mark as the cause a reminder send names (class-reminders-manual rule 6): absent
+#: is "not coming"; any other mark (present) is "already confirmed".
+MARK_CAUSE = {"absent": "not_coming"}
+
+
+def reminder_skips(instance):
+    """Who a reminder send leaves out before anything else, for both engines' sends (the app's pass,
+    ``_reminder_recipients``, and the coach's ask on a new-engine class, class-reminders-manual rule 6):
+    ``(blocked, marks)``.
+
+    ``blocked``: player id -> ``{"playerId", "name", "cause", ["reason"]}`` for the students unavailable for
+    the slot (PAD-107, ``cause`` ``unavailable``) or who blocked ALL notifications (PAD-112, ``preference``,
+    with their reason). A student hit by both carries the PAD-112 entry, because that reason is the
+    student's own coach-visible words; an availability blocker's details stay private. Only the "all"
+    preference level counts: blocking just invitations leaves reminders alone.
+
+    ``marks``: player id -> ``already_confirmed`` or ``not_coming`` for the students the coach marked present
+    or absent (justified or not; PAD-546, reminders rule 23). ``status`` is the coach's record only
+    (attendance.presence rule 7), read at send time, so a mark cleared brings the reminder back.
+    """
+    from padel_app.services.student_availability_service import (
+        blocked_players_for_instance,
+    )
+    from padel_app.services.student_notification_preferences import (
+        preference_blocked_players,
+    )
+
+    presences = list(instance.presences)
+    blocked = {entry["playerId"]: entry for entry in blocked_players_for_instance(instance)}
+    for entry in preference_blocked_players([p.player_id for p in presences], kind="all"):
+        blocked[entry["playerId"]] = entry
+    marks = {p.player_id: MARK_CAUSE.get(p.status, "already_confirmed")
+             for p in presences if p.status is not None}
+    return blocked, marks
+
+
 def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None,
                          answered_pairs=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
@@ -3241,21 +3277,8 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
     students are reported so the coach knows the count is deliberately short.
     """
     from padel_app.services import reminder_attempt_service as attempts
-    from padel_app.services.student_availability_service import (
-        blocked_players_for_instance,
-    )
-    from padel_app.services.student_notification_preferences import (
-        preference_blocked_players,
-    )
 
-    _blocked_by_id = {
-        entry["playerId"]: entry
-        for entry in blocked_players_for_instance(instance)
-    }
-    for entry in preference_blocked_players(
-        [p.player_id for p in instance.presences], kind="all",
-    ):
-        _blocked_by_id[entry["playerId"]] = entry
+    _blocked_by_id, marks = reminder_skips(instance)
     blocked = list(_blocked_by_id.values())
     blocked_ids = set(_blocked_by_id)
     reminder_count = config.get_reminder_count()
@@ -3285,7 +3308,7 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         # PAD-546 (rule 23): the coach already marked them present or absent (justified or not).
         # `status` is the coach's record only (attendance.presence rule 7); read at send time, on
         # every pass, so a mark cleared before the next pass brings the reminder back.
-        if existing_presence.status is not None:
+        if player_id in marks:
             continue
 
         # Count reminders already sent to THIS player for THIS instance —
