@@ -3013,11 +3013,14 @@ def check_field_available():
     The frontend decides whether a 409 blocks submission (unique fields) or is a
     soft warning (duplicate fields).
 
-    Scoping (name warn-check): the caller must pass a ``scope`` (or ``coach``)
-    field carrying the requesting coach's id. Only players in that coach's
-    ``Association_CoachPlayer`` roster are considered. If no scope is supplied we
-    deliberately skip the warn (return ``available: true``) rather than fall back
-    to a global match, which would resurface the cross-club false positive.
+    Scoping (name warn-check): the roster checked is the CALLER's own, taken from
+    the JWT (PAD-92); only players in that coach's ``Association_CoachPlayer``
+    roster are considered. A ``scope`` (or ``coach``) field in the body is optional
+    and only an assertion: when present it must name the caller's coach id. A
+    missing ``scope`` does not skip the warning. A caller with no coach (a student)
+    has no roster, so the warn is skipped (``available: true``) rather than
+    falling back to a global match, which would resurface the cross-club false
+    positive.
     """
     data = request.get_json() or {}
     model_key = (data.get("model") or "").strip().lower()
