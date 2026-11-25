@@ -5,7 +5,7 @@ constants:
   LESSON_LIST_TYPES: ["academy", "private"]           # values of the academy-classes read's `type`; the first is the default
   COACH_REQUESTS_PAGE_SIZE: 25
   COACH_REQUESTS_MAX_PAGE_SIZE: 100
-  COACH_REQUESTS_QUERY_BUDGET: 8
+  COACH_REQUESTS_QUERY_BUDGET: 12
   PRIVATE_REQUEST_OPEN_STATUSES: "pending, countered"
   JOIN_REQUEST_OPEN_STATUSES: "pending"
   COACH_REQUESTS_STATUS_ORDER: "pending, countered, accepted, declined, rejected, withdrawn, superseded"
@@ -19,10 +19,10 @@ Values more than one `classes/` spec uses. `academy-class-booking`, `join-reques
   (`players.list`, `coach_players_paginated`), reused so the coach's two paged lists page alike.
 - `COACH_REQUESTS_MAX_PAGE_SIZE`: the largest `per_page` the table endpoint honours; a larger value is
   clamped to it (`classes.coach-requests-table` rule 4). The roster's clamp.
-- `COACH_REQUESTS_QUERY_BUDGET`: the most SQL statements one page of the table endpoint may issue,
-  whatever the coach's total number of requests and whatever the page size
-  (`classes.coach-requests-table` rule 8). A ceiling, not a target; 8 is an opening estimate (rows,
-  total, two section counts, the search's requesters, batch loads) the build may raise with a reason.
+- `COACH_REQUESTS_QUERY_BUDGET`: the most SQL statements one request to the table endpoint may issue,
+  counted at the cursor for the whole request, authentication included, whatever the coach's total number
+  of requests and whatever the page size (`classes.coach-requests-table` rule 8). The count it comes from
+  is in that spec's Performance section. A hard bound: raising it is an amendment with a reason.
 - `PRIVATE_REQUEST_OPEN_STATUSES`: the statuses of a private class request (`classes.class-requests`)
   that are still open — awaiting the coach (`pending`) or the student (`countered`). Every other status
   is closed. The server's "Em aberto" section and `@levelup/config` `isOpenClassRequestRow` read this
