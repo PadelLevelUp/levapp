@@ -63,6 +63,11 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    Each run logs one line at INFO when it ends: its duration in milliseconds, each pass's duration, and
    how many occurrences it materialised and adopted, sessions it listed, effects it applied and outbox
    rows it sent, so a run that outgrows const:ENGINE_RUN_EVERY shows in the log.
+   A listed session with nothing due costs one snapshot per run (a step that applied no effect leaves the
+   session as it was, so the next step reads the same snapshot), and what a snapshot reads does not grow
+   with the coach's past classes or with other coaches' classes: the coach's occurrences are asked about
+   inside the queries that count a student's history, never fetched as a list, and the overlap and
+   elsewhere reads ask only about the occurrences they found.
 
 8. **Invitation messages and alerts stay current** (`notifications.invitations` NB1a;
    `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
@@ -268,6 +273,14 @@ with the run's total milliseconds, each pass's milliseconds, and the materialise
 effects and sent counts.
 test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_each_run_logs_its_duration_and_counts`
 
+#### NOTIFICATIONS-ENGINE-STORE-21: A session with nothing due reads a bounded amount, whatever the history (rule 7)
+Given switched coaches with listed sessions and nothing due, when the sessions' tick runs with 4 weeks of
+past classes (with presences), and again after 26 more weeks of them and another coach's classes with 30
+weeks of history, then each session is snapshotted once, takes at most 40
+statements, and both runs issue the same statements, load the same ORM rows and bind the same largest
+parameter list.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_a_session_with_nothing_due_reads_a_bounded_amount_whatever_the_history`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -277,7 +290,9 @@ test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_each_run_logs
    engine-answers ANSWERS-32.
 4. (switch keeps lists, 2026-11-19) STORE-15 to STORE-17 — `services/engine_switch.py` (`_adopt`) and
    `services/engine_store.py` (`add_session`); STORE-18, STORE-19 — `services/engine_store.py` (`Placed`).
-5. (engine tick load, 2026-11-25) STORE-20 — `services/engine_runner.py` (`run_tick`'s log line).
+5. (engine tick load, 2026-11-25) STORE-20 — `services/engine_runner.py` (`run_tick`'s log line); STORE-21 —
+   `invitation_engine/engine.py` (`tick`), `services/engine_store.py` (`_students`, `_overlapping_going`,
+   `_elsewhere`), `services/lesson_service.py` (`coach_instance_ids`, `coach_instance_ids_select`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
@@ -292,3 +307,8 @@ test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_each_run_logs
 - The run's log line (rule 7, STORE-20; prod slowness, 25 Nov 2026) — decision (hotfix agent, owner's
   order, nobody reachable to review; the owner can reverse it): a log line only, not exposed on admin
   engine-health, because APScheduler logs no run lines and the log is the cheapest place to read it.
+- The sessions' tick's cost (rule 7, STORE-21; prod 25 Nov 2026: about 110 statements and three snapshots
+  per listed session, full reads of the coach's history per snapshot) — decision (hotfix agent, owner's
+  order relayed by the coordinator to widen the fix, nobody reachable to review; the owner can reverse
+  it): reuse the snapshot when a step applied nothing, and scope the history reads in SQL. This touches
+  `Engine.tick` (`notifications.engine-planning`'s run) without changing what it decides.
