@@ -29,7 +29,7 @@ database query or a log search, and failed sends are only in the logs.
   `engine_effects`; `notifications.engine-store`) and `NotificationConfig.engine_version`
 - **CREATES:** `delivery_incidents` — `id`, `created_at`, `kind`
   (`email_failed`|`push_failed`|`reminder_skipped_past_due`|`push_registration_failed`, the last
-  since PAD-746, rule 8; `stream_refused`|`push_dropped` since PAD-689, rule 9; `engine_session_failed` since PAD-913, rule 12), `channel`
+  since PAD-746, rule 8; `stream_refused`|`push_dropped` since PAD-689, rule 9; `engine_session_failed` since PAD-913, rule 12; `push_permission_refused` since PAD-789, rule 8e, which rule 2's `incidents` block leaves out), `channel`
   (`email`|`webpush`|`apns`|`fcm`|`expo`|`scheduler`|`sse`|`push`; an Expo receipt maps the device's platform
   to `apns` (ios) or `fcm` (android) and is `expo` when the device row does not say), `user_id` (FK → users, SET NULL, nullable),
   `subject_type` / `subject_id` (nullable: the lesson instance, vacancy or notification the
@@ -161,26 +161,39 @@ Readings:
        `phase` of `refused` with an `errorClass` is a 400. A valid refusal report answers 204,
        logs one INFO line (`user`, `platform`, `build`) and records one `delivery_incidents` row of
        kind `push_permission_refused` (channel as (b); `detail` = `build=<build>`). It is not a
-       `push_registration_failed` row, so (c)'s `registrationFailures7d` and the incident counts of
-       failures never move for a refusal. One user adds at most 5 such rows per 24 hours; past that
+       `push_registration_failed` row, so (c)'s `registrationFailures7d` never moves for a
+       refusal. It is also **not** one of rule 2's incident kinds: `incidents.last24h`,
+       `incidents.last7d` and `incidents.recent` leave it out (it is not in `KINDS`), so no refuser's
+       user id leaves in the summary and refusals never crowd failures out of the 20 newest rows.
+       Only rule 8e's count reads these rows. A failure report (`phase` `token`, `subscribe` or
+       `post`) still requires its `errorClass`: with none it is a 400. One user adds at most 5 such rows per 24 hours; past that
        the report answers 204 and is dropped.
      - **Who and when.** The iOS/Android and web clients report a refusal once when a device or
        browser's permission **changes into** denied (each client remembers the last state it
-       reported, locally), and again only if it is still denied after `const:PUSH_REFUSAL_RESEND_DAYS`
-       days. Never on each launch or foreground. A simulator reports nothing. The client rules
+       reported, locally, written only after the server answered 2xx), and again only if it is
+       still denied after const:PUSH_REFUSAL_RESEND_DAYS days. A post that fails is dropped and
+       tried again at the next app start or page load, never on every read. Never on each
+       launch or foreground otherwise. A simulator (`Device.isDevice` false), and a browser with
+       no Notification API, report nothing. The client rules
        are `messaging.push-notifications` rule 18 and `auth.push-subscription` rule 13.
      - **The count.** The summary's `push.permissionRefused` is `{windowDays, total, ios, android,
        web}`: the distinct students (users with a `players` row, even if they also coach) with a
        `push_permission_refused` row within the last const:MESSAGE_RECIPIENT_WINDOW_DAYS days (the
-       window rule 13 already sends as `windowDays`) who hold **no** channel of the reported
-       platform now (`ios`/`android`: no `device_tokens` row of that platform; `web`: no
-       `push_subscriptions` row), so a student who then allowed notifications and registered
-       drops out. `total` counts a student once even if they refused on two platforms; `ios`,
+       window rule 13 already sends as `windowDays`) who have had **no channel of the
+       reported platform created or updated after their latest refusal row** (`ios`/`android`:
+       no `device_tokens` row with that platform, or with a NULL platform, a legacy native token,
+       whose `updated_at` is later; `web`: no `push_subscriptions` row whose `updated_at` is
+       later). A student who allowed notifications and registered again drops out; a student who
+       had a token, then refused in Settings, stays in, because the old row is still there but
+       older. For that to hold, registering a device token **always refreshes the row's
+       `updated_at`** (as saving a subscription does), even when nothing else changed. `total` counts a student once even if they refused on two platforms; `ios`,
        `android` and `web` count per platform. Counts only, in one aggregate query shape (rule 7;
        statements independent of the number of students): no id, name or username leaves. It is
        told apart from "never asked": rule 8a's and 13's `noChannel` is unchanged and still
        counts every student without a channel, refusal or not, and a student who never reported
-       (never asked, or an older build) is in `noChannel` only.
+       (never asked, or an older build) is in `noChannel` only. A refusal reaches the count when the
+       app or page is opened, so a student who refused and does not open it for the whole window
+       leaves the count while still unreachable.
      - **On the page.** The Push reach card shows a third row above (c)'s failures line, "Refused
        notifications", labelled with `windowDays`: the `total`, then iOS, Android and web. A
        summary without `permissionRefused` shows the card without the row.
@@ -430,14 +443,15 @@ test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows messa
 - **Given** a signed-in student
 - **When** the iOS app posts `{platform: "ios", phase: "refused", permission: "denied", build: "33"}`
 - **Then** the answer is 204 and one `push_permission_refused` row exists with channel `apns` and `detail` `build=33`, and the summary's `registrationFailures7d` and failure incident counts are unchanged
-- **And** a refusal with an `errorClass`, with `permission` `granted`, or with a `token` field answers 400 and stores nothing; a failure report with `phase` `refused` and an `errorClass` answers 400
+- **And** a refusal with an `errorClass`, with `permission` `granted`, or with a `token` field answers 400 and stores nothing; a failure report with `phase` `refused` and an `errorClass` answers 400; a failure report `{phase: "token", permission: "denied"}` with no `errorClass` answers 400
+- **And** the summary's `incidents.recent`, `last24h` and `last7d` hold no `push_permission_refused` row, kind or user id of a refuser
 - **And** the sixth refusal report from one user in 24 hours answers 204 and stores nothing; a signed-out caller answers 401
 test: `backend/padel_app/tests/test_pad789_permission_refused.py` › `test_a_refusal_report_is_closed_and_stored_apart_from_failures`
 
 #### ADMIN-ENGINE-HEALTH-36: The refused count is distinct students with no channel now, apart from never asked (rule 8e)
-- **Given** students: one who refused on iOS 2 days ago with no device token; one who refused on web and on iOS (counts once in `total`) with neither channel; one who refused 8 days ago; one who refused and then registered a device token; a coach without a `players` row who refused; one with no channel who never reported
+- **Given** students: one who refused on iOS 2 days ago with no device token; one who refused on web and on iOS (counts once in `total`) with neither channel; one who refused 8 days ago; one who refused and then registered a device token (created after the refusal row); one who had a token, then refused in Settings, whose token row is older than the refusal row; one whose only token has a NULL platform and is older than an iOS refusal; a coach without a `players` row who refused; one with no channel who never reported
 - **When** support reads the summary
-- **Then** `push.permissionRefused` is `{windowDays: const:MESSAGE_RECIPIENT_WINDOW_DAYS, total: 2, ios: 2, android: 0, web: 1}`
+- **Then** `push.permissionRefused` is `{windowDays: const:MESSAGE_RECIPIENT_WINDOW_DAYS, total: 4, ios: 4, android: 0, web: 1}`
 - **And** `push.messageRecipients.noChannel` and `push.activeStudents7d.noChannel` are what they were without any refusal report, and the block holds only counts
 test: `backend/padel_app/tests/test_pad789_permission_refused.py` › `test_the_refused_count_is_distinct_students_with_no_channel_and_apart_from_no_channel`
 
@@ -454,10 +468,16 @@ test: `backend/padel_app/tests/test_pad789_permission_refused.py` › `test_the_
 test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the refused-notifications row, and none when the summary lacks it`
 
 #### ADMIN-ENGINE-HEALTH-39: A client re-reports a refusal sooner than the count's window ends (rule 8e)
-- **Given** `const:PUSH_REFUSAL_RESEND_DAYS` and `const:MESSAGE_RECIPIENT_WINDOW_DAYS`
-- **When** they are compared
-- **Then** the resend interval is shorter than the window
-test: `backend/padel_app/tests/test_pad789_permission_refused.py` › `test_the_resend_interval_is_shorter_than_the_count_window`
+- **Given** const:PUSH_REFUSAL_RESEND_DAYS and const:MESSAGE_RECIPIENT_WINDOW_DAYS
+- **When** each client's resend interval is read
+- **Then** the web's and the app's intervals both equal const:PUSH_REFUSAL_RESEND_DAYS days and are shorter than const:MESSAGE_RECIPIENT_WINDOW_DAYS
+test: `frontend/apps/web/src/utils/pushRefusalReport.test.ts` › `[ADMIN-ENGINE-HEALTH-39] the resend interval is the constant and shorter than the count window` (+ `frontend/apps/mobile/src/lib/push/refusalReport.test.ts` › `[ADMIN-ENGINE-HEALTH-39] the resend interval is the constant and shorter than the count window`)
+
+#### ADMIN-ENGINE-HEALTH-40: Registering a device token refreshes its row, so a re-registration ends a refusal (rule 8e)
+- **Given** a student whose device token row is older than their latest refusal row
+- **When** the app registers the same token again, with nothing else changed
+- **Then** the row's `updated_at` is later than the refusal row and the student leaves `push.permissionRefused`
+test: `backend/padel_app/tests/test_pad789_permission_refused.py` › `test_registering_the_same_token_again_refreshes_it_and_ends_the_refusal`
 
 ### Not this spec
 - Retrying, re-arming or running the engine by hand (`process_rounds`, "send now") — never from the
@@ -564,14 +584,15 @@ test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the n
    locales: the card title and the active row's label change, the recipients row is new).
 Wave 3 (the in-app prompt) is in `messaging.push-notifications` and `auth.push-subscription`.
 4. (PAD-789 item 3, after the owner's decision of 25 Nov 2026) In order, each its own commit:
-   a. `specflow/impl/constants.md` is already in the spec commit; ADMIN-ENGINE-HEALTH-39 —
-      backend test only.
-   b. ADMIN-ENGINE-HEALTH-35, -36, -37 — backend (`notifications_api.py` validation and the
+   a. (the constant `specflow/impl/constants.md` is in the spec commit.)
+   b. ADMIN-ENGINE-HEALTH-35, -36, -37, -40 — backend (`notifications_api.py` validation and the
       `push_permission_refused` kind, `engine_health.py:_push`), no migration.
    c. ADMIN-ENGINE-HEALTH-38 — admin app (`EngineHealthPage.tsx`, `lib/api.ts`, both admin locales).
-   d. MESSAGING-PUSH-NOTIFICATIONS-42 and AUTH-PUSH-SUBSCRIPTION-17 — the iOS/Android and web
-      reporters, one wave so web and iOS ship together, and ADMIN-ENGINE-HEALTH-23 (amended) is
-      re-pinned by the same two test files.
+   d. MESSAGING-PUSH-NOTIFICATIONS-42, AUTH-PUSH-SUBSCRIPTION-17 and ADMIN-ENGINE-HEALTH-39 — the
+      iOS/Android and web reporters, one wave so web and iOS ship together. ADMIN-ENGINE-HEALTH-23
+      keeps `pushFailureReport.test.ts` and `failureReport.test.ts` unchanged; the registrar
+      test named "a denial and a simulator report nothing"
+      (`expoPushRegistrar.test.ts`) is renamed "a denial fires no failure", assertions unchanged.
    Backend and admin ship first (b, c): a client report sent to an older server is a 400 that the
    client drops, so no order breaks a user.
 
@@ -618,6 +639,13 @@ Wave 3 (the in-app prompt) is in `messaging.push-notifications` and `auth.push-s
     of that platform now, per platform and in total. Reason: no "granted" report exists, so a
     student who later allowed notifications is recognised by having registered; and the count must
     be told apart from `noChannel`, which mixes refused with never asked.
+  - **Dropping out of the count (review, lead, 2026-11-25).** A student leaves only when a channel
+    of that platform was created or updated after their latest refusal row, because a token is not
+    deleted when notifications are turned off in Settings (`expoPushRegistrar.ts` returns
+    `no-permission` and keeps the row). That needs the token's `updated_at` refreshed on every
+    registration (-40): today an unchanged re-registration writes nothing.
+  - **Incidents block (review).** `push_permission_refused` is left out of rule 2's counts and
+    `recent` (not in `KINDS`), so no user id leaves.
   - **Limits.** A student on a build without this change, or whose refusal predates it, is not in
     the count until their client reports; the first weekly read after release is not a baseline.
   - **Rate limit.** 5 refusal rows per user per 24 hours (rule 8b's 20 is for failures, which

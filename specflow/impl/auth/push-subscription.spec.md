@@ -110,13 +110,19 @@ Register browser push notification subscriptions for authenticated users.
     browser reports `denied` notification permission to `POST /api/notifications/registration-failure`
     with `platform` `web`, `permission` `denied`, `phase` `refused`, `build` `web` and no
     `errorClass` (`admin.engine-health` rule 8e), through the same token-bearing `fetch` as rule 9's
-    failure report, outside the API client. It reports only when the permission **changes into**
-    `denied` since the last state this browser reported for this user (remembered in
-    `localStorage`, per user), and again after `const:PUSH_REFUSAL_RESEND_DAYS` days while still
-    denied; never on each page load or focus. `granted` or `default` resets the memory. A browser
-    without the Notification API, or one that cannot read or write `localStorage`, reports at most
-    once per page session. A report that fails is dropped, not retried, and never signs the user
-    out. No prompt and no banner changes. Native's counterpart is `messaging.push-notifications`
+    failure report, outside the API client, so a report never signs the user out.
+    - **One reporter.** It is started once for a signed-in user at the app shell
+      (`auth/AuthContext.tsx`, beside `startPushFailureReport`), not per `usePushNotifications`
+      instance, and reads the permission at sign-in, on page load, and on focus and visibility.
+      A module-level guard lets one post be in flight, so two readers never post twice.
+    - **When it reports.** Only when the permission **changes into** `denied` since the last state
+      this browser reported for this user (remembered in `localStorage`, keyed by user id), and
+      again after const:PUSH_REFUSAL_RESEND_DAYS days while still denied. `granted` or `default`
+      resets the memory. The memory is written **only after a 2xx**; a post that fails is dropped,
+      not retried, and is tried again at the next page load, never on each read of the same page.
+    - **Without the Notification API** the browser reports nothing. A `localStorage` that cannot be
+      read or written reports at most once per page session.
+    No prompt and no banner changes. Native's counterpart is `messaging.push-notifications`
     rule 18.
 
 ### Acceptance Criteria
@@ -212,13 +218,13 @@ test: `backend/padel_app/tests/test_pad753_push_endpoint_migration.py` › `test
 - **Then** the user holds one row for this browser, under its endpoint
 test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_row_the_previous_release_wrote_is_replaced`
 
-#### AUTH-PUSH-SUBSCRIPTION-17: A browser reports a refusal once per change, with the user's token and closed fields (rule 13)
-- **Given** a signed-in user whose browser permission reads `default`, then `denied`, then (a later load) `denied`, then `granted`, then `denied`; and a browser with no Notification API
-- **When** the page reads the permission at each of those moments
-- **Then** one report `{platform: "web", phase: "refused", permission: "denied", build: "web"}` is posted at the first `denied`, none at the second, none at `granted`, one again at the last `denied`, each with the user's own bearer token and outside the API client
-- **And** after `const:PUSH_REFUSAL_RESEND_DAYS` days a still-denied permission reports once more, and not before; with `localStorage` throwing it reports once per page session; with no Notification API it reports nothing
-- **And** a failing post is dropped, not retried
-test: `frontend/apps/web/src/utils/pushRefusalReport.test.ts` › `a refusal reports once per change into denied and again after the resend interval`
+#### AUTH-PUSH-SUBSCRIPTION-17: A browser reports a refusal once per change, from one reporter, with the user's token and closed fields (rule 13)
+- **Given** a signed-in user whose browser permission reads `default`, then `denied`, then (a later load) `denied`, then `granted`, then `denied`; two readers (focus and load) that both see the first `denied` at once; and a browser with no Notification API
+- **When** the reporter reads the permission at each of those moments
+- **Then** one report `{platform: "web", phase: "refused", permission: "denied", build: "web"}` is posted at the first `denied` (once, though two readers saw it), none at the second, none at `granted`, one again at the last `denied`, each with the user's own bearer token and outside the API client
+- **And** after const:PUSH_REFUSAL_RESEND_DAYS days a still-denied permission reports once more, and not before; with `localStorage` throwing it reports once per page session; with no Notification API it reports nothing
+- **And** a post that fails is dropped, writes no memory, and is sent again at the next page load, not at the next focus
+test: `frontend/apps/web/src/utils/pushRefusalReport.test.ts` › `[AUTH-PUSH-SUBSCRIPTION-17] a refusal reports once per change into denied and again after the resend interval`
 
 ### Today (PAD-753)
 - Model: `backend/padel_app/models/push_subscriptions.py:22-28` (`user_id` `unique=True, index=True`; no endpoint column).
@@ -294,10 +300,10 @@ test: `frontend/apps/web/src/utils/messagesPushBanner.test.ts` › `each browser
 ### Open questions (PAD-789)
 - **Item 3 (refusal report), web.** Decided by the owner on 25 Nov 2026 ("Change the rule"); report,
   frequency and count are in `admin.engine-health`'s Open questions. A `denied` browser state
-  reports through the same endpoint with platform `web` (the lead's brief). Lead decision here
-  (the lead can reverse it): the reporter lives beside `utils/pushFailureReport.ts`
-  (`utils/pushRefusalReport.ts`) and reads the permission where `usePushNotifications` already
-  does, so it adds no new permission read site.
+  reports through the same endpoint with platform `web` (the lead's brief). Lead decision (review,
+  2026-11-25): one reporter in `utils/pushRefusalReport.ts`, started once from `AuthContext`
+  beside `startPushFailureReport`, not in `usePushNotifications` (which has several live
+  instances: Messages and the setup guide, and a student who opens neither would never report).
 - **A student on an iPhone browser (outside an installed web app).** There the Push API is
   missing, so today's Messages page shows no push line at all, and the setup guide's `ios_browser`
   state (`dashboard.student-setup-guide` rule 7) is the only place that says so. Options: (a) no
