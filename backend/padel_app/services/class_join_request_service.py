@@ -799,8 +799,18 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
             f"{label}: {len(names)} pedido(s) encerrado(s) — {', '.join(n for n in names if n)}",
             f"{label}: {len(names)} request(s) closed — {', '.join(n for n in names if n)}",
         )
-        send_push_notification(user_id=coach_user_id, title=title, body=body[:100],
-                               url=f"/calendar?classInstanceId={instance.id}")
+        # CALENDAR-EVENT-DETAIL-41 (rule 27): the calendar's deep link (rule 10), the one the engine's
+        # coach alert and the dashboard use; `classInstanceId` was a key it never read.
+        from padel_app.helpers.dashboard.coach_home import class_href
+
+        start = instance.start_datetime
+        send_push_notification(
+            user_id=coach_user_id, title=title, body=body[:100],
+            url=class_href({
+                "id": f"lessoninstance-{instance.id}",
+                "date": start.date().isoformat() if start else None,
+            }),
+        )
         publish(
             {
                 "type": "join_requests_superseded",
