@@ -45,7 +45,8 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
    optional email/phone. The password is at least 8 characters, the sign-up minimum
    (`auth.register` rule 4; owner decision 2026-11-10: 8 everywhere, server and forms), refused
    with 400 on `password` by the accept route and before sending by the web and app forms.
-   - Code to follow: the accept service checks `PASSWORD_MIN_LENGTH` as sign-up does (today it checks presence only), and the web `PlayerInvitePage` and the shared `playerInviteAcceptSchema` and `passwordSchema` move from 6 to 8.
+   The shared sign-in `passwordSchema` stays at 6: sign-in accepts older passwords (`auth.login` rule 15).
+   - Code to follow: the server does not check the length yet; the accept service checks `PASSWORD_MIN_LENGTH` as sign-up does (today it checks presence only).
 6. Accepting the invitation: updates the player's User with the chosen username/password/details, sets
    `users.status` to `active`, marks the invitation `accepted`, and returns an access token so the
    player is logged in.
@@ -164,4 +165,5 @@ test: `backend/padel_app/tests/test_player_invitation.py` › `test_incomplete_p
 - **Then** a typed username is lowercased, and the field never capitalises or corrects it
 - **And** the country starts on Portugal and `country: "PT"` is sent; a server `COUNTRY_REQUIRED` or `INVALID_COUNTRY` shows on the country field
 - **And** an unticked Terms box shows its error and sends nothing; a ticked one sends `termsAccepted: true`; a server `TERMS_REQUIRED` shows on the box
+- **And** a password of seven shows `playerInvite.passwordMin` on the password field and sends nothing; a server 400 on `password` shows there too
 test: `frontend/apps/web/src/pages/PlayerInvitePage.test.tsx` › `shows the country field defaulted to Portugal and sends PT` (+5 more)

@@ -79,7 +79,7 @@ A coach who belongs to a club can invite another coach to join that club via a s
      already taken (409, rule 10); an email already registered (409).
 
 10. The new-user accept needs `name`, `username` and `password` (400 without them) and a username nobody has (409 otherwise). Neither refusal uses the invitation: it stays pending. The password is at least 8 characters, the sign-up minimum (`auth.register` rule 4; owner decision 2026-11-10: 8 everywhere, server and forms), refused with 400 on `password` by the accept and before sending by the web and iOS forms.
-    - Code to follow: the accept service checks `PASSWORD_MIN_LENGTH` as sign-up does (today it checks presence only), and the web `CoachInvitePage` and the shared `coachInviteAcceptSchema` move from 6 to 8.
+    - Code to follow: the server does not check the length yet; the accept service checks `PASSWORD_MIN_LENGTH` as sign-up does (today it checks presence only).
 11. The accept is throttled per IP address with sign-up's limit (`register`): past it the answer is 429 `RATE_LIMITED`. A 409 does not use the invitation, so without the limit a pending link would tell anyone whether an email is registered.
 
 ### Acceptance Criteria
@@ -224,5 +224,6 @@ test: `backend/padel_app/tests/test_pad477_invited_coach_confirms_email.py` › 
 - **Then** a valid form sends the email trimmed, `country: "PT"` when the select was left alone, and `termsAccepted: true`
 - **And** a malformed email or an unticked Terms box shows its error on that field and sends nothing
 - **And** a server 409 on `email`, `COUNTRY_REQUIRED` or `INVALID_COUNTRY`, and `TERMS_REQUIRED` each show on their own field
+- **And** a password of seven shows `coachInvite.passwordMin` on the password field and sends nothing; a server 400 on `password` shows there too
 - **And** when the accept succeeded and the profile read after it fails, the visitor moves on and sees no error
 test: `frontend/apps/web/src/pages/CoachInvitePage.test.tsx` › `an account that exists is never told the accept failed: a failed /me still moves on` (+8 more)
