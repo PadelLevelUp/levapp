@@ -1,6 +1,6 @@
 ---
 id: auth.push-subscription
-status: implementing
+status: implemented
 depends_on: [auth.login]
 serves: [P-AUTH-2]
 governed_by: []
