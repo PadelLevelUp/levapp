@@ -7,7 +7,7 @@ import { Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { rememberPendingClaim } from "@/auth/pendingClaim";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { PreAuthShell, WelcomeBand } from "@/features/auth/AccountSetupScreen";

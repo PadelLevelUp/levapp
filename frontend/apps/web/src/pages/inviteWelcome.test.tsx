@@ -184,23 +184,26 @@ describe("the invite pages' band (auth.invite-welcome rules 2-4)", () => {
     expect(text).toContain("Coach Name");
     expect(text).toContain("Club Name");
     expect(text).not.toMatch(/LEAK/);
+    // The real field the preview carries and the page must not print: the logo's address (and no image signed out).
+    expect(text).not.toContain("cdn.test");
     // Signed out shows no club logo.
     expect(document.querySelector(`img[src="${PREVIEW.clubLogoUrl}"]`)).toBeNull();
     document.body.innerHTML = "";
 
-    coachInvitation.mockResolvedValue({ clubName: "Club Name", inviterName: "LEAK-inviter", coachEmail: "LEAK-email" });
+    // `status` is a real field of both invitation previews: it is never printed.
+    coachInvitation.mockResolvedValue({ clubName: "Club Name", status: "STATUS-REAL", inviterName: "LEAK-inviter", coachEmail: "LEAK-email" });
     mount("/invite/coach/tok", "/invite/coach/:token", <CoachInvitePage />);
     await screen.findByLabelText("auth.coachInvite.email");
     text = document.body.textContent ?? "";
     expect(text).toContain("Club Name");
-    expect(text).not.toMatch(/LEAK/);
+    expect(text).not.toMatch(/LEAK|STATUS-REAL/);
     document.body.innerHTML = "";
 
-    playerInvitation.mockResolvedValue({ playerName: "Ana", coachName: "LEAK-coach", clubName: "LEAK-club", email: "LEAK-email" });
+    playerInvitation.mockResolvedValue({ playerName: "Ana", status: "STATUS-REAL", coachName: "LEAK-coach", clubName: "LEAK-club", email: "LEAK-email" });
     mount("/invite/player/tok", "/invite/player/:token", <PlayerInvitePage />);
     await screen.findByLabelText("auth.playerInvite.birthDate");
     text = document.body.textContent ?? "";
     expect(text).toContain("Ana");
-    expect(text).not.toMatch(/LEAK/);
+    expect(text).not.toMatch(/LEAK|STATUS-REAL/);
   });
 });

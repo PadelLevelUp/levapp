@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { rememberPendingJoin } from "@/auth/pendingJoin";
+import { StatusBar } from "expo-status-bar";
+import { LevAppMark } from "@/components/brand/LevAppMark";
 import { PreAuthShell, WelcomeBand } from "@/features/auth/PreAuthShell";
 import { Button } from "@/components/ui/button";
 import { Ionicons } from "@expo/vector-icons";
@@ -77,10 +79,15 @@ export function JoinCoachScreen({ token }: { token: string | null }) {
   };
 
   // auth.invite-welcome: every state but loading and invalid puts its words on the navy band, outside the card.
+  // Loading and invalid stay as they were (rule 5): the 30pt mark over a card, no scroll view.
   const shell = (children: React.ReactNode, testID: string) => (
-    <PreAuthShell testID="join-coach-screen">
+    <View className="flex-1 justify-center bg-sidebar p-4">
+      <StatusBar style="light" />
+      <View className="mb-6 items-center">
+        <LevAppMark size={30} />
+      </View>
       <Card testID={testID}>{children}</Card>
-    </PreAuthShell>
+    </View>
   );
   const welcome = (
     band: { title: string; description: string; names?: { coach: string; club: string } },

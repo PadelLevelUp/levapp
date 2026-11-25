@@ -42,10 +42,13 @@ vi.mock("@/auth/AuthContext", () => ({
 vi.mock("@/auth/pendingClaim", () => ({ rememberPendingClaim: vi.fn() }));
 vi.mock("@/auth/pendingJoin", () => ({ rememberPendingJoin: vi.fn() }));
 vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("expo-router", () => ({ router: { replace: vi.fn(), push: vi.fn() } }));
+vi.mock("expo-router", () => ({ router: { replace: vi.fn(), push: vi.fn() }, Redirect: () => null }));
 vi.mock("expo-status-bar", () => ({ StatusBar: () => null }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
-vi.mock("@/components/brand/LevAppMark", () => ({ LevAppMark: () => null }));
+vi.mock("@/components/brand/LevAppMark", async () => {
+  const { createElement: h } = await import("react");
+  return { LevAppMark: ({ size }: { size?: number }) => h("Mark", { size }) };
+});
 vi.mock("@/features/auth/LegalLinks", () => ({ LegalLinks: () => null }));
 vi.mock("@/lib/config", () => ({ PRIVACY_POLICY_URL: "p", TERMS_URL: "t", legalUrl: (b: string) => b }));
 vi.mock("react-i18next", () => ({
@@ -69,6 +72,7 @@ import { CoachInviteScreen } from "./CoachInviteScreen";
 import { PlayerInviteScreen } from "./PlayerInviteScreen";
 import { RegisterScreen } from "./RegisterScreen";
 import { AccountSetupNotice } from "./AccountSetupScreen";
+import LegalCatchUpScreen from "../../../app/legal-catch-up";
 
 type N = Awaited<ReturnType<typeof renderNative>>;
 const PREVIEW = { coachName: "Coach Name", clubName: "Club Name", clubLogoUrl: "https://cdn.test/logo.png" };
@@ -176,6 +180,25 @@ describe("the iOS invite screens' navy (auth.invite-welcome rules 2-4)", () => {
     expectBand(n, "auth.playerInvite.claimIsCoachTitle", "auth.playerInvite.claimIsCoachDescription");
   });
 
+  it("[AUTH-INVITE-WELCOME-2] the join screen's loading and invalid stay as they are: the 30pt mark, no scroll view, no band", async () => {
+    api.joinPreview.mockRejectedValue(new Error("404"));
+    let n = await renderNative(createElement(JoinCoachScreen, { token: "tok" }));
+    await n.flush();
+    const invalid = n.byTestId("join-coach-invalid");
+    expect(invalid).toBeTruthy();
+    expect(n.queryByTestId("invite-band")).toBeNull();
+    expect(n.root.root.findAll((x) => (x.type as unknown) === "ScrollView").length).toBe(0);
+    expect(n.root.root.findAll((x) => (x.type as unknown) === "Mark").map((m) => m.props.size)).toEqual([30]);
+
+    // Loading: the preview has not answered.
+    api.joinPreview.mockReturnValue(new Promise(() => undefined));
+    n = await renderNative(createElement(JoinCoachScreen, { token: "tok" }));
+    n.byTestId("join-coach-loading");
+    expect(n.queryByTestId("invite-band")).toBeNull();
+    expect(n.root.root.findAll((x) => (x.type as unknown) === "ScrollView").length).toBe(0);
+    expect(n.root.root.findAll((x) => (x.type as unknown) === "Mark").map((m) => m.props.size)).toEqual([30]);
+  });
+
   it("[AUTH-INVITE-WELCOME-2] the shared screens do not change: invalid notices, Register and the legal catch-up keep their card header", async () => {
     api.playerInvitation.mockRejectedValue(new Error("410"));
     let n = await renderNative(createElement(PlayerInviteScreen, { token: "tok" }));
@@ -189,6 +212,17 @@ describe("the iOS invite screens' navy (auth.invite-welcome rules 2-4)", () => {
     expect(n.queryByTestId("invite-band")).toBeNull();
     expect(n.byTestId("plain-notice").findAll((x) => x.props?.role === "heading" && typeof x.type === "string").length).toBe(1);
 
+    // The legal catch-up (a signed-in user whose Terms are pending): its card keeps its own heading, no band.
+    auth.isAuthenticated = true;
+    auth.user = { roles: ["player"], id: 7, legalPending: { terms: true, birthDate: false } } as never;
+    n = await renderNative(createElement(LegalCatchUpScreen));
+    await n.flush();
+    n.byTestId("legal-catch-up");
+    expect(n.queryByTestId("invite-band")).toBeNull();
+    expect(n.byTestId("legal-catch-up").findAll((x) => x.props?.role === "heading" && typeof x.type === "string").length).toBe(1);
+    auth.isAuthenticated = false;
+    auth.user = null;
+
     n = await renderNative(createElement(RegisterScreen, { userId: null, token: null } as never));
     await n.flush();
     expect(n.queryByTestId("invite-band")).toBeNull();
@@ -201,21 +235,21 @@ describe("the iOS invite screens' navy (auth.invite-welcome rules 2-4)", () => {
     let all = texts(n).join(" ");
     expect(all).toContain("Coach Name");
     expect(all).toContain("Club Name");
-    expect(all).not.toMatch(/LEAK/);
+    expect(all).not.toMatch(/LEAK|STATUS-REAL|cdn\.test/);
 
-    api.coachInvitation.mockResolvedValue({ clubName: "Club Name", inviterName: "LEAK-inviter" });
+    api.coachInvitation.mockResolvedValue({ clubName: "Club Name", status: "STATUS-REAL", inviterName: "LEAK-inviter" });
     n = await renderNative(createElement(CoachInviteScreen, { token: "tok" }));
     await n.flush();
     all = texts(n).join(" ");
     expect(all).toContain("Club Name");
-    expect(all).not.toMatch(/LEAK/);
+    expect(all).not.toMatch(/LEAK|STATUS-REAL|cdn\.test/);
 
-    api.playerInvitation.mockResolvedValue({ playerName: "Ana", coachName: "LEAK-coach", clubName: "LEAK-club" });
+    api.playerInvitation.mockResolvedValue({ playerName: "Ana", status: "STATUS-REAL", coachName: "LEAK-coach", clubName: "LEAK-club" });
     n = await renderNative(createElement(PlayerInviteScreen, { token: "tok" }));
     await n.flush();
     all = texts(n).join(" ");
     expect(all).toContain("Ana");
-    expect(all).not.toMatch(/LEAK/);
+    expect(all).not.toMatch(/LEAK|STATUS-REAL|cdn\.test/);
   });
 
   it("[AUTH-INVITE-WELCOME-5] every screen scrolls and the player page's sign-in link sits in the flow under the form", async () => {
