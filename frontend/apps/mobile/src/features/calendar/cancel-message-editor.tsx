@@ -1,7 +1,13 @@
 import * as React from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { removeMessageToken, setMessageText, type CancelReasonState } from "@levelup/hooks";
+import {
+  MESSAGE_OVERRIDE_MAX,
+  messageTokenKey,
+  removeMessageToken,
+  setMessageText,
+  type CancelReasonState,
+} from "@levelup/hooks";
 
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -18,6 +24,12 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
     <View className="gap-1.5" testID="cancel-message-editor">
       <View className="flex-row items-center justify-between gap-2">
         <Text className="text-xs text-muted-foreground">{t("calendar.cancelReason.edit")}</Text>
+        <Text
+          className={state.messageTooLong ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
+          testID="cancel-message-counter"
+        >
+          {`${state.messageLength}/${MESSAGE_OVERRIDE_MAX}`}
+        </Text>
         <Button
           variant="ghost"
           size="sm"
@@ -32,13 +44,13 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
         {parts.map((part, i) =>
           part.kind === "token" ? (
             <View
-              key={i}
-              testID={`cancel-message-token-${part.name}`}
+              key={part.id}
+              testID={`cancel-message-token-${messageTokenKey(parts, i)}`}
               className="flex-row items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5"
             >
               <Text className="text-xs text-primary">{`{${part.name}}`}</Text>
               <Pressable
-                testID={`cancel-message-token-remove-${part.name}`}
+                testID={`cancel-message-token-remove-${messageTokenKey(parts, i)}`}
                 accessibilityRole="button"
                 accessibilityLabel={t("calendar.cancelReason.removeToken", { name: part.name })}
                 hitSlop={8}
@@ -49,12 +61,12 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
             </View>
           ) : (
             <TextInput
-              key={i}
+              key={part.id}
               testID={`cancel-message-text-${i}`}
               value={part.text}
               multiline
               onChangeText={(text) => state.editMessage(setMessageText(parts, i, text))}
-              style={{ minWidth: 12, maxWidth: "100%", padding: 2, fontSize: 14 }}
+              style={{ minWidth: parts.length === 1 ? "100%" : 12, maxWidth: "100%", padding: 2, fontSize: 14 }}
               className="text-foreground"
             />
           ),

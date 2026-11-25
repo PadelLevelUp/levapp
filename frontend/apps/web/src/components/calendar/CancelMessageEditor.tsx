@@ -1,6 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import { removeMessageToken, setMessageText, type CancelReasonState } from "@levelup/hooks";
+import {
+  MESSAGE_OVERRIDE_MAX,
+  messageTokenKey,
+  removeMessageToken,
+  setMessageText,
+  type CancelReasonState,
+} from "@levelup/hooks";
 
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +23,12 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
     <div className="min-w-0 space-y-1.5" data-testid="cancel-message-editor">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">{t("calendar.cancelReason.edit")}</span>
+        <span
+          className={state.messageTooLong ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
+          data-testid="cancel-message-counter"
+        >
+          {state.messageLength}/{MESSAGE_OVERRIDE_MAX}
+        </span>
         <Button
           type="button"
           variant="ghost"
@@ -32,14 +44,14 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
         {parts.map((part, i) =>
           part.kind === "token" ? (
             <span
-              key={i}
-              data-testid={`cancel-message-token-${part.name}`}
+              key={part.id}
+              data-testid={`cancel-message-token-${messageTokenKey(parts, i)}`}
               className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary"
             >
               {`{${part.name}}`}
               <button
                 type="button"
-                data-testid={`cancel-message-token-remove-${part.name}`}
+                data-testid={`cancel-message-token-remove-${messageTokenKey(parts, i)}`}
                 aria-label={t("calendar.cancelReason.removeToken", { name: part.name })}
                 onClick={() => state.editMessage(removeMessageToken(parts, i))}
               >
@@ -48,12 +60,12 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
             </span>
           ) : (
             <textarea
-              key={i}
+              key={part.id}
               data-testid={`cancel-message-text-${i}`}
               value={part.text}
               rows={Math.max(1, part.text.split("\n").length)}
               onChange={(e) => state.editMessage(setMessageText(parts, i, e.target.value))}
-              style={{ width: `calc(${Math.min(60, Math.max(1, ...part.text.split("\n").map((l) => l.length))) * 0.8}ch + 8px)` }}
+              style={{ width: parts.length === 1 ? "100%" : `calc(${Math.min(60, Math.max(1, ...part.text.split("\n").map((l) => l.length))) * 0.8}ch + 8px)` }}
               className="max-w-full resize-none rounded bg-transparent px-0.5 py-0.5 outline-none focus:bg-muted/40"
             />
           ),

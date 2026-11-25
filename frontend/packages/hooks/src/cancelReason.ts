@@ -23,7 +23,20 @@ type Preview = { text: string; recipients: number; template?: string };
  * Rule 13: the edited message is a list of plain text and placeholder tokens. A token is only ever removed
  * whole; the text between tokens is what the coach types. Text always starts, ends and separates tokens.
  */
-export type MessagePart = { kind: "text"; text: string } | { kind: "token"; name: string };
+export type MessagePart =
+  | { kind: "text"; id: number; text: string }
+  | { kind: "token"; id: number; name: string };
+
+// Stable per part, so a field keeps its element (and the caret) when a chip is removed beside it.
+let nextPartId = 1;
+
+/** Test id suffix of the token at ``index``: its name, then ``name-2``, ``name-3`` for a placeholder used again. */
+export function messageTokenKey(parts: MessagePart[], index: number): string {
+  const part = parts[index];
+  if (part?.kind !== "token") return "";
+  const before = parts.slice(0, index).filter((p) => p.kind === "token" && p.name === part.name).length;
+  return before === 0 ? part.name : `${part.name}-${before + 1}`;
+}
 
 const TOKEN = /\{(name|level|weekday|time|day|type|date|court|duration|club|class|when|reason)\}/g;
 
@@ -31,11 +44,11 @@ export function splitMessage(message: string): MessagePart[] {
   const parts: MessagePart[] = [];
   let last = 0;
   for (const match of message.matchAll(TOKEN)) {
-    parts.push({ kind: "text", text: message.slice(last, match.index) });
-    parts.push({ kind: "token", name: match[1] });
+    parts.push({ kind: "text", id: nextPartId++, text: message.slice(last, match.index) });
+    parts.push({ kind: "token", id: nextPartId++, name: match[1] });
     last = (match.index ?? 0) + match[0].length;
   }
-  parts.push({ kind: "text", text: message.slice(last) });
+  parts.push({ kind: "text", id: nextPartId++, text: message.slice(last) });
   return parts;
 }
 
@@ -46,18 +59,18 @@ export function joinMessage(parts: MessagePart[]): string {
 /** The token at ``index`` goes whole and the text around it joins. */
 export function removeMessageToken(parts: MessagePart[], index: number): MessagePart[] {
   if (parts[index]?.kind !== "token") return parts;
-  const before = parts[index - 1] as { kind: "text"; text: string };
-  const after = parts[index + 1] as { kind: "text"; text: string };
+  const before = parts[index - 1] as { kind: "text"; id: number; text: string };
+  const after = parts[index + 1] as { kind: "text"; id: number; text: string };
   return [
     ...parts.slice(0, index - 1),
-    { kind: "text", text: before.text + after.text },
+    { kind: "text", id: before.id, text: before.text + after.text },
     ...parts.slice(index + 2),
   ];
 }
 
 export function setMessageText(parts: MessagePart[], index: number, text: string): MessagePart[] {
   if (parts[index]?.kind !== "text") return parts;
-  return parts.map((part, i) => (i === index ? { kind: "text", text } : part));
+  return parts.map((part, i) => (i === index && part.kind === "text" ? { ...part, text } : part));
 }
 
 /**
@@ -93,12 +106,16 @@ export function useCancelReason(event: CalendarEvent | null | undefined, open: b
   };
 
   const parts = edit ?? (template === null ? null : splitMessage(template));
-  const messageOverride = edit !== null && joinMessage(edit) !== template ? joinMessage(edit) : undefined;
+  const messageText = parts === null ? "" : joinMessage(parts);
+  // An empty editor sends no override, and the preview under it shows the template that will go.
+  const messageOverride =
+    edit !== null && messageText.trim() !== "" && messageText !== template ? messageText : undefined;
+  const messageTooLong = edit !== null && messageText.length > MESSAGE_OVERRIDE_MAX;
   const editMessage = (next: MessagePart[]) => {
-    // An emptied editor is the template again, so what is sent is what is shown.
-    const text = joinMessage(next);
-    if (text.length > MESSAGE_OVERRIDE_MAX) return;
-    setEdit(text.trim() === "" ? null : next);
+    // A change that makes the text longer is refused past the limit; one that shortens it never is.
+    const length = joinMessage(next).length;
+    if (length > MESSAGE_OVERRIDE_MAX && length > messageText.length) return;
+    setEdit(next);
   };
 
   const wanted = useRef<{ event: CalendarEvent; cancel: CancelReason } | null>(null);
@@ -151,7 +168,10 @@ export function useCancelReason(event: CalendarEvent | null | undefined, open: b
     nobody: preview?.recipients === 0,
     /** Rule 13: the message as editable parts; null until the server has answered with the template. */
     messageParts: parts,
-    messageEdited: messageOverride !== undefined,
+    messageEdited: edit !== null,
+    messageLength: messageText.length,
+    /** Over the limit: the confirm buttons stay off until it fits (rule 13). */
+    messageTooLong,
     editMessage,
     /** "Repor mensagem original": the template's own text again. */
     restoreMessage: () => setEdit(null),

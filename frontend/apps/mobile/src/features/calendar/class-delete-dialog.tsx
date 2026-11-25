@@ -70,6 +70,7 @@ export function ClassDeleteDialog({
                 testID="class-delete-confirm"
                 accessibilityLabel={t("classDetail.deleteOnlyThisAria")}
                 variant="destructive"
+                disabled={cancelReason.messageTooLong}
                 onPress={() => onConfirm("single", cancelReason.cancel)}
               >
                 <Text>{t("calendar.deleteDialog.singleTitle")}</Text>
@@ -78,6 +79,7 @@ export function ClassDeleteDialog({
                 testID="class-delete-confirm-future"
                 accessibilityLabel={t("classDetail.deleteFutureAria")}
                 variant="destructive"
+                disabled={cancelReason.messageTooLong}
                 onPress={() => onConfirm("future", cancelReason.cancel)}
               >
                 <Text>{t("calendar.deleteDialog.futureTitle")}</Text>
@@ -88,6 +90,7 @@ export function ClassDeleteDialog({
               testID="class-delete-confirm"
               accessibilityLabel={t("classDetail.confirmDeleteAria")}
               variant="destructive"
+                disabled={cancelReason.messageTooLong}
               onPress={() => onConfirm("single", cancelReason.cancel)}
             >
               <Text>{t("calendar.detail.delete")}</Text>

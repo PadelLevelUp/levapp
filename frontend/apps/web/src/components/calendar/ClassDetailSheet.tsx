@@ -2772,7 +2772,7 @@ export function ClassDetailSheet({
                   setConfirmDeleteOpen(false);
                   if (event) onDelete(event, "single", cancelReason.cancel);
                 }}
-                disabled={deleting}
+                disabled={deleting || cancelReason.messageTooLong}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {t("calendar.detail.delete")}
@@ -2786,6 +2786,7 @@ export function ClassDetailSheet({
         <ClassScopeDialog
           open={deleteDialogOpen}
           mode="delete"
+          confirmDisabled={cancelReason.messageTooLong}
           note={deleteAttendanceNote}
           onClose={() => setDeleteDialogOpen(false)}
           onConfirm={(scope) => {
