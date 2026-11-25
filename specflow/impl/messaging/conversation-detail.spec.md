@@ -1,6 +1,6 @@
 ---
 id: messaging.conversation-detail
-status: implemented
+status: implementing
 depends_on: [messaging.conversations, messaging.messages]
 serves: [P-MESSAGING-2]
 governed_by: []
@@ -76,6 +76,12 @@ through the history without the thread ever moving under the reader.
    retried. The retry looks the message up again in the thread as it is at that moment and is
    dropped when the message is no longer loaded; it never reuses the index it was first given,
    because a refetch may have replaced the loaded pages in between.
+9c. **A landing is repeated until its row is on screen (B-732, B-733; iOS and Android).** When the
+   thread scrolls to a target on its own (rule 9a's first unread, a push or deep-link target) and the
+   list settles without that row on screen, the scroll is issued again, found by message id (rule 9b),
+   a bounded number of times; an explicit target is highlighted again with each repeat. The landing ends when the list settles with the row on screen, when the
+   reader drags, sends or jumps to the latest, when another thread opens, or when the row is no longer
+   loaded.
 10. While the viewport is **away from the bottom** (beyond a small threshold — roughly one
     bubble's height), **no content change moves it**: not a new incoming message, an edit, a
     reaction, a background refetch, the keyboard opening, or an image finishing layout. A "new
@@ -99,6 +105,11 @@ through the history without the thread ever moving under the reader.
       the GET settles, the first unread is not taken and the thread is not marked read. An open
       with no GET coming (an explicit target over a still-fresh cache) is marked read at once and
       shows no divider.
+    - **(B-731) The scroll to the user's own message waits for its row (iOS and Android).** No scroll is
+      issued at the moment of sending: the list does not hold the row yet. When the list reports the
+      grown content, it scrolls to the end a frame later. If it then settles short of the end, the
+      scroll is repeated as a landing is (rule 9c: bounded, and ended by the reader). On iOS too the
+      send no longer scrolls by itself, and the scroll that shows the message is not animated.
 11. Reaching the **top of the loaded messages** fetches the previous page (`before` =
     `oldestMessageId`) and prepends it with the viewport **anchored to the message that was at the
     top** — the reader's position over the text does not jump. A small loading indicator shows
@@ -109,7 +120,8 @@ through the history without the thread ever moving under the reader.
     It is not conditional on anything having arrived — a reader who has simply scrolled a long
     way back can always get straight back. When messages *have* arrived unseen meanwhile it is
     the same control, carrying rule 10's "New messages" label, so the two never appear as two
-    competing buttons. Both shells
+    competing buttons. Both shells. The control sits above the composer, fully visible,
+    with the keyboard open or closed and whatever the composer's height (B-734)
 13. The composer row is padded symmetrically: the space below the input equals the space above it. While the keyboard is open the row adds no extra bottom inset (the keyboard already covers the home indicator); while the keyboard is down the row clears the home indicator by the safe-area inset
 14. The send control is an icon button with the same height as the single-line input, the standard button corner radius (not a circle), and the outline paper-plane glyph — identical on web and iOS
 15. **A message whose class is gone says so (PAD-325; number from Session E's range).** A message
@@ -354,3 +366,24 @@ through the history without the thread ever moving under the reader.
   preview opens when the finger lifts
 - **And** on a 1.1.2 binary (no native module) the same swipe sets the reply with no haptic and no
   error
+
+#### MESSAGING-CONVERSATION-DETAIL-28: A landing the list undid is repeated until its row shows (rule 9c, B-732, B-733)
+- **Given** a thread whose target (the first unread, or a push or deep-link target) sits behind the first page, and a list that ends elsewhere after the landing scroll
+- **When** the list settles without the target on screen
+- **Then** the scroll to the target is issued again, and no more once the list settles with it on screen
+- **And** it stops after a bounded number of repeats, and at once when the reader drags, sends or jumps to the latest, when another thread opens, or when the row is no longer loaded
+- **And** flows 103 and 114 land on iOS and on Android
+test: `frontend/apps/mobile/src/features/messages/landing-state.test.ts` › `[MESSAGING-CONVERSATION-DETAIL-28] scrolls again when the list settled without the target on screen` (+5 more)
+
+#### MESSAGING-CONVERSATION-DETAIL-29: The user's own message is scrolled to once its row is laid out (rule 10, B-731)
+- **Given** a thread longer than the viewport the open keyboard leaves
+- **When** the user sends a message
+- **Then** no scroll is issued with the send, and the list scrolls to its end a frame after its content grew
+- **And** if the list settles short of the end, the scroll is issued again, a bounded number of times, and not once it settled at the end or the reader dragged
+test: `frontend/apps/mobile/src/features/messages/landing-state.test.ts` › `[MESSAGING-CONVERSATION-DETAIL-29] repeats the scroll to the end until the list settles there` (+1 more)
+
+#### MESSAGING-CONVERSATION-DETAIL-30: The phone's jump-to-bottom control clears the composer (rule 12, B-734)
+- **Given** a thread on a phone scrolled more than a screen above its bottom, with the keyboard closed or open
+- **When** the jump-to-bottom control, or its "New messages" form, shows
+- **Then** it is placed against the message list, not against the screen, so the composer never covers it
+test: `frontend/apps/mobile/src/features/messages/jump-control.test.ts` › `[MESSAGING-CONVERSATION-DETAIL-30] the jump control is placed inside the list's own box, above the composer`

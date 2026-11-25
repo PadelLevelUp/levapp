@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,41 +15,74 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { ReminderAnswer } from "./useAnswerReminder";
 
+/**
+ * `row` (default): the schedule rows' 36px pair. `strip` (rule 14, UI idea 1): the student's ask cards,
+ * a full-width strip at the card's foot (the card draws it outside its padding). `hero`: the student
+ * hero's pair, 44px and sharing the hero's width under its label, with no strip.
+ */
+export type AnswerLayout = "row" | "strip" | "hero";
+
 export function AnswerButtons({
   busy,
   onAnswer,
   className,
   onNavy = false,
+  layout = "row",
 }: {
   busy: boolean;
   onAnswer: (action: ReminderAnswer) => void;
   className?: string;
   /** On the navy hero the outline button must read against navy, not card. */
   onNavy?: boolean;
+  layout?: AnswerLayout;
 }) {
   const { t } = useTranslation();
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  // 44px at every width, and an equal share of the pair's width (rule 14).
+  const size = layout === "row" ? "h-9" : "h-11 flex-1";
+  const yes = (
+    <Button
+      size="sm"
+      data-testid="dashboard-confirm-yes"
+      disabled={busy}
+      className={onNavy ? `${size} bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90` : size}
+      onClick={() => onAnswer("yes")}
+    >
+      {t("dashboard.answer.yes")}
+    </Button>
+  );
+  const no = (
+    <Button
+      size="sm"
+      variant={layout === "strip" ? "ghost" : "outline"}
+      data-testid="dashboard-confirm-no"
+      disabled={busy}
+      className={onNavy ? `${size} border-sidebar-foreground/30 bg-transparent text-sidebar-foreground hover:bg-sidebar-accent` : size}
+      onClick={() => onAnswer("no")}
+    >
+      {t("dashboard.answer.no")}
+    </Button>
+  );
+
+  if (layout === "strip") {
+    return (
+      <div className={className} onClick={stop} onKeyDown={stop} data-testid="dashboard-confirm">
+        <div data-testid="dashboard-answer-strip" className="flex items-center gap-2 bg-secondary p-2">
+          {yes}
+          {no}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className={className} onClick={stop} onKeyDown={stop} data-testid="dashboard-confirm">
-      <Button
-        size="sm"
-        data-testid="dashboard-confirm-yes"
-        disabled={busy}
-        className={onNavy ? "h-9 bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90" : "h-9"}
-        onClick={() => onAnswer("yes")}
-      >
-        {t("dashboard.answer.yes")}
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        data-testid="dashboard-confirm-no"
-        disabled={busy}
-        className={onNavy ? "h-9 border-sidebar-foreground/30 bg-transparent text-sidebar-foreground hover:bg-sidebar-accent" : "h-9"}
-        onClick={() => onAnswer("no")}
-      >
-        {t("dashboard.answer.no")}
-      </Button>
+    <div
+      className={layout === "hero" ? cn("flex w-full items-center gap-2", className) : className}
+      onClick={stop}
+      onKeyDown={stop}
+      data-testid="dashboard-confirm"
+    >
+      {yes}
+      {no}
     </div>
   );
 }

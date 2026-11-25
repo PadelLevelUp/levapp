@@ -145,13 +145,21 @@ def test_calendar_event_matches_invitation_engine_capacity(app):
 
 def test_lesson_template_participant_count_is_enrolment(app):
     """A non-materialized Lesson has no presences, so enrolment is the count."""
+    from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
+    from padel_app.models.players import Player
     from padel_app.serializers.calendar_event import serialize_calendar_event
 
     with app.app_context():
         instance = _make_instance(app, enrolled=3, declined=1, max_players=6)
         lesson = instance.lesson
+        # The series roster: three students enrolled in the Lesson itself (rule 10). The
+        # instance's presences (one declined) must not change what the template shows.
+        for player in Player.query.limit(3).all():
+            db.session.add(Association_PlayerLesson(player_id=player.id, lesson_id=lesson.id))
+        db.session.commit()
+        db.session.refresh(lesson)
 
         event = serialize_calendar_event(lesson)
 
-        # Nobody is enrolled on the Lesson template itself.
-        assert event["participantCount"] == len(lesson.players_relations)
+        assert len(lesson.players_relations) == 3
+        assert event["participantCount"] == 3

@@ -2,8 +2,6 @@ import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses"
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_COLOR_SWATCHES,
-  blockedNames,
-  blockedReasons,
   attendanceStateLabelKey,
   attendanceStateOf,
   attendanceStateTone,
@@ -18,6 +16,7 @@ import {
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
+  viewFilledSpots,
   participantsHeader,
   inviteeActionsFor,
   outcomeAfterCoachAction,
@@ -35,8 +34,6 @@ import {
   joinRequestAcceptedAtOnce,
   joinRequestStatusKey,
   sideLongKeyOf,
-  shouldReportSent,
-  splitBlockedByCause,
   hasRecordedAttendance,
   mergeSuggestionBundles,
   suggestionBundles,
@@ -44,6 +41,7 @@ import {
   joinRefusalKey,
   joinRefusalOf,
   isEngineApproval,
+  classTypeChipKey,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -52,7 +50,6 @@ import {
   useClassInstance,
   useCoachDisplayName,
   useCoachLevels,
-  useLessonInstanceById,
 } from "@levelup/hooks";
 import type {
   Court,
@@ -104,12 +101,14 @@ import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
+import { reportReminders } from "@/features/calendar/send-reminders-report";
 import { ClassEvaluationsAction } from "@/features/evaluations/class-evaluations-action";
 import {
   canCancelAttendance,
   hasClassStarted,
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
+import { ClassCapacityBar } from "@/features/calendar/ClassCapacityBar";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { classCourtsQuery } from "@/features/calendar/class-courts";
 import { InviteeOutcome, OpenSpotsLine } from "@/features/calendar/invitee-outcome";
@@ -118,8 +117,11 @@ import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import { messagesApi, presencesApi } from "@levelup/api";
+import type { CancelReason } from "@levelup/api/src/resources/classes";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { ClassJoinRequest, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
+import { ClassCancellationsSection } from "@/features/calendar/class-cancellations-section";
+import { ClassDeleteDialog } from "@/features/calendar/class-delete-dialog";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
 import { classEditRefusal, commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
 import {
@@ -130,6 +132,7 @@ import { PlayerSelector } from "@/features/calendar/player-selector";
 import { useCoachPlayers } from "@/features/players/hooks";
 import { ClassWaitingListSection } from "@/features/calendar/class-waiting-list-section";
 import { ClassSideSheet } from "@/features/calendar/ClassSideSheet";
+import { WaitingListLeave } from "@/features/calendar/waiting-list-leave";
 import { JoinRequestSide } from "@/features/calendar/join-request-side";
 import {
   useCancelAttendance,
@@ -146,12 +149,8 @@ import {
   engineApprovalClassState,
 } from "@/features/notifications/engine-approval-class-state";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
-import {
-  eventFromLessonInstance,
-  instanceIdFromParams,
-  paramsToEvent,
-  type ClassRouteParams,
-} from "@/features/calendar/params";
+import { type ClassRouteParams } from "@/features/calendar/params";
+import { invalidateClassInstance, useClassRouteEvent } from "@/features/calendar/useClassRouteEvent";
 import { ParticipantGroups, type ParticipantGroupRow } from "@/features/calendar/ParticipantGroups";
 import { ParticipantSheet } from "@/features/calendar/ParticipantSheet";
 import type { SideInOccurrence } from "@/features/calendar/SideInOccurrenceControl";
@@ -194,26 +193,12 @@ export default function ClassDetailScreen() {
   // PAD-551: the participant whose side is being saved (declared with the other hooks, PAD-326).
   const [sideBusy, setSideBusy] = React.useState<string | null>(null);
 
-  const paramsEvent = React.useMemo(() => paramsToEvent(params), [
-    params.id,
-    params.model,
-    params.originalId,
-    params.date,
-  ]);
-
   // PAD-326 (`calendar.event-detail` rule 15): a route carrying only an id — a
   // push, a universal link from an email, the `lessonInstanceId` a message
   // already has — used to render "could not find this class" WITHOUT asking
   // anything. Now it asks. Full params stay the fast path: this query is
   // disabled whenever they are present.
-  const fallbackId = paramsEvent ? null : instanceIdFromParams(params);
-  const byId = useLessonInstanceById(fallbackId);
-  const event = React.useMemo(
-    () =>
-      paramsEvent ??
-      (byId.data?.lessonInstance ? eventFromLessonInstance(byId.data.lessonInstance) : null),
-    [paramsEvent, byId.data]
-  );
+  const { event, fallbackId, byId, classEvent } = useClassRouteEvent(params);
 
   const {
     data: instance,
@@ -221,7 +206,7 @@ export default function ClassDetailScreen() {
     isPending,
     isError,
     refetch,
-  } = useClassInstance(event);
+  } = useClassInstance(classEvent);
 
   // PAD-376 (evaluations.class-panel): whether "Avaliações" is offered is the SERVER's
   // answer — its read never materialises the occurrence and its `canRate` is false for
@@ -483,7 +468,7 @@ export default function ClassDetailScreen() {
         // the dashboard rows that read `pendingConfirmation` too, instead of waiting out the
         // query's stale window.
         if (reminderArrivedFor(evt, suggestionsInstanceId)) {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+          void invalidateClassInstance(queryClient, event);
           void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
           return;
         }
@@ -499,13 +484,13 @@ export default function ClassDetailScreen() {
             event?.model === "Lesson" ? { lessonId: event.originalId, date: event.date } : null
           )
         ) {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+          void invalidateClassInstance(queryClient, event);
           return;
         }
         // PAD-131: a student asked to join, or the class filled and the
         // requests closed → refetch so the requests block is current.
         if (evt.type === "join_request_created" || evt.type === "join_requests_superseded" || evt.type === "waiting_list_changed") {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+          void invalidateClassInstance(queryClient, event);
           return;
         }
         if (evt.type === "notification_responded") {
@@ -532,9 +517,7 @@ export default function ClassDetailScreen() {
           return;
         }
         if (evt.type === "notify_sent") {
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.classInstance(event),
-          });
+          void invalidateClassInstance(queryClient, event);
           setInvitationsOpen(true);
         }
       },
@@ -560,6 +543,8 @@ export default function ClassDetailScreen() {
   // PAD-672 (join-requests rule 20): the side sheet, and the side of the place just joined.
   const [sideSheet, setSideSheet] = React.useState<"request" | "waiting" | null>(null);
   const [joinedWaitingSide, setJoinedWaitingSide] = React.useState<PlayerSide | null>(null);
+  // PAD-934: the student left this class's waiting list from the screen.
+  const [leftWaiting, setLeftWaiting] = React.useState(false);
   const [pendingAccept, setPendingAccept] = React.useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -647,6 +632,7 @@ export default function ClassDetailScreen() {
   const title =
     active?.name || event.title || t("classDetail.classFallbackTitle");
   const isCanceled = (active?.status ?? event.status) === "canceled";
+  const chipKey = classTypeChipKey(active?.classType ?? event.classType);
   // B-422: a deep-linked open has no calendar event; the payload's flag (or its series end) says it.
   const isRecurring = event.isRecurring || instance?.isRecurring === true || instance?.recurrenceEnd != null;
   // PAD-335 (`classes.delete` rule 7): the delete dialog says when the coach's
@@ -664,9 +650,14 @@ export default function ClassDetailScreen() {
   // PAD-71: same rule as the calendar event card's X/Y badge. Students only ever
   // receive their OWN presence row, so subtracting declines would under-count
   // their view — the guard keeps that behaviour unchanged.
-  const filled = effectiveFilledSpots(
-    countedParticipants.length,
-    isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
+  // PO M-7512 (rule 5): a student takes the class's count from the payload, the card's number.
+  const filled = viewFilledSpots(
+    instance?.participantCount,
+    isCoach,
+    effectiveFilledSpots(
+      countedParticipants.length,
+      isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
+    )
   );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
   // PAD-771 (calendar.event-detail rule 5): the coach's participants header.
@@ -718,7 +709,7 @@ export default function ClassDetailScreen() {
     if (action === "spot_filled") toast.warning(t("calendar.detail.inviteeClassFull"));
     else if (action === "expired") toast.warning(t("calendar.detail.inviteeClassOver"));
     if (outcome === "accepted" || outcome === "withdrawn") {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+      void invalidateClassInstance(queryClient, event);
     }
   };
 
@@ -730,7 +721,7 @@ export default function ClassDetailScreen() {
     setSideBusy(playerId);
     try {
       await presencesApi.setPresenceSide(instance, playerId, side);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+      await invalidateClassInstance(queryClient, event);
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       toast.error(t(status === 409 ? "calendar.side.ended" : "calendar.side.saveFailed"));
@@ -926,31 +917,9 @@ export default function ClassDetailScreen() {
         date: event.date,
       });
 
-      // PAD-170 C6: same reporting web's ClassDetailSheet does. `blocked` was
-      // being discarded here, so "reminders sent to N" was the only thing the
-      // coach saw even when nobody could be reached.
-      const { unavailable, optedOut } = splitBlockedByCause(blocked);
-      if (unavailable.length > 0) {
-        toast.error(
-          t("calendar.unavailable.blocked", {
-            count: unavailable.length,
-            names: blockedNames(unavailable),
-          })
-        );
-      }
-      // PAD-239: a student's own opt-out is a caveat, not a failure — warning
-      // slot, as on web.
-      if (optedOut.length > 0) {
-        toast.warning(
-          t("calendar.notify.blockedByPreference", {
-            names: blockedNames(optedOut),
-          }),
-          blockedReasons(optedOut) || undefined
-        );
-      }
-      if (shouldReportSent(sent, blocked)) {
-        toast.success(t("calendar.detail.remindersSent", { count: sent }));
-      }
+      // PAD-170 C6 + engine #16 (class-reminders-manual rule 7): the same reporting web's
+      // ClassDetailSheet does — every student not reached, under their cause.
+      reportReminders({ sent, blocked }, t, toast, displayName);
     } catch {
       toast.error(t("calendar.detail.failedSendReminders"));
     }
@@ -1031,10 +1000,10 @@ export default function ClassDetailScreen() {
     }
   };
 
-  const handleDelete = async (scope: "single" | "future") => {
+  const handleDelete = async (scope: "single" | "future", cancel?: CancelReason) => {
     setDeleteOpen(false);
     try {
-      await removeClass.mutateAsync({ event, scope });
+      await removeClass.mutateAsync({ event, scope, cancel });
       router.back();
     } catch {
       setFeedback(t("classDetail.deleteFailed"));
@@ -1061,7 +1030,7 @@ export default function ClassDetailScreen() {
   // named-reason confirmation) or rejects.
   const refreshInstance = async () => {
     if (!event) return;
-    await queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+    await invalidateClassInstance(queryClient, event);
   };
   // PAD-672: "Pedir para entrar" and the waiting-list join both ask for the side first
   // (ClassSideSheet); the sheet sends and reports back through these callbacks.
@@ -1081,6 +1050,16 @@ export default function ClassDetailScreen() {
     setJoinedWaitingSide(side);
     toast.success(t("calendar.waitingList.joined"));
     void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+  };
+  // PAD-934: the lesson instance a waiting-list place is on (an occurrence the student waits for is materialised).
+  const waitingLeaveId =
+    event.model === "LessonInstance" ? Number(event.originalId) : instance?.id != null ? Number(instance.id) : null;
+  const handleWaitingLeft = () => {
+    setLeftWaiting(true);
+    setWaitingJoined(false);
+    setJoinedWaitingSide(null);
+    void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    void refreshInstance();
   };
   const handleSideFailed = async (err: unknown, mode: "request" | "waiting") => {
     // PAD-920 (classes.join-requests NJ1–NJ2): a refusal of either join reads its code's own
@@ -1279,7 +1258,7 @@ export default function ClassDetailScreen() {
     <Screen edges={["top"]} testID="class-detail">
       <Stack.Screen options={{ gestureEnabled: !hasUnsavedEdit }} />
       {/* Header */}
-      <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
+      <View className="flex-row items-center gap-2 border-b border-border py-2 pl-2 pr-4">
         <Pressable
           testID="class-detail-back"
           accessibilityLabel={t("common.back")}
@@ -1303,12 +1282,17 @@ export default function ClassDetailScreen() {
           <Text
             role="heading"
             aria-level={1}
-            className="flex-1 text-lg font-bold"
+            className="shrink text-lg font-bold"
             numberOfLines={1}
           >
             {title}
           </Text>
         )}
+        {chipKey && !isEditing ? (
+          <Badge variant="secondary" testID="class-type-chip" className="self-center">
+            <Text>{t(chipKey)}</Text>
+          </Badge>
+        ) : null}
         {isCanceled ? (
           <Badge variant="destructive">
             <Text>{t("classDetail.canceled")}</Text>
@@ -1474,6 +1458,18 @@ export default function ClassDetailScreen() {
                     {isCoach ? (
                       <OpenSpotsLine openSpots={maxPlayers - filled} invitations={invitations} />
                     ) : null}
+                    {/* calendar.event-detail rule 27 (UI idea 3): the calendar card's fill bar,
+                        fed by this box's own count. */}
+                    <ClassCapacityBar
+                      participants={countedParticipants}
+                      presences={instance?.presences}
+                      capacity={maxPlayers}
+                      filled={filled}
+                      status={active?.status ?? event.status}
+                      ended={classEnded}
+                      canManage={isCoach}
+                      editing={isEditing}
+                    />
                   </>
                 )}
               </View>
@@ -2026,7 +2022,7 @@ export default function ClassDetailScreen() {
                 recurrenceEnd={instance.recurrenceEnd ?? null}
                 rows={instance.waitingList ?? []}
                 enrolledIds={(instance.participants ?? []).map((p) => p.id)}
-                onChanged={() => void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) })}
+                onChanged={() => void invalidateClassInstance(queryClient, event)}
               />
             </>
           ) : null}
@@ -2040,7 +2036,7 @@ export default function ClassDetailScreen() {
           (event.studentRelation === "full" || event.studentRelation === "waiting" || waitingJoined) ? (
             <>
               <Separator />
-              {event.studentRelation === "waiting" || waitingJoined ? (
+              {(event.studentRelation === "waiting" && !leftWaiting) || waitingJoined ? (
                 <View
                   className="gap-1 rounded-md border border-border bg-muted/30 px-3 py-2"
                   testID="class-waiting-list-student"
@@ -2067,6 +2063,7 @@ export default function ClassDetailScreen() {
                       <Text className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</Text>
                     </>
                   )}
+                  {waitingLeaveId != null ? <WaitingListLeave lessonInstanceId={waitingLeaveId} onLeft={handleWaitingLeft} /> : null}
                 </View>
               ) : (
                 <View
@@ -2293,6 +2290,12 @@ export default function ClassDetailScreen() {
               {feedback}
             </Text>
           ) : null}
+
+          <ClassCancellationsSection
+            lessonId={instance?.lessonId}
+            enabled={isCoach && isRecurring && !isEditing}
+            formatDate={(iso) => formatDay(iso, locale)}
+          />
 
           {/* Training planning — coach only */}
           {isCoach ? (
@@ -2627,61 +2630,15 @@ export default function ClassDetailScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete confirmation (scope choice for recurring classes) */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("calendar.deleteDialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {isRecurring
-                ? t("classDetail.deleteRecurringDescription")
-                : t("classDetail.deleteSingleDescription", { title })}
-            </AlertDialogDescription>
-            {attendanceRecorded ? (
-              <Text
-                testID="delete-attendance-note"
-                className="text-sm font-medium text-destructive"
-              >
-                {t("calendar.detail.deleteAttendanceNote")}
-              </Text>
-            ) : null}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            {isRecurring ? (
-              <>
-                <Button
-                  testID="class-delete-confirm"
-                  accessibilityLabel={t("classDetail.deleteOnlyThisAria")}
-                  variant="destructive"
-                  onPress={() => handleDelete("single")}
-                >
-                  <Text>{t("calendar.deleteDialog.singleTitle")}</Text>
-                </Button>
-                <Button
-                  testID="class-delete-confirm-future"
-                  accessibilityLabel={t("classDetail.deleteFutureAria")}
-                  variant="destructive"
-                  onPress={() => handleDelete("future")}
-                >
-                  <Text>{t("calendar.deleteDialog.futureTitle")}</Text>
-                </Button>
-              </>
-            ) : (
-              <Button
-                testID="class-delete-confirm"
-                accessibilityLabel={t("classDetail.confirmDeleteAria")}
-                variant="destructive"
-                onPress={() => handleDelete("single")}
-              >
-                <Text>{t("calendar.detail.delete")}</Text>
-              </Button>
-            )}
-            <AlertDialogCancel testID="class-delete-cancel">
-              <Text>{t("common.cancel")}</Text>
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ClassDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        event={event}
+        title={title}
+        isRecurring={isRecurring}
+        attendanceRecorded={attendanceRecorded}
+        onConfirm={handleDelete}
+      />
 
       {/* Student cancel-attendance confirmation */}
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>

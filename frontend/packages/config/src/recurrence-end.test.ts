@@ -5,6 +5,7 @@ import {
   endDateAfterClasses,
   recurrenceEndPayload,
   seriesEndAfterClasses,
+  stepEndCount,
 } from "./recurrence-end";
 
 describe("endDateAfterClasses (classes.class-requests rule 14a, PAD-428)", () => {
@@ -113,5 +114,14 @@ describe("recurrenceEndPayload (PAD-463, classes.create rule 9)", () => {
     expect(recurrenceEndPayload({ ...base, mode: "season", endDate: "2026-12-20" })).toEqual({
       ok: true, endDate: null, recursUntilSeasonEnd: true,
     });
+  });
+});
+
+describe("stepEndCount (PAD-926, classes.class-requests rule 14a)", () => {
+  it("moves by one class and stays within 1 and MAX_REQUEST_CLASSES", () => {
+    expect(stepEndCount(4, 1)).toBe(5);
+    expect(stepEndCount(4, -1)).toBe(3);
+    expect(stepEndCount(1, -1)).toBe(1);
+    expect(stepEndCount(MAX_REQUEST_CLASSES, 1)).toBe(MAX_REQUEST_CLASSES);
   });
 });

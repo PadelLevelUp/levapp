@@ -41,6 +41,12 @@ describe("the side sheet", () => {
     expect(SHEET).toContain("joinList(full.requestedSide)");
   });
 
+  it("[CLASSES-JOIN-REQUESTS-41] builds every action button with SideSheetButton, never a Pressable style function (PAD-843)", () => {
+    expect(SHEET).toContain("<SideSheetButton");
+    expect(SHEET).not.toMatch(/style=\{\(\{\s*pressed/);
+    expect(read("src/features/calendar/side-sheet-button.tsx")).not.toMatch(/style=\{\(\{\s*pressed/);
+  });
+
   it("drives pressed and selected visuals with inline style, never an active: class (native Modal trap)", () => {
     expect(SHEET).not.toMatch(/active:/);
   });

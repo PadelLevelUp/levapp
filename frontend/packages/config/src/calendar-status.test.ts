@@ -19,19 +19,11 @@ import {
   FILL_AWAITING_ALPHA,
   READABLE_INK_MIX_PERCENT,
 } from "./calendar-status";
+import { CLASS_COLOR_SWATCHES } from "./class-colors";
 import { darkTheme, lightTheme } from "./tokens";
 
-/** The 8 hexes a coach can actually pick in AddClassSheet / ClassDetailSheet. */
-const SWATCHES = [
-  "#0ea5e9",
-  "#8b5cf6",
-  "#ec4899",
-  "#f97316",
-  "#22c55e",
-  "#eab308",
-  "#ef4444",
-  "#6366f1",
-];
+/** The hexes a coach can actually pick in AddClassSheet / ClassDetailSheet (PAD-246 palette). */
+const SWATCHES = [...CLASS_COLOR_SWATCHES];
 
 const INK = "#101E33"; // --foreground
 

@@ -6,6 +6,8 @@
 # class is opened by its instance id (PAD-326 deep link). Driven and asserted by ids carrying the
 # origin, never by rendered English (PAD-320). Flow number 170 is from 0710-SessionB's reserved
 # block (unconfirmed).
+# Proof for CALENDAR-EVENT-DETAIL-13 (class opened by its instance id), -23 (add for this class only)
+# and -25 (the picker's search); -22 ("managed in Settings") is not driven here.
 appId: com.padellevelup.app
 onFlowComplete:
   - evalScript: "${output.cleanup && output.cleanup()}"

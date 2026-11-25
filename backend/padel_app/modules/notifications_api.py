@@ -10,10 +10,13 @@ import re
 
 from flask import Blueprint, jsonify, request, abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
 from padel_app.models import PushSubscription, DeviceToken
+from padel_app.models.push_subscriptions import endpoint_of, evict_beyond_cap
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 
 
 bp = Blueprint("notifications_api", __name__, url_prefix="/api/notifications")
@@ -88,6 +91,9 @@ def register_device_token():
     if record is not None:
         record.platform = platform
         record.sound_capable = sound_capable
+        # admin.engine-health rule 8e (PAD-789): a registration always refreshes the row, so one
+        # made after a refusal ends it even when nothing else changed.
+        record.updated_at = utcnow_naive()
 
     db.session.commit()
     return jsonify({"success": True}), 200
@@ -129,23 +135,44 @@ def save_subscription():
     if not subscription:
         abort(400, "subscription is required")
 
+    # Rule 10 (PAD-753): the endpoint names the browser.
+    endpoint = endpoint_of(subscription)
+    if endpoint is None:
+        abort(400, "subscription.endpoint is required")
+
     payload = json.dumps(subscription)
-    record = PushSubscription.query.filter_by(user_id=user_id).first()
+    record = PushSubscription.query.filter_by(endpoint=endpoint).first()
     if record is None:
-        # auth.push-subscription rule 7 (PAD-652, B-581): two saves at once both found no row,
-        # and the loser's insert failed on ix_push_subscriptions_user_id with a 500. The insert
+        # auth.push-subscription rule 7 (PAD-652, B-581): two saves of one browser at once both found
+        # no row, and the loser's insert failed on the unique index with a 500. The insert
         # runs in a SAVEPOINT; on that collision only the savepoint rolls back and the save
         # updates the winner's row, the `Conversation.get_or_insert` shape (PAD-411).
         savepoint = db.session.begin_nested()
         try:
-            db.session.add(PushSubscription(user_id=user_id, subscription_json=payload))
+            added = PushSubscription(user_id=user_id, subscription_json=payload)
+            db.session.add(added)
             db.session.flush()
             savepoint.commit()
+            record = added
         except IntegrityError:
             savepoint.rollback()
-            record = PushSubscription.query.filter_by(user_id=user_id).one()
-    if record is not None:
-        record.subscription_json = payload
+            record = PushSubscription.query.filter_by(endpoint=endpoint).one()
+    # Rule 1: the latest sign-in owns the browser, and saving it again counts as updating it.
+    record.user_id = user_id
+    record.subscription_json = payload
+    record.updated_at = utcnow_naive()
+    db.session.flush()
+    # Rule 11: a row the previous release wrote for this browser, under no endpoint or another's,
+    # whoever it belongs to.
+    for other in PushSubscription.query.filter(
+        PushSubscription.id != record.id,
+        or_(PushSubscription.user_id == user_id, PushSubscription.endpoint.is_(None),
+            PushSubscription.subscription_json == payload),
+    ).all():
+        if endpoint_of(other.subscription_json) == endpoint:
+            db.session.delete(other)
+    db.session.flush()
+    evict_beyond_cap([user_id], keep_id=record.id)
 
     db.session.commit()
     return jsonify({"success": True}), 201
@@ -155,10 +182,13 @@ def save_subscription():
 @jwt_required()
 def unsubscribe_notifications():
     user_id = int(get_jwt_identity())
-    record = PushSubscription.query.filter_by(user_id=user_id).first()
-    if record:
-        db.session.delete(record)
-        db.session.commit()
+    # Rule 3 (PAD-753): a named browser goes alone; an older cached bundle names none and means all.
+    data = request.get_json(silent=True)
+    query = PushSubscription.query.filter_by(user_id=user_id)
+    if isinstance(data, dict) and "endpoint" in data:
+        query = query.filter_by(endpoint=data["endpoint"] if isinstance(data["endpoint"], str) else "")
+    query.delete(synchronize_session=False)
+    db.session.commit()
     return "", 204
 
 
@@ -180,6 +210,11 @@ REGISTRATION_FAILURE_CHANNELS = {"ios": "apns", "android": "fcm", "web": "webpus
 _IDENT = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 #: Rows one user may add per 24 hours; past it the report is acknowledged and dropped.
 REGISTRATION_FAILURES_PER_DAY = 20
+#: admin.engine-health rule 8e (PAD-789 item 3): a refused permission is reported as a state.
+REFUSAL_PHASE = "refused"
+REFUSAL_KIND = "push_permission_refused"
+#: Refusal rows one user may add per 24 hours; past it the report is acknowledged and dropped.
+REFUSALS_PER_DAY = 5
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +231,8 @@ def report_registration_failure():
     permission = data.get("permission")
     build = data.get("build")
     error_class = data.get("errorClass")
+    if phase == REFUSAL_PHASE:
+        return _record_refusal(user_id, data)
     if (platform not in REGISTRATION_FAILURE_PHASES
             or phase not in REGISTRATION_FAILURE_PHASES[platform]
             or permission not in REGISTRATION_FAILURE_PERMISSIONS
@@ -222,4 +259,31 @@ def report_registration_failure():
     delivery_incidents.record("push_registration_failed", REGISTRATION_FAILURE_CHANNELS[platform],
                               user_id=user_id, error_class=error_class,
                               detail=f"phase={phase} permission={permission} build={build}")
+    return "", 204
+
+
+def _record_refusal(user_id, data):
+    """Rule 8e: `{platform, phase: refused, permission: denied, build}` and nothing else."""
+    platform = data.get("platform")
+    build = data.get("build")
+    if (platform not in REGISTRATION_FAILURE_CHANNELS or data.get("permission") != "denied"
+            or not isinstance(build, str) or not _IDENT.match(build)
+            or set(data) - {"platform", "phase", "permission", "build"}):
+        abort(400, "platform, phase, permission denied and build are required; nothing else")
+
+    from datetime import timedelta
+
+    from padel_app.models.delivery_incident import DeliveryIncident
+    from padel_app.services import delivery_incidents
+    from padel_app.utils.dates import utcnow_naive
+
+    recent = DeliveryIncident.query.filter(
+        DeliveryIncident.kind == REFUSAL_KIND, DeliveryIncident.user_id == user_id,
+        DeliveryIncident.created_at >= utcnow_naive() - timedelta(hours=24),
+    ).count()
+    if recent >= REFUSALS_PER_DAY:
+        return "", 204
+    logger.info("push permission refused: user=%s platform=%s build=%s", user_id, platform, build)
+    delivery_incidents.record(REFUSAL_KIND, REGISTRATION_FAILURE_CHANNELS[platform], user_id=user_id,
+                              detail=f"build={build}")
     return "", 204

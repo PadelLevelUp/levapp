@@ -1,6 +1,6 @@
 ---
 id: messaging.push-notifications
-status: implemented
+status: implementing
 depends_on: [messaging.messages, auth.push-subscription]
 serves: [P-MESSAGING-3]
 governed_by: []
@@ -182,7 +182,12 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
    - **What, not where:** the row holds the channel (`expo` | `webpush`), the user and the message
      (title, body, data or url, badge). Tokens, the web-push subscription and the VAPID key are
      looked up when it is sent: no endpoint or key is stored, and a device unregistered meanwhile
-     is not sent to.
+     is not sent to. **One web-push row per browser (PAD-753):** a web push is one row per
+     subscription the user holds, naming it by its id (`subscriptionId`, never its endpoint), so a
+     retry resends only to the browser that failed. At send time a row whose subscription is gone,
+     or now belongs to another user, is skipped. A row written before PAD-753 (no `subscriptionId`)
+     is sent to every subscription the user holds. Without the outbox (rule 10), each subscription
+     is one delivery on the bounded sender.
    - **Enqueue:** inside an active unit of work the row joins it, so a rolled-back action sends
      nothing. Outside one, the row is written at once on its own short transaction, never by
      committing the caller's session. The caller keeps its view-as suppression and its "no
@@ -363,10 +368,46 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
       `onRegistrationFailure` hook fires once per failed attempt (`token` = anything that fails
       before the POST, `post` = the POST), and the app sends it to
       `POST /api/notifications/registration-failure` with the permission state and the build,
-      never the token (`admin.engine-health` rule 8). A denial and a simulator report nothing.
+      never the token (`admin.engine-health` rule 8). A simulator reports nothing; a denial is not a
+      failure and is reported apart, by rule 18 (owner decision 25 Nov 2026).
     - Web's counterpart is `auth.push-subscription` rule 9.
 
 16. Outbox rows that are done are deleted: `sent` and `skipped` rows after a day, `dead` rows after 30 days. A `pending` row is never deleted.
+17. **The Messages tab says when this phone gets no alerts, as a thread does (PAD-789).** On iOS
+    and Android the Messages tab (`app/(tabs)/messages.tsx`) shows rule 15's banner
+    (`NotificationsBlockedBanner`) as one line above the conversation list, with the same three
+    cases decided by the same `notificationBanner(snapshot, pushStatus)`: never asked → the
+    "enable" tap, which is rule 15's "banner's tap" and the only prompt it can raise; refused
+    → the Settings link; granted but not registered after the retries → the "not active" retry.
+    A registered phone shows nothing; a simulator (registrar `unsupported`) shows nothing once its
+    permission is granted, and otherwise the never-asked or refused line, exactly as a thread
+    does today, because `notificationBanner` reads the registrar's state only when the
+    permission is granted. The copy is rule 8's: device
+    alerts are off, and messages and the badge still arrive in the app. No new prompt site, no
+    new copy, no dismissal (the line goes away when its cause does, as in a thread). Web's
+    counterpart is `auth.push-subscription` rule 12.
+18. **A refused permission is reported, as a state (PAD-789 item 3; owner decision 25 Nov 2026).** On
+    iOS and Android the app reports a refused notification permission to
+    `POST /api/notifications/registration-failure` with `permission` `denied`, `phase` `refused`,
+    the build and no `errorClass` (`admin.engine-health` rule 8e): never the token, never free text.
+    - **Where it reads.** A refusal reporter, started from `AuthContext` once the signed-in `user`
+      is set (it needs the user id; the registrar knows none), reads `getPermissionsAsync` at
+      sign-in, at a restored session and on **every** return to the foreground while signed in,
+      whatever the registrar's status, so a refusal made in Settings by a student who was
+      registered is seen too (`recovery.ts` reads only while the phone is not registered).
+    - **When it reports.** Only when the permission **changes into** denied since the last state
+      reported for this user on this device (kept locally, keyed by user id), and again after
+      const:PUSH_REFUSAL_RESEND_DAYS days while still denied. A granted or not-yet-asked
+      permission resets the memory, so a later refusal reports again. The memory is written
+      **only after a 2xx**; a post that fails is dropped, not retried, and is tried again at the
+      next app start, never on each read of the same session.
+    - **A simulator** is `Device.isDevice === false`, read by the reporter itself (the registrar
+      reads the permission before it checks the device, so its status cannot tell): it reports
+      nothing.
+    - **Never harmful.** The post may sign the user out on a 401 like any app request, as rule 15's
+      failure report does today; a reporter that throws does not stop the registration; a memory
+      that cannot be read reports at most once per app session. No prompt, no banner change.
+    Web's counterpart is `auth.push-subscription` rule 13.
 
 ### Acceptance Criteria
 
@@ -531,7 +572,7 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
 - **And** their conversation list is taller than its pane
 - **When** they open a conversation at 390×844, 1280×600 or 1280×720
 - **Then** the page's remaining height is shared by the list and the thread, and the composer's send button ends inside the page's visible content area (not only inside the viewport: the page clips its overflow and keeps room for the phone tab bar)
-- *Web only:* the banner is about browser alerts; the iOS app has no such banner (B-198).
+- *Web only:* this layout guard is web's; the iOS app shows its own device banner in a thread and on the Messages tab (rules 15, 17).
 
 #### MESSAGING-PUSH-NOTIFICATIONS-23: The app icon badge always equals the server unread count (PAD-147)
 - **Given** the iOS icon badge shows 1 because a push arrived while the app was closed
@@ -605,7 +646,7 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
 - **Given** a phone on which the user signs in, a phone that denies notifications, a simulator, and a token that another user owns
 - **When** each registers, and a user unregisters their own token and the other user's
 - **Then** signing in, signing up and restoring a session each ask for permission once; a phone that grants it stores its token once, with its user and platform
-- **And** a denial sends nothing, is never retried and reads `no-permission`
+- **And** a denial registers no token, is never retried and reads `no-permission`; it is reported as a state by rule 18, not as a failure
 - **And** a simulator sends nothing and reads `unsupported`, so no "not active" banner shows
 - **And** unregistering removes the caller's own row and leaves the other user's; doing it twice still answers 200
 test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › `a denial is not retried` (+5 more)
@@ -644,3 +685,113 @@ test: `backend/padel_app/tests/test_pad294_push_sender_review.py` › `test_inli
 - **Then** staging's file sets `EXPO_PUSH_DISABLED=1` and production's does not name it
 - **And** with the flag set nothing is requested from Expo, and without it one request is made
 test: `backend/padel_app/tests/test_pad624_staging_sends_no_expo_push.py` › `test_staging_sets_the_flag_and_production_does_not` (+2 more)
+
+#### MESSAGING-PUSH-NOTIFICATIONS-37: A push-token event costs at most one Expo token fetch (rule 15, PAD-741)
+- **Given** a native module that re-emits the push-token event on every device-token request (iOS `PushTokenModule.swift` `didRegister`, Android `PushTokenModule.kt` `onNewToken`), and on iOS rejects a superseded request with `E_PROMISE_REPLACED`
+- **When** a push-token event arrives, whether the token rotated or repeats the last one, or the app returns to the foreground without being registered
+- **Then** the event causes at most one Expo token fetch, made with the event's device token, and a repeated event causes none
+- **And** only the app's own registration asks the native module for a device token, once per registration, so the fetches a foreground or a rotation causes stay bounded and stop once the phone is registered
+
+#### MESSAGING-PUSH-NOTIFICATIONS-38: A web push reaches each of the user's browsers (rule 10a, PAD-753)
+- **Given** a user with two browser subscriptions
+- **When** a message push is sent to them, with the outbox off and then on
+- **Then** each browser gets one delivery; with the outbox on there are two `webpush` rows, each naming one subscription and neither holding an endpoint
+test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_web_push_reaches_each_browser_in_both_queues`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-39: A dead browser is dropped alone (rule 10a)
+- **Given** a user with two browser subscriptions, one of which the push service answers 410
+- **When** a push is sent
+- **Then** that subscription row is deleted and `push_failed` recorded, and the other browser is delivered to and kept
+test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_dead_browser_is_dropped_alone`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-40: A retry resends only to its browser (rule 10a)
+- **Given** an outbox push to two browsers where one answers 503 and the other is delivered
+- **When** the drainer retries
+- **Then** only the failed browser gets the second attempt; a row whose subscription now belongs to another user is skipped
+test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_retry_resends_only_to_its_browser`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-41: The Messages tab shows the notification banner above the list, in each of its cases (rule 17, PAD-789)
+- **Given** a signed-in user (a student, and again a coach) on the Messages tab, with these inputs to the banner: permission `undetermined` (can ask again); `denied`; `granted` with the registrar `failed`; `granted` with the registrar `registered`; and a simulator, `granted` with the registrar `unsupported`
+- **When** the tab renders its conversation list
+- **Then** `notifications-banner` sits above the list with `notifications-banner-enable` (undetermined, and denied, whose tap opens Settings) and `notifications-banner-retry` (failed), and is absent for the registered phone and the simulator
+- **And** rendering the tab raises no permission prompt; only the banner's tap asks the system
+test: `frontend/apps/mobile/src/features/notifications/messages-tab-banner.test.tsx` › `the Messages tab shows the banner above the list in each case and prompts only on its tap`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-42: A refused permission is reported once per change, seen on every foreground, never from a simulator (rule 18)
+- **Given** a signed-in student on iOS whose permission reads `undetermined`, then `denied`, then (a later launch) `denied`, then `granted`, then `denied`; a student registered this session who turns notifications off in Settings and returns to the foreground; an Android phone whose permission reads `denied`; and a simulator (`Device.isDevice` false) whose permission reads `denied`
+- **When** the reporter reads the permission at each of those moments
+- **Then** one report `{platform: "ios", phase: "refused", permission: "denied", build}` is sent at the first `denied`, none at the second, none at `granted`, and one again at the last `denied`; the registered student reports at the foreground after Settings; the Android phone reports with `platform` `android`
+- **And** after const:PUSH_REFUSAL_RESEND_DAYS days a still-denied permission reports once more, and not before
+- **And** the simulator sends nothing, whatever the registrar's status reads; a post that fails writes no memory, sends nothing more in that session and is sent at the next start; a memory that cannot be read reports once per session; two signed-in users on one device each report their own change
+test: `frontend/apps/mobile/src/lib/push/refusalReport.test.ts` › `[MESSAGING-PUSH-NOTIFICATIONS-42] a refusal reports once per change into denied, is seen on every foreground and never comes from a simulator`
+
+### Today (PAD-789)
+- The banner is `frontend/apps/mobile/src/features/notifications/notifications-blocked-banner.tsx`
+  (`NotificationsBlockedBanner`); its case is decided by `notification-banner.ts`
+  `notificationBanner(snapshot, pushStatus)` (`none` | `prompt` | `blocked` | `inactive`), pinned by
+  `notification-banner.test.ts` and `notifications-blocked-banner.test.tsx`.
+- It is mounted in the thread screen (`frontend/apps/mobile/app/conversation/[id].tsx:1585`) and
+  in the setup guide's step 2 (`src/features/setup-guide/steps.tsx:136`), **not** on the Messages
+  tab (`app/(tabs)/messages.tsx`, which renders no notification line).
+- The registrar's state comes from `src/lib/push/expoPushRegistrar.ts` (`setStatus`: `registered`,
+  `no-permission`, `unsupported`, `failed`); the foreground re-registration is
+  `src/lib/push/recovery.ts:startPushRecovery` (registers when `status() !== "registered"`). The
+  app reads `/api/auth/me` at restore, login, sign-up and `refreshUser`
+  (`src/auth/AuthContext.tsx:64,166,183,198`), never on a foreground, and `/auth/me` carries no
+  push field (`backend/padel_app/modules/api_auth.py:_serialize_me`).
+- Item 3's state report contradicted `admin.engine-health` rule 8d; the owner resolved it on 25 Nov
+  2026 ("Change the rule"), see that spec's Open questions. Today the registrar sets `no-permission`
+  (`expoPushRegistrar.ts:~145`) and `failureReport.ts` reports failures only;
+  `src/lib/push/recovery.ts` calls `registerIfPermitted` on a foreground only while
+  `status() !== "registered"`, so a Settings refusal by a registered student is not read until the
+  next cold start; the refusal reporter therefore reads the permission itself on every foreground.
+  The `Device.isDevice` check comes after the permission check in `expoPushRegistrar.ts:~139-152`,
+  so a simulator with permission denied reads `no-permission`, not `unsupported`.
+
+### Waves (PAD-789)
+3. MESSAGING-PUSH-NOTIFICATIONS-41 with `auth.push-subscription`'s AUTH-PUSH-SUBSCRIPTION-16 —
+   iOS/Android Messages tab, and the web Messages page's banner decision; one wave, so web and
+   iOS ship together. The existing `src/features/messages/messages-unread-filter.test.tsx` renders
+   the tab and mocks neither `expo-notifications` nor `@/lib/push`; it gains those mocks, and the
+   new test uses the same permission answer and registrar stand-ins as
+   `src/test/setup-guide-fixtures.tsx` (`notifications`, `registrar`).
+
+### Open questions (PAD-789)
+- **Item 3 (refusal report), iOS.** Decided by the owner on 25 Nov 2026 ("Change the rule"); the
+  report, its frequency and the count are decided in `admin.engine-health`'s Open questions. Lead
+  decision here (the lead can reverse it): the memory of the last reported state is local storage
+  of the app, keyed by user id, because two accounts can share a phone and each needs its own
+  report; the reporter starts from `AuthContext` once `user` is set, not inside the registrar. It ships in the same wave as web's (wave 4 of `admin.engine-health`).
+- **"The banner's third case extended to 'never registered'" (ticket item 2, iOS).** Decision
+  (lead, 2026-11-25; the owner can reverse it): option (a). On a build
+  with PAD-744 every permission state already has a case: never asked → "enable", refused →
+  Settings, granted → registered on launch, login and each foreground (rule 15), or "not
+  active" after the retries. A granted phone is `registered`, `failed` or `unsupported` once
+  its attempt ends (`expoPushRegistrar.ts`); no reachable client state means "granted but never
+  registered". The phone cannot see that the *server* holds no token for it (a row pruned by
+  `DeviceNotRegistered`, or taken by another account's login, rule 9) until the next cold start
+  re-registers. Options: (a) no server signal; the gap the client can see is that the banner
+  shows only inside a thread, so mount it on the Messages tab (rule 17); (b) add
+  `pushChannels {native, webPush}` (the caller's own rows, booleans) to `GET /api/auth/me`,
+  read it on each foreground, and re-register once per session without a prompt when it says
+  `native: false` while the phone reads `registered`, falling to the "not active" case if a
+  later read still says false; this adds a `/auth/me` read per foreground and a field to a
+  route several specs share. Default (a): it is the part of the ask the client can act on, and
+  rule 13's weekly count (`admin.engine-health`) shows whether the server-side gap is worth (b).
+  Builds before 34 cannot be reached by either.
+- **Who sees the Messages-tab line.** Decision (lead, 2026-11-25; the owner can reverse it):
+  everyone signed in, as the thread's banner and
+  web's Messages page already do; the ticket names students, but a coach with no channel is the
+  same defect. Option: students only.
+- **"A student with notifications on in the app" (ticket item 2).** Decision (lead, 2026-11-25; the
+  owner can reverse it): the line does not
+  depend on any in-app notification preference, because no student switch mutes messages:
+  P-MESSAGING-3 "does not promise … a student's switch to mute notifications", and
+  P-NOTIFICATIONS-6 says direct messages "always still reach them" whatever the invitation
+  blocks are. So every student is a message recipient, and the condition reduces to "this
+  device is not registered".
+- **Dismissal and frequency.** Decision (lead, 2026-11-25; the owner can reverse it): none; the line is the same non-dismissible line as the
+  thread's and web's, shows only on Messages, and disappears when its cause does. A student who
+  refused permission keeps seeing the Settings line on Messages, as today in a thread. Option: a
+  per-device dismissal for a number of days (a new constant), as `mobile.install-suggestion`
+  rule 3 does.

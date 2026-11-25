@@ -51,9 +51,11 @@
     "startDate": "Data de início",
     "endDate": "Data de fim",
     "endMode": {
-      "date": "Termina no dia",
-      "count": "Termina ao fim de"
+      "date": "Até uma data",
+      "count": "N.º de aulas"
     },
+    "countDecrease": "Menos uma aula",
+    "countIncrease": "Mais uma aula",
     "classesUnit": "aulas",
     "countHint": "Conta aulas, não semanas.",
     "lastClass": "Última aula: {{date}}",

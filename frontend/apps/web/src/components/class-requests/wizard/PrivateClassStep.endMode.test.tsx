@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MAX_REQUEST_CLASSES } from "@levelup/config";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -69,7 +70,7 @@ describe("\"after N classes\" (rule 14a, PAD-428)", () => {
     await goWeekly(["wizard-weekday-2", "wizard-weekday-4"], "2026-10-06");
 
     fireEvent.click(screen.getByTestId("request-end-mode-count"));
-    fireEvent.change(screen.getByTestId("request-end-count"), { target: { value: "4" } });
+    expect(screen.getByTestId("request-end-count").textContent).toBe("4");
 
     const lastDate = await screen.findByTestId("request-end-count-last-date");
     expect(lastDate.textContent).toContain("10/15/2026");
@@ -89,34 +90,74 @@ describe("\"after N classes\" (rule 14a, PAD-428)", () => {
   });
 });
 
-describe("editing the class count (rule 14a, PAD-428, found by flow 121 on iOS)", () => {
-  it("clearing the field and typing 3 gives 3, not 13", async () => {
+describe("the class-count stepper (rule 14a, PAD-428, PAD-926)", () => {
+  it("[CLASSES-CLASS-REQUESTS-36] steps by one class and the last date follows the count", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
 
     renderStep();
     await goWeekly(["wizard-weekday-2"], "2026-10-06");
 
     fireEvent.click(screen.getByTestId("request-end-mode-count"));
-    const input = screen.getByTestId("request-end-count") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "" } });
-    expect(input.value).toBe("");
-    fireEvent.change(input, { target: { value: "3" } });
-    expect(input.value).toBe("3");
+    fireEvent.click(screen.getByTestId("request-end-count-dec"));
+    expect(screen.getByTestId("request-end-count").textContent).toBe("3");
 
     // Tue from 2026-10-06, 3 classes -> 10-06, 10-13, 10-20.
     expect((await screen.findByTestId("request-end-count-last-date")).textContent).toContain("10/20/2026");
   });
 
-  it("an empty field falls back to the last valid count on blur", () => {
+  it("[CLASSES-CLASS-REQUESTS-36] stays within 1 and the largest allowed count, disabling the button at each end", () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
 
     renderStep();
     fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
     fireEvent.click(screen.getByTestId("request-end-mode-count"));
-    const input = screen.getByTestId("request-end-count") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "" } });
-    fireEvent.blur(input);
-    expect(input.value).toBe("4");
+    const dec = screen.getByTestId("request-end-count-dec") as HTMLButtonElement;
+    const inc = screen.getByTestId("request-end-count-inc") as HTMLButtonElement;
+    for (let i = 0; i < 10; i++) fireEvent.click(dec);
+    expect(screen.getByTestId("request-end-count").textContent).toBe("1");
+    expect(dec.disabled).toBe(true);
+    for (let i = 0; i < MAX_REQUEST_CLASSES + 5; i++) fireEvent.click(inc);
+    expect(screen.getByTestId("request-end-count").textContent).toBe(String(MAX_REQUEST_CLASSES));
+    expect(inc.disabled).toBe(true);
+  });
+
+  it("[CLASSES-CLASS-REQUESTS-36] a stepper at 6 sends 6 classes: Tue from 2026-10-06 ends 2026-11-10", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue({
+      freeWindows: Object.fromEntries(
+        ["2026-10-06", "2026-10-13", "2026-10-20", "2026-10-27", "2026-11-03", "2026-11-10"].map((d) => [d, [WINDOW]])
+      ),
+      workingHoursSource: "custom",
+    });
+
+    renderStep();
+    await goWeekly(["wizard-weekday-2"], "2026-10-06");
+    fireEvent.click(screen.getByTestId("request-end-mode-count"));
+    fireEvent.click(screen.getByTestId("request-end-count-inc"));
+    fireEvent.click(screen.getByTestId("request-end-count-inc"));
+    expect(screen.getByTestId("request-end-count").textContent).toBe("6");
+
+    fireEvent.click(await screen.findByTestId("wizard-slot"));
+    fireEvent.click(screen.getByTestId("wizard-send"));
+
+    await waitFor(() =>
+      expect(requestsApi.createClassRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ recurrence: { weekdays: [2], startDate: "2026-10-06", endDate: "2026-11-10" } })
+      )
+    );
+  });
+
+  it("[CLASSES-CLASS-REQUESTS-36] the segmented control swaps the date field for the stepper and back", () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
+
+    renderStep();
+    fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
+    expect(screen.getByTestId("wizard-end-date")).toBeTruthy();
+    expect(screen.queryByTestId("request-end-count")).toBeNull();
+    fireEvent.click(screen.getByTestId("request-end-mode-count"));
+    expect(screen.queryByTestId("wizard-end-date")).toBeNull();
+    expect(screen.getByTestId("request-end-mode-count").getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByTestId("request-end-mode-date"));
+    expect(screen.getByTestId("wizard-end-date")).toBeTruthy();
   });
 });
 
@@ -143,5 +184,20 @@ describe("\"on a date\" (rule 14a, PAD-428)", () => {
         })
       )
     );
+  });
+});
+
+describe("the end-mode control (rule 14a, PAD-926)", () => {
+  it("[CLASSES-CLASS-REQUESTS-44] the selected segment has the primary fill, the other keeps the muted track", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: { "2026-10-06": [WINDOW] }, workingHoursSource: "custom" });
+    renderStep();
+    await goWeekly(["wizard-weekday-2"], "2026-10-06");
+    const date = screen.getByTestId("request-end-mode-date");
+    const count = screen.getByTestId("request-end-mode-count");
+    expect(date.className).toContain("bg-primary");
+    expect(count.className).not.toContain("bg-primary");
+    fireEvent.click(count);
+    expect(count.className).toContain("bg-primary");
+    expect(date.className).not.toContain("bg-primary");
   });
 });

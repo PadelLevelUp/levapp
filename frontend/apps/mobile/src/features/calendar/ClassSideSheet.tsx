@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ui/text";
+import { SideSheetButton, type SideSheetButtonKind } from "./side-sheet-button";
 import { SIDE_SHEET_PADDING, sideSheetPaddingBottom } from "./side-sheet-layout";
 
 /**
@@ -154,35 +155,9 @@ export function ClassSideSheet({
     testID: string,
     label: string,
     onPress: () => void,
-    kind: "primary" | "outline" | "ghost",
+    kind: SideSheetButtonKind,
     disabled = false
-  ) => (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        height: 48,
-        borderRadius: 10,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 16,
-        opacity: disabled ? 0.45 : pressed ? 0.85 : 1,
-        backgroundColor: kind === "primary" ? lightTheme.primary : "transparent",
-        borderWidth: kind === "outline" ? 1 : 0,
-        borderColor: lightTheme.border,
-      })}
-    >
-      <Text
-        className="font-semibold"
-        style={{ fontSize: 15, color: kind === "primary" ? lightTheme.primaryForeground : lightTheme.foreground }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
+  ) => <SideSheetButton testID={testID} label={label} onPress={onPress} kind={kind} disabled={disabled} />;
 
   const badge = (label: string, tone: "neutral" | "info" | "warning", testID?: string) => (
     <View

@@ -76,6 +76,9 @@ class Lesson(db.Model, model.Model):
     # time (ISO strings). A single-occurrence delete records one here instead of
     # forking the lesson; `expand_occurrences` skips them.
     excluded_dates = Column(JSON, nullable=True)
+    # PAD-840 (classes.delete rule 11): the reasons of the removals this class survived, a list of
+    # {date, scope, reason, sentToStudents, at}.
+    cancellation_reasons = Column(JSON, nullable=True)
 
     @property
     def coaches(self):

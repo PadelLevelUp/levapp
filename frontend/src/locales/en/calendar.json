@@ -143,6 +143,8 @@
       "markUnjustified": "Mark {{name}}'s absence unjustified"
     },
     "detail": {
+      "typePrivate": "Private",
+      "typeAcademy": "Academy",
       "date": "Date",
       "until": "Until",
       "untilDate": "Until {{date}}",
@@ -407,6 +409,9 @@
       "classStarted": "This class has already started; invitations are closed.",
       "alreadyInvited": "Already holding an open invitation for this class: {{names}}",
       "blockedByPreference": "Could not notify: {{names}} (notifications blocked)",
+      "remindAlreadyConfirmed": "Already confirmed, so not reminded: {{names}}",
+      "remindNotComing": "Not coming, so not reminded: {{names}}",
+      "remindLimitReached": "Already reminded the maximum number of times: {{names}}",
       "searchStudents": "Search students"
     },
     "playerSelector": {
@@ -741,6 +746,23 @@
     },
     "busySameHour": {
       "line": "{{name}} is already in another class at the same time ({{title}}, {{date}} {{time}}). Remove them from that class first."
+    },
+    "cancelReason": {
+      "label": "Reason",
+      "placeholder": "Optional",
+      "send": "Send the reason to the students",
+      "preview": "Message to the students",
+      "nobody": "No student will be told.",
+      "edit": "Edit the message",
+      "restore": "Restore original message",
+      "removeToken": "Remove {{name}}",
+      "renderedPreview": "What the students will receive"
+    },
+    "cancellations": {
+      "title": "Cancelled classes",
+      "andFollowing": "and the following ones",
+      "sent": "Sent to the students",
+      "notSent": "Not sent to the students"
     }
   }
 }

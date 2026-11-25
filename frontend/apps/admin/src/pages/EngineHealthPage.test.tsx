@@ -103,6 +103,59 @@ describe("Engine health page (PAD-534)", () => {
     expect(screen.getByTestId("admin-eh-incidents-24h-push_dropped")).toHaveTextContent("1");
   });
 
+  it("[ADMIN-ENGINE-HEALTH-34] shows message recipients without a channel, and no recipients row when the summary lacks it", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    const reach = { total: 167, noChannel: 33, webPushOnly: 19, nativeOnly: 112, nativeAndWebPush: 3 };
+    mockFetch({
+      ...HEALTH,
+      push: {
+        activeStudents7d: reach,
+        messageRecipients: { windowDays: 7, total: 218, noChannel: 78, webPushOnly: 23, nativeOnly: 100, nativeAndWebPush: 17 },
+        registrationFailures7d: { ios: 0, android: 0, web: 0 },
+      },
+    });
+    const first = render(<App />);
+    await waitFor(() => expect(screen.getByTestId("admin-eh-push-recipients")).toHaveTextContent("218"));
+    expect(screen.getByTestId("admin-eh-push-recipients-no-channel")).toHaveTextContent("78");
+    expect(screen.getByTestId("admin-eh-push-recipients-web-only")).toHaveTextContent("23");
+    expect(screen.getByTestId("admin-eh-push-recipients-label")).toHaveTextContent("7");
+    expect(screen.getByTestId("admin-eh-push-active")).toHaveTextContent("167");
+    first.unmount();
+
+    // A server before PAD-789 sends no `messageRecipients`: the active-student counts still show.
+    mockFetch({ ...HEALTH, push: { activeStudents7d: { ...reach, total: 168 }, registrationFailures7d: { ios: 0, android: 0, web: 0 } } });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("admin-eh-push-active")).toHaveTextContent("168"));
+    expect(screen.queryByTestId("admin-eh-push-recipients")).toBeNull();
+  });
+
+  it("[ADMIN-ENGINE-HEALTH-38] shows the refused-notifications row, and none when the summary lacks it", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    const reach = { total: 167, noChannel: 33, webPushOnly: 19, nativeOnly: 112, nativeAndWebPush: 3 };
+    mockFetch({
+      ...HEALTH,
+      push: {
+        activeStudents7d: reach,
+        permissionRefused: { windowDays: 7, total: 4, ios: 2, android: 0, web: 2 },
+        registrationFailures7d: { ios: 0, android: 0, web: 0 },
+      },
+    });
+    const first = render(<App />);
+    await waitFor(() => expect(screen.getByTestId("admin-eh-push-refused")).toHaveTextContent("4"));
+    expect(screen.getByTestId("admin-eh-push-refused-label")).toHaveTextContent("7");
+    expect(screen.getByTestId("admin-eh-push-refused-ios")).toHaveTextContent("2");
+    expect(screen.getByTestId("admin-eh-push-refused-android")).toHaveTextContent("0");
+    expect(screen.getByTestId("admin-eh-push-refused-web")).toHaveTextContent("2");
+    first.unmount();
+
+    mockFetch({ ...HEALTH, push: { activeStudents7d: { ...reach, total: 169 }, registrationFailures7d: { ios: 0, android: 0, web: 0 } } });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("admin-eh-push-active")).toHaveTextContent("169"));
+    expect(screen.queryByTestId("admin-eh-push-refused")).toBeNull();
+  });
+
   it("an API without the push block shows the page without it", async () => {
     storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
     window.history.pushState({}, "", "/engine-health");

@@ -16,6 +16,10 @@ import { seasonOccurrenceContaining, type SeasonDefinitionLike } from "./season-
 /** The largest N the wizard's "after N classes" input accepts. */
 export const MAX_REQUEST_CLASSES = 52;
 
+/** PAD-926 (rule 14a): one press of the class-count stepper, kept within 1..MAX_REQUEST_CLASSES. */
+export const stepEndCount = (count: number, delta: 1 | -1): number =>
+  Math.min(MAX_REQUEST_CLASSES, Math.max(1, count + delta));
+
 const isoWeekday = (date: string): number => {
   const [y, m, d] = date.split("-").map(Number);
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Sunday

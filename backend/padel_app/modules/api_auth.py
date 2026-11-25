@@ -6,7 +6,7 @@ from flask import Blueprint, abort, current_app, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import check_password_hash
 
-from padel_app.models import User, TokenBlocklist
+from padel_app.models import PushSubscription, TokenBlocklist, User
 from padel_app.sql_db import db
 from padel_app.services.account_service import delete_account_service
 from padel_app.services.user_service import (
@@ -308,11 +308,19 @@ def logout():
     # 1.0/1.1.0 send no body and see no change. Only the caller's row is touched
     # (messaging.push-notifications rule 9). A token that is not an Expo token (iOS builds 34 and
     # 35 send the raw device token, B-706) removes every Expo row the caller holds (rule 9b).
-    push_token = (request.get_json(silent=True) or {}).get("pushToken")
+    body = request.get_json(silent=True)
+    body = body if isinstance(body, dict) else {}
+    push_token = body.get("pushToken")
     if isinstance(push_token, str) and push_token:
         from padel_app.utils.push_token_shape import revoke_device_token
 
         revoke_device_token(int(get_jwt_identity()), push_token)
+    # Rule 4 (PAD-753): the web names its browser; only the caller's row for it goes.
+    push_endpoint = body.get("pushEndpoint")
+    if isinstance(push_endpoint, str) and push_endpoint:
+        PushSubscription.query.filter_by(user_id=int(get_jwt_identity()), endpoint=push_endpoint).delete(
+            synchronize_session=False
+        )
     db.session.add(TokenBlocklist(jti=jti))
     # auth.logout rule 3 (PAD-269): rows older than the token lifetime (plus a
     # day) belong to expired tokens and only slow the per-request lookup.

@@ -37,8 +37,39 @@ describe("splitBlockedByCause", () => {
   });
 
   it("handles an empty or absent list", () => {
-    expect(splitBlockedByCause([])).toEqual({ unavailable: [], optedOut: [], alreadyInvited: [] });
-    expect(splitBlockedByCause(undefined)).toEqual({ unavailable: [], optedOut: [], alreadyInvited: [] });
+    const empty = {
+      unavailable: [],
+      optedOut: [],
+      alreadyInvited: [],
+      alreadyConfirmed: [],
+      notComing: [],
+      reminderLimit: [],
+    };
+    expect(splitBlockedByCause([])).toEqual(empty);
+    expect(splitBlockedByCause(undefined)).toEqual(empty);
+  });
+
+  it("[NOTIFICATIONS-CLASS-REMINDERS-MANUAL-5] gives every cause its own group", () => {
+    const rows = [
+      { playerId: 1, name: "Ana", cause: "unavailable" },
+      { playerId: 2, name: "Bruno", cause: "preference", reason: "Férias" },
+      { playerId: 3, name: "Carla", cause: "already_invited" },
+      { playerId: 4, name: "Duarte", cause: "already_confirmed" },
+      { playerId: 5, name: "Eva", cause: "not_coming" },
+      { playerId: 6, name: "Filipe", cause: "reminder_limit" },
+      { playerId: 7, name: "Guida" },
+    ];
+    const split = splitBlockedByCause(rows);
+    expect(split.unavailable).toEqual([rows[0], rows[6]]);
+    expect(split.optedOut).toEqual([rows[1]]);
+    expect(split.alreadyInvited).toEqual([rows[2]]);
+    expect(split.alreadyConfirmed).toEqual([rows[3]]);
+    expect(split.notComing).toEqual([rows[4]]);
+    expect(split.reminderLimit).toEqual([rows[5]]);
+    // No row in two groups, and none lost.
+    const all = Object.values(split).flat();
+    expect(all).toHaveLength(rows.length);
+    expect(new Set(all).size).toBe(rows.length);
   });
 });
 

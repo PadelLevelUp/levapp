@@ -104,6 +104,18 @@ describe("a clone is the ordinary create, prefilled (PAD-524)", () => {
     expect(await screen.findByTestId("unavailable-student-dialog")).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  it("[CALENDAR-STUDENT-BLOCKERS-11] a failed availability check never stops the save", async () => {
+    conflicts.mockRejectedValue(new Error("offline"));
+    const onSave = vi.fn();
+    renderSheet(onSave);
+    pickStart("10:00");
+    await waitFor(() => expect(screen.getByTestId("add-class-create")).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId("add-class-create"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(conflicts).toHaveBeenCalled();
+    expect(screen.queryByTestId("unavailable-student-dialog")).toBeNull();
+  });
 });
 
 describe("the notifications switch (classes.create rule 6b, PAD-793)", () => {

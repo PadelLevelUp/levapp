@@ -36,7 +36,7 @@ const mount = async (audience: "coach" | "student") => {
     createElement(
       QueryClientProvider,
       { client },
-      createElement(ParticipantRow, { player, attendance: { status: null }, canMark: audience === "coach", audience })
+      createElement(ParticipantRow, { player, attendance: { status: null }, canMark: audience === "coach", audience, classEnded: true })
     )
   );
   await n.flush(); // the roster lands (a student's row never asks for it)

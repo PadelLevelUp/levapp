@@ -137,3 +137,24 @@ describe("RegisterPage — a chosen username is lowercase (PAD-799, auth.registe
     expect(field.getAttribute("autocorrect")).toBe("off");
   });
 });
+
+describe("RegisterPage — a password needs 8 characters (PAD-858, auth.activate rule 11)", () => {
+  const set = (id: string, value: string) =>
+    fireEvent.change(document.getElementById(id) as HTMLInputElement, { target: { value } });
+
+  it("[AUTH-ACTIVATE-21] refuses a password of seven on the field and sends nothing", async () => {
+    await mountFilled(yearsAgo(30));
+    set("password", "Segura1");
+    set("repeatPassword", "Segura1");
+    fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
+    expect(await screen.findByTestId("register-password-error")).toHaveTextContent("auth.register.passwordMin");
+    expect(activateAccount).not.toHaveBeenCalled();
+  });
+
+  it("[AUTH-ACTIVATE-21] puts a server invalid_fields on password on the password field", async () => {
+    activateAccount.mockRejectedValue({ response: { status: 400, data: { error: "invalid_fields", fields: ["password"] } } });
+    await mountFilled(yearsAgo(30));
+    fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
+    expect(await screen.findByTestId("register-password-error")).toHaveTextContent("auth.register.passwordMin");
+  });
+});

@@ -38,9 +38,22 @@ def get_exercise_for_coach(coach, exercise_id):
     return rel.exercise
 
 
+def _check_type_and_difficulty(data, *, creating):
+    """training.exercises rules 1 and 3: a type from the model's enum and a whole difficulty 1 to 5,
+    refused here for every client, not left to the database enum (or to nothing, for difficulty)."""
+    if creating or "type" in data:
+        if data.get("type") not in Exercise.type.type.enums:
+            abort(400, "type must be one of: " + ", ".join(Exercise.type.type.enums))
+    if "difficulty" in data:
+        difficulty = data["difficulty"]
+        if isinstance(difficulty, bool) or not isinstance(difficulty, int) or not 1 <= difficulty <= 5:
+            abort(400, "difficulty must be a whole number from 1 to 5")
+
+
 def create_exercise_service(coach, data):
     if coach is None:
         abort(403, "Only a coach can create exercises")
+    _check_type_and_difficulty(data, creating=True)
 
     exercise = Exercise(
         name=data["name"],
@@ -78,6 +91,7 @@ def update_exercise_service(exercise_id, coach, data):
     )
     if not rel:
         abort(403, "You don't have permission to edit this exercise")
+    _check_type_and_difficulty(data, creating=False)
 
     exercise = rel.exercise
     if "name" in data:

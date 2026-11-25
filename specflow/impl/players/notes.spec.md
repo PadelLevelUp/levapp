@@ -20,7 +20,6 @@ Coaches record strengths and weaknesses notes for their players.
 2. Type is either `strength` or `weakness`
 3. Text max 500 characters: a longer text is refused with a 400 and writes nothing, and the
    field in the apps is capped at 500.
-   - Code to follow: `add_coach_note_service` in `coach_service.py` answers 400 for a text over 500 characters, and the web and iOS note fields cap their input at 500.
 4. `POST /api/app/add_coach_note` to add, `POST /api/app/delete/coach_note` to remove
 5. **(PAD-374, `evaluations.history` rule 9) Where a coach edits them.** On web and on iOS alike,
    in the strengths-and-weaknesses card of the player's profile (web `PlayerStrengthsWeaknesses`,
@@ -59,3 +58,10 @@ test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `te
 - **Given** a coach
 - **When** they POST `/api/app/delete/coach_note` with `{"id": "new-1753900000000"}`
 - **Then** the answer is 400 and no note is deleted
+
+#### PLAYERS-NOTES-5: A note over 500 characters is refused, and the apps cap the field at 500 (rule 3)
+- **Given** a coach and a student on their roster
+- **When** the coach POSTs `/api/app/add_coach_note` with a text of 501 characters, and then with one of 500
+- **Then** the first answers 400 and writes no note
+- **And** the second answers 200 with the note saved
+- **And** the strength and weakness fields of the notes card take at most 500 characters, on web and on iOS

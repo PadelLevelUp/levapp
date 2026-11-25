@@ -17,6 +17,7 @@ import {
   createConversation,
   markConversationRead,
 } from "@/api/messages";
+import { getMessageableUsers } from "@/api/users";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
@@ -28,7 +29,9 @@ import {
   mergeOlderPage,
   queryKeys,
   threadLoadErrorKey,
+  useCoachRoster,
   useConversations,
+  useMessageableUsers,
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
@@ -43,6 +46,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { subscribeAppEvents } from "@/api/events";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { messagesPushBanner } from "@/utils/messagesPushBanner";
 
 const normalizeConversationId = (
   id: string | number | null | undefined
@@ -57,7 +61,9 @@ export default function MessagesPage() {
   const { user, token } = useAuth();
   // PAD-568: only a student is ever offered the connect-with-a-coach shortcut.
   const canConnectWithCoach = !(user?.roles?.includes("coach") ?? false);
-  const { isSupported, permission, isSubscribed, saveState, subscribe } = usePushNotifications(token);
+  const { isSupported, ready, permission, isSubscribed, saveState, subscribe } = usePushNotifications(token);
+  // auth.push-subscription rule 12 (PAD-789): one push line at most, decided in one place.
+  const pushBanner = messagesPushBanner({ ready, isSupported, permission, isSubscribed, saveState });
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   // PAD-408 (messaging.push-notifications rule 12): a push names the message to
@@ -112,6 +118,10 @@ export default function MessagesPage() {
   const unreadOnly = filter === "unread";
   const listQuery = useConversations(1, 20, undefined, unreadOnly);
   const initialLoading = listQuery.isPending;
+  // messaging.conversations rule 20 (PAD-831): what a coach's search reads besides the rows.
+  const isCoach = user?.roles?.includes("coach") ?? false;
+  const messageable = useMessageableUsers({ enabled: isCoach, fetchUsers: getMessageableUsers });
+  const { data: roster } = useCoachRoster({ enabled: isCoach });
   const [extraPages, setExtraPages] = useState<Conversation[]>([]);
   const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
   // Safe across a page-1 refetch: once a later page was loaded, that page's own `hasMore` rules
@@ -545,7 +555,7 @@ export default function MessagesPage() {
   };
 
   const handleNewConversation = async (userId: string) => {
-    const existing = conversations.find((c) => c.participantId === userId);
+    const existing = conversations.find((c) => normalizeConversationId(c.participantId) === String(userId));
     if (existing) {
       navigate(`/messages/${existing.id}`);
       setSelectedConversation(existing);
@@ -577,7 +587,7 @@ export default function MessagesPage() {
       <div className="flex flex-col h-full">
         {/* auth.push-subscription rule 9 (PAD-744): permission granted but the save failed. Says
             alerts are not active and retries, instead of the generic "enable" prompt. */}
-        {isSupported && permission === "granted" && saveState === "failed" && (
+        {pushBanner === "inactive" && (
           <div
             data-testid="push-inactive-banner"
             className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3"
@@ -588,8 +598,11 @@ export default function MessagesPage() {
             </Button>
           </div>
         )}
-        {isSupported && !isSubscribed && permission !== "denied" && saveState !== "failed" && (
-          <div className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3">
+        {pushBanner === "enable" && (
+          <div
+            data-testid="push-enable-banner"
+            className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3"
+          >
             <p className="text-sm text-muted-foreground">{t("messages.enableNotificationsPrompt")}</p>
             <Button size="sm" variant="outline" onClick={() => void subscribe()}>
               {t("messages.enable")}
@@ -603,7 +616,7 @@ export default function MessagesPage() {
             notifying you" — a coach with push blocked reported exactly that.
             The copy now says what is off and what still works
             (messaging.push-notifications rule 8). */}
-        {isSupported && permission === "denied" && (
+        {pushBanner === "blocked" && (
           <div
             data-testid="push-blocked-banner"
             className="px-3 py-2 border-b border-border bg-muted/30"
@@ -643,7 +656,9 @@ export default function MessagesPage() {
                 // PAD-568: a student with no linked coach is sent to "Connect with a coach"
                 // (players.join-token rule 8); coaches never see the shortcut.
                 onConnectWithCoach={canConnectWithCoach ? () => navigate("/connect") : undefined}
-                isCoach={user?.roles?.includes("coach") ?? false}
+                isCoach={isCoach}
+                people={messageable.data}
+                roster={roster}
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}

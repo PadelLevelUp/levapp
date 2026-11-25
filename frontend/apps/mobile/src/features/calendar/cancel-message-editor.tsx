@@ -1,0 +1,81 @@
+import * as React from "react";
+import { Pressable, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import {
+  MESSAGE_OVERRIDE_MAX,
+  messageTokenKey,
+  removeMessageToken,
+  setMessageText,
+  type CancelReasonState,
+} from "@levelup/hooks";
+
+import { Button } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
+
+/**
+ * Ports web's CancelMessageEditor (classes.delete rule 13, PAD-840 phase 2): the cancellation message the coach
+ * may edit for this one cancellation. Placeholders are chips removed whole; the text between them is theirs.
+ */
+export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
+  const { t } = useTranslation();
+  const parts = state.messageParts;
+  if (!parts) return null;
+  return (
+    <View className="gap-1.5" testID="cancel-message-editor">
+      <View className="flex-row items-center justify-between gap-2">
+        <Text className="text-xs text-muted-foreground">{t("calendar.cancelReason.edit")}</Text>
+        <Text
+          className={state.messageTooLong ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
+          testID="cancel-message-counter"
+        >
+          {`${state.messageLength}/${MESSAGE_OVERRIDE_MAX}`}
+        </Text>
+        <Button
+          variant="ghost"
+          size="sm"
+          testID="cancel-message-restore"
+          disabled={!state.messageEdited}
+          onPress={state.restoreMessage}
+        >
+          <Text>{t("calendar.cancelReason.restore")}</Text>
+        </Button>
+      </View>
+      {/* One wrapped paragraph: a field is as wide as its text (an invisible copy sizes it). */}
+      <View className="flex-row flex-wrap items-center rounded-md border border-border bg-background p-2">
+        {parts.map((part, i) =>
+          part.kind === "token" ? (
+            <View
+              key={part.id}
+              testID={`cancel-message-token-${messageTokenKey(parts, i)}`}
+              className="mx-0.5 my-0.5 flex-row items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5"
+            >
+              <Text className="text-xs text-primary">{`{${part.name}}`}</Text>
+              <Pressable
+                testID={`cancel-message-token-remove-${messageTokenKey(parts, i)}`}
+                accessibilityRole="button"
+                accessibilityLabel={t("calendar.cancelReason.removeToken", { name: part.name })}
+                hitSlop={8}
+                onPress={() => state.editMessage(removeMessageToken(parts, i))}
+              >
+                <Text className="text-xs text-primary">×</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View key={part.id} style={{ minWidth: 12, maxWidth: "100%", width: parts.length === 1 ? "100%" : undefined }}>
+              <Text style={{ opacity: 0, padding: 2, fontSize: 14 }}>{part.text + " "}</Text>
+              <TextInput
+                testID={`cancel-message-text-${i}`}
+                value={part.text}
+                multiline
+                scrollEnabled={false}
+                onChangeText={(text) => state.editMessage(setMessageText(parts, i, text))}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, padding: 2, fontSize: 14 }}
+                className="text-foreground"
+              />
+            </View>
+          ),
+        )}
+      </View>
+    </View>
+  );
+}

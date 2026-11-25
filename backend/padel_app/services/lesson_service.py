@@ -619,15 +619,21 @@ def primary_coach(instance):
     return coaches[0] if coaches else None
 
 
-def coach_instance_ids(coach_id):
+def coach_instance_ids(coach_id, among=None):
     """Ids of every occurrence ``coach_id`` coaches: through its own junction
-    row, or — when the occurrence has none — through its lesson's."""
+    row, or — when the occurrence has none — through its lesson's. With
+    ``among``, only those of these ids (the engine's per-session reads ask about
+    a handful of occurrences, never the coach's whole history; CONFIG-85)."""
     from sqlalchemy import and_, exists
 
-    own = {
-        row.lesson_instance_id
-        for row in Association_CoachLessonInstance.query.filter_by(coach_id=coach_id).all()
-    }
+    own_q = db.session.query(Association_CoachLessonInstance.lesson_instance_id).filter(
+        Association_CoachLessonInstance.coach_id == coach_id)
+    if among is not None:
+        among = [int(i) for i in among]
+        if not among:
+            return set()
+        own_q = own_q.filter(Association_CoachLessonInstance.lesson_instance_id.in_(among))
+    own = {lid for (lid,) in own_q.all()}
     no_junction = ~exists().where(
         Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id
     )
@@ -636,9 +642,27 @@ def coach_instance_ids(coach_id):
         .join(Lesson, Lesson.id == LessonInstance.lesson_id)
         .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
         .filter(and_(Association_CoachLesson.coach_id == coach_id, no_junction))
-        .all()
     )
-    return own | {row[0] for row in inherited}
+    if among is not None:
+        inherited = inherited.filter(LessonInstance.id.in_(among))
+    return own | {row[0] for row in inherited.all()}
+
+
+def coach_instance_ids_select(coach_id):
+    """``coach_instance_ids`` as SQL, for an ``in_()``: the database reads the coach's occurrences in
+    the query that needs them, and no id list of the coach's whole history is fetched or sent back
+    (the engine's per-session counts, CONFIG-85)."""
+    from sqlalchemy import and_, exists, select, union
+
+    no_junction = ~exists().where(Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id)
+    ids = union(
+        select(Association_CoachLessonInstance.lesson_instance_id.label("id"))
+        .where(Association_CoachLessonInstance.coach_id == coach_id),
+        select(LessonInstance.id.label("id"))
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == LessonInstance.lesson_id)
+        .where(and_(Association_CoachLesson.coach_id == coach_id, no_junction)),
+    ).subquery()
+    return select(ids.c.id)
 
 
 def create_lesson_instance_helper(data, parent_lesson=None, *, quiet=False):
@@ -2212,6 +2236,55 @@ def _remove_single_occurrence_from_lesson(*, lesson, date):
     lesson.save()
 
 
+#: classes.delete rule 9 (PAD-840): the longest cancellation reason.
+CANCEL_REASON_MAX = 200
+#: classes.delete rule 13 (PAD-840 phase 2): the longest edited cancellation message.
+MESSAGE_OVERRIDE_MAX = 1000
+
+
+def parse_cancel_reason(data):
+    """Rule 9: ``(reason, send)`` of a cancellation, trimmed; ``send`` is False without a reason.
+    None when the reason cannot be accepted."""
+    reason = data.get("reason")
+    if reason is None:
+        reason = ""
+    if not isinstance(reason, str):
+        return None
+    reason = reason.strip()
+    if len(reason) > CANCEL_REASON_MAX:
+        return None
+    return reason, bool(reason) and data.get("sendReason") is not False
+
+
+def parse_message_override(data):
+    """Rule 13: the coach's edited cancellation message, or "" for the template. None when it cannot be
+    accepted (not text, or over the limit)."""
+    override = data.get("messageOverride")
+    if override is None:
+        return ""
+    if not isinstance(override, str) or len(override) > MESSAGE_OVERRIDE_MAX:
+        return None
+    return override if override.strip() else ""
+
+
+def _keep_cancel_reason(lesson, *, date, scope, reason, sent):
+    """Rule 11: the reason is kept on a class that survives the removal."""
+    from padel_app.utils.dates import to_utc_iso, utcnow_naive
+
+    lesson.cancellation_reasons = [
+        *(lesson.cancellation_reasons or []),
+        {"date": date.isoformat(), "scope": scope, "reason": reason, "sentToStudents": sent,
+         "at": to_utc_iso(utcnow_naive())},
+    ]
+    lesson.save()
+
+
+def lesson_cancellations(lesson):
+    """Rule 14: the class's kept cancellations, newest removed date first."""
+    entries = sorted(lesson.cancellation_reasons or [], key=lambda e: (e["date"], e["at"]), reverse=True)
+    return [{k: e[k] for k in ("date", "scope", "reason", "sentToStudents")} for e in entries]
+
+
 def remove_class_service(data):
     """Scope-aware class removal. Returns (result_dict, http_status_code).
 
@@ -2239,6 +2312,16 @@ def remove_class_service(data):
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
 
+    # PAD-840 (rule 9): refused before anything is removed, settled or sent.
+    parsed = parse_cancel_reason(data)
+    if parsed is None:
+        return {"error": f"reason must be text of at most {CANCEL_REASON_MAX} characters", "fields": ["reason"]}, 400
+    reason, send_reason = parsed
+    override = parse_message_override(data)
+    if override is None:
+        return {"error": f"messageOverride must be text of at most {MESSAGE_OVERRIDE_MAX} characters",
+                "fields": ["messageOverride"]}, 400
+
     obj = models_map[model_name].query.get_or_404(class_id)
 
     # Snapshot cancellation recipients BEFORE removal — the roster/coach relations
@@ -2246,7 +2329,7 @@ def remove_class_service(data):
     cancellation_recipients = []
     try:
         from padel_app.services.system_messages import collect_cancellation_recipients
-        cancellation_recipients = collect_cancellation_recipients(obj)
+        cancellation_recipients = collect_cancellation_recipients(obj, reason if send_reason else "", override)
     except Exception:
         cancellation_recipients = []
 
@@ -2266,8 +2349,14 @@ def remove_class_service(data):
     # Lesson re-projecting the occurrence — the B-096 symptom by another door.
     from padel_app.tools.unit_of_work import unit_of_work
 
+    lesson = obj if model_name == "Lesson" else obj.lesson
     with unit_of_work():
         result, status = _dispatch_remove_class(obj, model_name, scope, event_date)
+        # PAD-840 (rule 11): in the removal's own transaction, when the class survives it.
+        kept_scope = {"single_removed": "single", "recurrence_truncated": "future"}.get(result.get("status"))
+        if reason and kept_scope and lesson is not None:
+            _keep_cancel_reason(lesson, date=event_date, scope=kept_scope, reason=reason,
+                                sent=send_reason and bool(cancellation_recipients))
 
     if 200 <= status < 300 and cancellation_recipients:
         try:

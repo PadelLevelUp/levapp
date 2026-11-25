@@ -799,8 +799,13 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
             f"{label}: {len(names)} pedido(s) encerrado(s) — {', '.join(n for n in names if n)}",
             f"{label}: {len(names)} request(s) closed — {', '.join(n for n in names if n)}",
         )
+        # CALENDAR-EVENT-DETAIL-48 (rule 29): the calendar's deep link (rule 10), the same string
+        # `class_href` builds (a test holds them together); `classInstanceId` was a key it never read.
+        # An f-string, as the web-push guard (test_pad595) requires of a push url.
+        start = instance.start_datetime
+        date = start.date().isoformat() if start else ""
         send_push_notification(user_id=coach_user_id, title=title, body=body[:100],
-                               url=f"/calendar?classInstanceId={instance.id}")
+                               url=f"/calendar?classId=lessoninstance-{instance.id}&date={date}")
         publish(
             {
                 "type": "join_requests_superseded",
