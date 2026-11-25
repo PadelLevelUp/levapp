@@ -16,7 +16,7 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
-vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
+vi.mock("expo-router", () => ({ router: { push: vi.fn() }, useFocusEffect: () => {} }));
 vi.mock("expo-notifications", async () => (await import("@/test/setup-guide-fixtures")).notifications);
 vi.mock("@/lib/push", async () => {
   const f = await import("@/test/setup-guide-fixtures");
