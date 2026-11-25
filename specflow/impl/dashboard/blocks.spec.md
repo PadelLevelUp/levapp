@@ -401,6 +401,19 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
     `profile_incomplete` block (`dashboard.student-setup-guide` rule 1). The player payload's
     block list (DASHBOARD-BLOCKS-8) is unchanged, and no capability token is added.
 
+15. **A metric tile's number is the largest text on its tile (UI idea 7; owner's yes, 2026-11-25; numbering
+    self-assigned).** The coach's two `week_pulse` cards and the student's four `kpi_grid` tiles show their
+    number at 40px from 1024px wide, and at 32px below that and on iOS, in the display face and tabular (new on
+    iOS). Each shell has ONE exported class constant for it, `METRIC_NUMBER_CLASS` (web `primitives.tsx`, iOS
+    `features/dashboard/blocks.tsx`), used by both kinds of tile. The number stays on one line and is never cut: at
+    320px, "100%" and a three-digit count fit a two-column tile, and on iOS a larger text size shrinks the number to
+    its tile. The percent sign stays smaller and muted on web. The label, the line under the number (its
+    denominator, rule 3a), the ids and the accessible names do not change.
+   - **Today:** 24px on both shells, at four separate places: web `primitives.tsx` `StatCard` and `KpiTiles.tsx`
+     (`text-2xl`, tabular); iOS `features/dashboard/blocks.tsx` `Stat` and the KPI tile (`text-2xl`, not tabular, no line
+     limit). `StatCard` and `Stat` are used by `WeekPulse` only. `StatTile` on the Presences page is another component
+     and does not change.
+
 ### Acceptance Criteria
 
 #### DASHBOARD-BLOCKS-1: Coach dashboard
@@ -564,6 +577,21 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
 - **Then** the `kpi_grid` Attended item is `{ value: 12, total: 15 }` and Missed is
   `{ value: 3, total: 15 }`, with the `href` values of `dashboard.navigation` rules 11 / 11a
   unchanged
+
+#### DASHBOARD-BLOCKS-65: The metric tiles share one number size on web (rule 15)
+- **Given** the coach's `week_pulse` at 100% and the student's `kpi_grid` with a three-digit value
+- **Then** every number carries `METRIC_NUMBER_CLASS`, which is 32px, 40px from 1024px, tabular and on one line, and each tile keeps its line of context
+test: `frontend/apps/web/src/components/dashboard/coach/metricSize.test.tsx` › `every metric tile uses the shared metric size`
+
+#### DASHBOARD-BLOCKS-66: The metric tiles share one number size on iOS (rule 15)
+- **Given** the same two blocks on iOS
+- **Then** every number carries `METRIC_NUMBER_CLASS` (32px, tabular), has one line and shrinks to fit, and each tile keeps its line of context and its accessible name
+test: `frontend/apps/mobile/src/features/dashboard/metric-size.test.tsx` › `every metric tile uses the shared metric size`
+
+#### DASHBOARD-BLOCKS-68: The metric numbers fit their tiles in a browser (rule 15)
+- **Given** the seeded student at 320px and at 1280px wide
+- **Then** each KPI number's font size is 32px and 40px, and its text is no wider than its tile's content box
+test: `frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts` › `the KPI numbers fit their tiles at 320px and 1280px`
 
 #### DASHBOARD-BLOCKS-17: Upcoming lessons is the schedule's count (PAD-235)
 - **Given** an authenticated student signed up to one class in 45 minutes, invited-but-unanswered
@@ -868,6 +896,9 @@ test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-empty-seats.tes
 test: `frontend/apps/web/src/components/dashboard/coach/Schedule7Days.engineVersion.test.tsx` › `keeps Convidar on a new-engine class`
 
 ### Open questions
+- Rule 15 (UI idea 7) — decision by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can reverse
+  it): the sketch showed the total beside the number ("12/16"). The line under each number already says
+  it ("9 de 11", "de 11 aulas"), so only the size changes; showing it twice would read as two facts.
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,
   PAD-913, 2026-11-12; the owner can reverse it): both a dashboard card (NA1, NA2) and one message with a
   push (NA3), because the card shows only on the home and the class may be days away; no rename (NA4).
