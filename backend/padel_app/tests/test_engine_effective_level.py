@@ -91,3 +91,69 @@ def test_an_inherited_level_keeps_the_level_groups_in_order(app):
     students = {s.id: s for s in snap.pool}
     assert tier_for(students[same], spot_type, counts, snap, settings) == 0
     assert tier_for(students[above], spot_type, counts, snap, settings) == 1   # not asked with the same-level ones
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-23")
+def test_state_stored_with_no_level_reads_as_the_sessions_level(app):
+    """The transition: a session adopted before the fix holds spot types stored with no level."""
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine.planner import decide, spot_types
+    from padel_app.invitation_engine.settings import EngineSettings, Tier
+    from padel_app.invitation_engine.snapshot import SpotType
+    from padel_app.models import EngineSession
+    from padel_app.services.engine_store import TableStore, _encode
+    from padel_app.services.engine_switch import switch_coach
+
+    coach_id, session, same, above, (n2, n3) = _inheriting(app)
+    switch_coach(coach_id, now=NOW)
+    db.session.expire_all()
+    at = LATER - timedelta(hours=23)
+
+    def unlevelled(spot_type):
+        return SpotType(spot_type.side, None)
+
+    def stored(**columns):
+        es = db.session.get(EngineSession, int(session))
+        es.alerted, es.pending, es.dismissed_groups = [], [], []
+        for name, value in columns.items():
+            setattr(es, name, value)
+        db.session.commit()
+        db.session.expire_all()
+        return _snapshot(session, at)
+
+    def kinds(effects, *types):
+        return [type(e).__name__ for e in effects if isinstance(e, types)]
+
+    # A coach alert ("no candidate": no group takes anyone) stored with no level.
+    nobody = EngineSettings(tiers=(Tier("pool", "any", 5),))
+    snap = stored()
+    alerts = [e for e in decide(snap, nobody, at).effects if isinstance(e, fx.CoachAlert)]
+    assert alerts and all(e.spot_type.level == n3 for e in alerts)
+    snap = stored(alerted=[[e.spot_type.side, None, e.spots] for e in alerts])
+    assert kinds(decide(snap, nobody, at).effects, fx.CoachAlert, fx.AlertCleared) == []
+
+    # A dismissed group whose spot counts were stored with no level.
+    semi = EngineSettings(tiers=(Tier("pool", "any", 0), Tier("pool", "any", 1)), invitation_mode="semi_automatic")
+    snap = stored()
+    counts = [[_encode(unlevelled(t)), n] for t, n in spot_types(snap)]
+    snap = stored(dismissed_groups=[[0, counts]])
+    assert kinds(decide(snap, semi, at).effects, fx.GroupReopened) == []
+
+    # A pending approval request whose queues were stored with no level.
+    snap = stored()
+    asks = [e for e in decide(snap, semi, at).effects if isinstance(e, fx.ApprovalRequest)]
+    assert asks
+    pending = [{"tier": e.tier, "request": e.request, "message_id": None,
+                "queues": _encode(tuple((unlevelled(t), ids) for t, ids in e.queues))} for e in asks]
+    snap = stored(pending=pending)
+    assert kinds(decide(snap, semi, at).effects, fx.ApprovalRequest, fx.ApprovalWithdrawn) == []
+
+    # An alert raised again for a new count replaces the one stored with no level.
+    snap = stored(alerted=[[e.spot_type.side, None, e.spots + 1] for e in alerts])
+    store = TableStore(clock=lambda: at)
+    again = [e for e in decide(snap, nobody, at).effects if isinstance(e, (fx.CoachAlert, fx.AlertCleared))]
+    with store.unit((session,)):
+        store.apply(again)
+    db.session.expire_all()
+    assert sorted(db.session.get(EngineSession, int(session)).alerted) == sorted(
+        [[e.spot_type.side, n3, e.spots] for e in alerts])

@@ -12,6 +12,8 @@ notes: >
   3, so the level-3 right-siders are invited in group 3 and the level-2 ones are not asked with them. Before
   the fix the engine read the occurrence's own NULL level as "no level": every level group admitted
   everyone, and the level-2 cohort (listed first) was invited in group 3.
+  Only the seeded adapters (today, app, new with INVITATION_STORE=db) leave the occurrence's own level NULL;
+  the memory store of `new` takes the class level directly, so there it checks nothing about inheritance.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
