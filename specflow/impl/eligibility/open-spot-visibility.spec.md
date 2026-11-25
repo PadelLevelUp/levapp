@@ -53,7 +53,6 @@ separate browse screen. A coach controls whether their open spots are advertised
 7. Classes that have started or start right now (judged on the club's clock, PAD-256) and classes with
    status `canceled` or `completed` are never shown as open spots. A spot is offered only while a
    join request for it can still be made (`class_join_request_service.py` refuses from the start, `<=`).
-   - Code to follow: the open-spot loader in `calendar_helpers.py` drops a class whose start is `<=` now, not only `<`, with one test for a class starting exactly now.
 8. A student's own availability blocker (`calendar.student-blockers`) suppresses *solicitations*, not
    *discovery*: a blocked window still shows open spots. The student initiates here, so the
    protection the blocker exists to give is not at stake.
@@ -214,6 +213,12 @@ test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_single_cla
 - **And** the web shell's requests declare `open-spots` and `evaluations`
 test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_route_appends_open_spots_for_students_only` (+5 more)
 - Code to follow: `test_calendar_route_appends_open_spots_for_a_student_and_never_for_a_coach` sends `X-LevApp-Capabilities: open-spots` on the coach's request too, so the role check is what hides the spots.
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-17: A class starting right now is no longer offered (rule 7)
+- **Given** a visible class with room at 10:00 Lisbon time, and a rostered student at its level who is not enrolled
+- **When** the student's open spots are loaded at exactly 10:00 Lisbon time
+- **Then** the class is not offered
+- **And** one minute earlier it is
 
 ### Notes
 - **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:
