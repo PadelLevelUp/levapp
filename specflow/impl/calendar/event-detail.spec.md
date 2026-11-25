@@ -131,7 +131,12 @@ approval.**
     deep-linked screen has no calendar event to read the flag from, and without it the waiting
     list's series scopes (rule 20) were hidden; iOS reads `isRecurring` from the payload, or falls
     back to a non-null `recurrenceEnd`. The full params stay the fast path: an in-app tap passes them and the screen
-    renders without a round trip. What changes is that a route carrying only an id — a push, a
+    renders without a round trip. **A route for a `LessonInstance` that lacks `date`, `startTime`, `endTime` or
+    `maxPlayers`** (a dashboard card, a message link, the attendance history) **is completed from the same
+    read:** the route's own values win and the read fills the gaps, once per open; never for a complete route
+    (the calendar tap) nor for a `Lesson` series; the class payload is not asked with an empty date while the
+    read can supply it; and a failed read keeps what the route already renders (the three states below belong
+    to an id-only route). What changes is that a route carrying only an id — a push, a
     universal link from an email, a message's `lessonInstanceId` — is no longer a dead end.
     - **Three states, never one.** An incomplete route with no usable id is "could not find"
       (nothing to ask about); a resolvable id that answers 404 or 403 is **"this class no longer
@@ -634,6 +639,15 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.
 - **Then** it gives no key for `accepted` and `withdrawn` (or no request), and `calendar.joinRequest.<status>` for `pending`, `rejected` and `superseded`
 - **And** the iOS class screen's join block takes its status line from that helper
 test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no line for an accepted or withdrawn request` (+1 more)
+
+#### CALENDAR-EVENT-DETAIL-40: A route with an instance id but missing date, times or capacity is completed from the id (rule 15, PO M-6994)
+- **Given** a `LessonInstance` route that carries an id but lacks `date`, `startTime`, `endTime` or `maxPlayers`: a dashboard card, a message link with a date, an attendance-history row, or an href with no date
+- **When** the class screen opens
+- **Then** it reads `GET /api/app/lesson_instance/<id>` once, shows the date, the times and the capacity from it wherever the route has none, and the class payload is requested with the date
+- **And** a value the route has wins over the read's
+- **And** a complete route (the calendar tap) and a `Lesson` series make no such read, and re-rendering or returning to the screen makes none more
+- **And** when the read fails, the screen keeps what the route renders, without the "this class no longer exists" state, which belongs to an id-only route
+test: `frontend/apps/mobile/src/features/calendar/class-route-completion.test.tsx`, `frontend/apps/mobile/src/features/dashboard/class-entry-id-only.test.ts`
 
 ### Open questions
 - "N pending" on a new-engine session — decision (S, owner away, PAD-913; the owner can reverse it): it counts counting invitations only, because an invitation that no longer counts holds no spot; the row still shows it as "not counting".
