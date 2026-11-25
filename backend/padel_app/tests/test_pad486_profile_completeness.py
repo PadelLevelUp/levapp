@@ -258,6 +258,22 @@ def test_the_reminder_names_only_what_is_missing(client, app, world, key, text):
     assert resp.get_json()["message"]["content"] == text
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-13")
+@pytest.mark.parametrize("key, text", [
+    ("a", "Olá treinador, o meu perfil ainda não está completo (falta: nível)."),
+    ("b", "Olá treinador, o meu perfil ainda não está completo (falta: lado)."),
+])
+def test_the_reminder_reads_portuguese_for_a_coach_who_reads_portuguese(client, app, world, key, text):
+    from padel_app.models import User
+
+    with app.app_context():
+        db.session.get(User, world["coach_user_id"]).language = "pt"
+        db.session.commit()
+    resp = _remind(client, app, world[f"{key}_user_id"], world["coach_id"])
+    assert resp.status_code == 200, resp.get_json()
+    assert resp.get_json()["message"]["content"] == text
+
+
 def test_see_all_opens_a_filter_that_matches_the_block(client, app, world):
     """#523 review: with mixed gaps, "see all" must list everyone the block counts (no level OR
     no side), not only the missing-level ones."""
@@ -271,10 +287,39 @@ def test_see_all_opens_a_filter_that_matches_the_block(client, app, world):
     assert resp.get_json()["pagination"]["total"] == data["count"]
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-3")
 def test_the_student_block_comes_before_the_hero(client, app, world):
-    """Rule 4 as the clients render it: the card above the next-class hero."""
+    """Rule 4 as the clients render it: the card above the next-class hero. The student is enrolled
+    in an upcoming class, so the hero exists and the order is always asserted."""
+    from datetime import timedelta
+
+    from padel_app.models import Association_CoachLesson, LessonInstance, Presence
+    from padel_app.models.Association_CoachClub import Association_CoachClub
+    from padel_app.models.clubs import Club
+    from padel_app.models.lessons import Lesson
+    from padel_app.utils.dates import utcnow_naive
+
+    with app.app_context():
+        club = Club(name="P486 Club", description="d", location="l")
+        db.session.add(club)
+        db.session.flush()
+        db.session.add(Association_CoachClub(coach_id=world["coach_id"], club_id=club.id))
+        start = utcnow_naive() + timedelta(days=2)
+        lesson = Lesson(title="P486 Class", start_datetime=start, end_datetime=start + timedelta(hours=1),
+                        is_recurring=False, type="academy", max_players=4, status="active", club_id=club.id)
+        db.session.add(lesson)
+        db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=world["coach_id"], lesson_id=lesson.id))
+        inst = LessonInstance(lesson_id=lesson.id, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                              max_players=4, status="scheduled", notifications_enabled=True,
+                              original_lesson_occurence_date=start.date())
+        db.session.add(inst)
+        db.session.flush()
+        db.session.add(Presence(lesson_instance_id=inst.id, player_id=world["s_player_id"], invited=True,
+                                enrolment_source="roster"))
+        db.session.commit()
+
     resp = client.get("/api/app/dashboard", headers=_auth(app, world["s_user_id"]))
     types = [b["type"] for b in resp.get_json()["blocks"]]
-    assert "profile_incomplete" in types
-    if "next_class" in types:
-        assert types.index("profile_incomplete") < types.index("next_class")
+    assert "next_class" in types, types
+    assert types.index("profile_incomplete") < types.index("next_class")
