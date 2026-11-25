@@ -40,13 +40,14 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
           {t("calendar.cancelReason.restore")}
         </Button>
       </div>
-      <div className="flex min-w-0 flex-wrap items-start gap-1 rounded-md border bg-background p-2 text-sm">
+      {/* One wrapped paragraph: text and chips flow inline. A field is as wide as its text (the hidden copy sizes it). */}
+      <div className="min-w-0 rounded-md border bg-background p-2 text-sm leading-7">
         {parts.map((part, i) =>
           part.kind === "token" ? (
             <span
               key={part.id}
               data-testid={`cancel-message-token-${messageTokenKey(parts, i)}`}
-              className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary"
+              className="mx-0.5 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 align-middle font-mono text-xs leading-5 text-primary"
             >
               {`{${part.name}}`}
               <button
@@ -59,15 +60,21 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
               </button>
             </span>
           ) : (
-            <textarea
+            <span
               key={part.id}
-              data-testid={`cancel-message-text-${i}`}
-              value={part.text}
-              rows={Math.max(1, part.text.split("\n").length)}
-              onChange={(e) => state.editMessage(setMessageText(parts, i, e.target.value))}
-              style={{ width: parts.length === 1 ? "100%" : `calc(${Math.min(60, Math.max(1, ...part.text.split("\n").map((l) => l.length))) * 0.8}ch + 8px)` }}
-              className="max-w-full resize-none rounded bg-transparent px-0.5 py-0.5 outline-none focus:bg-muted/40"
-            />
+              className={`inline-grid min-w-[1ch] max-w-full align-baseline ${parts.length === 1 ? "w-full" : ""}`}
+            >
+              <span aria-hidden className="invisible whitespace-pre-wrap break-words [grid-area:1/1]">
+                {part.text + " "}
+              </span>
+              <textarea
+                data-testid={`cancel-message-text-${i}`}
+                value={part.text}
+                rows={1}
+                onChange={(e) => state.editMessage(setMessageText(parts, i, e.target.value))}
+                className="m-0 h-full w-0 min-w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent p-0 leading-7 outline-none [grid-area:1/1] focus:bg-muted/40"
+              />
+            </span>
           ),
         )}
       </div>

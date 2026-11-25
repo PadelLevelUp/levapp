@@ -267,6 +267,18 @@ describe("the class sheet's editable cancellation message (PAD-840, phase 2)", (
     expect(onDelete).toHaveBeenCalledWith(event, "single", { messageOverride: "c".repeat(900) });
   });
 
+  it("[CLASSES-DELETE-18] the text and the chips flow in one paragraph, each field sized by a hidden copy of its text", async () => {
+    await openDelete(eventOf(false));
+    await waitFor(() => expect(screen.getByTestId("cancel-message-editor")).toBeTruthy());
+    const paragraph = screen.getByTestId("cancel-message-token-name").parentElement!;
+    for (const i of [0, 2, 4, 6]) {
+      const cell = text(i).parentElement!;
+      expect(cell.parentElement).toBe(paragraph);
+      expect(cell.firstElementChild?.getAttribute("aria-hidden")).toBe("true");
+      expect(cell.firstElementChild?.textContent).toBe(text(i).value + " ");
+    }
+  });
+
   it("[CLASSES-DELETE-18] an old server sends no template, so there is no editor and the preview stays read-only", async () => {
     api.preview.mockReset().mockResolvedValue({ text: "Olá Ana.", recipients: 1 });
     await openDelete(eventOf(false));

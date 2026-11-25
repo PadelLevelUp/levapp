@@ -40,13 +40,14 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
           <Text>{t("calendar.cancelReason.restore")}</Text>
         </Button>
       </View>
-      <View className="flex-row flex-wrap items-center gap-1 rounded-md border border-border bg-background p-2">
+      {/* One wrapped paragraph: a field is as wide as its text (an invisible copy sizes it). */}
+      <View className="flex-row flex-wrap items-center rounded-md border border-border bg-background p-2">
         {parts.map((part, i) =>
           part.kind === "token" ? (
             <View
               key={part.id}
               testID={`cancel-message-token-${messageTokenKey(parts, i)}`}
-              className="flex-row items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5"
+              className="mx-0.5 my-0.5 flex-row items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5"
             >
               <Text className="text-xs text-primary">{`{${part.name}}`}</Text>
               <Pressable
@@ -60,15 +61,18 @@ export function CancelMessageEditor({ state }: { state: CancelReasonState }) {
               </Pressable>
             </View>
           ) : (
-            <TextInput
-              key={part.id}
-              testID={`cancel-message-text-${i}`}
-              value={part.text}
-              multiline
-              onChangeText={(text) => state.editMessage(setMessageText(parts, i, text))}
-              style={{ minWidth: parts.length === 1 ? "100%" : 12, maxWidth: "100%", padding: 2, fontSize: 14 }}
-              className="text-foreground"
-            />
+            <View key={part.id} style={{ minWidth: 12, maxWidth: "100%", width: parts.length === 1 ? "100%" : undefined }}>
+              <Text style={{ opacity: 0, padding: 2, fontSize: 14 }}>{part.text + " "}</Text>
+              <TextInput
+                testID={`cancel-message-text-${i}`}
+                value={part.text}
+                multiline
+                scrollEnabled={false}
+                onChangeText={(text) => state.editMessage(setMessageText(parts, i, text))}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, padding: 2, fontSize: 14 }}
+                className="text-foreground"
+              />
+            </View>
           ),
         )}
       </View>
