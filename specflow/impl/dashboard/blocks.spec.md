@@ -785,10 +785,9 @@ test: `backend/padel_app/tests/test_dashboard_pending_confirmations.py` › `tes
 - **And** a row that is not pending and is planned or coming offers the single "Avisar que não vou"
 - **And** a row that is `not_coming` offers neither Yes and No nor the single decline button, and what it offers instead is DASHBOARD-BLOCKS-45
 - **And** a row that is attended or missed offers nothing
+- **And** a row whose attendance state is missing offers nothing
 - **And** the settled state wins over a stale pending flag
 test: `frontend/packages/config/src/reminder-answer.test.ts` › `only 'Avisar que não vou' before the ask, and after a yes` (+4 more)
-- Code to follow: in `reminder-answer.test.ts`, make "nothing once the coach's record stands or the row is
-  unknown" expect no decline button for the unknown row.
 
 #### DASHBOARD-BLOCKS-44: Student rows and the hero carry the flag and the id an answer needs (rules 3, 3a, 8)
 - **Given** a student with a class they signed up for and were never asked about, a class they were asked about and have not answered, and a class they answered
