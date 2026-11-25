@@ -1,7 +1,7 @@
 ---
 about: "Android: after sending, the thread does not scroll to the sender's own message when it overflows the keyboard-open viewport (flow 09)"
 permanence: stable
-verified: "2026-11-25 (inferred)"
+verified: "2026-11-25 (observed)"
 origin:
   - report:docs/plans/ci-tools/m3/c/messages.md
 need:
@@ -29,7 +29,7 @@ within 40 px of, the top.
 conversation. The one green night is the one where 80 failed early and left a shorter thread. So the trigger
 is a thread that overflows the keyboard-open viewport.
 
-**Cause: not proven.** Read in the code on b8b34453d:
+**Cause.** Read in the code on b8b34453d:
 - `handleSend` writes the optimistic row and calls `scrollToBottom(true)` in the same turn. The row has not been
   committed, so `scrollToEnd` aims at the end of the list without it.
 - The second chance is `contentGrew` (`follow-state.ts`), which re-pins only while `atBottom` is true. A frame of the
@@ -41,9 +41,11 @@ is a thread that overflows the keyboard-open viewport.
 - The thread opened at its first unread, near the top (rule 9a), so following was suspended when the keyboard opened
   and the list did not re-pin then.
 
-These do not explain the red nights. The overwrite needs an animation still running when the row is laid out, and the
-lane runs with animations disabled (`disable-animations: true`), so it lasts about one frame. On a phone with animations
-on the overwrite is possible. The lane's cause is unknown until a run with logs (offsets, `contentGrew`, `atBottom`).
+**Observed on 2026-11-25 (Android lane run 45596805975, b8b34453d plus logging, 12 opens):** after the send both scrolls ended at the end of the list as it was before the
+new row. As the app is: `contentGrew` asked for the end (content 498), the offset went to 34, the old end of a 438
+list, then to 21; the new row was off screen. Not animated: 334 of 395, only a sliver of the row showed. Repeated
+400 ms later: 682 of 695, the row fully on screen. So both scrolls reach the native list before the new row is mounted,
+and the lane's failure does not need the animator.
 
 **Not checked:** whether a person sees it on a real phone; iOS shows no failure in flow 09.
 
@@ -57,5 +59,5 @@ affects:
   - "messaging.conversation-detail"
   - "frontend/apps/mobile/app/conversation/[id].tsx"
   - "frontend/apps/mobile/src/features/messages/follow-state.ts"
-proposed_fix: "Scroll to the end after the optimistic row is committed, not in the same turn, and not animated on Android. Not to be built before a logged run shows why the second scroll does not take."
+proposed_fix: "Scroll to the end after the optimistic row is committed, not in the same turn, and not animated on Android. The second scroll (contentGrew) must wait until the row is mounted, at least a frame later."
 ```

@@ -1,7 +1,7 @@
 ---
 about: "Android: a thread whose first unread is behind the first page opens near the newest message on most nights (flow 114)"
 permanence: stable
-verified: "2026-11-25 (inferred)"
+verified: "2026-11-25 (observed)"
 origin:
   - report:docs/plans/ci-tools/m3/c/messages.md
 need:
@@ -31,10 +31,14 @@ so the same candidate: Android cancels the animated landing when `maintainVisibl
 offset, and whether the two meet depends on timing. The nightly variation fits a race. The stop three rows short of the newest does not fit a cut-short
 animation, because the lane runs with animations disabled; it is unexplained.
 
+**Observed on 2026-11-25 (Android lane run 45596805975, b8b34453d plus logging, 12 opens):** 0 of 4 unrepeated opens landed, two of them not animated; 2 of 2 landed with the scroll
+repeated. The nightly's screen, three rows short of the newest, did not recur: these opens ended at the newest. That
+detail stays unexplained.
+
 **Ruled out (ci-tools):** flow 103's leftovers. Both green nights had the same preceding flows and the same deletes.
 Request order alone does not separate red from green either (night 10 is red with the green order).
 
-**Status:** open. No fix chosen.
+**Status:** open. The fix (rule 9c) is written; the Android lane has not run it yet.
 
 ```yaml
 type: product-defect

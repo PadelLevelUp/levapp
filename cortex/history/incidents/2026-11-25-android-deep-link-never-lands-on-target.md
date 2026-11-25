@@ -1,7 +1,7 @@
 ---
 about: "Android: a ?message= deep link (the push-tap route) never lands on an older message; the thread stays at the newest (flow 103)"
 permanence: stable
-verified: "2026-11-25 (inferred)"
+verified: "2026-11-25 (observed)"
 origin:
   - report:docs/plans/ci-tools/m3/c/messages.md
 need:
@@ -44,13 +44,16 @@ The lane's emulator runs with animations disabled (`disable-animations: true` in
 animation lasts about one frame. That leaves the same-batch cancel possible and nothing slower. On a phone with
 animations on it lasts about 250 ms, so any later correction can also cancel it.
 
-**To prove it:** whether the command and the mount share a batch was not observed. The fix is proven by flow 103 on the
-Android lane.
+**Observed on 2026-11-25 (Android lane run 45596805975, b8b34453d plus logging, 12 opens):** the landing was issued in every open, and no offset after it moved toward the
+target unless the scroll was issued again. Unrepeated, 103 and 114 together: 0 of 6 landed (three as the app is, three
+not animated). With the same scroll repeated at 400 and 800 ms: 3 of 3 landed. One repeat made at 400 ms, while the
+older page was still being measured, did not land; the one at 800 ms did. So the scroll is undone while the page settles,
+and turning the animation off is not a fix. The run shows the outcome, not which native step undoes it.
 
 **Related:** [[2026-09-26-a-landing-is-cancelled-by-rule-10-re-pinning]] (iOS, fixed) and
 [[2026-11-25-android-first-unread-not-landed]] (same landing code).
 
-**Status:** open. No fix chosen.
+**Status:** open. The fix (rule 9c) is written; the Android lane has not run it yet.
 
 ```yaml
 type: product-defect
