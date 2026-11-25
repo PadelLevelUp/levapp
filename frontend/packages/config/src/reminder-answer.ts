@@ -69,13 +69,15 @@ export type StudentRowAction = "answer" | "decline" | "declined" | "none";
  * - `decline`: one "Avisar que não vou" — not asked yet, or already coming.
  * - `declined`: no button, the hint pointing to the coach's chat — "Não vou" is final.
  * - `none`: the coach's record stands (attended / missed).
- * A settled state always beats a stale flag; an absent state reads as `planned`.
+ * - `none` also when the state is absent (undefined or null): the flag never invents a row.
+ * A settled state always beats a stale flag.
  */
 export function studentRowAction(input: {
   pendingConfirmation?: boolean | null;
   attendanceState?: AttendanceState | null;
 }): StudentRowAction {
-  const state = input.attendanceState ?? "planned";
+  const state = input.attendanceState;
+  if (state == null) return "none";
   if (state === "not_coming") return "declined";
   if (state === "attended" || state === "missed") return "none";
   if (state === "planned" && input.pendingConfirmation === true) return "answer";
