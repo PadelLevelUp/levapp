@@ -157,7 +157,14 @@ export interface BlockedStudent {
    * Which kind of block this is. Split on THIS, never on `reason` being empty —
    * a student can turn invitations off without giving a reason.
    */
-  cause?: "unavailable" | "preference" | "already_invited";
+  cause?:
+    | "unavailable"
+    | "preference"
+    | "already_invited"
+    // Engine #16: `send_reminders` on a new-engine class names every going student not asked.
+    | "already_confirmed"
+    | "not_coming"
+    | "reminder_limit";
   /** PAD-112 only: the student's own free-text reason; absent when they gave none. */
   reason?: string;
 }

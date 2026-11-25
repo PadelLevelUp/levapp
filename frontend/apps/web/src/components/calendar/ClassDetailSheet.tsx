@@ -47,7 +47,7 @@ import type {
 } from "@/types";
 
 
-import { assignedSideOf, blockedNames, classBarRefusal, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, sideLongKeyOf, sideWordKey } from "@levelup/config";
+import { assignedSideOf, blockedNames, classBarRefusal, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
 import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -2284,6 +2284,7 @@ export function ClassDetailSheet({
                       <Button
                         variant="outline"
                         className="flex-1"
+                        data-testid="class-send-reminders"
                         disabled={isValidating || sendingReminders}
                         onClick={async () => {
                           if (!event) return;
@@ -2294,12 +2295,11 @@ export function ClassDetailSheet({
                               String(event.originalId),
                               event.date
                             );
-                            // Two unrelated reasons a student is skipped, and
-                            // the coach is told a different thing for each, so
-                            // split `blocked` by cause instead of showing one
-                            // undifferentiated list.
-                            const unavailable = blocked.filter((b) => b.cause !== "preference");
-                            const optedOut = blocked.filter((b) => b.cause === "preference");
+                            // Each cause a student is skipped for is told apart
+                            // (one shared split, class-reminders-manual rule 7),
+                            // instead of one undifferentiated list.
+                            const { unavailable, optedOut, alreadyConfirmed, notComing, reminderLimit } =
+                              splitBlockedByCause(blocked);
 
                             // PAD-107: name whoever could not be reached because
                             // they marked themselves unavailable for this slot.
@@ -2323,9 +2323,22 @@ export function ClassDetailSheet({
                                 }),
                               });
                             }
+                            // Engine #16 (class-reminders-manual rule 6): on a
+                            // new-engine class every going student not asked is
+                            // named, one line per cause.
+                            const notAsked = [
+                              [alreadyConfirmed, "calendar.notify.remindAlreadyConfirmed"],
+                              [notComing, "calendar.notify.remindNotComing"],
+                              [reminderLimit, "calendar.notify.remindLimitReached"],
+                            ] as const;
+                            for (const [rows, key] of notAsked) {
+                              if (rows.length > 0) {
+                                toast({ title: t(key, { names: blockedNames(rows, displayName) }) });
+                              }
+                            }
                             // PAD-107's ordering: no "reminders sent to 0" when
                             // everyone was skipped — that already got its toast.
-                            if (sent > 0 || blocked.length === 0) {
+                            if (shouldReportSent(sent, blocked)) {
                               toast({ title: t("calendar.detail.remindersSent", { count: sent }) });
                             }
                           } catch {
