@@ -236,6 +236,20 @@ function Summary({ data }: { data: EngineHealth }) {
               </div>
             </>
           )}
+          {/* Rule 8e (PAD-789 item 3): students who refused notifications, apart from "no channel". */}
+          {data.push.permissionRefused && (
+            <>
+              <p className="mt-4 mb-2 text-sm text-muted-foreground" data-testid="admin-eh-push-refused-label">
+                {t("admin.engineHealth.push.refused", { days: data.push.permissionRefused.windowDays })}
+              </p>
+              <div className="flex flex-wrap gap-6">
+                <Stat label={t("admin.engineHealth.push.refusedTotal")} value={data.push.permissionRefused.total} testId="admin-eh-push-refused" />
+                <Stat label="iOS" value={data.push.permissionRefused.ios} testId="admin-eh-push-refused-ios" />
+                <Stat label="Android" value={data.push.permissionRefused.android} testId="admin-eh-push-refused-android" />
+                <Stat label="Web" value={data.push.permissionRefused.web} testId="admin-eh-push-refused-web" />
+              </div>
+            </>
+          )}
           <p className="mt-2 text-xs text-muted-foreground" data-testid="admin-eh-push-failures">
             {t("admin.engineHealth.push.failures7d")}:{" "}
             {(["ios", "android", "web"] as const).map((p) => `${p} ${data.push!.registrationFailures7d[p]}`).join(" · ")}
