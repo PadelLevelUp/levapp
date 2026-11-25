@@ -133,10 +133,13 @@ approval.**
     back to a non-null `recurrenceEnd`. The full params stay the fast path: an in-app tap passes them and the screen
     renders without a round trip. **A route for a `LessonInstance` that lacks `date`, `startTime`, `endTime` or
     `maxPlayers`** (a dashboard card, a message link, the attendance history) **is completed from the same
-    read:** the route's own values win and the read fills the gaps, once per open; never for a complete route
-    (the calendar tap) nor for a `Lesson` series; the class payload is not asked with an empty date while the
-    read can supply it; and a failed read keeps what the route already renders (the three states below belong
-    to an id-only route). What changes is that a route carrying only an id — a push, a
+    read:** when the read succeeds its date, times, capacity and status are taken as one set (a class that moved
+    since the card was drawn must not show the old start with the new end), and the route keeps only the title
+    and colour it already has; the read is made on each open (not on focus, reconnect or re-render), is
+    refreshed when this screen changes the class or a live event invalidates it, and never runs for a complete
+    route (the calendar tap) nor for a `Lesson` series; the class payload waits for a read that is running, but
+    not for one that cannot run (offline); and a failed read leaves the route's own values and what the route
+    already renders (the three states below belong to an id-only route). What changes is that a route carrying only an id — a push, a
     universal link from an email, a message's `lessonInstanceId` — is no longer a dead end.
     - **Three states, never one.** An incomplete route with no usable id is "could not find"
       (nothing to ask about); a resolvable id that answers 404 or 403 is **"this class no longer
@@ -643,9 +646,10 @@ test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no l
 #### CALENDAR-EVENT-DETAIL-40: A route with an instance id but missing date, times or capacity is completed from the id (rule 15, PO M-6994)
 - **Given** a `LessonInstance` route that carries an id but lacks `date`, `startTime`, `endTime` or `maxPlayers`: a dashboard card, a message link with a date, an attendance-history row, or an href with no date
 - **When** the class screen opens
-- **Then** it reads `GET /api/app/lesson_instance/<id>` once, shows the date, the times and the capacity from it wherever the route has none, and the class payload is requested with the date
-- **And** a value the route has wins over the read's
-- **And** a complete route (the calendar tap) and a `Lesson` series make no such read, and re-rendering or returning to the screen makes none more
+- **Then** it reads `GET /api/app/lesson_instance/<id>` once, shows the date, the times, the capacity and the status from the read as one set (a route that says 18:00 for a class now at 19:30 to 21:00 shows 19:30 to 21:00), keeps the route's title and colour, and requests the class payload with that date
+- **And** the edit form of that class starts from the same times
+- **And** a complete route (the calendar tap) and a `Lesson` series make no such read, and re-rendering, a foreground return or a reconnect makes none more; opening the class again reads again, and saving or cancelling it, or a live event for it, refreshes the read
+- **And** offline, where the read cannot run, the class payload is still requested from the route
 - **And** when the read fails, the screen keeps what the route renders, without the "this class no longer exists" state, which belongs to an id-only route
 test: `frontend/apps/mobile/src/features/calendar/class-route-completion.test.tsx`, `frontend/apps/mobile/src/features/dashboard/class-entry-id-only.test.ts`
 
