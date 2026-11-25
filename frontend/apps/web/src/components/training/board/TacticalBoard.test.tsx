@@ -5,7 +5,11 @@ import type { AnyCourtDiagram, CourtDiagramV2 } from "@/types/training";
 import { TacticalBoard } from "./TacticalBoard";
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  // Only the step indicator interpolates, so its number can be read; every other key stays itself.
+  useTranslation: () => ({
+    t: (key: string, o?: { n?: number; m?: number }) =>
+      key === "training.board.playback.stepOf" ? `Step ${o?.n} of ${o?.m}` : key,
+  }),
 }));
 
 // The court renders 340×600 in these tests, so percent ↔ client is x·3.4, y·6.
@@ -256,7 +260,10 @@ describe("TacticalBoard — Exercícios de cesto (training.tactical-board rules 
     pickTool("player");
     tapCourt(45, 30);
     d = lastDiagram(onChange);
-    expect(d.pieces.find((p) => p.id === "a3")).toMatchObject({ label: "A3" });
+    const a3 = d.pieces.find((p) => p.id === "a3") as { label: string; x: number; y: number };
+    expect(a3.label).toBe("A3");
+    expect(a3.x).toBeCloseTo(45, 0);
+    expect(a3.y).toBeCloseTo(30, 0);
   });
 
   it("switching away from a board with content asks first and resets on confirm", () => {
@@ -337,11 +344,12 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
   it("shows the step indicator, adds a second step that starts from the first step's end", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
-    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("training.board.playback.stepOf");
+    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("Step 1 of 1");
     drawMovement("a1", 32, 26, 20, 40);
     fireEvent.click(screen.getByRole("button", { name: "training.board.playback.addStep" }));
     let d = lastDiagram(onChange);
     expect(d.steps).toHaveLength(2);
+    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("Step 2 of 2");
     // On step 2 the board shows A1 where step 1 left it.
     const a1 = screen.getByTestId("piece-a1");
     expect(a1.getAttribute("transform")).toBe("translate(68 240)");
@@ -351,6 +359,35 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
     fireEvent.click(screen.getByRole("button", { name: "training.board.playback.deleteStep" }));
     d = lastDiagram(onChange);
     expect(d.steps).toHaveLength(1);
+    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("Step 1 of 1");
+  });
+
+  it("[TRAINING-TACTICAL-BOARD-29] deleting a middle step shows the step that followed it", () => {
+    const onChange = vi.fn();
+    const mv = (id: string, x: number, y: number) => ({ id, movements: [{ pieceId: "a1", to: { x, y } }] });
+    render(
+      <Harness
+        initial={{
+          version: 2,
+          mode: "game",
+          pieces: [{ id: "a1", kind: "player", team: "A", label: "A1", x: 32, y: 26 }],
+          steps: [mv("s1", 20, 40), mv("s2", 10, 60), mv("s3", 50, 50)],
+        }}
+        onChange={onChange}
+      />
+    );
+    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("Step 1 of 3");
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.nextStep" }));
+    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("Step 2 of 3");
+    // The middle step's own path ends at (10 %, 60 %) = view (34, 360).
+    expect(screen.getByTestId("movement-a1").getAttribute("d")).toMatch(/L34,360$/);
+
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.deleteStep" }));
+    const d = lastDiagram(onChange);
+    expect(d.steps.map((st) => st.id)).toEqual(["s1", "s3"]);
+    // The board stays on the same index, which is now the step that followed: s3 ends at (50 %, 50 %).
+    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("Step 2 of 2");
+    expect(screen.getByTestId("movement-a1").getAttribute("d")).toMatch(/L170,300$/);
   });
 
   it("[TRAINING-TACTICAL-BOARD-17] Passo steps through the end states and wraps to the start", () => {
@@ -366,6 +403,38 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
     expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(34 360)");
     fireEvent.click(passo);
     expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(108.8 156)");
+  });
+
+  it("[TRAINING-TACTICAL-BOARD-23] Passo advances one whole step when the step holds two ball paths", () => {
+    const onChange = vi.fn();
+    const p1 = { from: { x: 58, y: 20 }, to: { x: 40, y: 80 }, style: "flat" as const };
+    const p2 = { from: { x: 40, y: 80 }, to: { x: 70, y: 30 }, style: "flat" as const };
+    render(
+      <Harness
+        initial={{
+          version: 2,
+          mode: "game",
+          pieces: [{ id: "a1", kind: "player", team: "A", label: "A1", x: 32, y: 26 }],
+          steps: [
+            { id: "s1", balls: [p1, p2], ball: p1, movements: [] },
+            { id: "s2", movements: [{ pieceId: "a1", to: { x: 20, y: 40 } }] },
+          ],
+        }}
+        onChange={onChange}
+      />
+    );
+    const passo = screen.getByRole("button", { name: "training.board.playback.step" });
+    fireEvent.click(passo);
+    // One press shows the end of step 1: the ball has travelled both paths and rests at the second one's end
+    // (70 %, 30 %) = view (238, 180), not at the first one's end (40 %, 80 %).
+    const ball = screen.getByTestId("playback-ball");
+    expect(Number(ball.getAttribute("cx"))).toBeCloseTo(238, 1);
+    expect(Number(ball.getAttribute("cy"))).toBeCloseTo(180, 1);
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(108.8 156)");
+    // The next press is the end of step 2, not a second half of step 1.
+    fireEvent.click(passo);
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(68 240)");
+    expect(screen.queryByTestId("playback-ball")).toBeNull();
   });
 
   it("[TRAINING-TACTICAL-BOARD-18] AUTO animates through the steps, reads ■ while playing, and an edit stops it", () => {
@@ -501,7 +570,7 @@ describe("playback speed (PAD-310)", () => {
 
 // ── PAD-289 — several ball paths per step ────────────────────────────────────
 describe("several ball paths per step (PAD-289)", () => {
-  it("appends a second path, numbers both, toggles only one, reorders and removes", () => {
+  it("[TRAINING-TACTICAL-BOARD-22] appends a second path, numbers both, toggles only one, reorders and removes", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     fireEvent.click(screen.getByRole("radio", { name: "training.board.tools.ball" }));
@@ -519,15 +588,71 @@ describe("several ball paths per step (PAD-289)", () => {
     d = lastDiagram(onChange);
     expect(d.steps[0].balls?.map((b) => b.style)).toEqual(["flat", "lob"]);
 
+    // The badges read 1 and 2 by position and sit at their path's start. Before ▲ the flat path (starts at
+    // 58 %, 20 %) carries 1 and the lob path (starts at 40 %, 80 %) carries 2; after ▲ they swap.
+    // (Pointer coordinates are whole pixels in jsdom, so positions are compared to within half a unit.)
+    const expectBadge = (i: number, startX: number, startY: number) => {
+      const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(screen.getByTestId(`ball-number-${i}`).getAttribute("transform") ?? "");
+      expect(Number(m![1])).toBeCloseTo(startX * 3.4 + 13 + i * 18, 0);
+      expect(Number(m![2])).toBeCloseTo(startY * 6 - 24, 0);
+    };
+    const flatBadge = (i: number) => expectBadge(i, 58, 20);
+    const lobBadge = (i: number) => expectBadge(i, 40, 80);
+    flatBadge(0);
+    lobBadge(1);
     fireEvent.click(screen.getByTestId("board-ball-1-up"));
     d = lastDiagram(onChange);
     expect(d.steps[0].balls?.map((b) => b.style)).toEqual(["lob", "flat"]);
     expect(d.steps[0].ball?.style).toBe("lob");
+    expect(screen.getByTestId("ball-path").getAttribute("data-style")).toBe("lob");
+    expect(screen.getByTestId("ball-path-1").getAttribute("data-style")).toBe("flat");
+    lobBadge(0);
+    flatBadge(1);
+    expect(screen.getByTestId("ball-number-0")).toHaveTextContent("1");
+    expect(screen.getByTestId("ball-number-1")).toHaveTextContent("2");
+
+    // ✕ on the second path leaves one path and no number; undo brings it back.
+    fireEvent.click(screen.getByTestId("board-ball-1-remove"));
+    d = lastDiagram(onChange);
+    expect(d.steps[0].balls).toHaveLength(1);
+    expect(d.steps[0].ball?.style).toBe("lob");
+    expect(screen.queryByTestId("ball-number-0")).toBeNull();
+    expect(screen.queryByTestId("ball-number-1")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "training.board.undo" }));
+    d = lastDiagram(onChange);
+    expect(d.steps[0].balls?.map((b) => b.style)).toEqual(["lob", "flat"]);
+    lobBadge(0);
+    flatBadge(1);
 
     fireEvent.click(screen.getByTestId("board-ball-0-remove"));
     d = lastDiagram(onChange);
     expect(d.steps[0].balls).toHaveLength(1);
     expect(d.steps[0].ball?.style).toBe("flat");
     expect(screen.queryByTestId("ball-number-0")).toBeNull();
+  });
+
+  it("[TRAINING-TACTICAL-BOARD-24] opening an older exercise reads its single ball as the only path, and saving writes balls plus the mirrored ball", () => {
+    const onChange = vi.fn();
+    const old = { from: { x: 58, y: 20 }, to: { x: 40, y: 80 }, style: "flat" as const };
+    render(
+      <Harness
+        initial={{
+          version: 2,
+          mode: "game",
+          pieces: [{ id: "a1", kind: "player", team: "A", label: "A1", x: 32, y: 26 }],
+          steps: [{ id: "s1", ball: old, movements: [] }],
+        }}
+        onChange={onChange}
+      />
+    );
+    // One path, so no number badge and no second path.
+    expect(screen.getByTestId("ball-path")).toBeInTheDocument();
+    expect(screen.queryByTestId("ball-path-1")).toBeNull();
+    expect(screen.queryByTestId("ball-number-0")).toBeNull();
+    // Saving = the next change the board reports.
+    fireEvent.click(screen.getByTestId("ball-style-handle"));
+    const saved = lastDiagram(onChange).steps[0];
+    expect(saved.balls).toEqual([{ ...old, style: "lob" }]);
+    expect(saved.ball).toEqual(saved.balls?.[0]);
   });
 });

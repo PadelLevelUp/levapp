@@ -463,6 +463,9 @@ export interface UserDetail extends UserRow {
 }
 
 export type DeployIdentity = { gitSha: string; alembicHead: string | null };
+/** Rules 8a and 13: a population split by push channel. */
+export type PushReach = { total: number; noChannel: number; webPushOnly: number; nativeOnly: number; nativeAndWebPush: number };
+
 export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due" | "push_registration_failed"
   // PAD-689: one row per minute in which live-update streams were refused or pushes dropped.
   | "stream_refused" | "push_dropped";
@@ -491,7 +494,9 @@ export interface EngineHealth {
   accounts: { users: Record<string, number>; coaches: Record<string, number>; players: number; createdLast7d: number };
   /** Rule 8 (PAD-746): absent from an API that predates it. */
   push?: {
-    activeStudents7d: { total: number; noChannel: number; webPushOnly: number; nativeOnly: number; nativeAndWebPush: number };
+    activeStudents7d: PushReach;
+    /** Rule 13 (PAD-789): students someone wrote to in the last `windowDays` days; absent from an older API. */
+    messageRecipients?: PushReach & { windowDays: number };
     registrationFailures7d: Record<"ios" | "android" | "web", number>;
   };
   deploy: { this: DeployIdentity; other: DeployIdentity | string };

@@ -35,7 +35,7 @@ const LOCALE_MAP: Record<string, Locale> = {
  * Falls back to Portuguese for unknown/undefined languages.
  */
 export function resolveDateLocale(language?: string): Locale {
-  const lng = (language ?? "pt").split("-")[0];
+  const lng = (language ?? "pt").split("-")[0].toLowerCase();
   return LOCALE_MAP[lng] ?? pt;
 }
 

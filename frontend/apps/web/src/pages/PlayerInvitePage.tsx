@@ -45,7 +45,7 @@ type ClaimStatus = "idle" | "claiming" | "claimed";
 const acceptSchema = z
   .object({
     username: z.string().min(3, "usernameMin"),
-    password: z.string().min(6, "passwordMin"),
+    password: z.string().min(8, "passwordMin"), // owner decision 2026-11-10: 8 everywhere
     repeatPassword: z.string(),
     // PAD-457: adults only — this form creates a login.
     birthDate: z
@@ -155,6 +155,11 @@ const PlayerInvitePage = () => {
       const birthKey = BIRTH_CODE_KEYS[error?.response?.data?.code ?? ""];
       if (code === 400 && error?.response?.data?.field === "birthDate" && birthKey) {
         setErrors((prev) => ({ ...prev, birthDate: t(`auth.playerInvite.${birthKey}`) }));
+        return;
+      }
+      // players.invite-completion rule 5 (PAD-886): a password under 8 belongs on its field.
+      if (code === 400 && error?.response?.data?.field === "password") {
+        setErrors((prev) => ({ ...prev, password: t("auth.playerInvite.passwordMin") }));
         return;
       }
       // PAD-637: a Terms refusal belongs on the box.

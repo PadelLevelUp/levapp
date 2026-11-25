@@ -18,7 +18,7 @@ MONDAY = datetime(2026, 11, 2, 20, 0)
 
 @pytest.mark.criterion("DASHBOARD-BLOCKS-55")
 def test_pending_confirmations_count_and_nudge_open_engine_invitations(app):
-    from padel_app.helpers.dashboard.pending import count_pending_confirmations, notify_pending_confirmations
+    from padel_app.helpers.dashboard.pending import notify_pending_confirmations
     from padel_app.models import EngineInvitation
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
@@ -41,7 +41,6 @@ def test_pending_confirmations_count_and_nudge_open_engine_invitations(app):
             row.message_ids = [msg.id]
         db.session.commit()
 
-        assert count_pending_confirmations(coach_id=coach_id, now=SUNDAY) == 2
         with patch("padel_app.services.notification_service._push_message") as pushed:
             result = notify_pending_confirmations(coach_id=coach_id, now=SUNDAY)
         assert result == {"instances": 1, "sent": 2} and pushed.call_count == 2

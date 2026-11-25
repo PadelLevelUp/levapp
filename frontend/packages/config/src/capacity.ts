@@ -19,6 +19,8 @@
 /** Minimal shape needed from a presence row. */
 export interface PresenceLike {
   status?: string | null;
+  /** The student answered (yes or no): only a not-absent row with this is a yes. */
+  confirmed?: boolean | null;
 }
 
 /** A presence row that names its player, for matching against a participant list. */
@@ -75,4 +77,54 @@ export function participantsHeader(filled: number, max: number | null | undefine
   const open = Math.max(0, max - filled);
   if (open === 0) return { key: "calendar.participants.full", values: { current: filled, max } };
   return { key: "calendar.participants.open", values: { current: filled, max, count: open } };
+}
+
+/**
+ * Confirmed spots for a LISTED set of participants (calendar.view rule 25, calendar.event-detail
+ * rule 27): the listed students who are coming or came — a row that is not absent and is marked
+ * `present` or answered yes (`confirmed`) — i.e. `LessonInstance.confirmed_spots` applied to the
+ * list, as `effectiveFilledSpotsOf` applies `effective_filled_spots`. Absent is read first: a
+ * decline writes `confirmed` too. Not `attendanceStateOf`: a mark whose validation was undone
+ * stays a mark here. A row for someone off the list is not counted, and the result never exceeds
+ * the filled spots of the same lists. Ids compare as strings. It feeds the coach's fill bar and is
+ * never printed.
+ */
+export function confirmedSpotsOf(
+  participants: readonly { id: string | number }[],
+  presences: readonly PresenceWithPlayerLike[] | null | undefined
+): number {
+  const listed = new Set(participants.map((p) => String(p.id)));
+  const coming = new Set(
+    (presences ?? [])
+      .filter(
+        (p) =>
+          p.status !== "absent" &&
+          (p.status === "present" || !!p.confirmed) &&
+          p.playerId != null &&
+          listed.has(String(p.playerId))
+      )
+      .map((p) => String(p.playerId))
+  );
+  return Math.min(coming.size, effectiveFilledSpotsOf(participants, presences));
+}
+
+/**
+ * Whether the coach's capacity box draws the fill bar, and in which tone (rule 27). No bar while
+ * editing, for a canceled class, for a class with no capacity, or for a viewer who cannot manage
+ * the class (a student receives only their own presence, so a split would be false). The tone is
+ * `warning` (amber) while the class is not completed, has not ended and has a free seat; otherwise
+ * `current`, the box's own text colour.
+ */
+export function capacityBarOf(input: {
+  capacity: number | null | undefined;
+  filled: number;
+  status?: string | null;
+  ended: boolean;
+  canManage: boolean;
+  editing: boolean;
+}): { tone: "current" | "warning" } | null {
+  const { capacity, filled, status, ended, canManage, editing } = input;
+  if (!canManage || editing || status === "canceled" || !capacity || capacity <= 0) return null;
+  const open = filled < capacity;
+  return { tone: !ended && status !== "completed" && open ? "warning" : "current" };
 }

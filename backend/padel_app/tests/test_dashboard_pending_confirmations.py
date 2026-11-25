@@ -100,15 +100,6 @@ def _seed(app):
         return coach.id, tomo_inst.id, {p.id for p in players}
 
 
-def test_count_pending_confirmations_only_tomorrow_sent(app):
-    from padel_app.helpers.dashboard.pending import count_pending_confirmations
-
-    coach_id, _, _ = _seed(app)
-    with app.app_context():
-        # Only p0 & p1 (sent, tomorrow) count — confirmed/expired/today excluded.
-        assert count_pending_confirmations(coach_id=coach_id, now=NOW) == 2
-
-
 def test_pending_targets_grouped_by_instance(app):
     from padel_app.helpers.dashboard.pending import get_pending_confirmation_targets
 

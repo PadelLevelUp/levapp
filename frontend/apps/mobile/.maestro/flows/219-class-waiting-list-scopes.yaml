@@ -5,6 +5,8 @@
 # days out with "E2E Student" enrolled; opened by its instance id (PAD-326 deep link). Driven and
 # asserted by ids, never by rendered copy (PAD-320). Flow number 219 is from 0910-SessionB's reserved
 # block (unconfirmed).
+# Proof for CALENDAR-EVENT-DETAIL-13 (class opened by its instance id), -23 (whole series), -24 (edit
+# the row's scope) and -25 (the picker's search); -22 ("managed in Settings") is not driven here.
 appId: com.padellevelup.app
 onFlowComplete:
   - evalScript: "${output.cleanup && output.cleanup()}"

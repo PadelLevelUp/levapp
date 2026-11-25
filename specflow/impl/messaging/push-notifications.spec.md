@@ -1,6 +1,6 @@
 ---
 id: messaging.push-notifications
-status: implemented
+status: implementing
 depends_on: [messaging.messages, auth.push-subscription]
 serves: [P-MESSAGING-3]
 governed_by: []
@@ -372,6 +372,19 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
     - Web's counterpart is `auth.push-subscription` rule 9.
 
 16. Outbox rows that are done are deleted: `sent` and `skipped` rows after a day, `dead` rows after 30 days. A `pending` row is never deleted.
+17. **The Messages tab says when this phone gets no alerts, as a thread does (PAD-789).** On iOS
+    and Android the Messages tab (`app/(tabs)/messages.tsx`) shows rule 15's banner
+    (`NotificationsBlockedBanner`) as one line above the conversation list, with the same three
+    cases decided by the same `notificationBanner(snapshot, pushStatus)`: never asked → the
+    "enable" tap, which is rule 15's "banner's tap" and the only prompt it can raise; refused
+    → the Settings link; granted but not registered after the retries → the "not active" retry.
+    A registered phone shows nothing; a simulator (registrar `unsupported`) shows nothing once its
+    permission is granted, and otherwise the never-asked or refused line, exactly as a thread
+    does today, because `notificationBanner` reads the registrar's state only when the
+    permission is granted. The copy is rule 8's: device
+    alerts are off, and messages and the badge still arrive in the app. No new prompt site, no
+    new copy, no dismissal (the line goes away when its cause does, as in a thread). Web's
+    counterpart is `auth.push-subscription` rule 12.
 
 ### Acceptance Criteria
 
@@ -536,7 +549,7 @@ one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
 - **And** their conversation list is taller than its pane
 - **When** they open a conversation at 390×844, 1280×600 or 1280×720
 - **Then** the page's remaining height is shared by the list and the thread, and the composer's send button ends inside the page's visible content area (not only inside the viewport: the page clips its overflow and keeps room for the phone tab bar)
-- *Web only:* the banner is about browser alerts; the iOS app has no such banner (B-198).
+- *Web only:* this layout guard is web's; the iOS app shows its own device banner in a thread and on the Messages tab (rules 15, 17).
 
 #### MESSAGING-PUSH-NOTIFICATIONS-23: The app icon badge always equals the server unread count (PAD-147)
 - **Given** the iOS icon badge shows 1 because a push arrived while the app was closed
@@ -673,3 +686,70 @@ test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_dead
 - **When** the drainer retries
 - **Then** only the failed browser gets the second attempt; a row whose subscription now belongs to another user is skipped
 test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_a_retry_resends_only_to_its_browser`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-41: The Messages tab shows the notification banner above the list, in each of its cases (rule 17, PAD-789)
+- **Given** a signed-in user (a student, and again a coach) on the Messages tab, with these inputs to the banner: permission `undetermined` (can ask again); `denied`; `granted` with the registrar `failed`; `granted` with the registrar `registered`; and a simulator, `granted` with the registrar `unsupported`
+- **When** the tab renders its conversation list
+- **Then** `notifications-banner` sits above the list with `notifications-banner-enable` (undetermined, and denied, whose tap opens Settings) and `notifications-banner-retry` (failed), and is absent for the registered phone and the simulator
+- **And** rendering the tab raises no permission prompt; only the banner's tap asks the system
+test: `frontend/apps/mobile/src/features/notifications/messages-tab-banner.test.tsx` › `the Messages tab shows the banner above the list in each case and prompts only on its tap`
+
+### Today (PAD-789)
+- The banner is `frontend/apps/mobile/src/features/notifications/notifications-blocked-banner.tsx`
+  (`NotificationsBlockedBanner`); its case is decided by `notification-banner.ts`
+  `notificationBanner(snapshot, pushStatus)` (`none` | `prompt` | `blocked` | `inactive`), pinned by
+  `notification-banner.test.ts` and `notifications-blocked-banner.test.tsx`.
+- It is mounted in the thread screen (`frontend/apps/mobile/app/conversation/[id].tsx:1585`) and
+  in the setup guide's step 2 (`src/features/setup-guide/steps.tsx:136`), **not** on the Messages
+  tab (`app/(tabs)/messages.tsx`, which renders no notification line).
+- The registrar's state comes from `src/lib/push/expoPushRegistrar.ts` (`setStatus`: `registered`,
+  `no-permission`, `unsupported`, `failed`); the foreground re-registration is
+  `src/lib/push/recovery.ts:startPushRecovery` (registers when `status() !== "registered"`). The
+  app reads `/api/auth/me` at restore, login, sign-up and `refreshUser`
+  (`src/auth/AuthContext.tsx:64,166,183,198`), never on a foreground, and `/auth/me` carries no
+  push field (`backend/padel_app/modules/api_auth.py:_serialize_me`).
+- Item 3's state report would contradict `admin.engine-health` rule 8d (see that spec's Open
+  questions).
+
+### Waves (PAD-789)
+3. MESSAGING-PUSH-NOTIFICATIONS-41 with `auth.push-subscription`'s AUTH-PUSH-SUBSCRIPTION-16 —
+   iOS/Android Messages tab, and the web Messages page's banner decision; one wave, so web and
+   iOS ship together. The existing `src/features/messages/messages-unread-filter.test.tsx` renders
+   the tab and mocks neither `expo-notifications` nor `@/lib/push`; it gains those mocks, and the
+   new test uses the same permission answer and registrar stand-ins as
+   `src/test/setup-guide-fixtures.tsx` (`notifications`, `registrar`).
+
+### Open questions (PAD-789)
+- **"The banner's third case extended to 'never registered'" (ticket item 2, iOS).** Decision
+  (lead, 2026-11-25; the owner can reverse it): option (a). On a build
+  with PAD-744 every permission state already has a case: never asked → "enable", refused →
+  Settings, granted → registered on launch, login and each foreground (rule 15), or "not
+  active" after the retries. A granted phone is `registered`, `failed` or `unsupported` once
+  its attempt ends (`expoPushRegistrar.ts`); no reachable client state means "granted but never
+  registered". The phone cannot see that the *server* holds no token for it (a row pruned by
+  `DeviceNotRegistered`, or taken by another account's login, rule 9) until the next cold start
+  re-registers. Options: (a) no server signal; the gap the client can see is that the banner
+  shows only inside a thread, so mount it on the Messages tab (rule 17); (b) add
+  `pushChannels {native, webPush}` (the caller's own rows, booleans) to `GET /api/auth/me`,
+  read it on each foreground, and re-register once per session without a prompt when it says
+  `native: false` while the phone reads `registered`, falling to the "not active" case if a
+  later read still says false; this adds a `/auth/me` read per foreground and a field to a
+  route several specs share. Default (a): it is the part of the ask the client can act on, and
+  rule 13's weekly count (`admin.engine-health`) shows whether the server-side gap is worth (b).
+  Builds before 34 cannot be reached by either.
+- **Who sees the Messages-tab line.** Decision (lead, 2026-11-25; the owner can reverse it):
+  everyone signed in, as the thread's banner and
+  web's Messages page already do; the ticket names students, but a coach with no channel is the
+  same defect. Option: students only.
+- **"A student with notifications on in the app" (ticket item 2).** Decision (lead, 2026-11-25; the
+  owner can reverse it): the line does not
+  depend on any in-app notification preference, because no student switch mutes messages:
+  P-MESSAGING-3 "does not promise … a student's switch to mute notifications", and
+  P-NOTIFICATIONS-6 says direct messages "always still reach them" whatever the invitation
+  blocks are. So every student is a message recipient, and the condition reduces to "this
+  device is not registered".
+- **Dismissal and frequency.** Decision (lead, 2026-11-25; the owner can reverse it): none; the line is the same non-dismissible line as the
+  thread's and web's, shows only on Messages, and disappears when its cause does. A student who
+  refused permission keeps seeing the Settings line on Messages, as today in a thread. Option: a
+  per-device dismissal for a number of days (a new constant), as `mobile.install-suggestion`
+  rule 3 does.

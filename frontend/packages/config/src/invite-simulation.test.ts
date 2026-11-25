@@ -279,3 +279,15 @@ describe("describeStage fallback (PAD-497)", () => {
     expect(describeStage("some_future_stage" as never).key).toBe("tutorials.stages.unknown");
   });
 });
+
+describe("describeGate and describeSendStatus fallback (settings.tutorials rule 6)", () => {
+  it("names a known gate and falls back to a neutral line for a code this build does not know", () => {
+    expect(describeGate({ code: "quiet_hours", blocked: true }).key).toBe("tutorials.gates.quiet_hours");
+    expect(describeGate({ code: "some_future_gate" as never, blocked: true }).key).toBe("tutorials.gates.unknown");
+  });
+
+  it("names a known send status and falls back to a neutral line for one this build does not know", () => {
+    expect(describeSendStatus("queued").key).toBe("tutorials.sendStatus.queued");
+    expect(describeSendStatus("some_future_status" as never).key).toBe("tutorials.sendStatus.unknown");
+  });
+});

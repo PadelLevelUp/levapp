@@ -215,8 +215,6 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
      home** — "Unread messages: 0" as the largest card on the screen is the flaw the redesign
      removed; an unread message reaches the user as a `reply` queue item instead.
    - **(PAD-167)** `notification_activity` and `pending_confirmations` were removed as dead.
-     - Code to follow: delete the unused `count_pending_confirmations` helper and its test; only
-       `notify_pending_confirmations` stays.
    - **(PAD-202)** `class_list` and `grid` were removed. The student payload was the last emitter;
      the student's "Your upcoming lessons" is now `schedule_7d` and "Invites to confirm" is the
      `invite` kind of `needs_you`. The old "Invites to confirm" list could never populate: it
@@ -401,6 +399,40 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
     `profile_incomplete` block (`dashboard.student-setup-guide` rule 1). The player payload's
     block list (DASHBOARD-BLOCKS-8) is unchanged, and no capability token is added.
 
+14. **The student's asks are answered on a full-width strip (UI idea 1; owner's yes, 2026-11-25; numbering
+    self-assigned).** On the student's three ask cards (`invite`, `vacancy_invite`,
+    `waiting_list_offer`) Yes and No sit side by side on a strip across the card's foot
+    (`dashboard-answer-strip`), on the secondary (blue wash) surface. The strip reaches the card's edges: the
+    card has a foot outside its padding and clips it to its own rounded corners, and the amber accent bar
+    runs past it. Yes is the filled primary; No is a text button. Both are at least 44px high at every
+    width, web and iOS, and share the strip's width equally. "Abrir" leaves the answer row: it sits at the
+    right of the card's title, opens the same place as before, and its touch area is at least 44px high. In the
+    student hero the "to confirm" label stands above Yes and No, which share the hero's width at the same
+    height, with no strip. The words, the `dashboard-confirm` wrapper and the button test ids, calls, outcomes
+    and the busy state are rule 3a's and do not change. An `invite` card with no `lessonInstanceId` has no
+    strip and keeps "Abrir" (web today; iOS gains the same guard).
+    Not in this rule: the schedule rows' Yes / No, "Avisar que não vou", the come-back buttons, the chat
+    bubble's buttons, and every coach card.
+   - **Today:** web `AnswerButtons.tsx` draws both buttons `h-9` (36px) for the three cards in
+     `NeedsYouQueue.tsx`, for `NextClassHero.tsx` (in a row with the label) and for `Schedule7Days.tsx`. iOS
+     `features/dashboard/blocks.tsx` has `AnswerButtons` (invite card, hero, schedule rows) and `AskButtons` (vacancy,
+     waiting list), both `size="sm"` (`h-9`). "Abrir" is at the card's foot, a ghost `h-9` button on
+     web and a small `Pressable` on iOS. `ActionCard` pads its whole content on both shells. The schedule rows
+     share the same buttons and must not change.
+
+15. **A metric tile's number is the largest text on its tile (UI idea 7; owner's yes, 2026-11-25; numbering
+    self-assigned).** The coach's two `week_pulse` cards and the student's four `kpi_grid` tiles show their
+    number at 40px from 1024px wide, and at 32px below that and on iOS, in the display face and tabular (new on
+    iOS). Each shell has ONE exported class constant for it, `METRIC_NUMBER_CLASS` (web `primitives.tsx`, iOS
+    `features/dashboard/blocks.tsx`), used by both kinds of tile. The number stays on one line and is never cut: at
+    320px, "100%" and a three-digit count fit a two-column tile, and on iOS a larger text size shrinks the number to
+    its tile. The percent sign stays smaller and muted on web. The label, the line under the number (its
+    denominator, rule 3a), the ids and the accessible names do not change.
+   - **Today:** 24px on both shells, at four separate places: web `primitives.tsx` `StatCard` and `KpiTiles.tsx`
+     (`text-2xl`, tabular); iOS `features/dashboard/blocks.tsx` `Stat` and the KPI tile (`text-2xl`, not tabular, no line
+     limit). `StatCard` and `Stat` are used by `WeekPulse` only. `StatTile` on the Presences page is another component
+     and does not change.
+
 ### Acceptance Criteria
 
 #### DASHBOARD-BLOCKS-1: Coach dashboard
@@ -459,8 +491,6 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
 - **Then** they land on `/presences?validate=1…` (never the 404 page), the validate view is
   already open on that week, and the tab's trigger shows the same number of classes the card
   showed
-- Code to follow: tighten the "count is the endpoint's number for its week" test in
-  `test_dashboard_coach_home.py` so it also covers a backlog spread over more than one week.
 
 #### DASHBOARD-BLOCKS-4: A reply card opens the conversation (PAD-284, B-078)
 - **Given** the seeded `e2e-coach` with an unread message from `e2e-student`
@@ -565,6 +595,21 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   `{ value: 3, total: 15 }`, with the `href` values of `dashboard.navigation` rules 11 / 11a
   unchanged
 
+#### DASHBOARD-BLOCKS-65: The metric tiles share one number size on web (rule 15)
+- **Given** the coach's `week_pulse` at 100% and the student's `kpi_grid` with a three-digit value
+- **Then** every number carries `METRIC_NUMBER_CLASS`, which is 32px, 40px from 1024px, tabular and on one line, and each tile keeps its line of context
+test: `frontend/apps/web/src/components/dashboard/coach/metricSize.test.tsx` › `every metric tile uses the shared metric size`
+
+#### DASHBOARD-BLOCKS-66: The metric tiles share one number size on iOS (rule 15)
+- **Given** the same two blocks on iOS
+- **Then** every number carries `METRIC_NUMBER_CLASS` (32px, tabular), has one line and shrinks to fit, and each tile keeps its line of context and its accessible name
+test: `frontend/apps/mobile/src/features/dashboard/metric-size.test.tsx` › `every metric tile uses the shared metric size`
+
+#### DASHBOARD-BLOCKS-68: The metric numbers fit their tiles in a browser (rule 15)
+- **Given** the seeded student at 320px and at 1280px wide
+- **Then** each KPI number's font size is 32px and 40px, and its text is no wider than its tile's content box
+test: `frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts` › `the KPI numbers fit their tiles at 320px and 1280px`
+
 #### DASHBOARD-BLOCKS-17: Upcoming lessons is the schedule's count (PAD-235)
 - **Given** an authenticated student signed up to one class in 45 minutes, invited-but-unanswered
   on tomorrow's class, confirmed on the day after's, and confirmed on one in 12 days
@@ -586,6 +631,28 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
 - **Given** a student whose `attendanceState` is `not_coming` on an upcoming class
 - **When** they open `/`
 - **Then** the row shows no Yes / No and no "Avisar que não vou", and shows what `comeBack` says (DASHBOARD-BLOCKS-45)
+
+#### DASHBOARD-BLOCKS-62: The student's ask cards answer on one strip, on web (rule 14)
+- **Given** a student home on web with an `invite`, a `vacancy_invite` and a `waiting_list_offer`
+- **Then** each card holds one `dashboard-answer-strip`, the parent of `dashboard-confirm-yes` and `dashboard-confirm-no`; both carry the 44px height and the same equal-share class, and "Abrir" is outside the strip
+- **And** pressing Yes or No makes the same call with the same id as before, and both are disabled while it is in flight
+- **And** an `invite` with no `lessonInstanceId` has no strip and still shows "Abrir"
+test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.answerStrip.test.tsx` › `the three ask cards answer on one full-width strip`
+
+#### DASHBOARD-BLOCKS-63: The same strip on iOS (rule 14)
+- **Given** the same items on iOS, and an `invite` with no `lessonInstanceId`
+- **Then** the same structure, height, equal share, calls, busy state and no-strip case hold
+test: `frontend/apps/mobile/src/features/dashboard/blocks-answer-strip.test.tsx` › `the three ask cards answer on one full-width strip`
+
+#### DASHBOARD-BLOCKS-64: The hero's answers grow and the schedule rows' do not (rule 14)
+- **Given** a student hero and a schedule row that both ask
+- **Then** on web and iOS the hero's Yes and No carry the 44px height and the equal share, under the label, and the row's buttons keep their size; neither has a `dashboard-answer-strip`
+test: `frontend/apps/web/src/components/dashboard/coach/answerSizes.test.tsx` › `the hero grows and the schedule row keeps its buttons` (+ iOS: `blocks-answer-strip.test.tsx` › the same title)
+
+#### DASHBOARD-BLOCKS-67: The strip is 44px high and full width in a browser (rule 14)
+- **Given** a seeded student with a waiting-list offer, at 390px and at 1280px wide
+- **Then** Yes and No are each at least 44px high, equal in width within 1px, and the strip spans the card's inside edges within 1px of the outline and accent bar
+test: `frontend/apps/web/e2e/dashboard/student-dashboard-home.spec.ts` › `the answer strip is full width and 44px high`
 
 #### DASHBOARD-BLOCKS-20: Student answers a reminder from the dashboard (PAD-202 correction)
 - **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`
@@ -707,8 +774,6 @@ test: `backend/padel_app/tests/test_dashboard_coach_home.py` › `test_hero_is_o
 - **And** a class that already ended this week is not offered
 - **And** a coach with nothing outstanding gets the block with `count: 0` and no items
 test: `backend/padel_app/tests/test_pad740_needs_you_current_week.py` › `test_a_class_that_already_ended_this_week_is_not_offered` (+6 more)
-- Code to follow: make the queue-order test seed a reply, so the order of free seats, replies and validation
-  is proved with all three present.
 
 #### DASHBOARD-BLOCKS-39: Snoozing a card again restarts its day (rule 3)
 - **Given** a free-seats card snoozed at 10:00
@@ -723,8 +788,6 @@ test: `backend/padel_app/tests/test_dashboard_needs_you_snooze.py` › `test_sno
 - **And** each coach row's `inviteHref` is its `href` plus `&notify=1`, the same link the queue's free-seats card for that class carries
 - **And** a student's rows carry no `inviteHref`
 test: `backend/padel_app/tests/test_pad425_schedule_invite_href.py` › `test_every_coach_schedule_row_links_to_the_invite_flow` (+3 more)
-- Code to follow: make the `totalCount` test seed more classes than the rows it lists, so the total is shown
-  to exceed the rows.
 
 #### DASHBOARD-BLOCKS-41: The week pulse carries its denominators, and a delta only when there is a week to compare (rule 3)
 - **Given** a coach with four players signed up to tomorrow's full class, and a coach with no classes
@@ -750,10 +813,9 @@ test: `backend/padel_app/tests/test_dashboard_pending_confirmations.py` › `tes
 - **And** a row that is not pending and is planned or coming offers the single "Avisar que não vou"
 - **And** a row that is `not_coming` offers neither Yes and No nor the single decline button, and what it offers instead is DASHBOARD-BLOCKS-45
 - **And** a row that is attended or missed offers nothing
+- **And** a row whose attendance state is missing offers nothing
 - **And** the settled state wins over a stale pending flag
 test: `frontend/packages/config/src/reminder-answer.test.ts` › `only 'Avisar que não vou' before the ask, and after a yes` (+4 more)
-- Code to follow: in `reminder-answer.test.ts`, make "nothing once the coach's record stands or the row is
-  unknown" expect no decline button for the unknown row.
 
 #### DASHBOARD-BLOCKS-44: Student rows and the hero carry the flag and the id an answer needs (rules 3, 3a, 8)
 - **Given** a student with a class they signed up for and were never asked about, a class they were asked about and have not answered, and a class they answered
@@ -779,8 +841,6 @@ test: `frontend/apps/web/src/components/dashboard/coach/ComeBackSlot.test.tsx` �
 - **And** a date is read and written as the viewer's local calendar day: 00:30 local on 9 August is `2026-08-09`
 - **And** dates render in the active language (agosto, August), and the Portuguese column weekday is upper case with no full stop
 test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCAL date, not the UTC one` (+9 more)
-- Code to follow: make the "always exactly one calendar day" test check that the end is exactly one calendar
-  day after the start, not only after it.
 
 #### DASHBOARD-BLOCKS-47: The iOS app sends a card's link to its native screen, and nowhere for a path it does not know (rule 10)
 - **Given** the web paths the server puts on dashboard cards
@@ -868,6 +928,15 @@ test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-empty-seats.tes
 test: `frontend/apps/web/src/components/dashboard/coach/Schedule7Days.engineVersion.test.tsx` › `keeps Convidar on a new-engine class`
 
 ### Open questions
+- Rule 14 (UI idea 1) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can
+  reverse them): "Abrir" was not in the sketch and is kept, moved to the title's right, because it is the card's
+  only way to the class before answering; the hero grows without a strip because the wash does not read on navy.
+- The schedule rows' Yes / No, "Avisar que não vou" and the come-back buttons are 36px on phones, below rule 3a's
+  44px. This is an existing gap, reported and not excused by rule 14: the owner's yes was to the cards. Options:
+  a fix in its own change, or an amended 3a. Not decided.
+- Rule 15 (UI idea 7) — decision by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can reverse
+  it): the sketch showed the total beside the number ("12/16"). The line under each number already says
+  it ("9 de 11", "de 11 aulas"), so only the size changes; showing it twice would read as two facts.
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,
   PAD-913, 2026-11-12; the owner can reverse it): both a dashboard card (NA1, NA2) and one message with a
   push (NA3), because the card shows only on the home and the class may be days away; no rename (NA4).

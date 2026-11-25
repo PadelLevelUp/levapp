@@ -164,3 +164,26 @@ describe("CoachInvitePage — a chosen username is lowercase (PAD-799, auth.regi
     expect(field.getAttribute("autocorrect")).toBe("off");
   });
 });
+
+describe("CoachInvitePage — a password needs 8 characters (PAD-867, rule 10)", () => {
+  const set = (id: string, value: string) =>
+    fireEvent.change(document.getElementById(id) as HTMLInputElement, { target: { value } });
+
+  it("[CLUBS-COACH-INVITATION-22] refuses a password of seven on the field and sends nothing", async () => {
+    await mount();
+    fill("rita@example.com");
+    set("password", "Secret1");
+    set("repeatPassword", "Secret1");
+    submit();
+    expect(await screen.findByTestId("coachInvite-password-error")).toHaveTextContent("auth.coachInvite.passwordMin");
+    expect(accept).not.toHaveBeenCalled();
+  });
+
+  it("[CLUBS-COACH-INVITATION-22] puts a server 400 on password on the password field", async () => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "password" } } });
+    await mount();
+    fill("rita@example.com");
+    submit();
+    expect(await screen.findByTestId("coachInvite-password-error")).toHaveTextContent("auth.coachInvite.passwordMin");
+  });
+});

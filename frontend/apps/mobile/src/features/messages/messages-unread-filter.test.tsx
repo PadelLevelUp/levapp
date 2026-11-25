@@ -18,6 +18,13 @@ vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("expo-router", () => ({ router: { push: vi.fn() }, useFocusEffect: () => {} }));
 // PAD-665: the tab reads the viewer's role for its search (players.search rule 8); a student here.
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ user: { id: 1, roles: ["player"] } }) }));
+// PAD-789 (messaging.push-notifications rule 17): the tab now shows the notification banner, so the
+// permission answer and the push registrar are the setup guide's stand-ins, not the native modules.
+vi.mock("expo-notifications", async () => (await import("@/test/setup-guide-fixtures")).notifications);
+vi.mock("@/lib/push", async () => {
+  const f = await import("@/test/setup-guide-fixtures");
+  return { getPushRegistrar: () => f.registrar };
+});
 
 const row = (id: string, unreadCount: number): Conversation =>
   ({

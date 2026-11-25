@@ -393,4 +393,57 @@ test.describe("PAD-236: chat-born asks reach the student's queue", () => {
       await deleteNewCleanupRows(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry", entriesBefore);
     }
   });
+
+  test("[DASHBOARD-BLOCKS-67] the answer strip is full width and 44px high", async ({ page, request }) => {
+    const coachJwt = await token(request, COACH_USERNAME, COACH_PASSWORD);
+    const studentJwt = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
+    const { rows } = await studentDashboard(request, studentJwt);
+    const seeded = rows.find((r) => r.title === SEEDED_CLASS && typeof r.lessonInstanceId === "number");
+    expect(seeded, "seeded class row with an instance id").toBeTruthy();
+
+    const entriesBefore = await cleanupRowIds(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry");
+    try {
+      const offered = await request.post(`${API_ROOT}/app/notify/debug/offer_waiting_list`, {
+        headers: { Authorization: `Bearer ${coachJwt}` },
+        data: { lessonInstanceId: seeded!.lessonInstanceId, username: STUDENT_USERNAME },
+      });
+      expect(offered.ok(), `debug endpoint ${offered.status()} — is E2E_DEBUG_ENDPOINTS set?`).toBeTruthy();
+
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await loginAsStudent(page);
+      await loadDashboard(page);
+
+      for (const width of [390, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        const card = page.getByTestId("dashboard-queue-waiting-list-offer").first();
+        await expect(card).toBeVisible({ timeout: 10_000 });
+        const strip = card.getByTestId("dashboard-answer-strip");
+        await expect(strip, `${width}px: the card has an answer strip`).toBeVisible({ timeout: 10_000 });
+        const yes = strip.getByTestId("dashboard-confirm-yes");
+        const no = strip.getByTestId("dashboard-confirm-no");
+        const [cardBox, stripBox, yesBox, noBox] = await Promise.all([
+          card.boundingBox(),
+          strip.boundingBox(),
+          yes.boundingBox(),
+          no.boundingBox(),
+        ]);
+        expect(yesBox!.height, `${width}px: Yes is at least 44px high`).toBeGreaterThanOrEqual(44);
+        expect(noBox!.height, `${width}px: No is at least 44px high`).toBeGreaterThanOrEqual(44);
+        expect(Math.abs(yesBox!.width - noBox!.width), `${width}px: equal share`).toBeLessThanOrEqual(1);
+        // The strip spans the card's inside edges: the 1px outline on the right, the 4px amber bar on the left.
+        expect(Math.abs(stripBox!.x - (cardBox!.x + 4)), `${width}px: strip starts at the accent bar`).toBeLessThanOrEqual(1);
+        expect(
+          Math.abs(stripBox!.x + stripBox!.width - (cardBox!.x + cardBox!.width - 1)),
+          `${width}px: strip ends at the outline`,
+        ).toBeLessThanOrEqual(1);
+      }
+
+      // Settle the offer so no later spec inherits it.
+      const refetch = page.waitForResponse((r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200);
+      await page.getByTestId("dashboard-queue-waiting-list-offer").first().getByTestId("dashboard-confirm-no").click();
+      await refetch;
+    } finally {
+      await deleteNewCleanupRows(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry", entriesBefore);
+    }
+  });
 });

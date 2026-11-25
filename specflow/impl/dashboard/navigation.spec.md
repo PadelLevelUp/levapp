@@ -125,5 +125,5 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
 - **When** the iOS app maps it to a screen
 - **Then** it opens the evaluations screen
 test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `opens the evaluations page from the student dashboard block (PAD-402, evaluations.student-view rule 4)`
-- Code to follow: add a web test for the `evaluations` block's link, and a test of the iOS tap itself (not
-  only the route mapping in `routes.test.ts`).
+test: `frontend/apps/web/src/components/dashboard/StudentEvaluationsBlock.test.tsx` › `[DASHBOARD-NAVIGATION-9] the 'Ver todas' link points at the block's own href`
+test: `frontend/apps/mobile/src/features/dashboard/student-evaluations-block.test.tsx` › `[DASHBOARD-NAVIGATION-9] 'Ver todas' pushes /evaluations`

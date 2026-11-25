@@ -56,7 +56,7 @@ describe("StudentEvaluationsBlock", () => {
     expect(n.queryByTestId("evaluation-card-4")).toBeNull();
   });
 
-  it("'Ver todas' pushes /evaluations", async () => {
+  it("[DASHBOARD-NAVIGATION-9] 'Ver todas' pushes /evaluations", async () => {
     const n = await renderNative(createElement(StudentEvaluationsBlock, { block: block([card(1)]) }));
     await n.press("student-evaluations-see-all");
     expect(nav.push).toHaveBeenCalledWith("/evaluations");
