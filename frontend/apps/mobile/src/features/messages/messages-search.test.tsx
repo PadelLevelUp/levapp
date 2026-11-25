@@ -135,7 +135,7 @@ describe("Messages tab — a coach's search (PAD-831)", () => {
     }
     const start = await renderStart(n, 42);
     const printed = JSON.stringify(start.root.toJSON());
-    expect(printed).toContain("messages.startConversation");
+    expect(printed).toContain("messages.startConversationRow");
     expect(printed).toContain("Eurico Gonçalves");
     await start.press("conversation-start-42");
     await n.flush();

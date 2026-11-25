@@ -161,7 +161,7 @@ Manage conversations between users (1:1 or group chats).
       that conversation row only. Every other matched messageable person shows as a "start a
       conversation" row (test id `conversation-start-<userId>`, web and iOS): the coach's display name
       for them (`useCoachDisplayNameByUser`), their photo or initials (rule 18) and the line
-      "Iniciar conversa" / "Start a conversation" (`messages.startConversation`).
+      "Iniciar conversa" / "Start a conversation" (`messages.startConversationRow`).
     - **Order.** The matching conversation rows first, best match first, then the start rows, best
       match first (`players.search` rule 6, "the messaging pickers").
     - **Tap.** A start row makes the same call as the new-conversation picker: `POST
@@ -486,7 +486,7 @@ test: `backend/padel_app/tests/test_messaging_roster_scope.py` › `test_an_inac
 
 ### Waves
 1. MESSAGING-CONVERSATIONS-36, 37, 41 — `@levelup/config` `player-search.ts`: one helper both shells call, taking the loaded rows, the messageable people and the roster, answering the conversation rows and the start rows.
-2. MESSAGING-CONVERSATIONS-34, 35, 38, 40 — web `ConversationList.tsx`, `MessagesPage.tsx`, locale key `messages.startConversation`.
+2. MESSAGING-CONVERSATIONS-34, 35, 38, 40 — web `ConversationList.tsx`, `MessagesPage.tsx`, locale key `messages.startConversationRow`.
 3. MESSAGING-CONVERSATIONS-34, 35, 38, 39, 40 — iOS `app/(tabs)/messages.tsx`, mobile locales (static import, `frontend/CLAUDE.md`).
 Waves 2 and 3 ship in the same change (web and iOS ship together).
 
