@@ -1,7 +1,7 @@
 ---
 id: calendar.mobile-views
-status: implemented
-depends_on: [calendar.view, calendar.event-detail, calendar.blocks, classes.instances]
+status: implementing
+depends_on: [calendar.view, calendar.event-detail, calendar.blocks, classes.instances, client.query-cache, client.pull-to-refresh]
 serves: [P-CALENDAR-3]
 governed_by: []
 provenance:
@@ -35,15 +35,15 @@ canvas is silent (status treatments, coach colour, add controls, students) these
    `expo-secure-store`, which is already a dependency — no new native module) and defaults
    to `Dia`. Persistence is injected by the shell; `useCalendar` only takes an initial mode
    and reports changes.
-2. **One selected day.** All three modes share a single selected day and a single anchor
+2. **One selected day.** (In `Dia` it also follows the scroll: rule 26a.) All three modes share a single selected day and a single anchor
    date, both owned by `useCalendar` in `@levelup/hooks` (which stays platform-neutral —
    `calendar.view` rule 12). Initially the selected day is today. Paging a week or month
    re-selects today when the new range contains it, otherwise the range's first day.
 3. **The selected-day detail block** appears in every mode: a 48px navy circle with the day
    number, the full weekday and date in the active language ("segunda-feira, 7 setembro" /
    "Monday, 7 September"), a count line using the existing `calendar.mobile.classCount_*`
-   keys, and the day's event cards sorted by `startTime`. In `Dia` it is inline below the
-   week strip. In `Semana` and `Mês` it is a **bottom sheet** over the time grid: a grab
+   keys, and the day's event cards sorted by `startTime`. In `Dia` it is one of the days of the
+   continuous list below the week strip (rule 26). In `Semana` and `Mês` it is a **bottom sheet** over the time grid: a grab
    handle, 20px top radius, an upward shadow, drag-resizable between a minimum that shows
    the header only and a maximum that leaves one hour-row of grid visible (in `Mês` the
    travel is wider — rule 17), defaulting to roughly 40% of the grid height. Web resizes
@@ -57,7 +57,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
    sheet's outer view and the corner clipping on an inner one, because a view that clips
    its children also clips its own shadow (B-065).
 4. **Empty day.** A selected day with no events shows the existing
-   `calendar.mobile.noClassesScheduled` line in place of the card list.
+   `calendar.mobile.noClassesScheduled` line in place of the card list. In `Dia` an empty day is its header
+   with that line and nothing else (rule 26).
 
 #### Colour and status
 5. **The coach's colour identifies a class; the treatment carries its state.** Each class card
@@ -118,7 +119,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
    (`calendar.view` rule 23).
 
 #### Dia
-10. **Week strip.** Seven columns between `‹` and `›` chevrons (`calendar.toolbar.previousWeek
+10. **Week strip.** (In `Dia` it follows the scroll, and a tap moves the list: rule 26.) Seven columns between `‹` and `›` chevrons (`calendar.toolbar.previousWeek
     / nextWeek`). Each column shows an uppercase locale weekday abbreviation, a date circle,
     and a dot row. States: selected → soft-accent column background (`secondary`), accent
     abbreviation, navy circle with a white number; today when not selected → transparent
@@ -228,7 +229,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     `calendar-next-week`, `calendar-day-{yyyy-MM-dd}`, `calendar-event-{id}`,
     `calendar-event-fill-{id}`, `calendar-add-event`, `calendar-add-class`, `class-fill-bar`.
     `calendar-today` moves to the `Semana` nav row (rule 11) because `Dia` has no `Hoje`
-    button in the design; the Maestro `goto-seeded-monday` subflow does not use it. Web's
+    button in the design (rule 26f adds `calendar-day-today` to Dia); the Maestro `goto-seeded-monday` subflow does not use it. Web's
     selected-day label stays an `<h3>` (the `i18n-date-locale` spec reads it) and the strip
     dots keep `data-testid="day-fill-dot"` with `data-event-title` (the `mobile-weekly-order`
     spec reads them in order). New: `calendar-view-day / -week / -month` on the segments,
@@ -240,6 +241,53 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     subflow (rule 23) finds a class by its exact title.
 25. **i18n** adds keys only to the existing `calendar` namespace, in both `pt` and `en`, so
     the mobile static-import trap (R-024) cannot bite.
+
+26. **In `Dia` the days follow each other in one list (owner, 2026-11-25: "Lets do continuous", on the
+    prototype of UI idea 14; numbering self-assigned).** Below the week strip there is one vertical list of days:
+    scrolling down moves to the next days, up to the earlier ones, with no page break. Each day is rule 3's
+    block: its header, which stays at the list's top while its cards scroll, then its cards. An empty day is its
+    header with rule 4's line (the prototype's default; the owner has not chosen), without iOS's icon and title.
+    a. **The selected day follows the scroll.** It is the day whose section holds the list's top. The strip,
+       the add-class date and the other modes read that one value (rule 2). Crossing into another week shows
+       that week in the strip. Scrolling alone never makes a request for what is loaded, and changing the selected
+       day inside the loaded range never refetches. Web's Add event takes no date today and does not change.
+    b. **Tapping a date, `‹`, `›` or `Hoje` moves the list** to that day (rule 2 picks the day for the chevrons).
+       The target is fixed as the selected day BEFORE the list moves and stays so until its section is mounted and the
+       movement has settled. Outside the loaded range, the list's own scroll selects nothing until the new read is on
+       screen, then the list stands at the target; if that read fails, the target stays selected and the error line shows. Inside
+       the range a movement lasts 1 second at most, and a touch or wheel ends it at once. With reduced motion the list jumps. The list ends with
+       filler, so its last day can stand at the top; the filler is never shorter than rule 18's clearance.
+    c. **What is loaded.** Opening Dia, or moving to a day outside the loaded range, makes ONE read of whole weeks: from 2
+       weeks before the selected day's week to 4 weeks after it (7 weeks; Mês reads up to 6). That range belongs to Dia and is
+       kept while it contains the selected day, so coming back from Semana or Mês does not centre it again. While Dia shows,
+       the page's own week read is off. Within one week of the end
+       it reads the next 4 weeks once, and stops there. Nothing is ever added above what is on screen. At either end one row
+       ("Semanas anteriores" / "Semanas seguintes", two new strings) reopens the list on the week just outside, at its first
+       day (rule 2). So Dia
+       holds at most two reads, and a save, a live event or the app coming back refetches at most those two.
+    d. **Loading and failure.** From one Dia range to another the earlier one stays until the next answers
+       (`client.query-cache` rule 5). A range read for another mode is never shown as Dia's, nor Dia's as another
+       mode's: entering Dia shows skeleton rows until its read answers, and Semana and Mês receive only their own weeks. A
+       first read that fails with nothing loaded shows an error with a retry on both shells. A failed refetch
+       keeps the loaded days on screen. The second read shows skeleton rows at the end and, if it fails, one line
+       with a retry. The iOS pull (`client.pull-to-refresh`, "the shown range") refetches both reads, works at the
+       list's top, and says so when either fails (its rule 4).
+    e. **The next class** (rule 5) is searched in the week that holds today, as Semana does, so the two modes never outline
+       different classes. The student filter applies to every loaded day. After a save or a live change the loaded reads
+       refresh, and web's immediate edit is applied to whichever loaded read holds the event, not only the selected week's.
+    f. **`Hoje`** (`calendar-day-today`) shows in Dia whenever the selected day is not today, and moves to it.
+    g. **Unchanged:** cards, colours, statuses and their ids; `calendar-day-list` is the list, and a day is
+       `calendar-day-section-{yyyy-MM-dd}`. Leaving Dia and coming back, or changing the filter, keeps the selected
+       day at the top; a refresh keeps the place inside the day being read. Semana, Mês and desktop web are untouched.
+   - **Today:** Dia shows one day: web `components/calendar/mobile/MobileCalendar.tsx` and iOS `app/(tabs)/calendar.tsx`
+     render one `DayHeader` and its cards; iOS's empty day is an `EmptyState` with an icon and a title. `useCalendar` owns the
+     selected day; `selectDay` moves the anchor with it, and `navigateWeek` moves the anchor one render before the
+     reselect effect picks the day. Both shells fetch the anchor's week, and web's `editEvents` patches only
+     that week. `findNextEventId` searches whatever set it is given.
+   - 33 Maestro flows reach a day (15 directly, 18 through `goto-seeded-monday`). At risk with several days mounted:
+     229 and 230 (tap "E2E Student"), 270 (scrolls by card id), 93, 94 and 96 (a weekly series tapped by its title; 93 deletes one), and in Playwright `mobile-day-view` (one `h3`, a count of five, a
+     mock that answers every range alike), `mobile-month-view` and `i18n-date-locale`. They are scoped to the day
+     section in the same change.
 
 ### Acceptance Criteria
 
@@ -497,6 +545,87 @@ test: `frontend/packages/hooks/src/useCalendar.test.ts` › `paging to a week wi
 - **And** each row is one week of seven cells, starting on Sunday
 - **And** only events inside that range are held
 test: `frontend/packages/config/src/calendar-month.test.ts` › `August 2026 (starts on a Saturday) needs six weeks` (+6 more)
+
+#### CALENDAR-MOBILE-VIEWS-37: Dia makes at most two reads (rule 26c)
+- **Given** Dia opened on a day
+- **When** the user scrolls through every loaded day and back, selects days inside the range, and reaches the end twice
+- **Then** exactly one read of seven weeks and one of the next four were made, and moving to a day outside the range starts over with one
+test: `frontend/packages/hooks/src/useDayList.test.tsx` › `at most two reads however far the user scrolls`
+
+#### CALENDAR-MOBILE-VIEWS-38: The selected day is the day at the top, and a target holds until it arrives (rule 26a, 26b)
+- **Given** the days' positions, a scroll offset and, in turn, no target, a target inside the loaded range in progress, a touch, and one second gone
+- **Then** the shared helper gives the day at the top, the target, the day at the top, and the day at the top
+test: `frontend/packages/config/src/day-list.test.ts` › `the day at the top is the selected day unless a target is in progress`
+
+#### CALENDAR-MOBILE-VIEWS-39: Scrolling on web moves the day and the strip, with no request (rule 26a, 26c)
+- **Given** the seeded coach in Dia at 390×844
+- **When** they scroll down into the next week and back
+- **Then** the strip's date and week follow, the add-class form opens on that date, and no calendar request was made
+test: `frontend/apps/web/e2e/schedule-calendar/mobile-day-scroll.spec.ts` › `scrolling moves the selected day and the week`
+
+#### CALENDAR-MOBILE-VIEWS-40: A date, a chevron, Hoje and a link put their day at the top, on web (rule 26b, 26f)
+- **Given** the same calendar, and a page opened by `/calendar?date=` on another month
+- **Then** each puts its day's header at the list's top and in the strip, the last day of the second read included, and Hoje is gone when today is selected
+test: `frontend/apps/web/e2e/schedule-calendar/mobile-day-scroll.spec.ts` › `a date, a chevron, Hoje and a link land on their day`
+
+#### CALENDAR-MOBILE-VIEWS-41: The headers stay, empty days are short and modes agree, on web (rule 26, 26g)
+- **Given** a day taller than the screen, a run of empty days, and the student filter
+- **Then** the tall day's header stays at the top, an empty day is a header and its line, the filter applies to every day, and going to Semana and back keeps the selected day at the top
+test: `frontend/apps/web/e2e/schedule-calendar/mobile-day-scroll.spec.ts` › `headers stay, empty days are short and the modes agree`
+
+#### CALENDAR-MOBILE-VIEWS-42: The same on iOS (rule 26)
+- **Given** the seeded coach in Dia on iOS
+- **When** they scroll into the next week, tap Hoje, and pull at the list's top
+- **Then** each time the strip's selected date is that day's and its section is visible, and the refresh ends
+test: `frontend/apps/mobile/.maestro/flows/330-calendar-day-scroll.yaml` › `330-calendar-day-scroll`
+
+#### CALENDAR-MOBILE-VIEWS-43: A failed second read leaves the list usable (rule 26d)
+- **Given** the first read answered and the second failing
+- **Then** on each shell the end shows one line with a retry, the days stay, and the retry adds the weeks
+test: `frontend/apps/web/src/components/calendar/mobile/DayList.test.tsx` › `a failed second read offers a retry` (+ iOS: `frontend/apps/mobile/src/features/calendar/day-list.test.tsx` › the same title)
+
+#### CALENDAR-MOBILE-VIEWS-44: The next class is searched in today's week only (rule 26e)
+- **Given** loaded weeks where this week has no class left and a later one has
+- **Then** the shared helper names no next class; with one left this week, it names that one
+test: `frontend/packages/config/src/day-list.test.ts` › `the next class is searched in the week that holds today`
+
+#### CALENDAR-MOBILE-VIEWS-45: An edit in a later week shows at once on web (rule 26e)
+- **Given** the seeded coach in Dia, scrolled two weeks ahead
+- **When** they change that class's name
+- **Then** its card changes without a reload, and the list keeps its place
+test: `frontend/apps/web/e2e/schedule-calendar/mobile-day-scroll.spec.ts` › `an edit in a later week shows and the list keeps its place`
+
+#### CALENDAR-MOBILE-VIEWS-46: A jump outside the range lands on its day, or says why not (rule 26b, 26d)
+- **Given** a slow, then a failing, read for a day outside the range
+- **When** the list's old days scroll while it waits
+- **Then** the target stays selected; on the answer it stands at the top; on the failure the error with its retry shows
+test: `frontend/packages/hooks/src/useDayList.test.tsx` › `a jump outside the range holds its target`
+
+#### CALENDAR-MOBILE-VIEWS-47: Modes never show each other's weeks (rule 26c, 26d)
+- **Given** Semana on screen with its week read
+- **When** the user enters Dia, then returns to Semana, then Dia again
+- **Then** Dia never renders Semana's week as its range, Semana's grid never receives events outside its week, and the return to Dia within `client.query-cache` rule 3's fresh window makes no new read
+test: `frontend/packages/hooks/src/useDayList.test.tsx` › `modes keep their own ranges`
+
+#### CALENDAR-MOBILE-VIEWS-48: Reduced motion jumps, and the edge rows reopen the list, on web (rule 26b, 26c)
+- **Given** reduced motion, and the list at its first and its last loaded day
+- **Then** a tapped date is at the top with no scroll animation, and each edge row reopens the list at the first day of the week just outside
+test: `frontend/apps/web/e2e/schedule-calendar/mobile-day-scroll.spec.ts` › `reduced motion jumps and the edge rows reopen the list`
+
+### Waves
+1. 37, 38, 44, 46, 47 — the shared list state and helper (`@levelup/hooks`, `@levelup/config`).
+2. 39, 40, 41, 43, 45, 48 — web phone, with the Playwright specs it affects.
+3. 42, 43 — iOS, starting with a spike on the installed React Native (0.81.5): sticky headers and opening at a day in a
+   list of variable heights, on the simulator, before the screen is written. `calendar.tsx` keeps `calendar-refresh` and a
+   `useCalendarEvents(… keepPreviousData` read (`pull-refresh.test.ts`, `thread-screen-wiring.test.ts` read its source). Web and iOS are one PR.
+
+### Open questions
+- **Empty days** (asked 2026-11-25, not answered) — built as shown, the prototype's default; the other option is to skip them.
+- **How far it reaches without a tap:** 2 weeks back and 8 ahead, less back than the prototype (4), so that nothing is added above
+  the reader and Dia's refetches stay at two. Stream lead's decision, for the owner to reverse.
+- **Pull to refresh on iOS** works at the list's top, up to 2 weeks above the opening day. Asked 2026-11-25.
+- **The cost of a seven-week read** is not measured. Wave 1 measures it against Mês's on a seeded busy coach; if it is slower than Mês's
+  by more than half, the read shrinks to 1 week before and 2 after, and the rule is amended.
 
 ### Notes
 - **Status (2026-09-10, PAD-248):** every rule (1–25) is built on web and iOS — Dia
