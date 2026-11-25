@@ -3308,6 +3308,8 @@ Untagged tests: 4280
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-22** An expand-only migration is silent (rule 12, PAD-711)
     - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_an_expand_only_revision_is_silent
     - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_downgrade_is_never_read
+    - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_no_pr_migrations_says_so_and_passes
+    - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_an_unreadable_file_is_not_counted_as_expand_only
     - test: `backend/padel_app/tests/test_pad711_expand_contract_guard.py` › test_a_not_null_column_with_a_server_default_is_expand
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-23** A vhost enabled by symlink counts (rule 6, B-662)
     - test: `backend/padel_app/tests/test_pad588_rollout.py` › test_a_vhost_enabled_by_symlink_is_seen_and_the_deploy_rolls
@@ -4288,6 +4290,7 @@ Untagged tests: 4280
     - test: `backend/padel_app/tests/test_history_import_apply.py` › test_the_apply_moves_the_starts_writes_the_marks_and_proves_the_numbers
   - **IMPORT-ONBOARDING-RUNNER-27** No student is contacted and nothing is opened (rule 22)
     - test: `backend/padel_app/tests/test_history_import_apply.py` › test_the_apply_moves_the_starts_writes_the_marks_and_proves_the_numbers
+    - test: `backend/padel_app/tests/test_history_import_apply.py` › test_the_run_is_proven_and_reverted_for_a_coach_switched_to_the_new_engine
     - test: `backend/padel_app/tests/test_history_import_runner_primitives.py` › test_a_quiet_materialisation_writes_only_the_occurrence_and_its_roster_rows
     - test: `backend/padel_app/tests/test_history_import_runner_primitives.py` › test_a_quiet_enrolment_of_a_guest_writes_only_the_row
   - **IMPORT-ONBOARDING-RUNNER-28** A coach-made mark is never overwritten (rules 20, 21, D11)
@@ -4296,11 +4299,15 @@ Untagged tests: 4280
   - **IMPORT-ONBOARDING-RUNNER-29** The app's numbers are proven against the file (rule 26)
     - test: `backend/padel_app/tests/test_history_import_apply.py` › test_the_apply_moves_the_starts_writes_the_marks_and_proves_the_numbers
     - test: `backend/padel_app/tests/test_history_import_apply.py` › test_a_difference_between_the_file_and_the_app_fails_the_run_and_leaves_nothing
+    - test: `backend/padel_app/tests/test_history_import_apply.py` › test_the_coachs_own_marks_do_not_fail_the_proof
+    - test: `backend/padel_app/tests/test_history_import_apply.py` › test_a_wrong_written_row_still_fails_the_proof_beside_coach_marks
+    - test: `backend/padel_app/tests/test_history_import_apply.py` › test_the_run_is_proven_and_reverted_for_a_coach_switched_to_the_new_engine
   - **IMPORT-ONBOARDING-RUNNER-30** A second history run and a changed starting state are refused (rule 25)
     - test: `backend/padel_app/tests/test_history_import_apply.py` › test_a_second_history_run_is_refused_while_one_is_active
     - test: `backend/padel_app/tests/test_history_import_dry_run.py` › test_a_changed_starting_state_is_refused
   - **IMPORT-ONBOARDING-RUNNER-31** Revert puts everything back (rule 27)
     - test: `backend/padel_app/tests/test_history_import_apply.py` › test_revert_puts_everything_back
+    - test: `backend/padel_app/tests/test_history_import_apply.py` › test_the_run_is_proven_and_reverted_for_a_coach_switched_to_the_new_engine
   - **IMPORT-ONBOARDING-RUNNER-32** A revert that would lose the coach's work is refused (rule 27)
     - test: `backend/padel_app/tests/test_history_import_apply.py` › test_a_revert_that_would_lose_the_coachs_work_is_refused
   - **IMPORT-ONBOARDING-RUNNER-33** The run creates the missing season and records it (rule 28)
@@ -7642,7 +7649,7 @@ Untagged tests: 4280
 - `backend/padel_app/tests/test_b302_structural_config_before_lock.py`: 2
 - `backend/padel_app/tests/test_b619_engine_routes_check_ownership.py`: 1
 - `backend/padel_app/tests/test_b665_no_untrusted_text_in_workflow_scripts.py`: 2
-- `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py`: 6
+- `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py`: 7
 - `backend/padel_app/tests/test_backend_500_fixes.py`: 2
 - `backend/padel_app/tests/test_backup_script.py`: 11
 - `backend/padel_app/tests/test_boolean_coercion.py`: 9
@@ -7982,7 +7989,7 @@ Untagged tests: 4280
 - `backend/padel_app/tests/test_pad697_events_role.py`: 7
 - `backend/padel_app/tests/test_pad699_push_outbox.py`: 9
 - `backend/padel_app/tests/test_pad704_second_copy.py`: 4
-- `backend/padel_app/tests/test_pad711_expand_contract_guard.py`: 3
+- `backend/padel_app/tests/test_pad711_expand_contract_guard.py`: 2
 - `backend/padel_app/tests/test_pad713_push_title_in_the_students_language.py`: 1
 - `backend/padel_app/tests/test_pad715_join_accept_closes_the_right_side.py`: 5
 - `backend/padel_app/tests/test_pad718_migrate_timeouts.py`: 4
