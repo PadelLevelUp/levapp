@@ -325,7 +325,6 @@ gunicorn's boot path into the leadership thread.
   **when** ahead **then** `/healthz` is 200 `schema_ahead`; **when** the database is unreachable
   **then** `/healthz` is 503 and `/livez` is still 200
 - **And** the schema reading is reused for ten seconds and read again after they pass
-- Code to follow: `test_healthz_reads_the_schema_at_most_every_ten_seconds` (`test_pad691_schema_gate.py`) shows the cached reading only; pin the clock and show the reading expires after ten seconds.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-16: The staging sync brings a restored prod copy to head (rules 9, 11)
 - **Given** a restore of prod's dump into the staging database
@@ -376,7 +375,6 @@ gunicorn's boot path into the leadership thread.
   expand-only; revisions the PR did not add are never read
 - **And** a revision file the guard could not read is warned about and never counted as
   expand-only; with no added revision the summary says there was none to check
-- Code to follow: `check_expand_contract.py` prints "N added migration(s), all expand-only" even for a file it could not parse and for zero files; count only the files it read, and say "no added migration" for none.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-23: A vhost enabled by symlink counts (rule 6, B-662)
 - **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it
@@ -450,7 +448,6 @@ test: `backend/padel_app/tests/test_pad704_second_copy.py` › `test_copies_is_o
 - **Then** each option the script does not know is left out, with a line saying so, and the rollout runs
 - **And** the current script is passed every option the workflow filters: `--migrate`, `--probe-host`, `--worker`, `--copies` and, on staging, `--drain`
 test: `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py` › `test_a_rollback_to_before_migrate_and_probe_host_still_rolls` (+3 more)
-- Code to follow: `test_the_current_rollout_gets_every_option` (`test_b666_rollback_runs_the_old_rollout.py`) asserts `--migrate` and `--probe-host` only; assert all five.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-35: A dry run prints every step and changes nothing (rule 17)
 - **Given** a server with the API running
@@ -458,7 +455,6 @@ test: `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py` › `
 - **Then** it prints the plan and each `docker` command it would run, the second copy's and the worker's included
 - **And** in every run no container is started, stopped, renamed or removed, and nginx is not reloaded
 test: `backend/padel_app/tests/test_pad704_second_copy.py` › `test_dry_run_prints_the_second_copy` (+4 more)
-- Code to follow: `test_dry_run_prints_the_worker_steps` (`test_pad695_worker_role.py`) and `test_dry_run_prints_the_second_copy` (`test_pad704_second_copy.py`) check the printed lines only; assert that no container changed, as the plain, stop-first and drain dry-run tests do.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-36: Under the E2E hold the scheduler starts paused until it is released (rules 1, 21)
 - **Given** the test server started with `E2E_SCHEDULER_HELD`, and without it
