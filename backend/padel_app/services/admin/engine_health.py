@@ -142,6 +142,50 @@ def _accounts(now) -> dict:
 
 #: Rule 8: who counts as an active student (PAD-741's baseline definition, kept as is).
 ACTIVE_STUDENT_WINDOW = timedelta(days=7)
+#: Rule 13 (PAD-789): const:MESSAGE_RECIPIENT_WINDOW_DAYS, how far back a received message counts.
+MESSAGE_RECIPIENT_WINDOW_DAYS = 7
+
+
+def _by_channel(users) -> dict:
+    """Rules 8a and 13: one grouped `EXISTS` query splitting a users subquery by push channel."""
+    from padel_app.models import DeviceToken, PushSubscription
+
+    has_token = db.session.query(DeviceToken.id).filter(DeviceToken.user_id == users.c.user_id).exists()
+    has_webpush = (db.session.query(PushSubscription.id)
+                   .filter(PushSubscription.user_id == users.c.user_id).exists())
+    cells = db.session.query(has_token, has_webpush, func.count()).select_from(users).group_by(
+        has_token, has_webpush).all()
+    found = {(bool(t), bool(w)): n for t, w, n in cells}
+    return {
+        "total": sum(found.values()),
+        "noChannel": found.get((False, False), 0),
+        "webPushOnly": found.get((False, True), 0),
+        "nativeOnly": found.get((True, False), 0),
+        "nativeAndWebPush": found.get((True, True), 0),
+    }
+
+
+def _message_recipients(now):
+    """Rule 13: players someone else wrote to after now − the window, in a conversation they had
+    joined by then. Every message type counts, deleted ones too."""
+    from padel_app.models import ConversationParticipant, Message, Player
+
+    since = now - timedelta(days=MESSAGE_RECIPIENT_WINDOW_DAYS)
+    received = (
+        db.session.query(Message.id)
+        .filter(Message.conversation_id == ConversationParticipant.conversation_id,
+                Message.sender_id != ConversationParticipant.user_id,
+                Message.sent_at > since,
+                Message.sent_at >= ConversationParticipant.joined_at)
+        .exists()
+    )
+    return (
+        db.session.query(Player.user_id.label("user_id"))
+        .join(ConversationParticipant, ConversationParticipant.user_id == Player.user_id)
+        .filter(received)
+        .distinct()
+        .subquery()
+    )
 
 
 def _push(now) -> dict:
@@ -152,7 +196,7 @@ def _push(now) -> dict:
     also coach: PAD-741's definition, so the count compares with its 2026-10-22 baseline. One
     aggregate query; counts only, no ids.
     """
-    from padel_app.models import ConversationParticipant, DeviceToken, Player, PushSubscription
+    from padel_app.models import ConversationParticipant, Player
     from padel_app.models.delivery_incident import DeliveryIncident
 
     since = now - ACTIVE_STUDENT_WINDOW
@@ -163,12 +207,6 @@ def _push(now) -> dict:
         .distinct()
         .subquery()
     )
-    has_token = db.session.query(DeviceToken.id).filter(DeviceToken.user_id == active.c.user_id).exists()
-    has_webpush = (db.session.query(PushSubscription.id)
-                   .filter(PushSubscription.user_id == active.c.user_id).exists())
-    cells = db.session.query(has_token, has_webpush, func.count()).select_from(active).group_by(
-        has_token, has_webpush).all()
-    found = {(bool(t), bool(w)): n for t, w, n in cells}
 
     failures = dict(
         db.session.query(DeliveryIncident.channel, func.count())
@@ -178,13 +216,10 @@ def _push(now) -> dict:
         .all()
     )
     return {
-        "activeStudents7d": {
-            "total": sum(found.values()),
-            "noChannel": found.get((False, False), 0),
-            "webPushOnly": found.get((False, True), 0),
-            "nativeOnly": found.get((True, False), 0),
-            "nativeAndWebPush": found.get((True, True), 0),
-        },
+        "activeStudents7d": _by_channel(active),
+        # Rule 13 (PAD-789): the students someone wrote to, the people a push would serve.
+        "messageRecipients": {"windowDays": MESSAGE_RECIPIENT_WINDOW_DAYS,
+                              **_by_channel(_message_recipients(now))},
         "registrationFailures7d": {platform: failures.get(channel, 0)
                                    for platform, channel in (("ios", "apns"), ("android", "fcm"),
                                                              ("web", "webpush"))},

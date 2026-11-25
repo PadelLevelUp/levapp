@@ -38,8 +38,6 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
    Monday-to-Sunday weeks) and recurrence weekday numbering (`daysOfWeek`, `weekdays`), which are
    conventions, not a week's first day. App Store builds 32/33 compute their grid on the device
    and keep Monday until they update. The backend's week helper is `padel_app/utils/dates.py`.
-   - Code to follow: the comment in `week-start.ts` points at `padel_app/utils/dates.py`, not at
-     `padel_app/utils/week.py`, which does not exist.
 6. Events are color-coded: academy classes, private classes, calendar block types. **(PAD-130)**
    an **open-spot class a player is not enrolled in uses a distinct colour** from that
    player's own classes — the two must never be mistaken for each other, since one is a commitment
@@ -55,8 +53,6 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 8. Class events expose `participantCount` / `maxPlayers`, rendered on the event card as `X/Y`. `participantCount` is the **effective filled spots** for the instance, NOT the raw enrolment count: enrolled players (the instance's `presences`, PAD-259) minus those whose presence status is `absent` (declined the invite or cancelled), floored at 0. Players who have not yet responded still count toward `X`
 9. Effective filled spots is computed in exactly one place — `LessonInstance.effective_filled_spots` on the backend model — and is the single source of truth shared by the calendar event card, the class-detail "capacity" field (calendar.event-detail), and the invitation engine's capacity checks (notifications.invitation-engine). No surface recomputes it independently
 10. Lesson templates (non-materialized recurrence occurrences with no instance row) have no presences, so their `participantCount` is the series roster count (`player_in_lesson`)
-   - Code to follow: the series-count test for this rule enrols students in the series and asserts the
-     number, instead of comparing 0 with 0.
 11. Each event exposes a `status` of `completed` or `scheduled`. An event is `completed` once its **end datetime has passed** (compared against the current time on the club's clock: the stored end is Lisbon wall-clock, R-023, PAD-256), otherwise `scheduled`. The comparison uses the real end datetime — the event's date combined with its end time-of-day — NOT just the date. So a class that ended earlier **today** reads as `completed`, exactly like classes on previous days. **Two cases read differently (`serializers/calendar_event.py`):** a class whose end is 00:00 after a later start ends at midnight at the END of its own day (PAD-553, `classes.create` rule 8c), so a 22:00–00:00 class reads `scheduled` while it runs; and any other class whose end is before its start keeps its old reading, the end time-of-day on its own day (B-294's typo). For recurrence occurrences the end datetime is the occurrence date combined with the template's end time-of-day. "Now" uses the same naive-UTC clock (`utcnow_naive`) the scheduler uses to compare class datetimes
 12. The week-range label (`useCalendar`'s `weekLabel`) is rendered in the **active UI language**, not a hardcoded English locale: month abbreviations follow the coach's `users.language` preference on web and on iOS alike (`pt` → "31 ago–6 set", `en` → "31 Aug–6 Sep"). `useCalendar` lives in `@levelup/hooks`, which must stay platform-neutral (no React DOM, no React Native, no Expo import), so the shell passes its active language in (`options.language`) and the hook derives the label from it. The language→`date-fns` `Locale` mapping lives in exactly one place, `resolveDateLocale` in `@levelup/config`, shared by both shells and by the hook; the fallback stays `pt` per settings.language rule 4. The label is *derived* from the stored language on every render, never frozen into state, so switching language in Settings re-renders it without a reload
 13. **(PAD-170 C4, decided 2026-09-04)** iOS carries the same colour-coding legend web has
@@ -174,7 +170,10 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
       never amber (`calendar.mobile-views` rule 7 does not apply to a student viewer).
     - **Opening a full class** offers "Juntar-me à lista de espera"
       (`classes.academy-class-booking` rule 6's endpoint, `{model, originalId, date}`); a class the
-      student waits for shows "Em lista de espera" instead of the button.
+      student waits for shows "Em lista de espera" instead of the button, and "Sair da lista de
+      espera" (PAD-934): after one confirm it calls `classes.academy-class-booking` rule 7's leave
+      endpoint (`notifications.waiting-list` rule 14), removes that class's entry only, and the card
+      goes back to the join offer.
     - **Filter.** At the top of the student's calendar a two-option selector,
       "Todas em que sou elegível" (default) / "Só as minhas aulas" (`calendar-student-filter`).
       "Só as minhas" hides only the offers (`open_spot`, `full`); `enrolled`, `not_coming`,
@@ -191,8 +190,6 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
       before (no `full` events); the colours are a client concern and change nothing on the wire.
 
 24. **A bare date is a calendar day (B-060).** A `YYYY-MM-DD` value typed into the new-class or new-event sheet is read as that calendar day and never as an instant: its weekday, and the date some months later, are worked out on the calendar, with the day clamped to the month's last.
-   - Code to follow: `dateOnly.test.ts` also runs under a time zone west of UTC, so a helper that drifts a
-     day west (B-060) fails it.
 
 ### Acceptance Criteria
 
@@ -387,3 +384,13 @@ test: `backend/padel_app/tests/test_calendar_participant_count.py` › `test_les
 - **Then** 13 July 2027 is a Tuesday
 - **And** one month after 31 January is 28 February, and three months after 13 July is 13 October
 test: `frontend/apps/web/src/lib/dateOnly.test.ts` › `the weekday of a bare date is that date's weekday` (+1 more)
+
+#### CALENDAR-VIEW-27: A student on a class's waiting list can leave it from the class detail (rule 23, PAD-934)
+- **Given** a student who is on a class's waiting list, with that class open from the Calendar
+- **Then** the waiting-list block shows "Sair da lista de espera"
+- **When** they press it
+- **Then** they are asked once, and answering no changes nothing
+- **When** they confirm
+- **Then** `POST /api/app/class-waiting-list/<lesson instance id>/leave` is called once, the block goes back to the join offer, and the calendar is read again
+- **And** a 404 (already gone) is no error, and any other failure keeps the block and says so
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.leaveWaitlist.test.tsx` › `[CALENDAR-VIEW-27] a student on the waiting list leaves it from the class detail`, `frontend/apps/mobile/src/features/calendar/waiting-list-leave.test.tsx` › `[CALENDAR-VIEW-27] a student on the waiting list leaves it from the class detail`

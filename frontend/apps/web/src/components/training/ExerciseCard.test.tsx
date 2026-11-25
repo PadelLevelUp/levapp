@@ -63,6 +63,42 @@ describe("ExerciseCard thumbnail", () => {
     expect(screen.getByTestId("thumb-ball-path").getAttribute("d")).not.toMatch(/Q/);
   });
 
+  it("[TRAINING-TACTICAL-BOARD-24] shows both paths of a step with two ball paths, and one for an older exercise with a single ball", () => {
+    const p1 = { from: { x: 58, y: 20 }, to: { x: 40, y: 80 }, style: "flat" as const };
+    const p2 = { from: { x: 40, y: 80 }, to: { x: 70, y: 30 }, style: "lob" as const };
+    const pieces = [{ id: "a1", kind: "player" as const, team: "A" as const, label: "A1", x: 32, y: 26 }];
+    const { rerender } = render(
+      <ExerciseCard
+        exercise={{
+          ...base,
+          id: "two",
+          name: "Two paths",
+          diagram: { version: 2, mode: "game", pieces, steps: [{ id: "s1", balls: [p1, p2], ball: p1, movements: [] }] },
+        }}
+        onClick={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByTestId("thumb-ball-path").getAttribute("data-style")).toBe("flat");
+    expect(screen.getByTestId("thumb-ball-path-1").getAttribute("data-style")).toBe("lob");
+
+    // Saved before PAD-289: `ball` only.
+    rerender(
+      <ExerciseCard
+        exercise={{
+          ...base,
+          id: "old",
+          name: "Older",
+          diagram: { version: 2, mode: "game", pieces, steps: [{ id: "s1", ball: p1, movements: [] }] },
+        }}
+        onClick={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByTestId("thumb-ball-path").getAttribute("data-style")).toBe("flat");
+    expect(screen.queryByTestId("thumb-ball-path-1")).toBeNull();
+  });
+
   it("renders no thumbnail when there is no diagram", () => {
     render(<ExerciseCard exercise={{ ...base, id: "none", name: "None" }} onClick={() => {}} onDelete={() => {}} />);
     expect(screen.queryByTestId("thumb-court-surface")).toBeNull();

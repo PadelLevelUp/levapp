@@ -141,17 +141,3 @@ export const exerciseFormSchema = z.object({
 });
 
 export type ExerciseFormInput = z.infer<typeof exerciseFormSchema>;
-
-/* ── Availability blocker (AvailabilityPage) ─────────────────────────────── */
-// Web only hard-requires a date ("Date required" toast).
-
-export const availabilityBlockerSchema = z.object({
-  title: z.string().nullable().optional(),
-  date: z.string().min(1, "Date required"),
-  startTime: z.string(),
-  endTime: z.string(),
-  isRecurring: z.boolean(),
-  endDate: z.string().nullable().optional(),
-});
-
-export type AvailabilityBlockerInput = z.infer<typeof availabilityBlockerSchema>;

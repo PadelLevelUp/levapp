@@ -31,6 +31,7 @@ function row(side: Partial<React.ComponentProps<typeof AttendanceRow>["side"]> |
       player={player}
       attendance={{ status: null }}
       onChange={() => {}}
+      classEnded
       disabled
       side={side ? { current: "left", override: false, editable: true, onChange, ...side } : undefined}
     />

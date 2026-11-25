@@ -42,7 +42,7 @@ describe("StudentEvaluationsBlock", () => {
     expect(screen.getAllByTestId(/^evaluation-shared-card-\d+$/)).toHaveLength(3);
   });
 
-  it("the 'Ver todas' link points at the block's own href", () => {
+  it("[DASHBOARD-NAVIGATION-9] the 'Ver todas' link points at the block's own href", () => {
     renderBlock(block([card(1)]));
     expect(screen.getByTestId("student-evaluations-see-all").getAttribute("href")).toBe("/evaluations");
   });

@@ -223,6 +223,19 @@ function Summary({ data }: { data: EngineHealth }) {
             <Stat label={t("admin.engineHealth.push.webPushOnly")} value={data.push.activeStudents7d.webPushOnly} testId="admin-eh-push-web-only" />
             <Stat label={t("admin.engineHealth.push.native")} value={data.push.activeStudents7d.nativeOnly + data.push.activeStudents7d.nativeAndWebPush} testId="admin-eh-push-native" />
           </div>
+          {/* Rule 13 (PAD-789): the students someone wrote to, by channel; absent from an older API. */}
+          {data.push.messageRecipients && (
+            <>
+              <p className="mt-4 mb-2 text-sm text-muted-foreground" data-testid="admin-eh-push-recipients-label">
+                {t("admin.engineHealth.push.recipients", { days: data.push.messageRecipients.windowDays })}
+              </p>
+              <div className="flex flex-wrap gap-6">
+                <Stat label={t("admin.engineHealth.push.recipientsTotal")} value={data.push.messageRecipients.total} testId="admin-eh-push-recipients" />
+                <Stat label={t("admin.engineHealth.push.noChannel")} value={data.push.messageRecipients.noChannel} testId="admin-eh-push-recipients-no-channel" />
+                <Stat label={t("admin.engineHealth.push.webPushOnly")} value={data.push.messageRecipients.webPushOnly} testId="admin-eh-push-recipients-web-only" />
+              </div>
+            </>
+          )}
           <p className="mt-2 text-xs text-muted-foreground" data-testid="admin-eh-push-failures">
             {t("admin.engineHealth.push.failures7d")}:{" "}
             {(["ios", "android", "web"] as const).map((p) => `${p} ${data.push!.registrationFailures7d[p]}`).join(" · ")}

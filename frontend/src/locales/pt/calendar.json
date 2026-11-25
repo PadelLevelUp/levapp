@@ -143,6 +143,8 @@
       "markUnjustified": "Marcar a falta de {{name}} como injustificada"
     },
     "detail": {
+      "typePrivate": "Particular",
+      "typeAcademy": "Academia",
       "date": "Data",
       "until": "Até",
       "untilDate": "Até {{date}}",

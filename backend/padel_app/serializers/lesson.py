@@ -236,6 +236,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         "name": obj.title,
         # PAD-840 (classes.delete rule 14): whose cancellations the detail reads, whichever way it was opened.
         "lessonId": str(lesson.id),
+        # classes.detail-visibility rule 6 (PAD-925): the type for the detail's chip, so a class opened
+        # from the dashboard, a message or a push (no calendar event to read it from) still shows it.
+        "classType": lesson.type,
         "levelId": (
             str(lesson.default_level_id)
             if lesson.default_level_id

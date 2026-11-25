@@ -99,38 +99,6 @@ export function eventBlockGeometry(
   return { top, height };
 }
 
-/**
- * Events whose [start, end) intervals intersect share a group; adjacent
- * events (one ends when the next starts) do not. Lifted from the desktop
- * `CalendarGrid`, which now imports it.
- */
-export function groupOverlappingEvents<T extends GridEventLike>(events: T[]): T[][] {
-  const groups: T[][] = [];
-  for (const event of events) {
-    if (!hasTimes(event)) {
-      groups.push([event]);
-      continue;
-    }
-    let placed = false;
-    for (const group of groups) {
-      if (
-        group.some(
-          (e) =>
-            hasTimes(e) &&
-            toMinutes(e.startTime) < toMinutes(event.endTime) &&
-            toMinutes(event.startTime) < toMinutes(e.endTime)
-        )
-      ) {
-        group.push(event);
-        placed = true;
-        break;
-      }
-    }
-    if (!placed) groups.push([event]);
-  }
-  return groups;
-}
-
 export interface LaidOutEvent<T> extends BlockGeometry {
   event: T;
   /** Column index within its overlap cluster. */
@@ -237,14 +205,6 @@ export function layoutDayColumn<T extends GridEventLike>(
 function minutesToTime(m: number): string {
   const clamped = Math.min(m, 24 * 60 - 1);
   return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
-}
-
-/** One day column's blocks, uncapped: geometry plus packed side-by-side placement (B-543). */
-export function layoutDayEvents<T extends GridEventLike>(
-  events: T[],
-  options: BlockGeometryOptions
-): LaidOutEvent<T>[] {
-  return layoutDayColumn(events, options).blocks;
 }
 
 /** One hour row of the time grid, in px / pt, on both shells (rule 13). */
