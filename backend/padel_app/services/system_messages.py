@@ -528,10 +528,12 @@ def _cancellation_text(templates, locale, player, source, reason, override="") -
     if override.strip():
         # Free text: a `{word}` that is no placeholder goes, so no raw token reaches a student (rule 5).
         known = set(values) | {"reason"}
-        template = re.sub(r"\{(\w+)\}", lambda m: m.group(0) if m.group(1) in known else "", override)
-    else:
-        template = resolve_message_template(templates, "class_cancelled", locale)
-    text = _format_template(template, **values, reason=reason)
+        edited = re.sub(r"\{(\w+)\}", lambda m: m.group(0) if m.group(1) in known else "", override)
+        text = _format_template(edited, **values, reason=reason)
+        if text:
+            return text
+        # An edit that renders to nothing sends the coach's own template (rule 13), which keeps its fall-back below.
+    text = _format_template(resolve_message_template(templates, "class_cancelled", locale), **values, reason=reason)
     if text:
         return text
     # PAD-840 (message-templates rule 25): a coach's text that is one sentence with {reason} in it

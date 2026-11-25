@@ -458,3 +458,22 @@ def test_the_preview_answers_the_template_and_follows_an_override(app, client):
     assert answer["text"] == "Oi Ana, sem aula de terça-feira às 19:00 - Chuva. Até já!"
     assert answer["template"] == "Modelo {name}. {reason}"
     assert _messages(app) == []  # a preview sends nothing
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+@pytest.mark.parametrize("override", ["{reason}", "{nonsense}", "{0}"])
+def test_an_override_that_renders_to_nothing_sends_the_coachs_template(app, client, override):
+    ids = _seed(app, names=("Ana Silva",))
+    _template(app, ids, "Modelo {name}")
+    assert _remove(client, ids, messageOverride=override).status_code == 200
+    assert _messages(app)[0][0] == "Modelo Ana"
+
+
+@pytest.mark.criterion("CLASSES-DELETE-18")
+def test_the_preview_refuses_an_override_over_the_limit(app, client):
+    ids = _seed(app)
+    resp = client.post("/api/app/class_cancellation_preview", json=_body(ids, messageOverride="x" * 1001),
+                       headers=ids["headers"])
+    assert resp.status_code == 400
+    assert client.post("/api/app/class_cancellation_preview", json=_body(ids, messageOverride="x" * 1000),
+                       headers=ids["headers"]).status_code == 200
