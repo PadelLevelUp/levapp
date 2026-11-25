@@ -1,6 +1,6 @@
 ---
 id: messaging.conversations
-status: implementing
+status: implemented
 depends_on: [auth.login]
 serves: [P-MESSAGING-2]
 governed_by: []
