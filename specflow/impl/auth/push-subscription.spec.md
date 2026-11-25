@@ -1,6 +1,6 @@
 ---
 id: auth.push-subscription
-status: implemented
+status: implementing
 depends_on: [auth.login]
 serves: [P-AUTH-2]
 governed_by: []
@@ -60,6 +60,16 @@ Register browser push notification subscriptions for authenticated users.
    `POST /api/notifications/registration-failure` with the permission state, never the
    subscription (`admin.engine-health` rule 8, PAD-746); permission not granted reports nothing.
    Native's counterpart is `messaging.push-notifications` rule 15.
+10. **The Messages page shows at most one push line, decided in one place (PAD-789).** Which line
+    the web Messages page shows is one pure function of the browser's state, `messagesPushBanner
+    ({isSupported, permission, isSubscribed, saveState})`, which `MessagesPage.tsx` calls instead
+    of its three inline conditions: no Push API → none; `denied` → the PAD-195 blocked line
+    (`push-blocked-banner`); `granted` and the save failed → the not-active line with its retry
+    (`push-inactive-banner`, rule 9); not subscribed otherwise → the enable prompt, whose button
+    is rule 4's user-gesture subscribe; subscribed → none. The lines, their copy and the prompt
+    site are unchanged; the function makes them mutually exclusive and testable. It is PAD-789's
+    web half: a student whose browser holds no subscription is offered one on Messages. The
+    iOS/Android counterpart is `messaging.push-notifications` rule 17.
 
 ### Acceptance Criteria
 
@@ -109,3 +119,41 @@ Register browser push notification subscriptions for authenticated users.
 - **Then** the answer is 400
 - **And** the same route with no session answers 401
 test: `backend/padel_app/tests/test_pad173_single_subscription_route.py` › `test_save_subscription_rejects_missing_subscription` (+1 more)
+
+#### AUTH-PUSH-SUBSCRIPTION-9: The Messages page shows exactly one push line per browser state, and none when push cannot work (rule 10, PAD-789)
+- **Given** the browser states: no Push API; `default` and not subscribed; `granted` and subscribed; `granted`, not subscribed, save `failed`; `denied`
+- **When** `messagesPushBanner` decides the line
+- **Then** they give none, `enable`, none, `inactive` (never `enable` as well), and `blocked`
+- **And** the Messages page renders the matching `push-inactive-banner` or `push-blocked-banner`, or the enable prompt, and never two of them
+test: `frontend/apps/web/src/utils/messagesPushBanner.test.ts` › `each browser state gives one line, and a browser with no Push API none` (+1 more: `frontend/apps/web/src/pages/MessagesPage.pushBanner.test.tsx` › `the page renders the one line the decision names`)
+
+### Today (PAD-789)
+- The web Messages page decides its push line inline in `frontend/apps/web/src/pages/MessagesPage.tsx`
+  (about lines 578–616): `push-inactive-banner` when supported, `granted` and `saveState === "failed"`;
+  the enable prompt when supported, not subscribed, not `denied` and not failed; `push-blocked-banner`
+  when supported and `denied`. Every line is gated on `isSupported`.
+- The state comes from `frontend/apps/web/src/hooks/usePushNotifications.ts` (`isSupported`,
+  `permission`, `isSubscribed`, `saveState`, `subscribe`); the save is
+  `frontend/apps/web/src/utils/pushNotifications.ts:subscribeToPush`, which also holds
+  `isIosBrowserWithoutApp()` (used by the setup guide only).
+- Pinned today by `frontend/apps/web/e2e/messaging/push-denied-feed.spec.ts` (the blocked line) and
+  `src/utils/pushNotifications.test.ts`; no unit test pins which line shows for which state.
+- An iPhone-class student is offered the App Store by `mobile.install-suggestion`
+  (`components/layout/InstallAppBanner.tsx`, `@levelup/config` `install-suggestion.ts`).
+
+### Waves (PAD-789)
+3. AUTH-PUSH-SUBSCRIPTION-9 — web `MessagesPage.tsx` and a new `utils/messagesPushBanner.ts`; ships in
+   one wave with `messaging.push-notifications`' MESSAGING-PUSH-NOTIFICATIONS-38.
+
+### Open questions (PAD-789)
+- **A student on an iPhone browser (outside an installed web app).** There the Push API is
+  missing, so today's Messages page shows no push line at all, and the setup guide's `ios_browser`
+  state (`dashboard.student-setup-guide` rule 7) is the only place that says so. Options: (a) no
+  new line: `mobile.install-suggestion` already offers such a student the App Store listing on
+  every page, and P-MOBILE-3 promises they "learn once" and that "dismissing hides it for 30
+  days"; (b) a Messages line "no alerts in the iPhone browser, get the app" with the App Store
+  link, which honours the install card's dismissal (`install-suggestion.ts`) and would need the
+  server to say the student holds no native token, or it nags a student who already has the app.
+  Default (a): (b) reads as a second install nudge against P-MOBILE-3's "once", which is the
+  owner's to change.
+
