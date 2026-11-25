@@ -81,9 +81,9 @@ describe("a LessonInstance route with missing date, times or capacity is complet
   it("[CALENDAR-EVENT-DETAIL-40] the class payload is not asked for until the read has given the date", async () => {
     let release: (v: unknown) => void = () => undefined;
     api.getLessonInstanceById.mockReturnValue(new Promise((r) => (release = r)));
-    const { view } = await mount(dashboardParams("/calendar?classId=lessoninstance-7"));
-    expect(seen.classEvent).toBeNull(); // pending: nothing to ask class_instance with
-    expect(seen.event).not.toBeNull(); // but the header still renders from the route
+    const { view } = await mount(dashboardParams("/calendar?classId=lessoninstance-7&date=2026-07-07"));
+    expect(seen.classEvent).toBeNull(); // pending: class_instance waits for the read
+    expect(seen.event).toMatchObject({ date: "2026-07-07", title: "Aula" }); // the header renders from the route meanwhile
     await act(async () => release({ lessonInstance: INSTANCE }));
     await view.flush();
     expect(seen.classEvent).toMatchObject({ date: "2026-07-07" });
