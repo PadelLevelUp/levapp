@@ -21,7 +21,7 @@ from padel_app.tools.username_tools import find_user_by_username
 DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 DEFAULT_WINDOW = ("08:00", "22:00")   # classes.class-requests rule 1, until a coach declares hours
 MIN_FREE_MINUTES = 30                  # the shortest class a request may ask for
-MAX_RANGE_DAYS = 62
+MAX_RANGE_DAYS = 366                   # PAD-927: one read covers the whole weekly request (a year at most)
 MAX_PEOPLE = 4
 
 
