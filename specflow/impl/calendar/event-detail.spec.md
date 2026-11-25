@@ -643,7 +643,7 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.
 - **And** the iOS class screen's join block takes its status line from that helper
 test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no line for an accepted or withdrawn request` (+1 more)
 
-#### CALENDAR-EVENT-DETAIL-40: A route with an instance id but missing date, times or capacity is completed from the id (rule 15, PO M-6994)
+#### CALENDAR-EVENT-DETAIL-47: A route with an instance id but missing date, times or capacity is completed from the id (rule 15, PO M-6994)
 - **Given** a `LessonInstance` route that carries an id but lacks `date`, `startTime`, `endTime` or `maxPlayers`: a dashboard card, a message link with a date, an attendance-history row, or an href with no date
 - **When** the class screen opens
 - **Then** it reads `GET /api/app/lesson_instance/<id>` once, shows the date, the times, the capacity and the status from the read as one set (a route that says 18:00 for a class now at 19:30 to 21:00 shows 19:30 to 21:00), keeps the route's title and colour, and requests the class payload with that date
