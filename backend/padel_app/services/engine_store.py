@@ -381,10 +381,15 @@ class TableStore:
         elsewhere = self._elsewhere(others, coach_id)
 
         attempts: dict[str, list[datetime]] = {}
+        counted: dict[str, int] = {}
         confirmed = set()
         for a in ReminderAttempt.query.filter_by(lesson_instance_id=iid).order_by(ReminderAttempt.sent_at).all():
             if a.sent_at is not None:
                 attempts.setdefault(str(a.player_id), []).append(a.sent_at)
+                # Engine-timeline rule 2's cap counts as reminders rule 19 does: a voided attempt
+                # (superseded AND expired, reminder_attempt_service._counted) is not counted.
+                if not (a.superseded and a.expired):
+                    counted[str(a.player_id)] = counted.get(str(a.player_id), 0) + 1
             if a.response == "yes":
                 confirmed.add(str(a.player_id))
         # Engine-store rule 6 (reminders rule 22, PAD-489): a student the system recorded as coming,
@@ -418,6 +423,7 @@ class TableStore:
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
             attendance_requested={s: tuple(v) for s, v in attempts.items()},
+            attendance_asks=counted,
             blocked=frozenset(blocked),
             postponed=self._capped_today(coach_id, gates.daily_cap, {st.id for st in pool}),
         )

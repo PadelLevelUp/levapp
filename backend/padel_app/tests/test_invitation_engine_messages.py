@@ -17,7 +17,7 @@ import pytest
 from padel_app.invitation_engine import EngineSettings
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.effects import AttendanceRequested
-from padel_app.invitation_engine.messages import attendance_request_at, due
+from padel_app.invitation_engine.messages import attendance_request_at, coach_ask, due
 from padel_app.invitation_engine.settings import AttendanceRequest
 from padel_app.invitation_engine.snapshot import Placement, SessionSnapshot, Student
 
@@ -41,6 +41,7 @@ def _asked(effects):
     return sorted(e.student for e in effects if isinstance(e, AttendanceRequested))
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-15")
 def test_the_first_request_goes_at_attendance_request_at_and_not_before():
     s, settings = _snapshot((("A", "regular"), ("B", "regular"))), EngineSettings()
     assert attendance_request_at(s, settings) == FIRST
@@ -48,6 +49,7 @@ def test_the_first_request_goes_at_attendance_request_at_and_not_before():
     assert _asked(due(s, settings, FIRST)) == ["A", "B"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-16")
 def test_repeats_go_every_interval_only_to_who_has_not_answered_and_stop_at_max():
     settings = EngineSettings()                      # every 2 h, at most 3
     s = _snapshot((("A", "regular"), ("B", "regular")), confirmed={"A"},
@@ -84,6 +86,7 @@ def test_a_regular_who_said_they_are_not_going_is_not_asked():
     assert _asked(due(s, EngineSettings(), FIRST)) == ["A"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-19")
 def test_quiet_hours_hold_the_request_until_they_end():
     late = EngineSettings().with_changes(
         attendance_request=AttendanceRequest(days_before=1, at=time(23, 30), every=timedelta(hours=2), max=3),
@@ -94,6 +97,7 @@ def test_quiet_hours_hold_the_request_until_they_end():
     assert _asked(due(s, late, datetime(2026, 11, 3, 7, 0))) == ["A"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-18")
 def test_a_late_run_sends_the_latest_slot_once_not_the_missed_ones():
     s = _snapshot()
     assert _asked(due(s, EngineSettings(), FIRST + timedelta(hours=3))) == ["A"]
@@ -160,3 +164,78 @@ def test_a_student_who_blocked_everything_gets_no_attendance_request():
     s = _snapshot((("A", "regular"), ("B", "regular")))
     s.students["B"] = replace(s.students["B"], blocks_all=True)
     assert _asked(due(s, EngineSettings(), FIRST)) == ["A"]
+
+
+# --- the coach's ask (engine-timeline rule 8, engine plan item #16) -------------------------------------
+
+def _not_asked(effects):
+    return {e.student: e.reason for e in effects if isinstance(e, fx.NotAsked)}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-27")
+def test_the_coachs_ask_goes_at_once_to_who_the_schedule_would_ask():
+    now = FIRST - timedelta(days=2)
+    s = _snapshot((("R", "regular"), ("RR", "regular_returns"), ("W", "auto_from_waiting_list"), ("J", "direct"),
+                   ("I", "invitation"), ("Y", "regular"), ("B", "regular"), ("U", "regular")),
+                  confirmed={"Y"}, placed_at={"I": now - timedelta(hours=1)})
+    s.students["B"] = replace(s.students["B"], blocks_all=True)
+    s = replace(s, absent=frozenset({"X"}), regulars=s.regulars + (Student("X", 3, frozenset({"L"})),))
+    effects = coach_ask(s, EngineSettings(), now, {"U": "unavailable"})
+    assert _asked(effects) == ["I", "J", "R", "RR", "W"]
+    assert all(e.at == now for e in effects if isinstance(e, AttendanceRequested))
+    assert _not_asked(effects) == {"X": "not_coming", "Y": "already_confirmed", "B": "preference",
+                                   "U": "unavailable"}
+    # The schedule is not moved: at attendance_request_at whoever of the five has not answered is asked.
+    after = replace(s, confirmed=s.confirmed | {"R"},
+                    attendance_requested={e.student: (e.at,) for e in effects if isinstance(e, AttendanceRequested)})
+    assert _asked(due(after, EngineSettings(), FIRST)) == ["I", "J", "RR", "U", "W"]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-28")
+def test_the_coachs_ask_skips_an_acceptor_placed_after_the_first_send():
+    now = FIRST + timedelta(hours=1)
+    s = _snapshot((("I1", "invitation"), ("I2", "invitation")),
+                  placed_at={"I1": FIRST - timedelta(hours=1), "I2": FIRST + timedelta(minutes=30)},
+                  requested={"I1": (FIRST,)})
+    effects = coach_ask(s, EngineSettings(), now)
+    assert _asked(effects) == ["I1"]
+    assert _not_asked(effects) == {"I2": "already_confirmed"}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-29")
+def test_the_coachs_ask_ignores_quiet_hours_and_the_schedule_type():
+    none_and_quiet = EngineSettings().with_changes(
+        attendance_request=AttendanceRequest(type="none"), quiet_hours=(time(22, 0), time(7, 0)))
+    s = _snapshot((("A", "regular"), ("J", "direct")))
+    night = datetime(2026, 11, 2, 23, 30)
+    assert attendance_request_at(s, none_and_quiet) is None
+    assert _asked(due(s, none_and_quiet, night)) == []
+    effects = coach_ask(s, none_and_quiet, night)
+    assert _asked(effects) == ["A", "J"] and _not_asked(effects) == {}
+    # ...and nobody once the class has started.
+    assert coach_ask(s, none_and_quiet, datetime(2026, 11, 3, 10, 30)) == ()
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-31")
+def test_no_student_is_asked_more_than_max_times_scheduled_and_coachs_asks_together():
+    settings = EngineSettings().with_changes(
+        attendance_request=AttendanceRequest(days_before=2, at=time(17, 0), every=timedelta(days=1), max=2))
+    start = START + timedelta(days=3)                       # 6 Nov: daily sends on the 4th and the 5th
+    first = datetime(2026, 11, 4, 17, 0)
+    coach_before = first - timedelta(hours=3)
+    s = _snapshot((("A", "regular"), ("B", "regular"), ("C", "regular")), start=start,
+                  requested={"A": (coach_before, first), "B": (coach_before, first), "C": (first,)})
+    assert attendance_request_at(s, settings) == first
+    # B's earlier attempt was voided (superseded and expired): only the one since counts.
+    s = replace(s, attendance_asks={"A": 2, "B": 1, "C": 1})
+    second = first + timedelta(days=1)
+    assert _asked(due(s, settings, second)) == ["B", "C"]
+    # The second send went to B and C: a coach's ask after it finds all three at the cap.
+    after = replace(s, attendance_asks={"A": 2, "B": 2, "C": 2},
+                    attendance_requested={"A": (coach_before, first), "B": (coach_before, first, second),
+                                          "C": (first, second)})
+    effects = coach_ask(after, settings, second + timedelta(hours=1))
+    assert _asked(effects) == []
+    assert _not_asked(effects) == {"A": "reminder_limit", "B": "reminder_limit", "C": "reminder_limit"}
+    # A store that never voids (asks unset) counts every request: B would be at the cap too.
+    assert replace(s, attendance_asks=None).asks("B") == 2

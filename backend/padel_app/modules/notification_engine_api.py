@@ -405,6 +405,10 @@ def send_reminders():
     date_str = data.get("date")
     # B-619 (class-reminders-manual rule 4): only the class's coach sends its reminders.
     instance = _resolve_owned_instance(coach, model, original_id, date_str)
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":       # class-reminders-manual rule 5: the engine asks
+        return _engine_send_reminders(instance)
     result = send_class_reminders(instance.id)
     # PAD-107 + PAD-112: report what the service actually sent. This used to
     # return ``len(instance.players_relations)`` — the enrolment count — which
@@ -415,6 +419,36 @@ def send_reminders():
         "sent": result.get("sent", 0),
         "blocked": result.get("blocked", []),
     })
+
+
+def _engine_send_reminders(instance):
+    """class-reminders-manual rules 5-6 (engine-timeline rule 8): the coach's ask through the engine's
+    ``CoachRequestsAttendance``. A started, cancelled or completed class asks nobody. Otherwise the route
+    names the students it keeps out (``reminder_skips``: unavailable, blocked all, the coach's marks) and
+    the engine asks the rest it would ask; ``blocked`` names every going student not asked, once, with
+    the engine's cause (a preference block keeps the student's reason)."""
+    from padel_app.models.players import Player
+    from padel_app.services.engine_entry import coach_asks_attendance
+    from padel_app.services.notification_service import reminder_skips
+    from padel_app.sql_db import db
+
+    now = utcnow_naive()
+    if instance.status in ("canceled", "completed") or instance.start_datetime <= utc_to_wall_naive(now):
+        return jsonify({"sent": 0, "blocked": []})
+    blocked_by_id, marks = reminder_skips(instance)
+    # One reason each, in the engine's order (engine-timeline rule 8): the coach's mark before a block.
+    skipped = {**{pid: entry.get("cause") or "unavailable" for pid, entry in blocked_by_id.items()}, **marks}
+    asked, not_asked = coach_asks_attendance(instance, skipped, now)
+    blocked = []
+    for pid in sorted(not_asked):
+        cause = not_asked[pid]
+        entry = blocked_by_id.get(pid)
+        if entry is not None and entry.get("cause", "unavailable") == cause:
+            blocked.append({**entry, "cause": cause})
+            continue
+        player = db.session.get(Player, pid)
+        blocked.append({"playerId": pid, "name": player.user.name if player and player.user else "", "cause": cause})
+    return jsonify({"sent": len(asked), "blocked": blocked})
 
 
 @bp.post("/availability_conflicts")
