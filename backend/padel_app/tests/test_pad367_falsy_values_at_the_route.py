@@ -813,6 +813,26 @@ def test_add_coach_note_refuses_an_empty_text_itself(app, client):
     assert real.status_code == 200 and real.get_json()["text"] == "Fast feet"
 
 
+@pytest.mark.criterion("PLAYERS-NOTES-5")
+def test_add_coach_note_refuses_a_text_over_500_characters(app, client):
+    """PAD-889 (players.notes rule 3): the column is String(500); a longer text is a 400 that writes
+    nothing, never a database error (Postgres) or a silently stored overflow (SQLite)."""
+    from padel_app.models.coach_player_note import CoachPlayerNote
+
+    ids = _seed(app)
+    headers = _headers(app, ids["coach_user_id"])
+
+    long = client.post("/api/app/add_coach_note", headers=headers,
+                       json={"playerId": ids["student_id"], "type": "weakness", "text": "x" * 501})
+    with app.app_context():
+        assert CoachPlayerNote.query.count() == 0
+    full = client.post("/api/app/add_coach_note", headers=headers,
+                       json={"playerId": ids["student_id"], "type": "weakness", "text": "y" * 500})
+
+    assert long.status_code == 400
+    assert full.status_code == 200 and full.get_json()["text"] == "y" * 500
+
+
 # ── POST / PUT /api/app/availability_blockers (a student's unavailability) ───
 
 def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week(app, client):
