@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
-import { PreAuthShell } from "@/features/auth/AccountSetupScreen";
+import { PreAuthShell, WelcomeBand } from "@/features/auth/AccountSetupScreen";
 import {
   AccountSetupForm,
   AccountSetupLoading,
@@ -218,6 +218,7 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
   if (claimStatus === "claimed") {
     return (
       <AccountSetupNotice
+        welcome
         testID="invite-claim-success"
         tone="neutral"
         title={t("auth.playerInvite.claimSuccessTitle")}
@@ -231,6 +232,7 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
   if (isAuthenticated && isCoach) {
     return (
       <AccountSetupNotice
+        welcome
         testID="invite-claim-is-coach"
         title={t("auth.playerInvite.claimIsCoachTitle")}
         description={t("auth.playerInvite.claimIsCoachDescription")}
@@ -243,14 +245,12 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
   if (isAuthenticated) {
     return (
       <PreAuthShell testID="invite-claim">
+        <WelcomeBand
+          title={t("auth.playerInvite.claimTitle")}
+          description={t("auth.playerInvite.claimDescription", { playerName })}
+        />
         <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-center">{t("auth.playerInvite.claimTitle")}</CardTitle>
-            <CardDescription className="text-center">
-              {t("auth.playerInvite.claimDescription", { playerName })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="gap-3">
+          <CardContent className="gap-3 pt-6">
             <Text className="text-center text-sm text-muted-foreground">
               {t("auth.playerInvite.claimSignedInAs", { name: user?.name ?? user?.username ?? "" })}
             </Text>
@@ -311,8 +311,8 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
   ];
 
   return (
-    <View className="flex-1">
-      <AccountSetupForm
+    <AccountSetupForm
+      welcome
       testID="player-invite"
       title={t("auth.playerInvite.title", { playerName })}
       description={t("auth.playerInvite.description")}
@@ -328,22 +328,24 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
       }
       submitting={submitting}
       submitError={submitError}
-      />
-      {/* players.invite-completion rule 9 / players.claim rule 3: the student
-          may already have an account of their own. */}
-      <View className="absolute inset-x-0 bottom-8 items-center px-6">
-        <Pressable
-          testID="invite-claim-signin"
-          accessibilityRole="button"
-          accessibilityLabel={t("auth.playerInvite.claimSignIn")}
-          onPress={goSignInToLink}
-        >
-          <Text className="text-center text-sm text-muted-foreground">
-            {t("auth.playerInvite.claimSignInPrompt")}{" "}
-            <Text className="text-sm underline">{t("auth.playerInvite.claimSignIn")}</Text>
-          </Text>
-        </Pressable>
-      </View>
-    </View>
+      // players.invite-completion rule 9 / players.claim rule 3: the student may already have an account of their
+      // own. auth.invite-welcome rule 6: the link sits in the flow under the form, on the navy, never over it.
+      footer={
+        <View className="mt-4 items-center px-6">
+          <Pressable
+            testID="invite-claim-signin"
+            accessibilityRole="button"
+            accessibilityLabel={t("auth.playerInvite.claimSignIn")}
+            onPress={goSignInToLink}
+            className="min-h-11 justify-center"
+          >
+            <Text className="text-center text-sm text-sidebar-foreground/80">
+              {t("auth.playerInvite.claimSignInPrompt")}{" "}
+              <Text className="text-sm text-sidebar-foreground underline">{t("auth.playerInvite.claimSignIn")}</Text>
+            </Text>
+          </Pressable>
+        </View>
+      }
+    />
   );
 }
