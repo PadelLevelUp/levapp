@@ -356,7 +356,7 @@ approval.**
     (`joinRequestStatusKey`) decides it for web and iOS.
 
 27. **The coach's capacity box shows the calendar's fill bar (UI idea 3; owner's yes, 2026-11-25; numbering
-    self-assigned).** Under the `X/Y` of the capacity box, a coach reading a class sees the calendar card's own
+    self-assigned).** Under the `X/Y` of the capacity box (in reading, rule 28's capacity line, which keeps its id), a coach reading a class sees the calendar card's own
     `ClassFillBar`: confirmed, awaiting, free. `filled` is the box's own X (rule 5), `confirmed` is the listed
     students who are coming or came (`calendar.view` rule 25), from one shared helper in `@levelup/config` that applies
     `LessonInstance.confirmed_spots` to the listed students, as `effectiveFilledSpotsOf` does for the filled
@@ -370,6 +370,35 @@ approval.**
      open-spots line. `ClassFillBar` exists on both shells and is used on calendar cards only. The web sheet's count
      test pins how many times it calls `effectiveFilledSpotsOf`; iOS reads `effectiveFilledSpots` with
      `presencesOfParticipants`. That test allows exactly three such calls: the bar takes the number the box already has.
+
+28. **Reading a class starts with when it is (UI idea 6; owner's yes to the sketch, 2026-11-25, in which reading and
+    editing look different; numbering self-assigned).** While `isEditing` is false (marking attendance and planning are
+    reading), the five boxes (date, time, capacity, level, club and court) are one header block on web and iOS,
+    `class-detail-when`:
+    a. a **date tile** at the left, 56px wide with 12px to the text: weekday, day number (the largest), month, from the
+       class's date in the active language; it reads out as one full date ("terça-feira, 24 de novembro de 2026");
+    b. beside it the **time range** in the display face, 26px, 24px when the block is under 320px wide, `10:30 – 12:00`
+       with the spaces the sheet uses today, on one line; on iOS larger text shrinks it to its line. On web the series'
+       "until" line stands under it, small, when today's date box shows one. iOS says the series' end once, in its repeat
+       line below the block as today, and the date box's copy goes;
+    c. under both, one **facts line** that may wrap, of what exists, joined by the middle dot: the level's code, then the
+       club and court pair of `clubs.courts` rule 7 (`class-detail-place`). What is missing is left out, not shown as a dash;
+       with nothing there is no line. A student is given no level today, so theirs is the place only;
+    d. then the **capacity line** (`class-detail-capacity`): the same `X/Y` (or "—" on iOS without a capacity, as
+       today), the open-spots line and rule 27's bar, with the same ids, words and audience as today.
+    The labels the boxes showed (date, time, capacity, level, club) stay as the accessible names of the values. Editing keeps
+    today's five boxes and inputs, unchanged. Every value comes from what the boxes read today: no count,
+    date or role rule changes, and no value is shown that a role could not see (`classes.detail-visibility`). The
+    title, the canceled badge on iOS, the participants and everything below are unchanged.
+   - **Today:** web `ClassDetailSheet.tsx` and iOS `app/class/[id].tsx` each draw five bordered boxes; both format the
+     date with `"EEE, d MMM"` (`parseISODate` on web, `formatDay` on iOS) and build the time range themselves; the until line is
+     `"d MMM"` on web and has the weekday on iOS. `@levelup/config` already has `class-when.ts` (`classWhenLabel`, PAD-924: `10:30–12:00`
+     without spaces, for other surfaces), which this rule does not change. Pinned by
+     `ClassCapacityBar.test.tsx` and iOS `class-capacity-bar.test.tsx` (they slice the source between the capacity and the level
+     box), `ClassDetailSheet.count.test.ts` (three calls), `ClassDetailSheet.court.test.ts` (`isEditing && courts.length > 0`),
+     `participant-count-effective.spec.ts` (`class-detail-capacity`), `courts.spec.ts` (`class-detail-place`),
+     `class-detail-new-engine.test.tsx` (which also reads the coach-only open-spots source) and Maestro 320 (`class-open-spots`).
+   - A class ending at midnight arrives as `00:00` and shows so, as on its card.
 
 29. **A link the server sends to a class is the deep link of rule 10 (numbering self-assigned,
     unconfirmed).** Every URL the server builds to open one class on the calendar (today: the
@@ -681,6 +710,27 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.
 - **And** the iOS class screen's join block takes its status line from that helper
 test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no line for an accepted or withdrawn request` (+1 more)
 
+#### CALENDAR-EVENT-DETAIL-43: Reading shows the header block on web, editing the boxes (rule 28)
+- **Given** a coach reading an unmaterialised occurrence of a series with a level, a club and a court, and a one-off class with neither
+- **Then** `class-detail-when` shows the tile, the time range, the until line (the first only), the facts line (the first only) and the capacity line, each value under the accessible name its box had, and the tile reads out the full date
+- **And** the sheet mounts it only while `isEditing` is false, and the five boxes only while it is true (read from the source)
+test: `frontend/apps/web/src/components/calendar/ClassWhenHeader.test.tsx` › `reading shows the header block and editing the boxes`
+
+#### CALENDAR-EVENT-DETAIL-44: The same on iOS (rule 28)
+- **Given** the same classes on iOS, and one with no capacity
+- **Then** the same tile, time, facts and capacity show under the same names, with no until line in the block, and "—" without a capacity; the screen's source mounts the block and the boxes as on web, and keeps its one repeat line
+test: `frontend/apps/mobile/src/features/calendar/class-when-header.test.tsx` › `reading shows the header block and editing the boxes`
+
+#### CALENDAR-EVENT-DETAIL-45: The tile and the time say the same on both shells (rule 28)
+- **Given** a class date and times, in Portuguese and English, one ending at `00:00`, one with a missing date and one with a missing time
+- **Then** the shared helper gives the weekday, day, month, spoken date and spaced time range both shells show, and a dash for what is missing, and `classWhenLabel`'s own tests are unchanged
+test: `frontend/packages/config/src/class-when-header.test.ts` › `the tile's parts and the time range come from one helper`
+
+#### CALENDAR-EVENT-DETAIL-46: The block fits a narrow phone and keeps its ids (rule 28)
+- **Given** a class made through the API with a level, a club, a court and free seats, at 320px and 1280px wide, as coach and as an enrolled student
+- **Then** the time is on one line inside the sheet, `class-detail-capacity` and `class-detail-place` show the text they show today for each, the coach's facts name the level, and the student sees no level and no bar
+test: `frontend/apps/web/e2e/schedule-calendar/class-when-header.spec.ts` › `the header fits at 320px and keeps its ids`
+
 #### CALENDAR-EVENT-DETAIL-47: A route with an instance id but missing date, times or capacity is completed from the id (rule 15, PO M-6994)
 - **Given** a `LessonInstance` route that carries an id but lacks `date`, `startTime`, `endTime` or `maxPlayers`: a dashboard card, a message link with a date, an attendance-history row, or an href with no date
 - **When** the class screen opens
@@ -705,7 +755,20 @@ test: `backend/padel_app/tests/test_student_class_count.py`, `frontend/apps/web/
 - **And** the web calendar, given exactly that url, selects that week and opens that class's detail sheet (rules 10, 11)
 test: `backend/padel_app/tests/test_pad_superseded_push_link.py` › `[CALENDAR-EVENT-DETAIL-48]` (+ `frontend/apps/web/src/pages/CalendarPage.supersededLink.test.tsx`)
 
+### Waves
+1. 45 — the shared helper (`@levelup/config`).
+2. 43, 46 — web.
+3. 44 — iOS, with a look on the simulator at the largest text size. Web and iOS are one PR, on top of rule 27's.
+
 ### Open questions
+- Rule 28 (UI idea 6) — decisions by the stream lead under the owner's yes to the sketch (chat, 2026-11-25, "yes 1, 3, 6, 7, 8, 10, 12";
+  the owner was told of both the same day and can reverse them): the sketch showed only the start time and put `X/Y` on the
+  facts line; the rule shows the whole range, as today, and gives the capacity its own line because rule 27's bar and the
+  open-spots line belong to it. The club is kept beside the court, as `clubs.courts` rule 7 asks.
+- Found while reading, not changed by rule 28 (for the owner): (1) **a student's `X/Y` is wrong**: a student is sent only themselves as a
+  participant, so X is 0 or 1 whatever the class holds, and web adds a free-seats line from it; the calendar card has the right number
+  (`calendar.view` rule 9). (2) Web's sheet marks a canceled class nowhere in its header; iOS has a badge. (3) Web shows the
+  open-spots line to students and iOS does not.
 - Rule 27 (UI idea 3) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can
   reverse them): the sketch drew green, amber and grey parts; the bar is the calendar's own (one ink in three
   strengths, amber only while seats are free), because the idea was "the same bar" and green on a class not
