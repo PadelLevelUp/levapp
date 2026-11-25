@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { inviteCopyKey, invitePreviewNames } from "@levelup/config";
 import { PreAuthShell, WelcomeBand } from "@/features/auth/AccountSetupScreen";
 import {
   AccountSetupForm,
@@ -46,7 +47,7 @@ type ClaimStatus = "idle" | "claiming" | "claimed";
  * dashboard rather than back on a sign-in form retyping what they just chose.
  */
 export function PlayerInviteScreen({ token }: { token: string | null }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { login, user, isAuthenticated, loading: authLoading } = useAuth();
   const [claimStatus, setClaimStatus] = React.useState<ClaimStatus>("idle");
   const [claimError, setClaimError] = React.useState<string | null>(null);
@@ -56,6 +57,8 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
     token ? "loading" : "invalid"
   );
   const [playerName, setPlayerName] = React.useState("");
+  // auth.invite-welcome (a): the coach and club, only when the preview carries them and the owner's pick is yes.
+  const [inviterNames, setInviterNames] = React.useState<{ coach: string; club: string } | undefined>();
   const [values, setValues] = React.useState({
     username: "",
     password: "",
@@ -81,6 +84,7 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
       try {
         const data = await playerInvitationsApi.getPlayerInvitation(token);
         if (cancelled) return;
+        setInviterNames(invitePreviewNames(data));
         setPlayerName(data.playerName);
         setStatus("valid");
       } catch {
@@ -314,8 +318,9 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
     <AccountSetupForm
       welcome
       testID="player-invite"
-      title={t("auth.playerInvite.title", { playerName })}
-      description={t("auth.playerInvite.description")}
+      names={inviterNames}
+      title={t(inviteCopyKey("auth.playerInvite.title", i18n.language), { playerName })}
+      description={t(inviteCopyKey("auth.playerInvite.description", i18n.language))}
       fields={fields}
       values={values}
       errors={errors}

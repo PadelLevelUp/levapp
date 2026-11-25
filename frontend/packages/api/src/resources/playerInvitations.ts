@@ -12,6 +12,9 @@ export interface CreatedPlayerInvitation {
 export interface PlayerInvitationInfo {
   playerName: string;
   status: string;
+  /** Present only once the public preview carries them (auth.invite-welcome, point (a)); today it does not. */
+  coachName?: string;
+  clubName?: string;
 }
 
 export interface CreateIncompletePlayerPayload {

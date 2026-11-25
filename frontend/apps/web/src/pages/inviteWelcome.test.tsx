@@ -127,7 +127,8 @@ describe("the invite pages' band (auth.invite-welcome rules 2-4)", () => {
     auth.isAuthenticated = false;
     mount("/invite/coach/tok", "/invite/coach/:token", <CoachInvitePage />);
     await screen.findByLabelText("auth.coachInvite.email");
-    expectBand("auth.coachInvite.title|Club Name", "auth.coachInvite.description");
+    // Point (b): the pt pages say tu (the key carries a Tu suffix).
+    expectBand("auth.coachInvite.titleTu|Club Name", "auth.coachInvite.descriptionTu");
     expect(screen.getByTestId("coachInvite-country")).toBeTruthy();
     expect(band().contains(screen.getByTestId("coachInvite-country"))).toBe(false);
     document.body.innerHTML = "";
@@ -135,7 +136,7 @@ describe("the invite pages' band (auth.invite-welcome rules 2-4)", () => {
     // The player invitation: the form, then (signed in) the claim, a coach, and the claimed state.
     mount("/invite/player/tok", "/invite/player/:token", <PlayerInvitePage />);
     await screen.findByLabelText("auth.playerInvite.birthDate");
-    expectBand("auth.playerInvite.title|Ana", "auth.playerInvite.description");
+    expectBand("auth.playerInvite.titleTu|Ana", "auth.playerInvite.descriptionTu");
     expect(screen.getByTestId("invite-claim-signin")).toBeTruthy();
     document.body.innerHTML = "";
 
@@ -196,11 +197,21 @@ describe("the invite pages' band (auth.invite-welcome rules 2-4)", () => {
     expect(text).not.toMatch(/LEAK/);
     document.body.innerHTML = "";
 
-    playerInvitation.mockResolvedValue({ playerName: "Ana", coachName: "LEAK-coach", clubName: "LEAK-club", email: "LEAK-email" });
+    // Point (a), on the owner's pick (INVITE_NAMES_INVITER): the names show when the preview carries them; no other
+    // field does. Today's preview carries only the player's name, so nothing is added until the backend sends them.
+    playerInvitation.mockResolvedValue({ playerName: "Ana", email: "LEAK-email", token: "LEAK-token" });
     mount("/invite/player/tok", "/invite/player/:token", <PlayerInvitePage />);
     await screen.findByLabelText("auth.playerInvite.birthDate");
     text = document.body.textContent ?? "";
     expect(text).toContain("Ana");
     expect(text).not.toMatch(/LEAK/);
+    document.body.innerHTML = "";
+
+    playerInvitation.mockResolvedValue({ playerName: "Ana", coachName: "Coach Name", clubName: "Club Name", email: "LEAK-email" });
+    mount("/invite/player/tok", "/invite/player/:token", <PlayerInvitePage />);
+    await screen.findByLabelText("auth.playerInvite.birthDate");
+    expect(band()).toHaveTextContent("Coach Name");
+    expect(band()).toHaveTextContent("Club Name");
+    expect(document.body.textContent).not.toMatch(/LEAK/);
   });
 });

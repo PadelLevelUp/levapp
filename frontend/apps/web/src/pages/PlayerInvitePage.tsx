@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { COUNTRIES, countryName, isUnderSignupAge, typedChosenUsername } from "@levelup/config";
+import { COUNTRIES, countryName, inviteCopyKey, invitePreviewNames, isUnderSignupAge, typedChosenUsername } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TermsAcceptField } from "@/components/auth/TermsAcceptField";
 
@@ -74,6 +74,8 @@ const PlayerInvitePage = () => {
 
   const [status, setStatus] = useState<InvitationStatus>("loading");
   const [playerName, setPlayerName] = useState("");
+  // auth.invite-welcome (a): the coach and club, only when the preview carries them and the owner's pick is yes.
+  const [inviterNames, setInviterNames] = useState<{ coach: string; club: string } | undefined>();
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   // PAD-637 (auth.register rule 19b): the Terms box, required.
@@ -98,6 +100,7 @@ const PlayerInvitePage = () => {
       try {
         const data = await getPlayerInvitation(token);
         setPlayerName(data.playerName);
+        setInviterNames(invitePreviewNames(data));
         setStatus("valid");
       } catch {
         // 404 (unknown) or 410 (used / expired)
@@ -299,8 +302,9 @@ const PlayerInvitePage = () => {
 
   return (
     <InviteWelcome
-      title={t("auth.playerInvite.title", { playerName })}
-      description={t("auth.playerInvite.description")}
+      names={inviterNames}
+      title={t(inviteCopyKey("auth.playerInvite.title", i18n.language), { playerName })}
+      description={t(inviteCopyKey("auth.playerInvite.description", i18n.language))}
     >
           <form onSubmit={handleSubmit} className="space-y-4">
             {[
