@@ -40,7 +40,7 @@ export function InviteWelcome({
               {names.logoUrl ? (
                 <img src={names.logoUrl} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
               ) : null}
-              <div className="min-w-0 text-left">
+              <div className={cn("min-w-0", names.logoUrl ? "text-left" : "text-center")}>
                 <p className="font-display text-3xl font-semibold leading-tight [overflow-wrap:anywhere]">{names.coach}</p>
                 <p className="text-base text-sidebar-foreground/80 [overflow-wrap:anywhere]">{names.club}</p>
               </div>
