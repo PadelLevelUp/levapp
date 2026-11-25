@@ -39,7 +39,7 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
 9. **A cancellation can carry the coach's reason (PAD-840, phase 1).** Every removal of rules 5–7 (a
    one-off, one occurrence of a recurring class, or "this and all future") takes an optional
    `reason` and a `sendReason` flag in `POST /api/app/remove_class`. The reason is free text, trimmed,
-   at most **200 characters** (pending owner, Q4); a longer one is refused with 400 and nothing is
+   at most **200 characters** (the lead's pick, reversible: Q4); a longer one is refused with 400 and nothing is
    removed or sent. `sendReason` defaults to true when the trimmed reason is not empty and is ignored
    when it is empty. A removal of several occurrences at once ("this and all future") shares one
    reason. A client that sends neither field gets today's behaviour exactly (rule 8, no reason).
@@ -53,7 +53,8 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    occurrence's row (rules 5–6), and a one-off or a whole-class delete removes the class, so the reason
    cannot live on the occurrence. It is kept on the class: `lessons.cancellation_reasons`, a new nullable
    JSON column, a list of `{date, scope, reason, sentToStudents, at}` entries, one per removal that had a
-   non-empty reason, written in the removal's transaction (rule 7) whenever the `Lesson` row survives:
+   non-empty reason (`date` is the date the coach removed, as the calendar showed it; `sentToStudents` is
+   true only when the reason was sent and somebody was enrolled to get it), written in the removal's transaction (rule 7) whenever the `Lesson` row survives:
    one occurrence of a recurring class (`single`) and "this and all future" (`future`, keyed by its
    first removed date). A removal that deletes the `Lesson` itself (a one-off, rule 5; the whole class,
    rule 1) keeps no reason row: the students' messages (rule 10's metadata) are its only record.
@@ -66,11 +67,12 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
      200), `cancel-reason-input`;
    - a checkbox "Enviar o motivo aos alunos" / "Send the reason to the students",
      `cancel-reason-send`, disabled while the field is empty, and ticked as soon as a reason is
-     written (pending owner, Q4); the coach may untick it;
+     written (owner, 25 Nov 2026); the coach may untick it;
    - a read-only preview of the message, `cancel-reason-preview`: the server renders it
      (`POST /api/app/class_cancellation_preview` with the dialog's event, scope, reason and
-     `sendReason`, the same rendering as the real send, rules 8 and 10) for the first enrolled
-     student by name, or with the name "Aluno" / "Student" when nobody is enrolled. The preview follows
+     `sendReason`, the same rendering as the real send, rules 8 and 10; it answers
+     `{text, recipients}`, the text and how many students would be told, to the class's own coach
+     only) for the first enrolled student by name, or with the name "Aluno" / "Student" when nobody is enrolled. The preview follows
      the field and the checkbox as the coach types (debounced, at most one request in flight). When
      nobody would be told, the dialog says so ("Nenhum aluno será avisado." / "No student will be
      told.") in place of the preview and the checkbox.
@@ -80,15 +82,16 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    rule 11 keeps are read back by `GET /api/app/class/<lesson_id>/cancellations`: the class's
    `cancellation_reasons`, newest removed date first, each as `{date, scope, reason, sentToStudents}`;
    only the class's own coach may read it (403 otherwise, as `classes.edit`'s ownership), and a class with
-   none answers an empty list. On the detail of a recurring class (web `ClassDetailSheet`, iOS
+   none answers an empty list. The class detail's payload names the class by `lessonId`, however it was
+   opened. On the detail of a recurring class (web `ClassDetailSheet`, iOS
    `app/class/[id].tsx`), the coach sees a section "Aulas canceladas" / "Cancelled classes"
    (`class-cancellations`) when the list is not empty, with one row per entry (`class-cancellation-row`):
    the date as the detail writes dates, "e as seguintes" / "and the following ones" after it for a `future`
    entry, the reason as written, and "Enviado aos alunos" / "Sent to the students" or "Não enviado aos
    alunos" / "Not sent to the students". Students never see the section. A deleted one-off or whole class
    has no detail, so nothing shows its reason (rule 11; Open questions).
-13. **Phase 2: the coach may edit this one message (PAD-840, phase 2: specified, not built; the phase
-   split is pending owner, Q4).** The preview becomes editable for this cancellation only: the
+13. **Phase 2: the coach may edit this one message (PAD-840, phase 2: specified, not built; phase 1
+   first is the lead's pick, Q4).** The preview becomes editable for this cancellation only: the
    placeholders in it (`{name}` and the class ones, `notifications.message-templates` rule 3a, and
    `{reason}`) show as protected tokens that cannot be partly edited or typed over, only removed whole
    or left; a "Repor mensagem original" / "Restore original message" button puts back the template's
@@ -249,19 +252,17 @@ test: `frontend/apps/mobile/src/features/calendar/class-cancellations-section.te
 - The ticket's "current message" ("Motivo indicado pelo professor …") exists nowhere in the code.
 
 ### Waves (PAD-840)
-1. Phase 1 backend: rules 9-11, the migration (the `lessons.cancellation_reasons` column and the
-   `class_cancelled` default follow-up of `notifications.message-templates` rule 26, one revision chained
-   after PAD-830's `e830f1a2b3c4`, and after PAD-753's if it lands first), the preview route; -10 … -15.
+1. Phase 1 backend: rules 9-11, the migration (the `lessons.cancellation_reasons` column, `c840d1e2f3a4`,
+   chained on PAD-753's `b753c2d3e4f5`), the preview route; -10 … -15.
 2. Phase 1 clients: rules 12 and 14 on web and iOS together, locale keys in pt and en; -16, -17, -20, -21
    (-19, the read route, with wave 1).
 3. `notifications.message-templates` -32 … -35 (the template, `{reason}`, the editor).
-4. Phase 2 (rule 13, -18): only after the owner answers Q4.
+4. Phase 2 (rule 13, -18): its own work, not started.
 
 ### Open questions
-- **Q4 (owner; recommendations shown, the build follows them until answered).** (a) Ship phase 1
-  first and phase 2 later? Rec.: yes. (b) The checkbox ticked as soon as a reason is written? Rec.:
-  yes. (c) A 200-character limit? Rec.: 200 (a chat message stays readable; the field shows the
-  counter).
+- **Q4.** (b) The checkbox ticked as soon as a reason is written: **yes (owner, 25 Nov 2026).** (a) Phase 1
+  first and phase 2 later, and (c) the 200-character limit, were not asked again: the lead's picks,
+  reversible.
 - **Where the reason is kept (messages-m2, 2026-11-13; the lead can reverse it).** The brief said "a
   new nullable column on the cancelled occurrence", but the cancel deletes that row (rules 5-6) and a
   one-off's or a whole class's delete removes the class too. Picked: a JSON list on `lessons` for the

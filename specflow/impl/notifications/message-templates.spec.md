@@ -220,7 +220,9 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     it. An empty `{reason}` removes the whole sentence that holds it, from the end of the sentence before
     it (`.`, `!`, `?`, a line break, or the start of the message) to its own sentence end inclusive, so
     "Motivo indicado pelo professor: {reason}." never renders as "Motivo indicado pelo professor: ." and
-    no empty slot is left. A reason that ends on `.`, `!` or `?` replaces the template's full stop right
+    no empty slot is left (a `.`, `!` or `?` ends a sentence only before a space or the end of the text). A
+    coach's text that this leaves with nothing renders as the default instead: the student is always
+    told. A reason that ends on `.`, `!` or `?` replaces the template's full stop right
     after `{reason}` (never ".."). Rules 5 and 9 hold: no raw `{reason}` token is ever sent.
 26. **`class_cancelled` names the reason and is in the editor (PAD-840; numbering unconfirmed).** Its
     defaults become:
@@ -232,15 +234,18 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
 
     With no reason sent they render exactly as today's defaults (rule 25). The web editor saves the
     whole resolved set of templates, so a coach who ever saved holds today's `class_cancelled` default
-    as stored text: as PAD-830 did (-28), a data migration replaces a stored `class_cancelled` exactly
-    equal to today's default, per locale, with the new one; any other stored text is kept, and the
-    downgrade restores where the stored text is the new default. The web editor lists it in a group of
+    as stored text. A stored `class_cancelled` exactly equal to the default before this rule, in either
+    locale, is read as the new default of that locale, wherever templates are read (the message, the
+    preview and the editor); any other stored text is used as saved, and nothing stored is rewritten. Not a data
+    migration as PAD-830's (-28): the previous release does not know `{reason}` and would send it raw to
+    students while a deploy rolls, or after a rollback (lead, 25 Nov 2026). The web editor lists it in a group of
     its own, "Aula cancelada" / "Class cancelled" (`template-group-classCancelled`), after "Removido de
     uma aula", label "Aula cancelada" / "Class cancelled", description "Enviada aos alunos inscritos
     quando cancelas uma aula." / "Sent to the enrolled students when you cancel a class.", with every
     placeholder badge of rule 3a plus a `{reason}` badge, "Motivo do cancelamento" / "Cancellation
     reason", offered under this key only; the live preview (rule 19) uses the example reason "Chuva
-    forte" / "Heavy rain" from `template_preview_examples`. iOS has no editor (Notes).
+    forte" / "Heavy rain" from `template_preview_examples`, and only for this key (the editor sends the
+    key): a `{reason}` typed into another template previews as it is sent, its sentence gone. iOS has no editor (Notes).
 
 ### Acceptance Criteria
 
@@ -454,19 +459,25 @@ test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_defau
 - **And** in any other template a stray `{reason}` renders as nothing, its sentence gone
 test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_reason_is_verbatim_with_one_stop` (+1 more)
 
-#### NOTIFICATIONS-MESSAGE-TEMPLATES-34: A stored copy of today's cancellation default follows the new one (rule 26)
-- **Given** coaches whose stored `class_cancelled` is today's default in pt, in en, the same with one character changed, and a text of their own
-- **When** the PAD-840 migration upgrades
-- **Then** the two exact copies become the new default in their locale, and the other two are left as saved
-- **And** running it again changes nothing, and the downgrade puts today's text back where the stored text is the new default
-test: `backend/padel_app/tests/test_pad840_template_migration.py` › `test_exact_cancellation_defaults_follow_the_new_default`
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-34: A stored copy of the earlier cancellation default reads as the new one (rule 26)
+- **Given** coaches whose stored `class_cancelled` is the earlier default in pt, in en, the same with one character changed, and a text of their own
+- **When** their templates are read
+- **Then** the two exact copies read as the new default in their own locale, and the other two as saved
+- **And** nothing stored is rewritten
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_stored_copy_of_the_earlier_default_reads_as_the_new_one`
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-35: The web editor lists the cancellation notice with its reason badge (rule 26)
 - **Given** a coach on web Settings → message templates
 - **When** they open "Aula cancelada"
 - **Then** `class_cancelled` is there with its label, description and the `{reason}` badge, and no other key offers `{reason}`
-- **And** the preview shows the example reason
+- **And** the preview shows the example reason, and a `{reason}` typed under another key does not
 test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `[NOTIFICATIONS-MESSAGE-TEMPLATES-35] the cancellation notice is editable with its reason badge`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-36: A cancellation text is never left empty (rule 25)
+- **Given** a coach whose `class_cancelled` is the one sentence "Aula cancelada: {reason}"
+- **When** a class is cancelled with no reason sent, then with "Chuva"
+- **Then** the first message is the default text without its reason sentence, and the second "Aula cancelada: Chuva"
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_text_left_empty_falls_back_to_the_default`
 
 ### Today (PAD-836)
 - Placeholder values: `backend/padel_app/services/message_text.py` `template_variables` (the one set, rule 3a)
@@ -526,7 +537,7 @@ test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.ts
 
 ### Waves (PAD-840)
 1. -32, -33 with `classes.delete` -10 … -15 (`test_pad840_cancel_reason.py`).
-2. -34: the data step in PAD-840's one migration (`test_pad840_template_migration.py`).
+2. -34, -36: the read-time default and the empty text.
 3. -35: the editor group, badge, pt/en copy, preview example; vitest. No iOS editor.
 
 ### Notes
