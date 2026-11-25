@@ -23,7 +23,18 @@ async function createInactivePlayer(page: Page, name: string): Promise<string> {
   await page.getByTestId("add-player-confirms-adults").click();
   await page.getByRole("button", { name: /create player/i }).click();
 
+  // The sheet closes and the list refetches: fill the page's search only once the sheet is gone,
+  // and wait for the debounced search fetch before looking for the row (add-player.spec's B-079
+  // shape: with 30+ players and PAGE_SIZE 25 the new name lands on page 2; the #1036 subset run
+  // lost the fill to the re-render and waited 3 min for a row that was never on page 1).
+  await expect(nameInput).toBeHidden({ timeout: 8000 });
+  const searched = page.waitForResponse(
+    (r) => /\/app\/coach_players/.test(r.url()) && /[?&]search=/.test(r.url()) && r.status() === 200,
+    { timeout: 30_000 }
+  );
   await page.getByPlaceholder(/search/i).first().fill(name);
+  await searched;
+  await expect(page.getByText(name)).toBeVisible({ timeout: 8000 });
   await page.getByText(name).click();
   await page.waitForURL(/\/players\/\d+/, { timeout: 8000 });
 
