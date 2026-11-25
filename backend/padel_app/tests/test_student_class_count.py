@@ -32,7 +32,7 @@ def _payload(app, client, world, who):
 def _event_count(app, client, world, who):
     day = (datetime.utcnow() + timedelta(days=2)).date().isoformat()
     events = client.get(f"/api/app/calendar?from={day}T00:00:00&to={day}T23:59:59", headers=_h(app, world[who])).get_json()
-    return [e for e in events if e.get("originalId") == world["instance"]][0]["participantCount"]
+    return [e for e in events if e.get("originalId") == world["instance"] and e.get("model") == "LessonInstance"][0]["participantCount"]
 
 
 @pytest.mark.criterion("CALENDAR-EVENT-DETAIL-42")

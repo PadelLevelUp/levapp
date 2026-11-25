@@ -225,6 +225,7 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
     ]
 
     from padel_app.services.engine_readers import class_engine_fields
+    from padel_app.serializers.calendar_event import filled_spots
 
     data = {
         # PAD-918 (notifications.config rule 20, CONFIG-74): the class's engine and the side-choice flag.
@@ -234,6 +235,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         # conversation with this user (`POST /app/conversation` takes user ids).
         "coachUserId": str(_coach.user_id) if _coach is not None else None,
         "name": obj.title,
+        # calendar.event-detail rule 5 (PO M-7512): the class's filled spots, one number with no names, from the
+        # helper the calendar event uses. A student's `participants` lists only themselves, so the sheet needs it.
+        "participantCount": filled_spots(obj),
         "levelId": (
             str(lesson.default_level_id)
             if lesson.default_level_id
