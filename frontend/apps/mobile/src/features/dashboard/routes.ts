@@ -43,6 +43,10 @@ export function nativeRouteForWebPath(
     const classId = params.get("classId") ?? "";
     const parsed = classId ? parseDashboardItemId(classId) : null;
     if (!parsed) return { pathname: "/(tabs)/calendar" };
+    // CALENDAR-EVENT-DETAIL-13: an instance id with no date is an id-only route, resolved by the id.
+    if (parsed.model === "LessonInstance" && !(params.get("date") ?? parsed.date)) {
+      return { pathname: "/class/[id]", params: { id: classId, ...(params.get("notify") === "1" ? { notify: "1" } : {}) } };
+    }
     const out: Record<string, string> = {
       id: classId,
       model: parsed.model,
