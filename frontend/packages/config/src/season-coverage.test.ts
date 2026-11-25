@@ -8,8 +8,8 @@ import {
 } from "./season-coverage";
 
 /**
- * calendar.seasons rules 3–4 (PAD-82). The same cases pin the Python twin in
- * backend/padel_app/tests/test_season_definition.py; keep them in step.
+ * calendar.seasons rules 3–4 (PAD-82). This is the one copy of the client-side season rule; the
+ * server answers `no_season_covers_date` on its own and has no twin of these cases (rule 13).
  */
 const SEP_JUL = { startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 };
 const FEB_JUN = { startDay: 1, startMonth: 2, endDay: 30, endMonth: 6 };
