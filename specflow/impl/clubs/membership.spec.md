@@ -16,7 +16,10 @@ Manage which coaches and players belong to a club.
 1. Players are added to a club when created by a coach in that club, or when they redeem that
    coach's join token (`players.join-token`)
 2. Coaches join a club through `coach_in_club` association
-3. All lesson, player, and calendar operations are scoped to the coach's current club
+3. A lesson always belongs to one club (`clubs.crud` rule 5). A coach's roster and calendar are per
+   coach, across every club the coach belongs to, and each class shows its own club; they are never
+   filtered by the current club. A write that needs a club and is not given one (create or clone a
+   class, add a player, the join token, import) uses the coach's current club (`clubs.crud` rule 3)
 
 ### Notes
 - Club membership is implicit for players — there's no explicit "join club" endpoint for players.
