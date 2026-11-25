@@ -744,6 +744,19 @@
     },
     "busySameHour": {
       "line": "{{name}} is already in another class at the same time ({{title}}, {{date}} {{time}}). Remove them from that class first."
+    },
+    "cancelReason": {
+      "label": "Reason",
+      "placeholder": "Optional",
+      "send": "Send the reason to the students",
+      "preview": "Message to the students",
+      "nobody": "No student will be told."
+    },
+    "cancellations": {
+      "title": "Cancelled classes",
+      "andFollowing": "and the following ones",
+      "sent": "Sent to the students",
+      "notSent": "Not sent to the students"
     }
   }
 }

@@ -13,6 +13,9 @@ export const queryKeys = {
     ["calendar-events", { from, to }] as const,
   classInstance: (event: Pick<CalendarEvent, "model" | "originalId" | "date">) =>
     ["class-instance", event.model, event.originalId, event.date] as const,
+  // PAD-840 (classes.delete rule 14): a class's kept cancellations; without an id, the prefix a removal invalidates.
+  classCancellations: (lessonId?: string) =>
+    (lessonId === undefined ? ["class-cancellations"] : ["class-cancellations", lessonId]) as readonly unknown[],
   // The coach's whole roster (`GET /app/coach_players`): mobile's coachPlayersKey, and the
   // source of PAD-660's display names (useCoachDisplayName).
   coachPlayers: ["coach-players"] as const,

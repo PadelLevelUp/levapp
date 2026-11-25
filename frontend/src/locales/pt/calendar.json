@@ -744,6 +744,19 @@
     },
     "busySameHour": {
       "line": "{{name}} já está inscrito noutra aula à mesma hora ({{title}}, {{date}} {{time}}). Remove-o dessa aula primeiro."
+    },
+    "cancelReason": {
+      "label": "Motivo",
+      "placeholder": "Opcional",
+      "send": "Enviar o motivo aos alunos",
+      "preview": "Mensagem para os alunos",
+      "nobody": "Nenhum aluno será avisado."
+    },
+    "cancellations": {
+      "title": "Aulas canceladas",
+      "andFollowing": "e as seguintes",
+      "sent": "Enviado aos alunos",
+      "notSent": "Não enviado aos alunos"
     }
   }
 }

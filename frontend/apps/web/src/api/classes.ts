@@ -43,14 +43,15 @@ export async function addClass(data: any) {
 
 export async function removeClass(
   event: CalendarEvent,
-  scope: "single" | "future"
+  scope: "single" | "future",
+  cancel?: classesApi.CancelReason
 ) {
   if (USE_MOCK_DATA) {
     console.log("[mock] removeClass", event.id, scope);
     return { success: true };
   }
 
-  return classesApi.removeClass(event, scope);
+  return classesApi.removeClass(event, scope, cancel);
 }
 
 export async function editClass(

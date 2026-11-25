@@ -568,6 +568,8 @@ export interface ClassInstance {
   engineVersion?: "old" | "new";
   /** PAD-920 (rule 20): the student picks own/other/both on the waiting list; false on `old`. */
   waitingListSideChoice?: boolean;
+  /** PAD-840 (`classes.delete` rule 14): the class this occurrence belongs to; absent on older servers. */
+  lessonId?: string;
   /**
    * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
    * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
@@ -1459,6 +1461,8 @@ export interface MessageTemplates {
    *  recurring class. Optional: older configs lack them and the server falls back to its defaults. */
   removed_from_class?: string;
   removed_from_series?: string;
+  /** PAD-840 (rule 26): the coach cancelled a class. Optional, like the two above. */
+  class_cancelled?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────

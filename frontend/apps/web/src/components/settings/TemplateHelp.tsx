@@ -6,7 +6,7 @@ import { previewTemplate, type TemplateExamples } from "@/api/templatePreview";
 
 /** Every placeholder a template can hold, in the order the help lists them (rule 3, PAD-549; PAD-836 rule 23). */
 export const ALL_PLACEHOLDERS = [
-  "name", "level", "weekday", "time", "day", "date", "type", "court", "duration", "club", "class", "when", "side",
+  "name", "level", "weekday", "time", "day", "date", "type", "court", "duration", "club", "class", "when", "side", "reason",
 ];
 
 /**
@@ -81,7 +81,7 @@ export function TemplatePreview({ template, templateKey }: { template: string; t
     let cancelled = false;
     const timer = setTimeout(() => {
       Promise.resolve()
-        .then(() => previewTemplate(template))
+        .then(() => previewTemplate(template, templateKey))
         .then((res) => {
           if (!cancelled) setText(res.text);
         })
@@ -91,7 +91,7 @@ export function TemplatePreview({ template, templateKey }: { template: string; t
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [template]);
+  }, [template, templateKey]);
 
   if (!text) return null;
   return (

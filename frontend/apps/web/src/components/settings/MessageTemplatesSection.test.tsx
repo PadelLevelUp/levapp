@@ -194,7 +194,7 @@ describe("MessageTemplatesSection explains templates and previews them (PAD-549)
       expect(screen.getByTestId("template-preview-invite").textContent).toContain("vaga para amanhã, Ana"),
       { timeout: 2000 }
     );
-    expect(previewTemplate).toHaveBeenCalledWith("vaga para {day}, {name}");
+    expect(previewTemplate).toHaveBeenCalledWith("vaga para {day}, {name}", "invite");
   });
 });
 
@@ -320,5 +320,41 @@ describe("PAD-928 the removal notices (notifications.message-templates rule 24)"
       target: { value: "Saíste da aula de {day}." },
     });
     expect(onChange).toHaveBeenCalledWith({ ...TEMPLATES, removed_from_class: "Saíste da aula de {day}." });
+  });
+});
+
+describe("PAD-840 the cancellation notice (notifications.message-templates rule 26)", () => {
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-35] the cancellation notice is editable with its reason badge", async () => {
+    previewTemplate.mockReset().mockImplementation(async (template: string, key?: string) => ({
+      text: key === "class_cancelled" ? template.replace("{reason}", "Chuva forte") : template.replace("{reason}", ""),
+      examples: { reason: "Chuva forte" },
+    }));
+    const onChange = vi.fn();
+    const templates = { ...TEMPLATES, class_cancelled: "Cancelada. Motivo: {reason}.", invite: "Olá {reason}" };
+    render(<MessageTemplatesSection templates={templates} onChange={onChange} />);
+
+    const groups = Array.from(document.querySelectorAll("[data-testid^='template-group-']")).map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(groups.indexOf("template-group-classCancelled")).toBe(groups.indexOf("template-group-removedFromClass") + 1);
+    const row = within(screen.getByTestId("template-row-class_cancelled"));
+    row.getByText("settings.templates.labels.classCancelled");
+    row.getByText("settings.templates.descriptions.classCancelled");
+
+    const badges = within(screen.getByTestId("template-variables-class_cancelled"));
+    for (const v of ["{name}", "{weekday}", "{date}", "{time}", "{day}", "{club}", "{duration}", "{court}", "{reason}"])
+      expect(badges.getByText(v)).toBeTruthy();
+    // Offered under this key only.
+    expect(Array.from(document.querySelectorAll("[data-testid^='template-variables-']"))
+      .filter((el) => el.textContent?.includes("{reason}")).map((el) => el.getAttribute("data-testid")))
+      .toEqual(["template-variables-class_cancelled"]);
+    expect(screen.getByTestId("template-help-field-reason")).toBeTruthy();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("template-preview-class_cancelled").textContent).toContain("Motivo: Chuva forte."));
+    await waitFor(() => expect(screen.getByTestId("template-preview-invite").textContent).not.toContain("Chuva"));
+
+    fireEvent.change(row.getByRole("textbox"), { target: { value: "Aula cancelada: {reason}" } });
+    expect(onChange).toHaveBeenCalledWith({ ...templates, class_cancelled: "Aula cancelada: {reason}" });
   });
 });
