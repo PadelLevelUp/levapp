@@ -174,10 +174,11 @@ def _overlapping_going(coach_id: int, iid: int, start: datetime, end: datetime, 
     from padel_app.models.presences import Presence
     from padel_app.services.lesson_service import coach_instance_ids
 
-    own = set(coach_instance_ids(coach_id)) - {iid}
     candidates = LessonInstance.query.filter(
         LessonInstance.id != iid, LessonInstance.status != "canceled",
         LessonInstance.start_datetime < end, LessonInstance.start_datetime >= start - timedelta(days=1)).all()
+    # Only the candidates are asked about (CONFIG-85): never the coach's whole history.
+    own = coach_instance_ids(coach_id, among=[o.id for o in candidates]) - {iid}
     overlapping = [o.id for o in candidates
                    if (o.id in own and _end_of(o) > start) or o.start_datetime == start]
     if not overlapping:
@@ -671,6 +672,7 @@ class TableStore:
         from padel_app.models import User
         from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
         from padel_app.models.players import Player
+        from padel_app.services.lesson_service import coach_instance_ids_select
         from padel_app.services.notification_service import (
             _attendance_counts_for,
             _unjustified_absence_counts_for,
@@ -687,10 +689,12 @@ class TableStore:
         ids = sorted(set(by_player) | set(extra))
         if not ids:
             return {}
-        counts = _attendance_counts_for(ids, coach_id)
+        # The coach's occurrences, as SQL inside each count (CONFIG-85): never fetched as a list.
+        scope = coach_instance_ids_select(coach_id)
+        counts = _attendance_counts_for(ids, coach_id, instance_ids=scope)
         ladder = ladder_index_map(coach_id)
-        owed = makeups_owed_for(ids, coach_id)
-        unjustified = _unjustified_absence_counts_for(ids, coach_id)
+        owed = makeups_owed_for(ids, coach_id, instance_ids=scope)
+        unjustified = _unjustified_absence_counts_for(ids, coach_id, instance_ids=scope)
         out = {}
         for pid in ids:
             lk = by_player.get(pid)
@@ -722,7 +726,7 @@ class TableStore:
         # another coach's only at the same start (the engine reads same_coach, snapshot.same_time).
         from padel_app.services.lesson_service import coach_instance_ids
 
-        own = set(coach_instance_ids(coach_id))
+        own = coach_instance_ids(coach_id, among={r.lesson_instance_id for r in rows})
         going: dict[int, tuple[Placement, ...]] = {}
         for iid in {r.lesson_instance_id for r in rows}:
             going[iid] = tuple(self._placement(p) for p in Presence.query.filter_by(lesson_instance_id=iid).all()

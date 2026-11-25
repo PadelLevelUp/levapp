@@ -63,6 +63,14 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    transaction (`notifications.engine-planning` rule 1). A session that raises is rolled back and
    skipped, and the tick goes on with the rest (`notifications.invitations` rule 21's new reading); the
    failure is recorded as `admin.engine-health` rule 12 says. The outbox is sent after the sessions.
+   Each run logs one line at INFO when it ends: its duration in milliseconds, each pass's duration, and
+   how many occurrences it materialised and adopted, sessions it listed, effects it applied and outbox
+   rows it sent, so a run that outgrows const:ENGINE_RUN_EVERY shows in the log.
+   A listed session with nothing due costs one snapshot per run (a step that applied no effect leaves the
+   session as it was, so the next step reads the same snapshot), and what a snapshot reads does not grow
+   with the coach's past classes or with other coaches' classes: the coach's occurrences are asked about
+   inside the queries that count a student's history, never fetched as a list, and the overlap and
+   elsewhere reads ask only about the occurrences they found.
 
 8. **Invitation messages and alerts stay current** (`notifications.invitations` NB1a;
    `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
@@ -262,6 +270,20 @@ row, then `credits_used` grows and the entry stays open; and when the coach acce
 student holding a standing row with two credits, then exactly one credit is spent.
 test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_entry_no_limit_and_a_coachs_accept_spend_as_rule_11_says`
 
+#### NOTIFICATIONS-ENGINE-STORE-20: Each run logs its duration and counts (rule 7)
+Given a switched coach with one listed session, when `engine_tick` runs, then one INFO line is logged
+with the run's total milliseconds, each pass's milliseconds, and the materialised, adopted, sessions,
+effects and sent counts.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_each_run_logs_its_duration_and_counts`
+
+#### NOTIFICATIONS-ENGINE-STORE-21: A session with nothing due reads a bounded amount, whatever the history (rule 7)
+Given switched coaches with listed sessions and nothing due, when the sessions' tick runs with 4 weeks of
+past classes (with presences), and again after 26 more weeks of them and another coach's classes with 30
+weeks of history, then each session is snapshotted once, takes at most 40
+statements, and both runs issue the same statements, load the same ORM rows and bind the same largest
+parameter list.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_a_session_with_nothing_due_reads_a_bounded_amount_whatever_the_history`
+
 #### NOTIFICATIONS-ENGINE-STORE-22: An occurrence with no level of its own takes its lesson's default level (rule 4)
 Given a coach with level-based groups (the class's level first, one level away second) and an occurrence whose own
 `level_id` is NULL and whose lesson's default level is set, when the coach is switched (adoption) and the store
@@ -279,7 +301,10 @@ test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_an_inhe
    engine-answers ANSWERS-32.
 4. (switch keeps lists, 2026-11-19) STORE-15 to STORE-17 — `services/engine_switch.py` (`_adopt`) and
    `services/engine_store.py` (`add_session`); STORE-18, STORE-19 — `services/engine_store.py` (`Placed`).
-5. (engine effective level, 2026-11-25) STORE-22 — `services/engine_store.py` (`snapshot`) and
+5. (engine tick load, 2026-11-25) STORE-20 — `services/engine_runner.py` (`run_tick`'s log line); STORE-21 —
+   `invitation_engine/engine.py` (`tick`), `services/engine_store.py` (`_students`, `_overlapping_going`,
+   `_elsewhere`), `services/lesson_service.py` (`coach_instance_ids`, `coach_instance_ids_select`).
+6. (engine effective level, 2026-11-25) STORE-22 — `services/engine_store.py` (`snapshot`) and
    `services/engine_switch.py` (`_adopt`).
 
 ### Open questions
@@ -292,3 +317,11 @@ test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_an_inhe
   student's other open engine invitations paid by that entry be withdrawn? The engine never revokes (D4),
   and a withdrawal needs its own bubble state and copy. Until then a second Yes from that entry places the
   student without a credit.
+- The run's log line (rule 7, STORE-20; prod slowness, 25 Nov 2026) — decision (hotfix agent, owner's
+  order, nobody reachable to review; the owner can reverse it): a log line only, not exposed on admin
+  engine-health, because APScheduler logs no run lines and the log is the cheapest place to read it.
+- The sessions' tick's cost (rule 7, STORE-21; prod 25 Nov 2026: about 110 statements and three snapshots
+  per listed session, full reads of the coach's history per snapshot) — decision (hotfix agent, owner's
+  order relayed by the coordinator to widen the fix, nobody reachable to review; the owner can reverse
+  it): reuse the snapshot when a step applied nothing, and scope the history reads in SQL. This touches
+  `Engine.tick` (`notifications.engine-planning`'s run) without changing what it decides.
