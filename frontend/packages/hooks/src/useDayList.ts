@@ -199,9 +199,13 @@ export function useDayList({ active, selectedDay, selectDay, weekStartsOn = WEEK
 
   const retry = useCallback(() => void first.refetch(), [first]);
   const retryTail = useCallback(() => void tail.refetch(), [tail]);
-  /** The pull to refresh: both reads that are on (client.pull-to-refresh, "the shown range"). */
+  /**
+   * The pull to refresh: both reads that are on (client.pull-to-refresh, "the shown range"). Resolves with whether
+   * either failed, which is how the pull says so (its rule 4).
+   */
   const refetchAll = useCallback(async () => {
-    await Promise.all([first.refetch(), ...(tailRequested ? [tail.refetch()] : [])]);
+    const results = await Promise.all([first.refetch(), ...(tailRequested ? [tail.refetch()] : [])]);
+    return { isError: results.some((r) => r.isError) };
   }, [first, tail, tailRequested]);
 
   return {

@@ -140,6 +140,30 @@ describe("the continuous Dia's list state", () => {
     expect(result.current.list.tail).toBe("idle");
   });
 
+  it("[CALENDAR-MOBILE-VIEWS-42] the pull refetches both reads and says whether either failed", async () => {
+    const { result } = renderHook(() => usePage({ mode: "day", initialDate: WEDNESDAY }), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.list.status).toBe("ready"));
+    await act(async () => result.current.calendar.selectDay(day(2026, 12, 22)));
+    await waitFor(() => expect(result.current.list.tail).toBe("ready"));
+    getCalendarEvents.mockClear();
+
+    let outcome: { isError: boolean } | undefined;
+    await act(async () => {
+      outcome = await result.current.list.refetchAll();
+    });
+    expect(getCalendarEvents).toHaveBeenCalledTimes(2);
+    expect(outcome).toEqual({ isError: false });
+
+    getCalendarEvents.mockImplementation(async (from: string) => {
+      if (from.startsWith("2026-12-27")) throw new Error("offline");
+      return eventsBetween(from, "2027-01-23");
+    });
+    await act(async () => {
+      outcome = await result.current.list.refetchAll();
+    });
+    expect(outcome).toEqual({ isError: true });
+  });
+
   it("[CALENDAR-MOBILE-VIEWS-37] makes no read while Dia is not showing", async () => {
     const { result } = renderHook(() => usePage({ mode: "week", initialDate: WEDNESDAY }), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.page.isSuccess).toBe(true));
