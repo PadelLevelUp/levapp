@@ -3,7 +3,7 @@
 // its own. Covers auth.push-subscription rule 8.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isIosBrowserWithoutApp, requestAndSubscribe, subscribeToPush } from "./pushNotifications";
+import { isIosBrowserWithoutApp, requestAndSubscribe, subscribeToPush, unsubscribeFromPush } from "./pushNotifications";
 
 const SAVE = /\/notifications\/save-subscription$/;
 
@@ -83,5 +83,31 @@ describe("isIosBrowserWithoutApp", () => {
     expect(isIosBrowserWithoutApp({ userAgent: IPHONE, maxTouchPoints: 5 }, true)).toBe(false);
     // A desktop Mac has no touch.
     expect(isIosBrowserWithoutApp({ userAgent: MAC, maxTouchPoints: 0 }, false)).toBe(false);
+  });
+});
+
+describe("unsubscribeFromPush names its browser (PAD-753)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("[AUTH-PUSH-SUBSCRIPTION-12] sends this browser's endpoint, and nothing when it has no subscription", async () => {
+    const unsubscribe = vi.fn().mockResolvedValue(true);
+    const getSubscription = vi.fn().mockResolvedValue({ endpoint: "https://push.example.com/ep", unsubscribe });
+    vi.stubGlobal("navigator", {
+      serviceWorker: { getRegistration: vi.fn().mockResolvedValue({ pushManager: { getSubscription } }) },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(unsubscribeFromPush("tok-1")).resolves.toBe(true);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/notifications\/unsubscribe$/);
+    expect(JSON.parse(init.body)).toEqual({ endpoint: "https://push.example.com/ep" });
+
+    getSubscription.mockResolvedValue(null);
+    await expect(unsubscribeFromPush("tok-1")).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

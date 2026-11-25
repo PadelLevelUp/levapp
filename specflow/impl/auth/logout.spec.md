@@ -28,6 +28,15 @@ Invalidate the current JWT token so it cannot be reused.
    `pushToken` is ignored. The mobile app still sends the separate unregister first, as a fallback. A `pushToken` that is not an Expo
    push token (iOS builds 34 and 35 cache the raw device token, B-706) removes every Expo row the
    caller holds, as `messaging.push-notifications` rule 9b states (PAD-741).
+   **The browser's subscription too (PAD-753; owner, 25 Nov 2026).** The
+   same body may carry `pushEndpoint`: the server deletes the CALLER's `push_subscriptions` row for that
+   endpoint in the same request, before the blocklist write, so a signed-out browser stops receiving the
+   account's pushes. The web sends the endpoint of this browser's current subscription, when it has
+   one, with the session's token read before sign-out removes it (the API client reads the token when
+   the request leaves, which is after). A subscription that cannot be read within a second never holds
+   the sign-out back: the request then goes without it. iOS has nothing to add: it already sends
+   `pushToken`. A missing, empty or non-string
+   `pushEndpoint` is ignored; another user's row is never touched.
 
 5. **(PAD-591) The blocklist is read once per request.** Authenticating a request looks the token's
    `jti` up in `token_blocklist` once; a later step of the same request (the sliding refresh in
@@ -102,3 +111,16 @@ Invalidate the current JWT token so it cannot be reused.
 - **Then** the token is removed once, the hook is called once, and the request rejects
 - **And** with no hook the token is still removed
 - **And** a 500 leaves the token in place and calls no hook
+
+#### AUTH-LOGOUT-9: Logout with the browser's endpoint removes that browser only (rule 4, PAD-753)
+- **Given** a student with two browser subscriptions, and another user holding a third
+- **When** the student posts `/api/auth/logout` with `{"pushEndpoint": <the first browser's endpoint>}`
+- **Then** that row is gone, the student's other browser and the other user's row stay, and the token is blocklisted
+test: `backend/padel_app/tests/test_pad753_push_per_browser.py` › `test_logout_with_the_endpoint_removes_that_browser_only`
+
+#### AUTH-LOGOUT-10: Web sign-out sends this browser's endpoint with the session's token (rule 4, PAD-753)
+- **Given** the web app signed in, with a push subscription in this browser
+- **When** the user signs out
+- **Then** one `POST /auth/logout` is sent carrying the session's token and `pushEndpoint` equal to the subscription's endpoint, and with no subscription, or one that cannot be read, the request still goes and the body has no `pushEndpoint`
+- **And** the token is gone from this browser as soon as the user signs out, before that request leaves
+test: `frontend/apps/web/src/auth/AuthContext.logoutEndpoint.test.tsx` › `[AUTH-LOGOUT-10] sign-out sends the browser endpoint with the token`
