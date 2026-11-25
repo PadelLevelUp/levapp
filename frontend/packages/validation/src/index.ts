@@ -6,6 +6,8 @@ export const usernameSchema = z
   .string()
   .min(3, "Username must have at least 3 characters");
 
+/** Sign-in only: 6 is the shortest password any account holds (auth.login rule 15). New and
+ * changed passwords need 8 (the forms below; owner decision 2026-11-10). */
 export const passwordSchema = z
   .string()
   .min(6, "Password must have at least 6 characters");
@@ -25,7 +27,7 @@ export const registerSchema = z
     username: z.string().min(3, "Username must have at least 3 characters"),
     email: z.string().email("Invalid email"),
     phone: z.string().optional(),
-    password: z.string().min(6, "Password must have at least 6 characters"),
+    password: z.string().min(8, "Password must have at least 8 characters"),
     repeatPassword: z.string(),
   })
   .refine((data) => data.password === data.repeatPassword, {
@@ -41,7 +43,7 @@ export const coachInviteAcceptSchema = z
   .object({
     name: z.string().min(2, "Name must have at least 2 characters"),
     username: z.string().min(3, "Username must have at least 3 characters"),
-    password: z.string().min(6, "Password must have at least 6 characters"),
+    password: z.string().min(8, "Password must have at least 8 characters"),
     repeatPassword: z.string(),
   })
   .refine((data) => data.password === data.repeatPassword, {
@@ -54,7 +56,7 @@ export type CoachInviteAcceptInput = z.infer<typeof coachInviteAcceptSchema>;
 export const playerInviteAcceptSchema = z
   .object({
     username: z.string().min(3, "Username must have at least 3 characters"),
-    password: z.string().min(6, "Password must have at least 6 characters"),
+    password: z.string().min(8, "Password must have at least 8 characters"),
     repeatPassword: z.string(),
   })
   .refine((data) => data.password === data.repeatPassword, {

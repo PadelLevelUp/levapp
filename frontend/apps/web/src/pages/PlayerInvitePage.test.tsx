@@ -99,3 +99,24 @@ describe("PlayerInvitePage — a chosen username is lowercase (PAD-799, auth.reg
     expect(field.getAttribute("autocorrect")).toBe("off");
   });
 });
+
+describe("PlayerInvitePage — a password needs 8 characters (PAD-886, rule 5)", () => {
+  const set = (id: string, value: string) =>
+    fireEvent.change(document.getElementById(id) as HTMLInputElement, { target: { value } });
+
+  it("[PLAYERS-INVITE-COMPLETION-13] refuses a password of seven on the field and sends nothing", async () => {
+    await mount();
+    set("password", "Secret1");
+    set("repeatPassword", "Secret1");
+    submit();
+    expect(await screen.findByTestId("playerInvite-password-error")).toHaveTextContent("auth.playerInvite.passwordMin");
+    expect(accept).not.toHaveBeenCalled();
+  });
+
+  it("[PLAYERS-INVITE-COMPLETION-13] puts a server 400 on password on the password field", async () => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "password" } } });
+    await mount();
+    submit();
+    expect(await screen.findByTestId("playerInvite-password-error")).toHaveTextContent("auth.playerInvite.passwordMin");
+  });
+});

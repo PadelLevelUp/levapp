@@ -18,6 +18,7 @@ import {
   coachInviteAcceptPayload,
   coachInviteEmailError,
   coachInviteLanding,
+  passwordRefusedByServer,
 } from "./account-setup";
 
 /**
@@ -156,14 +157,16 @@ describe("validateAccountForm — player invite", () => {
     ).toEqual({ username: "usernameMin" });
   });
 
-  it("rejects a password shorter than 6 characters", () => {
-    expect(
-      validateAccountForm(playerInviteSchema, {
-        ...validPlayer,
-        password: "abc12",
-        repeatPassword: "abc12",
-      })
-    ).toEqual({ password: "passwordMin" });
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-7] rejects a password shorter than 8 characters", () => {
+    for (const short of ["abc12", "abc1234"]) {
+      expect(
+        validateAccountForm(playerInviteSchema, {
+          ...validPlayer,
+          password: short,
+          repeatPassword: short,
+        })
+      ).toEqual({ password: "passwordMin" });
+    }
   });
 
   it("reports mismatched passwords against the repeat field", () => {
@@ -267,6 +270,32 @@ describe("validateAccountForm — register", () => {
 });
 
 /* ---------- submit failures ---------- */
+
+describe("a password needs 8 characters on all three forms (owner decision 2026-11-10, PAD-859)", () => {
+  const seven = { password: "Nina123", repeatPassword: "Nina123" };
+
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-7] each form refuses a password of seven and takes one of eight", () => {
+    expect(validateAccountForm(playerInviteSchema, { ...validPlayer, ...seven })).toEqual({ password: "passwordMin" });
+    expect(validateAccountForm(coachInviteSchema, { ...validCoach, ...seven })).toEqual({ password: "passwordMin" });
+    expect(validateAccountForm(registerSchema, { ...validRegister, ...seven })).toEqual({ password: "passwordMin" });
+    const eight = { password: "Nina1234", repeatPassword: "Nina1234" };
+    expect(validateAccountForm(playerInviteSchema, { ...validPlayer, ...eight })).toEqual({});
+    expect(validateAccountForm(coachInviteSchema, { ...validCoach, ...eight })).toEqual({});
+    expect(validateAccountForm(registerSchema, { ...validRegister, ...eight })).toEqual({});
+  });
+
+  it("[AUTH-MOBILE-ACCOUNT-CREATION-7] a server refusal on password belongs on the password field", () => {
+    // The invitations answer as sign-up does (`field`); activation answers `invalid_fields`.
+    expect(passwordRefusedByServer({ response: { status: 400, data: { field: "password" } } })).toBe(true);
+    expect(
+      passwordRefusedByServer({ response: { status: 400, data: { error: "invalid_fields", fields: ["name", "password"] } } })
+    ).toBe(true);
+    expect(passwordRefusedByServer({ response: { status: 400, data: { field: "birthDate" } } })).toBe(false);
+    expect(passwordRefusedByServer({ response: { status: 409, data: { field: "password" } } })).toBe(false);
+    expect(passwordRefusedByServer(new Error("network"))).toBe(false);
+    expect(passwordRefusedByServer(null)).toBe(false);
+  });
+});
 
 describe("submitOutcomeForStatus", () => {
   it("[AUTH-MOBILE-ACCOUNT-CREATION-5] maps 409 to a recoverable username clash", () => {
