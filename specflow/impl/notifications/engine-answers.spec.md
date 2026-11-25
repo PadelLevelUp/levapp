@@ -185,6 +185,7 @@ test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test
 Given S20's run, when one of the 2 right-siders told "left" says Yes before the first 3 answer, then
 they are placed left and the either spot stays with the first 3.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P20b-side-limit]`
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P46-an-other-side-yes-keeps-its-side-and-withdraws-nothing]`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-5: A Yes whose offer filled gets sorry, even with another side open (rule 3)
 Given scenario 1 at 19:08: a level-2 left-sider invited for the left, the left full, the right open and
