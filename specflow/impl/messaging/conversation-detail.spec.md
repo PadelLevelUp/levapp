@@ -1,6 +1,6 @@
 ---
 id: messaging.conversation-detail
-status: implemented
+status: implementing
 depends_on: [messaging.conversations, messaging.messages]
 serves: [P-MESSAGING-2]
 governed_by: []
@@ -76,6 +76,12 @@ through the history without the thread ever moving under the reader.
    retried. The retry looks the message up again in the thread as it is at that moment and is
    dropped when the message is no longer loaded; it never reuses the index it was first given,
    because a refetch may have replaced the loaded pages in between.
+9c. **A landing is repeated until its row is on screen (B-732, B-733; iOS and Android).** When the
+   thread scrolls to a target on its own (rule 9a's first unread, a push or deep-link target) and the
+   list settles without that row on screen, the scroll is issued again, found by message id (rule 9b),
+   a bounded number of times. The landing ends when the list settles with the row on screen, when the
+   reader drags, sends or jumps to the latest, when another thread opens, or when the row is no longer
+   loaded.
 10. While the viewport is **away from the bottom** (beyond a small threshold — roughly one
     bubble's height), **no content change moves it**: not a new incoming message, an edit, a
     reaction, a background refetch, the keyboard opening, or an image finishing layout. A "new
@@ -354,3 +360,11 @@ through the history without the thread ever moving under the reader.
   preview opens when the finger lifts
 - **And** on a 1.1.2 binary (no native module) the same swipe sets the reply with no haptic and no
   error
+
+#### MESSAGING-CONVERSATION-DETAIL-28: A landing the list undid is repeated until its row shows (rule 9c, B-732, B-733)
+- **Given** a thread whose target (the first unread, or a push or deep-link target) sits behind the first page, and a list that ends elsewhere after the landing scroll
+- **When** the list settles without the target on screen
+- **Then** the scroll to the target is issued again, and no more once the list settles with it on screen
+- **And** it stops after a bounded number of repeats, and at once when the reader drags, sends or jumps to the latest, when another thread opens, or when the row is no longer loaded
+- **And** flows 103 and 114 land on iOS and on Android
+test: `frontend/apps/mobile/src/features/messages/landing-state.test.ts` › `[MESSAGING-CONVERSATION-DETAIL-28] scrolls again when the list settled without the target on screen` (+5 more)
