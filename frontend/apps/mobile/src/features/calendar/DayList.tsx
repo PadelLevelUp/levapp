@@ -71,6 +71,12 @@ export function DayList({
   const scrollY = React.useRef(0);
   const viewport = React.useRef(0);
   const contentReady = React.useRef(false);
+  // One function for the ScrollView's whole life: React calls an inline ref with null and then the node on EVERY
+  // render, which cleared `contentReady` (set only when the content size changes) and made every later target a no-op.
+  const setScroller = React.useCallback((node: unknown) => {
+    scroller.current = node as ScrollHandle | null;
+    if (!node) contentReady.current = false;
+  }, []);
   const touched = React.useRef(false);
   const moving = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const movingTo = React.useRef<string | null>(null);
@@ -143,6 +149,13 @@ export function DayList({
   const finishMove = React.useCallback(
     (day: string) => {
       cancelMove();
+      // Arrival does not depend on the animation: whatever the platform did with it (Android with animations scaled
+      // to 0, a scroll that was interrupted), the list is put on the day, without animation, if it is not there.
+      const y = offsets.current.get(day);
+      if (y !== undefined && Math.abs(scrollY.current - y) > 1) {
+        scrollY.current = y;
+        scroller.current?.scrollTo({ y, animated: false });
+      }
       anchor.current = { day, delta: 0 };
       if (targetNow.current === day) settled();
     },
@@ -163,6 +176,11 @@ export function DayList({
       const y = offsets.current.get(targetIso);
       if (y === undefined || jumping) return;
       touched.current = false;
+      // Already there (a second layout event before the state caught up with the first arrival): nothing to move.
+      if (placed.current && Math.abs(scrollY.current - y) <= 1) {
+        finishMove(targetIso);
+        return;
+      }
       if (!placed.current || reduceMotion.current) {
         placed.current = true;
         scrollY.current = y;
@@ -352,10 +370,7 @@ export function DayList({
   return (
     <>
       <ScrollView
-        ref={(node: unknown) => {
-          scroller.current = node as ScrollHandle | null;
-          if (!node) contentReady.current = false;
-        }}
+        ref={setScroller}
         testID="calendar-day-list"
         className="flex-1"
         style={{ opacity: ready || status !== "ready" ? 1 : 0 }}
@@ -381,6 +396,7 @@ export function DayList({
         }}
         onMomentumScrollEnd={(e: ScrollEvent) => {
           // The end of a programmatic animation arrives here too: that is the target's arrival.
+          scrollY.current = e.nativeEvent.contentOffset.y;
           if (movingTo.current) finishMove(movingTo.current);
           report(e.nativeEvent.contentOffset.y);
         }}

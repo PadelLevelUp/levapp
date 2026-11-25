@@ -459,4 +459,34 @@ describe("Dia on iOS: one list of days (rule 26)", () => {
     act(() => root.unmount());
     expect(reduceMotion.removed).toBe(1);
   });
+
+  it("[CALENDAR-MOBILE-VIEWS-42] a tapped date moves the list after a re-render that sent no content-size event (the device sends one only when the size changes)", async () => {
+    const { select } = await mount();
+    await layoutAll();
+    scrollTo.mockClear();
+    // The strip's tap: the day is selected, the screen re-renders, nothing in the content changed, so the device
+    // fires no onContentSizeChange and no onLayout. The list must still go there (CI Android: it did not).
+    await select(new Date(2026, 11, 1));
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-12-01"), animated: true });
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-42] arrival does not depend on the animation: if the list is not at the day when the movement ends, it is put there without animation", async () => {
+    const { select } = await mount();
+    await layoutAll();
+    await select(new Date(2026, 11, 1));
+    scrollTo.mockClear();
+    // The animated scroll never moved (no onScroll, no momentum end): the second's limit ends the movement.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 1100));
+    });
+    expect(probe("target")).toBe("");
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-12-01"), animated: false });
+
+    // Where it did arrive, nothing is corrected.
+    await select(new Date(2026, 11, 3));
+    scrollTo.mockClear();
+    await scrollBy(offsetOf("2026-12-03"));
+    await act(async () => { list().props.onMomentumScrollEnd(scrollEvent(offsetOf("2026-12-03"))); });
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
 });
