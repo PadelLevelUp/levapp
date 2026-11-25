@@ -643,12 +643,18 @@ def _old_job_key(job_id: str):
     return None
 
 
-def old_engine_job_keys() -> set:
-    """The keys (``_old_job_key``) of every old-engine job the scheduler holds; empty with no scheduler.
-    Read from memory: the cutover pass reads nothing more when it is empty (CONFIG-85)."""
+def old_engine_jobs_by_key() -> dict:
+    """Every old-engine job the scheduler holds, by its key (``_old_job_key``); empty with no scheduler.
+    One ``get_jobs()``: in prod that is a read of the job store's table and an unpickle of every job,
+    so the cutover pass makes it once per run and reuses it (CONFIG-85)."""
     if _scheduler is None:
-        return set()
-    return {key for key in (_old_job_key(job.id) for job in _scheduler.get_jobs()) if key is not None}
+        return {}
+    out: dict = {}
+    for job in _scheduler.get_jobs():
+        key = _old_job_key(job.id)
+        if key is not None:
+            out.setdefault(key, []).append(job)
+    return out
 
 
 def old_engine_jobs(*, instance_ids=(), lesson_ids=(), vacancy_ids=()) -> list:

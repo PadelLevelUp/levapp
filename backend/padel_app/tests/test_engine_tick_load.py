@@ -361,3 +361,49 @@ def test_a_session_with_nothing_due_reads_a_bounded_amount_whatever_the_history(
     listed_after, _, effects, large = _sessions_tick(NOW + timedelta(minutes=3))
     assert effects == [] and listed_after == listed          # the other coach's classes are on no engine row
     assert (large.n, large.loaded, large.params) == (small.n, small.loaded, small.params)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-85")
+def test_the_cutover_pass_reads_the_jobs_once_and_asks_only_their_coaches(live_scheduler):
+    """Old-engine jobs still armed for one undrained coach's old occurrence: the cutover pass reads the
+    scheduler's jobs once and issues the same statements whether or not three more drained coaches,
+    with classes and history but no old job, are switched too; once that occurrence has started and the
+    coach is drained, its jobs are removed."""
+    from apscheduler.triggers.date import DateTrigger
+
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services import engine_runner
+    from padel_app.services.engine_switch import cutover_pass
+
+    undrained = _coach(0)
+    lesson = _weekly(undrained, datetime(2026, 11, 25, 9, 0))
+    start = datetime(2026, 11, 26, 18, 0)                  # existed at the switch, never adopted: old engine
+    old = LessonInstance(lesson_id=lesson.id, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                         original_lesson_occurence_date=start.date(), max_players=4, status="scheduled",
+                         level_id=lesson.default_level_id, created_at=NOW - timedelta(days=3))
+    db.session.add(old)
+    db.session.commit()
+    sched = live_scheduler._scheduler
+    for job_id in (f"reminder_{old.id}", f"invite_start_{old.id}", f"reminder_lesson_{lesson.id}_{start.date()}"):
+        sched.add_job(print, DateTrigger(run_date=start + timedelta(days=30)), id=job_id)
+    reads = []
+    real_get = sched.get_jobs
+    sched.get_jobs = lambda *a, **k: reads.append(1) or real_get(*a, **k)
+
+    def cutover(now):
+        reads.clear()
+        with _Statements() as count:
+            assert cutover_pass(now=now) == {}
+        assert len(reads) == 1
+        return count.n
+
+    alone = cutover(NOW)
+    for n in range(1, 4):
+        coach = _coach(n)
+        _classes(coach, 6, 4)
+    engine_runner.run_tick(NOW + timedelta(minutes=1))     # their due occurrences made and adopted: drained
+    assert cutover(NOW + timedelta(minutes=2)) == alone
+
+    removed = cutover_pass(now=start + timedelta(minutes=1))   # the old occurrence has started: drained
+    assert sorted(removed[undrained[0]]) == sorted(
+        [f"reminder_{old.id}", f"invite_start_{old.id}", f"reminder_lesson_{lesson.id}_{start.date()}"])
