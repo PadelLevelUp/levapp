@@ -12,6 +12,9 @@ import { act, create, type ReactTestInstance, type ReactTestRenderer } from "rea
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Pinned (the file reads "today" through Hoje): 25 Nov 2026, midday. Only Date is faked, so timers stay real.
+const PINNED_NOW = new Date(2026, 10, 25, 12, 0, 0);
 import { queryClientDefaultOptions, useDayList } from "@levelup/hooks";
 import type { CalendarEvent } from "@levelup/types";
 
@@ -19,6 +22,19 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("expo-secure-store", () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn() }));
 vi.mock("@/lib/date-locale", () => ({ useDateLocale: () => undefined }));
+// Reduced motion (rule 26b) is read once and followed: the test owns both the answer and the subscription.
+const reduceMotion = vi.hoisted(() => ({ on: false, listener: null as null | ((on: boolean) => void), removed: 0 }));
+vi.mock("react-native", async (orig) => ({
+  ...(await orig<object>()),
+  AccessibilityInfo: {
+    isReduceMotionEnabled: async () => reduceMotion.on,
+    addEventListener: (_event: string, cb: (on: boolean) => void) => {
+      reduceMotion.listener = cb;
+      return { remove: () => void (reduceMotion.removed += 1) };
+    },
+    announceForAccessibility: () => undefined,
+  },
+}));
 const getCalendarEvents = vi.hoisted(() => vi.fn());
 vi.mock("@levelup/api/src/resources/calendar", () => ({
   getCalendarEvents: (from: string, to: string) => getCalendarEvents(from, to),
@@ -55,21 +71,23 @@ const EDGE_H = 44;
 let root: ReactTestRenderer;
 const scrollTo = vi.fn();
 
-function Harness({ initial, onReady }: { initial: Date; onReady?: (api: { select: (d: Date) => void }) => void }) {
+type Api = { select: (d: Date) => void; setActive: (on: boolean) => void };
+function Harness({ initial, onReady }: { initial: Date; onReady?: (api: Api) => void }) {
   const [selected, setSelected] = useState(initial);
-  const list = useDayList({ active: true, selectedDay: selected, selectDay: setSelected });
-  onReady?.({ select: setSelected });
+  const [active, setActive] = useState(true);
+  const list = useDayList({ active, selectedDay: selected, selectDay: setSelected });
+  onReady?.({ select: setSelected, setActive });
   return (
     <>
       <View2 id="selected" value={iso(selected)} />
       <View2 id="target" value={list.target ? iso(list.target) : ""} />
-      <DayList
+      {active && <DayList
         list={list}
         eventsByDay={list.eventsByDay}
         levelCodeById={new Map()}
         selectedDay={selected}
         onToday={() => list.goTo(new Date(2026, 10, 25))}
-      />
+      />}
     </>
   );
 }
@@ -82,7 +100,7 @@ async function mount(initial = new Date(2026, 10, 25)) {
   const client = new QueryClient({
     defaultOptions: { queries: { ...queryClientDefaultOptions.queries, retry: false } },
   });
-  let api!: { select: (d: Date) => void };
+  let api!: Api;
   await act(async () => {
     root = create(
       <QueryClientProvider client={client}>
@@ -92,7 +110,10 @@ async function mount(initial = new Date(2026, 10, 25)) {
     );
   });
   await flush();
-  return { select: (d: Date) => act(async () => api.select(d)) };
+  return {
+    select: (d: Date) => act(async () => api.select(d)),
+    setActive: (on: boolean) => act(async () => api.setActive(on)),
+  };
 }
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
@@ -134,12 +155,18 @@ const scrollEvent = (y: number) => ({ nativeEvent: { contentOffset: { x: 0, y } 
 const scrollBy = (y: number) => act(async () => { list().props.onScroll(scrollEvent(y)); });
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(PINNED_NOW);
+  reduceMotion.on = false;
+  reduceMotion.listener = null;
+  reduceMotion.removed = 0;
   getCalendarEvents.mockReset();
   getCalendarEvents.mockImplementation(async (from: string, to: string) => eventsFor(from, to));
   scrollTo.mockReset();
 });
 afterEach(() => {
   act(() => root?.unmount());
+  vi.useRealTimers();
 });
 
 describe("Dia on iOS: one list of days (rule 26)", () => {
@@ -193,7 +220,9 @@ describe("Dia on iOS: one list of days (rule 26)", () => {
     expect(all(/^calendar-day-empty$/)).toHaveLength(48);
     expect(one("calendar-day-section-2026-11-25")).toBeTruthy();
     expect(all(/^calendar-event-card$/)).toHaveLength(1);
-    expect(maybe("calendar-day-section-2026-11-26")).toBeNull();
+    // Every day has its section (26g, VIEWS-42), the empty ones too, so one assertion reads any day.
+    expect(all(/^calendar-day-section-\d{4}-\d{2}-\d{2}$/)).toHaveLength(49);
+    expect(maybe("calendar-day-section-2026-11-26")).not.toBeNull();
   });
 
   it("[CALENDAR-MOBILE-VIEWS-42] stays hidden until it has scrolled to the opening day, then stands there without animation", async () => {
@@ -289,5 +318,145 @@ describe("Dia on iOS: one list of days (rule 26)", () => {
   it("[CALENDAR-MOBILE-VIEWS-42] the list ends with filler, never shorter than the add buttons' clearance", async () => {
     await mount();
     expect(one("calendar-day-filler").props.style.height).toBeGreaterThanOrEqual(168);
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-42] Dia -> Mês -> a day outside the range -> offline -> Dia: the list and its error row are visible", async () => {
+    const { select, setActive } = await mount();
+    await layoutAll();
+    await setActive(false);
+    await select(new Date(2027, 5, 1));
+    getCalendarEvents.mockImplementation(async () => {
+      throw new Error("offline");
+    });
+    await setActive(true);
+    await flush();
+    // The list came back unplaced with Dia's own earlier days and a failed read: neither may be hidden.
+    expect(one("calendar-day-list").props.style.opacity).toBe(1);
+    expect(maybe("calendar-day-error")).not.toBeNull();
+    expect(maybe("calendar-day-retry")).not.toBeNull();
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-42] Dia -> Mês -> a day outside the range -> a slow read -> Dia shows skeleton rows, not a blank list", async () => {
+    const { select, setActive } = await mount();
+    await layoutAll();
+    await setActive(false);
+    await select(new Date(2027, 5, 1));
+    getCalendarEvents.mockImplementation(() => new Promise(() => undefined));
+    await setActive(true);
+    await flush();
+    expect(maybe("calendar-day-loading")).not.toBeNull();
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-42] a list whose headers never lay out is shown anyway after a moment", async () => {
+    await mount();
+    expect(list().props.style.opacity).toBe(0);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 1700));
+    });
+    expect(list().props.style.opacity).toBe(1);
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] a touch during a movement ends the target, and a later render does not pull the reader back", async () => {
+    const { select } = await mount();
+    await layoutAll();
+    await select(new Date(2026, 11, 1));
+    await layoutAll();
+    expect(probe("target")).toBe("2026-12-01");
+    // The movement has got into the target's own day when the reader puts a finger on the list.
+    await scrollBy(offsetOf("2026-12-01") + 10);
+    await act(async () => { list().props.onScrollBeginDrag(); });
+    expect(probe("target")).toBe("");
+    scrollTo.mockClear();
+    await scrollBy(offsetOf("2026-12-01") + 40);
+    await layoutAll();
+    await flush();
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] a second target during a movement is moved to, and its arrival ends it", async () => {
+    const { select } = await mount();
+    await layoutAll();
+    await select(new Date(2026, 11, 1));
+    await layoutAll();
+    scrollTo.mockClear();
+    await select(new Date(2026, 11, 3));
+    await layoutAll();
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-12-03"), animated: true });
+    await act(async () => { list().props.onMomentumScrollEnd(scrollEvent(offsetOf("2026-12-03"))); });
+    expect(probe("target")).toBe("");
+    expect(probe("selected")).toBe("2026-12-03");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-38] offsets measured for an earlier range are not used for the new one", async () => {
+    const { select } = await mount();
+    await layoutAll();
+    // 27 Dec is the first day outside the loaded weeks: the range is replaced, its days re-measure.
+    await select(new Date(2026, 11, 27));
+    await flush();
+    await act(async () => {
+      one("calendar-day-header-2026-12-27").props.onLayout({ nativeEvent: { layout: { x: 0, y: 100, width: 390, height: HEADER_H } } });
+      list().props.onContentSizeChange(390, 5000);
+    });
+    await act(async () => { list().props.onScrollBeginDrag(); });
+    // Only the header that has laid out for the new range counts: the retained days' old offsets do not.
+    await scrollBy(300);
+    expect(probe("selected")).toBe("2026-12-27");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-46] the old days scrolling while a read for another range is slow select nothing", async () => {
+    const { select } = await mount();
+    await layoutAll();
+    let release!: () => void;
+    getCalendarEvents.mockImplementation(
+      () => new Promise((resolve) => { release = () => resolve([]); })
+    );
+    await select(new Date(2027, 5, 1));
+    await scrollBy(offsetOf("2026-11-27"));
+    await scrollBy(offsetOf("2026-12-03"));
+    expect(probe("selected")).toBe("2027-06-01");
+    expect(probe("target")).toBe("2027-06-01");
+    await act(async () => { release(); });
+    await flush();
+    expect(one("calendar-day-header-2027-06-01")).toBeTruthy();
+    await layoutAll();
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2027-06-01"), animated: false });
+    expect(probe("selected")).toBe("2027-06-01");
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-42] the filler is the viewport minus the last day's header, body and the bottom block", async () => {
+    await mount();
+    await layoutAll();
+    const last = headers()[headers().length - 1];
+    const lastDay = String(last.props.testID).slice("calendar-day-header-".length);
+    await act(async () => {
+      list().props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
+      last.props.onLayout({ nativeEvent: { layout: { x: 0, y: 9000, width: 390, height: 70 } } });
+      one(`calendar-day-section-${lastDay}`).props.onLayout({ nativeEvent: { layout: { x: 0, y: 9070, width: 390, height: 9 } } });
+      one("calendar-day-bottom").props.onLayout({ nativeEvent: { layout: { x: 0, y: 9079, width: 390, height: 44 } } });
+    });
+    expect(one("calendar-day-filler").props.style.height).toBe(844 - 70 - 9 - 44);
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-42] Hoje, the edge rows and the retry grow with the text size: a minimum height, never a fixed one", async () => {
+    const { select } = await mount();
+    await select(new Date(2026, 11, 3));
+    for (const id of ["calendar-day-today", "calendar-day-edge-before", "calendar-day-edge-after"]) {
+      const cls = String(one(id).props.className);
+      expect(cls, id).toMatch(/(^|\s)min-h-11(\s|$)/);
+      expect(cls, id).not.toMatch(/(^|\s)h-11(\s|$)/);
+    }
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-48] reduced motion is followed while the list is mounted: a tapped date jumps, and the subscription ends with the list", async () => {
+    const { select } = await mount();
+    await layoutAll();
+    expect(reduceMotion.listener).not.toBeNull();
+    await act(async () => { reduceMotion.listener!(true); });
+    scrollTo.mockClear();
+    await select(new Date(2026, 11, 1));
+    await layoutAll();
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-12-01"), animated: false });
+    act(() => root.unmount());
+    expect(reduceMotion.removed).toBe(1);
   });
 });
