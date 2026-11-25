@@ -184,8 +184,6 @@ test: `frontend/apps/mobile/src/lib/release-bundle-check.test.ts` › `refuses a
   `terms-on-completion`, `adult-roster-confirmation`, `student-relations`, `full-classes`,
   `join-side`, `notification-sound` and `waiting-list-side`
 test: `frontend/apps/mobile/src/lib/api-capabilities.test.ts` › `found the initApi call and its known options before judging it (R-032)` (+6 more)
-- Code to follow: pin the whole list of thirteen tokens in one test in
-  `frontend/apps/mobile/src/lib/api-capabilities.test.ts`; today it names six.
 
 #### MOBILE-RELEASE-BUILD-TARGET-12: A release without a usable prebuilt cache is refused before anything changes (rule 3c)
 - **Given** `scripts/ios-release.sh production 1.3.4 <build>` with an Xcode the check accepts
