@@ -5,7 +5,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { LANDING_MAX_REPEATS, landingReducer, type LandingEvent, type LandingState } from "./landing-state";
+import {
+  LANDING_LATEST,
+  LANDING_MAX_REPEATS,
+  isAtEnd,
+  landingReducer,
+  type LandingEvent,
+  type LandingState,
+} from "./landing-state";
 
 function run(events: LandingEvent[]) {
   let state: LandingState = null;
@@ -17,6 +24,9 @@ function run(events: LandingEvent[]) {
   }
   return { state, scrolls };
 }
+
+const threadSource = () =>
+  readFileSync(join(__dirname, "..", "..", "..", "app", "conversation", "[id].tsx"), "utf8");
 
 const settled = (...visibleIds: (string | number)[]): LandingEvent => ({ type: "settled", visibleIds });
 
@@ -61,8 +71,34 @@ describe("a landing that checks it arrived (rule 9c)", () => {
   });
 
   // The thread screen cannot be mounted in the mobile harness (thread-screen-wiring.test.ts).
+  it("[MESSAGING-CONVERSATION-DETAIL-29] repeats the scroll to the end until the list settles there", () => {
+    const { scrolls } = run([
+      { type: "land", messageId: LANDING_LATEST },
+      settled("10", "11"), // the old end: the new row is below
+      settled("11", "12", LANDING_LATEST),
+      settled("11"),
+    ]);
+    expect(scrolls).toEqual([null, LANDING_LATEST, null, null]);
+    // Android lane run 45596805975: a sent row left off screen, a sliver of it, and fully shown.
+    expect(isAtEnd(498, 21, 403)).toBe(false);
+    expect(isAtEnd(798, 334, 403)).toBe(false);
+    expect(isAtEnd(1098, 682, 403)).toBe(true);
+  });
+
+  it("[MESSAGING-CONVERSATION-DETAIL-29] the screen issues no scroll with the send, and waits a frame after the content grew", () => {
+    const source = threadSource();
+    const send = source.slice(source.indexOf("const handleSend = "), source.indexOf("Edit own message"));
+    expect(send).toContain("followOwnMessage()");
+    expect(send).not.toMatch(/scrollToBottom\(|scrollToEnd\(/);
+    const follow = source.slice(source.indexOf("const followOwnMessage = "), source.indexOf("const handleScroll = "));
+    expect(follow).toContain("startLanding(LANDING_LATEST)");
+    expect(follow).not.toContain("scrollToEnd(");
+    const grown = source.slice(source.indexOf('type: "contentGrew" }).effect'), source.indexOf("const handleListLayout"));
+    expect(grown).toMatch(/requestAnimationFrame\(\(\) => \{\s*listRef\.current\?\.scrollToEnd/);
+  });
+
   it("[MESSAGING-CONVERSATION-DETAIL-28] the thread screen dispatches the landing's events", () => {
-    const source = readFileSync(join(__dirname, "..", "..", "..", "app", "conversation", "[id].tsx"), "utf8");
+    const source = threadSource();
     const between = (from: string, to: string) => {
       const start = source.indexOf(from);
       expect(start, from).toBeGreaterThan(-1);
@@ -71,8 +107,8 @@ describe("a landing that checks it arrived (rule 9c)", () => {
       return source.slice(start, end);
     };
     expect(between("const handleScroll = ", "const handleContentSizeChange")).toContain("armLandingSettle()");
-    expect(between("const handleContentSizeChange = ", "const viewportHeightRef")).toContain("armLandingSettle()");
-    expect(between("const scrollToBottom = ", "const handleScroll")).toContain("endLanding()");
+    expect(between("const handleContentSizeChange = ", "const handleListLayout")).toContain("armLandingSettle()");
+    expect(between("const scrollToBottom = ", "const followOwnMessage = ")).toContain("endLanding()");
     expect(between("onScrollBeginDrag=", "scrollEventThrottle")).toContain("endLanding()");
     expect(between("A different thread must be anchored", "loadedMessageCount =")).toContain("endLanding()");
     expect(between("requestAnimationFrame(() => {\n      scrollToMessage(landedId", "});")).toContain("startLanding(landedId");

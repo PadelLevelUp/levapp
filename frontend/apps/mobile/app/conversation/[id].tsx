@@ -80,7 +80,9 @@ import { shouldFreezeFirstUnread, shouldMarkRead } from "@/features/messages/ope
 import { useThreadOpen } from "@/features/messages/use-thread-open";
 import { followReducer, initialFollowState, type FollowEvent } from "@/features/messages/follow-state";
 import {
+  LANDING_LATEST,
   LANDING_SETTLE_MS,
+  isAtEnd,
   landingReducer,
   type LandingEvent,
   type LandingState,
@@ -532,8 +534,8 @@ export default function ConversationScreen() {
     }));
     // PAD-208 rule 10 — the user's OWN message always takes them to the bottom,
     // wherever they were reading. This is explicit now that the list no longer
-    // follows content unconditionally.
-    scrollToBottom(true);
+    // follows content unconditionally. B-731: the list does not hold the row yet.
+    followOwnMessage();
 
     try {
       const saved = await messagesApi.sendMessage({
@@ -679,6 +681,9 @@ export default function ConversationScreen() {
   const landingRef = React.useRef<LandingState>(null);
   const landingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const visibleIdsRef = React.useRef<(string | number)[]>([]);
+  const contentHeightRef = React.useRef(0);
+  const scrollOffsetRef = React.useRef(0);
+  const viewportHeightRef = React.useRef(0);
   // Set below, with `scrollToMessage`; false when the row is no longer loaded.
   const repeatLandingRef = React.useRef<(messageId: string) => boolean>(() => false);
   const dispatchLanding = React.useCallback((event: LandingEvent) => {
@@ -696,7 +701,11 @@ export default function ConversationScreen() {
     if (landingRef.current === null) return;
     if (landingTimerRef.current) clearTimeout(landingTimerRef.current);
     landingTimerRef.current = setTimeout(() => {
-      const again = dispatchLanding({ type: "settled", visibleIds: visibleIdsRef.current });
+      const atEnd = isAtEnd(contentHeightRef.current, scrollOffsetRef.current, viewportHeightRef.current);
+      const again = dispatchLanding({
+        type: "settled",
+        visibleIds: atEnd ? [...visibleIdsRef.current, LANDING_LATEST] : visibleIdsRef.current,
+      });
       if (!again) return;
       if (repeatLandingRef.current(again.scrollTo)) armLandingSettle();
       else endLanding();
@@ -783,6 +792,15 @@ export default function ConversationScreen() {
     [dispatchFollow, endLanding, setNewBelow]
   );
 
+  // Rule 10, B-731: the list follows the newest from now on, and `contentGrew` scrolls once the
+  // sent row is laid out; the landing repeats that scroll if the list settles short of the end.
+  const followOwnMessage = React.useCallback(() => {
+    dispatchFollow({ type: "toLatest" });
+    startLanding(LANDING_LATEST);
+    setNewBelow(false);
+    setShowJumpToBottom(false);
+  }, [dispatchFollow, setNewBelow, startLanding]);
+
   const handleScroll = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const metrics = event.nativeEvent;
@@ -790,6 +808,7 @@ export default function ConversationScreen() {
         metrics.contentSize.height -
         metrics.contentOffset.y -
         metrics.layoutMeasurement.height;
+      scrollOffsetRef.current = metrics.contentOffset.y;
       scrollMetricsRef.current = {
         distanceFromBottom,
         viewportHeight: metrics.layoutMeasurement.height,
@@ -810,6 +829,7 @@ export default function ConversationScreen() {
 
   const handleContentSizeChange = React.useCallback(
     (_width: number, height: number) => {
+      contentHeightRef.current = height;
       if (!anchored) {
         // Rule 9: while hidden, the reducer owns the positioning and decides
         // when the list has settled at the end.
@@ -820,8 +840,12 @@ export default function ConversationScreen() {
       // Rule 10: content grew and the reader was at the bottom — stay pinned.
       // Away from the bottom this is where the snap used to happen, and now it
       // deliberately does nothing — nor while a landing is in charge (B-189).
+      // A frame later (B-731): on Android a scroll issued here runs before the grown rows mount,
+      // and stops at the old end.
       if (dispatchFollow({ type: "contentGrew" }).effect === "scrollToEnd") {
-        listRef.current?.scrollToEnd({ animated: false });
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToEnd({ animated: false });
+        });
       }
     },
     [anchored, armLandingSettle, dispatchAnchor, dispatchFollow]
@@ -833,10 +857,9 @@ export default function ConversationScreen() {
   // a drop in height is dispatched as `viewportShrank` and, at the bottom (rule 10's gate),
   // the list re-pins to its end — deferred one frame, like the anchor effect above and for the
   // same reason: the shrunk geometry is not readable inside the callback that reports it
-  // (PAD-224; `contentGrew` and the jump control scroll synchronously, their geometry is). A taller
+  // (PAD-224; the jump control scrolls synchronously, its geometry is). A taller
   // viewport (the keyboard closing) dispatches nothing: the native scroll view clamps the
   // offset itself, so nothing jumps.
-  const viewportHeightRef = React.useRef(0);
   const handleListLayout = React.useCallback(
     (event: LayoutChangeEvent) => {
       const height = event.nativeEvent.layout.height;
@@ -951,7 +974,11 @@ export default function ConversationScreen() {
   const targetOlderPagesRef = React.useRef(0);
   const targetIsExplicitRef = React.useRef(false);
   // Rule 9c: a repeat is not animated, so nothing can cancel it on its way.
-  repeatLandingRef.current = (messageId) => scrollToMessage(messageId, targetIsExplicitRef.current, false);
+  repeatLandingRef.current = (messageId) => {
+    if (messageId !== LANDING_LATEST) return scrollToMessage(messageId, targetIsExplicitRef.current, false);
+    listRef.current?.scrollToEnd({ animated: false });
+    return true;
+  };
   // Recompute whenever the explicit param, the conversation, or the frozen
   // first-unread changes. The first-unread value is only known once the open
   // response has loaded — one render after `conversationId` switches — so

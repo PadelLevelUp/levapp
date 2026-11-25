@@ -25,6 +25,23 @@ export type LandingEvent =
   /** The reader dragged, sent or jumped to the latest; another thread opened; or the row is gone. */
   | { type: "end" };
 
+/**
+ * The end of the thread as a landing's target (rule 10, B-731): the user's own sent message. Its row
+ * has a temporary id, so the list being at its end stands for it. The screen lists it in
+ * `visibleIds` when `isAtEnd` says so.
+ */
+export const LANDING_LATEST = "latest";
+
+/**
+ * How far from the end still counts as there: the content's bottom padding (about 14 px, which
+ * `scrollToEnd` leaves out) and some slack, well under a bubble.
+ */
+const AT_END_PX = 24;
+
+export function isAtEnd(contentHeight: number, offset: number, viewportHeight: number): boolean {
+  return contentHeight - offset - viewportHeight <= AT_END_PX;
+}
+
 /** The message to scroll to again, or null. */
 export type LandingEffect = { scrollTo: string } | null;
 
