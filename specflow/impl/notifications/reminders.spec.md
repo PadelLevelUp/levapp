@@ -444,7 +444,7 @@ test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `o
 #### NOTIFICATIONS-REMINDERS-34: The app's reminders skip a new-engine session at every entry (new-engine section)
 - **Given** a switched coach with a new-engine occurrence and an old-engine occurrence, both due a reminder, and a student added late to each
 - **When** `send_class_reminders` runs, `arm_ask_for_student` is called for each late student, and the past-due pass runs
-- **Then** nothing is sent or armed for the new-engine occurrence, and the old-engine one gets its reminder, its ask and its past-due pass as today
+- **Then** the app's flow sends or arms nothing for the new-engine occurrence (the coach's own send for it goes through the engine, `notifications.class-reminders-manual` rule 5), and the old-engine one gets its reminder, its ask and its past-due pass as today
 test: `backend/padel_app/tests/test_pad918_reminders_skip_new_engine.py` › `test_the_apps_reminders_skip_a_new_engine_session`
 
 
