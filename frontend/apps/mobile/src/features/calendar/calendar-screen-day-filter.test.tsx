@@ -3,7 +3,7 @@
  * selected one. The real screen is mounted over the real `useCalendar` / `useDayList`; the API is a mock, and the
  * parts of the screen that are not under test (strip, other modes, native chrome) are stubs.
  */
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -19,7 +19,7 @@ vi.mock("@/lib/date-locale", () => ({ useDateLocale: () => undefined }));
 // A student (no "coach" role): the filter is theirs.
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ user: { id: 7, roles: ["player"] } }) }));
 vi.mock("@/lib/view-mode-store", () => ({ readViewMode: async () => "day", writeViewMode: vi.fn() }));
-vi.mock("@/components/screen", () => ({ Screen: (p: { children: unknown }) => createElement("Screen", null, p.children) }));
+vi.mock("@/components/screen", () => ({ Screen: (p: { children?: ReactNode }) => createElement("Screen", null, p.children) }));
 vi.mock("@/features/calendar/DayStrip", () => ({ DayStrip: () => null }));
 vi.mock("@/features/calendar/WeekView", () => ({ WeekView: () => null }));
 vi.mock("@/features/calendar/MonthView", () => ({ MonthView: () => null }));
