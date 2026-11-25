@@ -1,0 +1,36 @@
+# auth.invite-welcome rule 6 (AUTH-INVITE-WELCOME-5, UI idea 8): the join screen puts its words on the navy band and
+# every action can be reached by scrolling. e2e-student-3 has no coach; setup mints a join token as the coach
+# (scripts/join-first-dashboard-setup.js, as flow 113), the student opens the link and sees the band, the coach's
+# and the club's name and the Confirm button; teardown disconnects her again.
+#
+# NOT covered here (needs a player-invitation token the setup script does not mint): the player page at the largest text
+# size with the keyboard on the last field, and its sign-in link under the form. A larger text size is set on the
+# simulator by hand (`xcrun simctl ui booted content_size extra-extra-extra-large`) before running, then reset.
+# Assertions are by testID only. Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow number 331.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/join-first-dashboard-setup.js
+onFlowComplete:
+  - runScript: ../scripts/join-first-dashboard-teardown.js
+---
+- assertTrue: "${output.joinToken && output.joinToken.length > 10}"
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-3
+      PASSWORD: E2eStudent3123!
+- openLink: "levelup://join/coach/${output.joinToken}"
+- extendedWaitUntil:
+    visible:
+      id: "invite-band"
+    timeout: 20000
+# The words are on the band, outside the card; the card holds the actions.
+- assertVisible:
+    id: "join-coach-preview"
+- scrollUntilVisible:
+    element:
+      id: "join-coach-confirm"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "join-coach-confirm"
