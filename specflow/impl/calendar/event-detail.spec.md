@@ -662,7 +662,7 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.
 - **And** the iOS class screen's join block takes its status line from that helper
 test: `frontend/packages/config/src/join-request-status.test.ts` › `gives no line for an accepted or withdrawn request` (+1 more)
 
-#### CALENDAR-EVENT-DETAIL-42: A student's sheet shows the class's count, the same number as the card (rule 5, PO M-7512)
+#### CALENDAR-EVENT-DETAIL-49: A student's sheet shows the class's count, the same number as the card (rule 5, PO M-7512)
 - **Given** a class of 4 with two students going, and one of them, enrolled, opening its sheet; the calendar card says 2/4
 - **When** the student's sheet loads
 - **Then** its capacity reads 2/4 with 2 open, and the participants header reads 2/4, not 1/4 and 3 open
