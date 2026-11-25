@@ -5,7 +5,7 @@ constants:
   LESSON_LIST_TYPES: ["academy", "private"]           # values of the academy-classes read's `type`; the first is the default
   COACH_REQUESTS_PAGE_SIZE: 25
   COACH_REQUESTS_MAX_PAGE_SIZE: 100
-  COACH_REQUESTS_QUERY_BUDGET: 12
+  COACH_REQUESTS_QUERY_BUDGET: 13
   PRIVATE_REQUEST_OPEN_STATUSES: "pending, countered"
   JOIN_REQUEST_OPEN_STATUSES: "pending"
   COACH_REQUESTS_STATUS_ORDER: "pending, countered, accepted, declined, rejected, withdrawn, superseded"

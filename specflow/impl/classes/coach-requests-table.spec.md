@@ -318,7 +318,7 @@ test: `backend/padel_app/tests/test_pad795_coach_requests_table.py` › `test_se
 
 #### CLASSES-COACH-REQUESTS-TABLE-9: A request's statement count does not grow with the coach's requests or the page's rows (rule 8)
 - **Given** Ana with 10 requests, then with 600 (both kinds, with invitees, sides, nicknames and notes)
-- **When** she reads page 1 with `per_page` = const:COACH_REQUESTS_MAX_PAGE_SIZE, with a `search`, a `status` and a `kind` filter on, counting every statement at the cursor for the whole request after one warm-up request
+- **When** she reads page 1 with `per_page` = const:COACH_REQUESTS_MAX_PAGE_SIZE, with a `player_id`, a `status` and a `kind` filter on (the `search` joins them when it is built, CLASSES-COACH-REQUESTS-TABLE-8), counting every statement at the cursor for the whole request after one warm-up request
 - **Then** the 600-request read issues exactly as many statements as the 10-request read, and neither issues more than const:COACH_REQUESTS_QUERY_BUDGET
 test: `backend/padel_app/tests/test_pad795_coach_requests_table.py` › `test_statement_count_does_not_grow`
 
@@ -398,10 +398,13 @@ test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.test.t
 ### Performance
 A coach with thousands of requests reads one page in a bounded, constant number of statements
 (CLASSES-COACH-REQUESTS-TABLE-9). const:COACH_REQUESTS_QUERY_BUDGET is set from the statements one
-request needs at most, counted as rule 8 counts them: authentication and the coach (2), the search's
-requesters (1), the page's rows (1), the section total (1), the two section counts (2), and four batch
-loads — students and their users, the coach's relation rows, lesson instances with their classes, and
-invitees (4): 11, plus 1 for the club's time zone the request-date bounds need = 12. It is a hard bound:
+request needs at most, counted as rule 8 counts them (the 10-vs-600 test counts them at the cursor):
+authentication and the coach (4: the token check, the user twice, the coach), the two section counts
+(2; the requested section's count is also the page's total), the page's rows (1), and six batch loads —
+the private rows, the academy rows, students and their users, the coach's relation rows, lesson
+instances with their classes, and invitees (6): 13. The club's time zone is one constant
+(`utils/dates.CLUB_TZ`), so the request-date bounds cost no statement. Building `search` (rule 7) adds the
+requesters read (1): 14, an amendment of the constant then. It is a hard bound:
 raising it is an amendment of the constant with a reason. Before the PR merges, the build also times the
 endpoint on a staging copy shaped like the busiest coach (each section, default sort, a search and a
 filter) and writes the timings in the PR; a page over 300 ms server time there reopens the index
