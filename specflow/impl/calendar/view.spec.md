@@ -1,7 +1,7 @@
 ---
 id: calendar.view
-status: implemented
-depends_on: [classes.instances]
+status: implementing
+depends_on: [classes.instances, attendance.presence]
 serves: [P-CALENDAR-3]
 governed_by: []
 ---
@@ -190,6 +190,19 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
       before (no `full` events); the colours are a client concern and change nothing on the wire.
 
 24. **A bare date is a calendar day (B-060).** A `YYYY-MM-DD` value typed into the new-class or new-event sheet is read as that calendar day and never as an instant: its weekday, and the date some months later, are worked out on the calendar, with the day clamped to the month's last.
+
+25. **"Confirmed" on a class means coming, not marked present (found 2026-11-25 on the fill bar; numbering
+    self-assigned).** `confirmedCount` is how many of the filled spots belong to students who are coming or came: every
+    presence that is not absent and is either marked present by the coach or answered yes (`confirmed`). It is
+    `attendance.presence` rule 9's `coming` or `attended`, plus a coach's mark whose validation was undone, which stays a mark. It is
+    computed in one place on the server (`LessonInstance.confirmed_spots`) and once for a client's own lists
+    (`confirmedSpotsOf`, `@levelup/config`), and the two agree on every row. It is never more than the filled spots (rule 8). A
+    Lesson template stays 0. No field or endpoint changes.
+   - **Today:** both count `status == "present"` only, and a student's Vou writes `confirmed` and never `status` (only the coach
+     marks attendance), so on every upcoming class the card's and the sheet's "confirmed" part is empty. The commit that added it (a1405bd0d,
+     2026-08-07) wanted to say whether the filled "are actually coming". A decline also writes `confirmed`, so absent is read first (B-073).
+   - Installed iOS builds read the server's number: without an update their calendar cards show the right solid part. Their
+     class page gets the fill bar only with the build that has it.
 
 ### Acceptance Criteria
 
@@ -384,6 +397,23 @@ test: `backend/padel_app/tests/test_calendar_participant_count.py` › `test_les
 - **Then** 13 July 2027 is a Tuesday
 - **And** one month after 31 January is 28 February, and three months after 13 July is 13 October
 test: `frontend/apps/web/src/lib/dateOnly.test.ts` › `the weekday of a bare date is that date's weekday` (+1 more)
+
+#### CALENDAR-VIEW-30: The server counts who is coming (rule 25)
+- **Given** an occurrence with students who answered yes, declined (which also writes `confirmed`), cancelled, did not answer, were marked present and validated, marked absent and validated, and marked present with the validation undone
+- **When** the coach's calendar is read
+- **Then** `confirmedCount` counts the yes, the validated present and the undone present only, and is never more than `participantCount`
+test: `backend/padel_app/tests/test_confirmed_means_coming.py` › `test_confirmed_count_is_who_is_coming`
+
+#### CALENDAR-VIEW-31: A Vou reaches the count (rule 25)
+- **Given** an upcoming occurrence with one student asked
+- **When** the student answers yes to the reminder, and later no
+- **Then** `confirmedCount` is 1 and then 0, and `participantCount` 1 and then 0
+test: `backend/padel_app/tests/test_confirmed_means_coming.py` › `test_a_vou_reaches_the_count`
+
+#### CALENDAR-VIEW-32: The shared function and the server agree on every row (rule 25)
+- **Given** every combination of status (none, present, absent), confirmed and validated
+- **Then** `confirmedSpotsOf` counts a listed row exactly when the server does, from one table both tests read
+test: `frontend/packages/config/src/capacity.test.ts` › `confirmedSpotsOf counts who is coming` (+ `backend/padel_app/tests/test_confirmed_means_coming.py` › `test_every_row_matches_the_shared_table`)
 
 #### CALENDAR-VIEW-27: A student on a class's waiting list can leave it from the class detail (rule 23, PAD-934)
 - **Given** a student who is on a class's waiting list, with that class open from the Calendar

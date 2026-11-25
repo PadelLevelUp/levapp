@@ -59,8 +59,8 @@ describe("registerSchema", () => {
     name: "John Doe",
     username: "johndoe",
     email: "john@example.com",
-    password: "secret1",
-    repeatPassword: "secret1",
+    password: "secret12",
+    repeatPassword: "secret12",
   };
 
   it("parses valid input (phone optional)", () => {
@@ -95,12 +95,32 @@ describe("registerSchema", () => {
   });
 });
 
+describe("a new password needs 8 characters (owner decision 2026-11-10; sign-in keeps 6)", () => {
+  const seven = { password: "secret1", repeatPassword: "secret1" };
+  const cases = [
+    ["registerSchema", registerSchema, { name: "John Doe", username: "johndoe", email: "john@example.com" }],
+    ["coachInviteAcceptSchema", coachInviteAcceptSchema, { name: "Coach Ana", username: "coachana" }],
+    ["playerInviteAcceptSchema", playerInviteAcceptSchema, { username: "player1" }],
+  ] as const;
+
+  it.each(cases)("%s refuses a password of seven on the password field", (_name, schema, rest) => {
+    const result = schema.safeParse({ ...rest, ...seven });
+    expect(result.success).toBe(false);
+    expect(firstIssue(result).path).toEqual(["password"]);
+    expect(firstIssue(result).message).toBe("Password must have at least 8 characters");
+  });
+
+  it("the sign-in schema still takes a password of seven", () => {
+    expect(passwordSchema.safeParse("secret1").success).toBe(true);
+  });
+});
+
 describe("coachInviteAcceptSchema", () => {
   const valid = {
     name: "Coach Ana",
     username: "coachana",
-    password: "secret1",
-    repeatPassword: "secret1",
+    password: "secret12",
+    repeatPassword: "secret12",
   };
 
   it("parses valid input", () => {
@@ -132,8 +152,8 @@ describe("coachInviteAcceptSchema", () => {
 describe("playerInviteAcceptSchema", () => {
   const valid = {
     username: "player1",
-    password: "secret1",
-    repeatPassword: "secret1",
+    password: "secret12",
+    repeatPassword: "secret12",
   };
 
   it("parses valid input (no name field required)", () => {

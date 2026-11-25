@@ -40,7 +40,7 @@ const registerSchema = z
     username: z.string().min(3, "usernameMin"),
     email: z.string().email("emailInvalid"),
     phone: z.string().optional(),
-    password: z.string().min(6, "passwordMin"),
+    password: z.string().min(8, "passwordMin"), // owner decision 2026-11-10: 8 everywhere
     repeatPassword: z.string(),
     // PAD-457 (auth.activate rule 13): adults only at activation too.
     birthDate: z
@@ -176,6 +176,12 @@ const RegisterPage = () => {
       const key = res?.data?.code ? BIRTH_CODE_KEYS[res.data.code] : undefined;
       if (res?.status === 400 && res.data?.field === "birthDate" && key) {
         setErrors((prev) => ({ ...prev, birthDate: t(`auth.register.${key}`) }));
+        return;
+      }
+      // auth.activate rule 11 (PAD-858): a password under 8 belongs on its field.
+      const fields = (res?.data as { fields?: unknown } | undefined)?.fields;
+      if (res?.status === 400 && Array.isArray(fields) && fields.includes("password")) {
+        setErrors((prev) => ({ ...prev, password: t("auth.register.passwordMin") }));
         return;
       }
       // PAD-637: a Terms refusal belongs on the box.

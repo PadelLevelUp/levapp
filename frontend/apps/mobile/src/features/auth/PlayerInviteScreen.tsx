@@ -24,6 +24,7 @@ import {
   ACTIVATION_BIRTH_CODES,
   ACTIVATION_COUNTRY_CODES,
   validateAccountForm,
+  passwordRefusedByServer,
 } from "@/features/auth/account-setup";
 
 type Status = "loading" | "valid" | "invalid";
@@ -138,6 +139,11 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
       const birthKey = res?.data?.code ? ACTIVATION_BIRTH_CODES[res.data.code] : undefined;
       if (res?.status === 400 && res.data?.field === "birthDate" && birthKey) {
         setErrors({ birthDate: t(`auth.playerInvite.${birthKey}`) });
+        return;
+      }
+      // PAD-858/859: the server's password refusal belongs on the field, in the form's words.
+      if (passwordRefusedByServer(error)) {
+        setErrors({ password: t("auth.playerInvite.passwordMin") });
         return;
       }
       // PAD-637: a Terms refusal belongs on the box.

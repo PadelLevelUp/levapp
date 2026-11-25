@@ -49,7 +49,8 @@ import type {
 
 
 import { assignedSideOf, blockedNames, classBarRefusal, classTypeChipKey, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
-import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
+import { useCancelReason, useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
+import type { CancelReason } from "@levelup/api/src/resources/classes";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
 import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, viewFilledSpots, participantsHeader, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
@@ -125,6 +126,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { CancelReasonFields } from "./CancelReasonFields";
+import { ClassCancellationsSection } from "./ClassCancellationsSection";
 import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import type { SideInOccurrence } from "./SideInOccurrenceControl";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
@@ -153,7 +156,7 @@ interface ClassDetailSheetProps {
 
   canManage: boolean,
 
-  onDelete: (event: CalendarEvent, scope: ApplyScope) => void;
+  onDelete: (event: CalendarEvent, scope: ApplyScope, cancel?: CancelReason) => void;
   onEdit: (
     event: CalendarEvent,
     updated: Partial<ClassInstance>,
@@ -226,6 +229,8 @@ export function ClassDetailSheet({
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // classes.delete rule 12 (PAD-840): the reason, shared by the two delete confirmations.
+  const cancelReason = useCancelReason(event, deleteDialogOpen || confirmDeleteOpen);
   const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
   const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
   // PAD-150: a manual add that fails the bar asks first (rule 7d). The pending
@@ -2272,6 +2277,8 @@ export function ClassDetailSheet({
             </div>
           )}
 
+          <ClassCancellationsSection lessonId={classInstance?.lessonId} enabled={canManage && (canApplyScope || classInstance?.isRecurring === true) && !isEditing} />
+
           <Separator />
 
           {!isEditing ? (
@@ -2741,7 +2748,7 @@ export function ClassDetailSheet({
       {/* PAD-58: confirm deletion of a non-recurring class before removing it. */}
       {canManage && onDelete && (
         <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
             <AlertDialogHeader>
               <AlertDialogTitle>
                 {t("calendar.detail.deleteConfirmTitle")}
@@ -2758,15 +2765,17 @@ export function ClassDetailSheet({
                 </p>
               )}
             </AlertDialogHeader>
+            <CancelReasonFields state={cancelReason} />
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>
                 {t("calendar.detail.cancel")}
               </AlertDialogCancel>
               <AlertDialogAction
+                data-testid="class-delete-confirm"
                 onClick={(e) => {
                   e.preventDefault();
                   setConfirmDeleteOpen(false);
-                  if (event) onDelete(event, "single");
+                  if (event) onDelete(event, "single", cancelReason.cancel);
                 }}
                 disabled={deleting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -2786,9 +2795,11 @@ export function ClassDetailSheet({
           onClose={() => setDeleteDialogOpen(false)}
           onConfirm={(scope) => {
             setDeleteDialogOpen(false);
-            if (event) onDelete(event, scope);
+            if (event) onDelete(event, scope, cancelReason.cancel);
           }}
-        />
+        >
+          <CancelReasonFields state={cancelReason} />
+        </ClassScopeDialog>
       )}
 
       {canManage && onEdit && (
