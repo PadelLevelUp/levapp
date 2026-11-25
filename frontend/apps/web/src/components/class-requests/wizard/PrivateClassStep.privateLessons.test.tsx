@@ -32,11 +32,12 @@ import { PrivateClassStep } from "./PrivateClassStep";
 
 const NO_TIME = { freeWindows: {}, workingHoursSource: "custom" };
 
-function lesson(id: string, state: "open" | "full") {
+function lesson(id: string, state: "open" | "full", mine: { requestStatus?: string; waiting?: boolean } = {}) {
   return {
     id, model: "LessonInstance", originalId: id, date: "2026-11-20", startTime: "18:00", endTime: "19:30",
     title: `Private ${id}`, club: { name: "Douro Padel" }, classType: "private", state,
-    spotsLeft: state === "open" ? 1 : 0, myJoinRequest: null, onWaitingList: false,
+    spotsLeft: state === "open" ? 1 : 0, myJoinRequest: mine.requestStatus ? { id: Number(id), status: mine.requestStatus } : null,
+    onWaitingList: mine.waiting ?? false,
   };
 }
 
@@ -181,5 +182,34 @@ describe("a list row joins through the warning (classes.join-requests rule 22)",
     await waitFor(() =>
       expect(joinApi.joinClassWaitingList).toHaveBeenCalledWith(expect.objectContaining({ originalId: "2" }), "left", undefined, true),
     );
+  });
+});
+
+describe("a row's action follows the student's request (rule 13b, academyClassAction)", () => {
+  it("[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
+    academyApi.listAcademyClasses.mockResolvedValue({
+      classes: [
+        lesson("1", "open", { requestStatus: "pending" }),
+        lesson("2", "open", { requestStatus: "withdrawn" }),
+        lesson("3", "open", { requestStatus: "rejected" }),
+        lesson("4", "open"),
+        lesson("5", "full", { waiting: true }),
+      ],
+    });
+    renderStep();
+    await emptyState();
+    await screen.findByTestId("wizard-private-lessons");
+    const row = (id: string) => document.querySelector(`[data-class-id="${id}"]`) as HTMLElement;
+    const has = (id: string, testId: string) => !!row(id).querySelector(`[data-testid="${testId}"]`);
+
+    expect(row("1").querySelector('[data-testid="wizard-private-lesson-status"]')?.textContent).toBe("classRequests.academy.requested");
+    expect(has("1", "wizard-private-lesson-request")).toBe(false);
+    for (const id of ["2", "3", "4"]) {
+      expect(has(id, "wizard-private-lesson-request")).toBe(true);
+      expect(has(id, "wizard-private-lesson-status")).toBe(false);
+    }
+    expect(row("5").querySelector('[data-testid="wizard-private-lesson-status"]')?.textContent).toBe("classRequests.academy.onWaitlist");
+    expect(has("5", "wizard-private-lesson-waitlist")).toBe(false);
   });
 });

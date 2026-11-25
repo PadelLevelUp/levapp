@@ -23,6 +23,7 @@ import {
   JOIN_REFUSAL_CODES,
   joinRefusalKey,
   joinRefusalOf,
+  academyClassAction,
   needsPrivateLessonWarning,
   occurrenceDates,
   readsPrivateLessons,
@@ -476,7 +477,9 @@ export function PrivateClassStep({
               {lessons.length > 0 ? (
                 <View className="gap-2" testID="wizard-private-lessons">
                   <Text className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</Text>
-                  {lessons.map((c) => (
+                  {lessons.map((c) => {
+                    const action = academyClassAction(c);
+                    return (
                     <View
                       key={c.id}
                       testID={`wizard-private-lesson-row-${c.state}`}
@@ -502,19 +505,26 @@ export function PrivateClassStep({
                               : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
                           </Text>
                         </Badge>
-                        {c.state === "open" && !c.myJoinRequest ? (
+                        {action === "requested" ? (
+                          <Text testID="wizard-private-lesson-status" className="text-sm">{t("classRequests.academy.requested")}</Text>
+                        ) : null}
+                        {action === "on_waitlist" ? (
+                          <Text testID="wizard-private-lesson-status" className="text-sm">{t("classRequests.academy.onWaitlist")}</Text>
+                        ) : null}
+                        {action === "request" ? (
                           <Button size="sm" testID="wizard-private-lesson-request" onPress={() => setLessonSideFor({ c, mode: "request" })}>
                             <Text>{t("classRequests.academy.request")}</Text>
                           </Button>
                         ) : null}
-                        {c.state === "full" && !c.onWaitingList ? (
+                        {action === "join_waitlist" ? (
                           <Button size="sm" variant="destructive" testID="wizard-private-lesson-waitlist" onPress={() => setLessonSideFor({ c, mode: "waiting" })}>
                             <Text>{t("classRequests.academy.joinWaitlist")}</Text>
                           </Button>
                         ) : null}
                       </View>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : null}
             </View>

@@ -26,6 +26,7 @@ import {
   joinRefusalOf,
   needsPrivateLessonWarning,
   waitingListSideChoice,
+  academyClassAction,
   readsPrivateLessons,
   slotStarts,
   weeklyIntersection,
@@ -480,7 +481,9 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               {lessons.length > 0 && (
                 <div className="space-y-2" data-testid="wizard-private-lessons">
                   <p className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</p>
-                  {lessons.map((c) => (
+                  {lessons.map((c) => {
+                    const action = academyClassAction(c);
+                    return (
                     <div
                       key={c.id}
                       data-testid={`wizard-private-lesson-row-${c.state}`}
@@ -500,19 +503,30 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                         <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
                           {c.state === "full" ? t("classRequests.academy.full") : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
                         </Badge>
-                        {c.state === "open" && !c.myJoinRequest && (
+                        {action === "requested" && (
+                          <p className="text-sm" data-testid="wizard-private-lesson-status" data-status="requested">
+                            {t("classRequests.academy.requested")}
+                          </p>
+                        )}
+                        {action === "on_waitlist" && (
+                          <p className="text-sm" data-testid="wizard-private-lesson-status" data-status="on_waiting_list">
+                            {t("classRequests.academy.onWaitlist")}
+                          </p>
+                        )}
+                        {action === "request" && (
                           <Button size="sm" data-testid="wizard-private-lesson-request" onClick={() => setLessonSideFor({ c, mode: "request" })}>
                             {t("classRequests.academy.request")}
                           </Button>
                         )}
-                        {c.state === "full" && !c.onWaitingList && (
+                        {action === "join_waitlist" && (
                           <Button size="sm" variant="destructive" data-testid="wizard-private-lesson-waitlist" onClick={() => setLessonSideFor({ c, mode: "waiting" })}>
                             {t("classRequests.academy.joinWaitlist")}
                           </Button>
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

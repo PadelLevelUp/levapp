@@ -55,11 +55,12 @@ import { PrivateClassStep } from "./PrivateClassStep";
 
 const NO_TIME = { freeWindows: {}, workingHoursSource: "custom" };
 
-function lesson(id: string, state: "open" | "full") {
+function lesson(id: string, state: "open" | "full", mine: { requestStatus?: string; waiting?: boolean } = {}) {
   return {
     id, model: "LessonInstance", originalId: id, date: "2026-11-20", startTime: "18:00", endTime: "19:30",
     title: `Private ${id}`, club: { name: "Douro Padel" }, classType: "private", state,
-    spotsLeft: state === "open" ? 1 : 0, myJoinRequest: null, onWaitingList: false,
+    spotsLeft: state === "open" ? 1 : 0, myJoinRequest: mine.requestStatus ? { id: Number(id), status: mine.requestStatus } : null,
+    onWaitingList: mine.waiting ?? false,
   };
 }
 
@@ -197,5 +198,26 @@ describe("a list row joins through the warning (classes.join-requests rule 22)",
     await view.press("class-side-send");
     await view.flush();
     expect(joinApi.joinClassWaitingList).toHaveBeenCalledWith(expect.objectContaining({ originalId: "2" }), "left", undefined, true);
+  });
+});
+
+describe("a row's action follows the student's request (rule 13b, academyClassAction)", () => {
+  it("[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
+    const cases: Array<{ row: ReturnType<typeof lesson>; status: string | null; action: "request" | "waitlist" | null }> = [
+      { row: lesson("1", "open", { requestStatus: "pending" }), status: "classRequests.academy.requested", action: null },
+      { row: lesson("2", "open", { requestStatus: "withdrawn" }), status: null, action: "request" },
+      { row: lesson("3", "open", { requestStatus: "rejected" }), status: null, action: "request" },
+      { row: lesson("4", "open"), status: null, action: "request" },
+      { row: lesson("5", "full", { waiting: true }), status: "classRequests.academy.onWaitlist", action: null },
+    ];
+    for (const c of cases) {
+      academyApi.listAcademyClasses.mockResolvedValue({ classes: [c.row] });
+      const view = await mount();
+      const status = view.queryByTestId("wizard-private-lesson-status");
+      expect(status ? textOf(status) : null).toBe(c.status);
+      expect(view.queryByTestId("wizard-private-lesson-request") !== null).toBe(c.action === "request");
+      expect(view.queryByTestId("wizard-private-lesson-waitlist") !== null).toBe(c.action === "waitlist");
+    }
   });
 });
