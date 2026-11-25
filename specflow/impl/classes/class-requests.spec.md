@@ -622,3 +622,29 @@ test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.p
 - **And** the withdrawn, rejected and no-request rows show the request action
 - **And** the waiting-list row shows `classRequests.academy.onWaitlist` and no waiting-list action
 test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request`
+
+#### CLASSES-CLASS-REQUESTS-54: Changing the length after picking a time clears the pick, so the request never posts the old end (rule 13)
+- **Given** the private step with a free window and a start time picked at 60 minutes
+- **When** the student changes the length to 90 minutes
+- **Then** no start time is picked any more, the offered times are those that fit 90 minutes, and Send stays off
+- **When** they pick 10:00 again and send
+- **Then** the request posts `startTime` 10:00 and `endTime` 11:30
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-54] a length change clears the picked time`, `frontend/apps/mobile/src/features/class-requests/wizard/private-duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-54] a length change clears the picked time`
+
+#### CLASSES-CLASS-REQUESTS-55: A weekly start date left empty waits instead of failing (rule 14a)
+- **Given** the weekly private step, in either ending
+- **When** the student clears the start date
+- **Then** the step does not fail: it shows the waiting state, reads no availability and lists no start time
+- **And** no occurrence date and no last date is worked out from an empty or malformed start (`occurrenceDates` is empty, `endDateAfterClasses` is null)
+- **When** a start date is entered again
+- **Then** the availability is read again for it
+test: `frontend/packages/config/src/recurrence-end.test.ts` › `[CLASSES-CLASS-REQUESTS-55] an empty or malformed start date has no occurrences and no last date`, `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-55] a cleared weekly start date waits`, `frontend/apps/mobile/src/features/class-requests/wizard/private-duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-55] a cleared weekly start date waits`
+
+#### CLASSES-CLASS-REQUESTS-56: The same username twice is refused on the field, as the server refuses it (rule 12)
+- **Given** the private step for 3 people, and a first field holding a rostered student's username
+- **When** the second field holds the same username, in any letter case or with spaces around it
+- **Then** the second field reads `DUPLICATE_INVITEE` ("Este jogador já está na lista.") and the step stays waiting, though the name itself is on the roster
+- **And** the username is checked once, not twice
+- **When** the second field is changed to a different rostered student
+- **Then** both fields read ok
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-56] a repeated username is refused on the field`, `frontend/apps/mobile/src/features/class-requests/wizard/private-duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-56] a repeated username is refused on the field`
