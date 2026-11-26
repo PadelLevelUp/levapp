@@ -542,24 +542,16 @@ export type CoachRequestsSection = "open" | "history";
 export type CoachRequestsSortKey = "class_date" | "class_time" | "requested_at" | "student" | "kind" | "side" | "status";
 
 /** classes.coach-requests-table (PAD-795) rules 3-7: every param is optional; the server's defaults apply. */
-/** PAD-772 (`calendar.student-blockers` rule 19): a class a saved block covers, in the shape `cancel_attendance` takes. */
-export interface CoveredClass {
+/** PAD-772 (`calendar.student-blockers` rule 21): a class a block save marked "Não vai", as the save's answer lists it. */
+export interface MarkedClass {
   model: "Lesson" | "LessonInstance";
   originalId: number;
   date: string;
+  lessonInstanceId: number;
   title: string | null;
   /** Club wall clock, `YYYY-MM-DDTHH:MM:SS`. */
   start: string;
   end: string;
-}
-
-export interface DeclineCoveredBody {
-  occurrences: { model: "Lesson" | "LessonInstance"; originalId: number; date: string }[];
-}
-
-export interface DeclineCoveredResult {
-  declined: { model: string; originalId: number; date: string; lessonInstanceId: number }[];
-  skipped: { model: string; originalId: number; date: string; reason: "not_covered" | "not_enrolled" | "started" | "already_answered" }[];
 }
 
 export interface CoachRequestsQuery {
