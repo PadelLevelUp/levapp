@@ -220,5 +220,6 @@ export const StyleSheet = {
 export const Dimensions = { get: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) };
 export const useWindowDimensions = () => ({ width: 390, height: 844, scale: 3, fontScale: 1 });
 export const useColorScheme = () => "light" as const;
-export const Animated = { View: host("Animated.View"), Text: host("Animated.Text"), Value: class { constructor(public v: number) {} }, timing: () => ({ start: (cb?: () => void) => cb?.() }) };
+export const Animated = { View: host("Animated.View"), Text: host("Animated.Text"), Value: class { constructor(public v: number) {} interpolate() { return 0; } }, timing: () => ({ start: (cb?: () => void) => cb?.() }) };
 
+export const Easing = { in: (f: unknown) => f, out: (f: unknown) => f, ease: 0 };
