@@ -34,9 +34,11 @@ const SECONDS_UNTIL_FIRE = 45;
 
 /** Built-in defaults for `reminder_declined`, both locales (backend
  *  DEFAULT_MESSAGE_TEMPLATES / DEFAULT_MESSAGE_TEMPLATES_PT). The seeded e2e
- *  coach is `en`, but accept either so the assertion survives a seed change. */
+ *  coach is `en`, but accept either so the assertion survives a seed change.
+ *  PAD-815 (message-templates rule 27): the pt text ends in `{day}` ("amanhã", "hoje", …),
+ *  so it is matched up to that slot. */
 const DEFAULT_DECLINED_EN = "Got it, thanks for letting us know!";
-const DEFAULT_DECLINED_PT = "Entendido, obrigado por avisares!";
+const DEFAULT_DECLINED_PT = /^Vale, então não conto contigo \S.*\.$/;
 
 async function getToken(
   request: APIRequestContext,
@@ -224,9 +226,11 @@ test.describe("PAD-67 — blank message templates fall back instead of sending e
           (confirmation!.content ?? "").trim().length,
           `PAD-67 regression: the decline confirmation was delivered EMPTY (${JSON.stringify(confirmation!.content)})`,
         ).toBeGreaterThan(0);
-        expect([DEFAULT_DECLINED_EN, DEFAULT_DECLINED_PT]).toContain(
-          (confirmation!.content ?? "").trim(),
-        );
+        const declined = (confirmation!.content ?? "").trim();
+        expect(
+          declined === DEFAULT_DECLINED_EN || DEFAULT_DECLINED_PT.test(declined),
+          `the decline confirmation is not a built-in default: ${JSON.stringify(declined)}`,
+        ).toBe(true);
 
         // And no message this decline produced is an empty bubble. Scoped to
         // messages created after the reminder — the shared seed DB also holds
