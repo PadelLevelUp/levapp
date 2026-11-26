@@ -20,6 +20,7 @@ from padel_app.utils.dates import to_utc_iso, wall_to_utc_naive
 PAGE_SIZE = 25
 MAX_PAGE_SIZE = 100
 QUERY_BUDGET = 14
+SEARCH_MAX_LENGTH = 100
 PRIVATE_REQUEST_OPEN_STATUSES = ("pending", "countered")
 JOIN_REQUEST_OPEN_STATUSES = ("pending",)
 STATUS_ORDER = ("pending", "countered", "accepted", "declined", "rejected", "withdrawn", "superseded")
@@ -119,7 +120,7 @@ def parse_params(args):
         "time_from": _minutes(args, "class_time_from"), "time_to": _minutes(args, "class_time_to"),
         "requested_from": _date(args, "requested_from"), "requested_to": _date(args, "requested_to"),
         "sort_by": sort_by, "sort_dir": sort_dir,
-        "search": (args.get("search") or "").strip(), "search_ids": None,
+        "search": (args.get("search") or "").strip()[:SEARCH_MAX_LENGTH].strip(), "search_ids": None,
         "page": max(1, _int(args.get("page"), 1)), "per_page": max(1, min(MAX_PAGE_SIZE, per_page)),
     }
 
