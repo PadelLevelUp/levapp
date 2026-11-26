@@ -587,9 +587,9 @@ test: `backend/padel_app/tests/test_b729_class_request_accept_same_hour.py` › 
 test: `frontend/packages/config/src/class-request-refusal.test.ts` › `reads one line per clash for the coach and for the student, in pt and en` (+1 more)
 
 #### CLASSES-CLASS-REQUESTS-41: The web request screens show the clash lines (rule 4a)
-- **Given** the coach's request list on web, and an accept that answers `409 busy_same_hour`
+- **Given** the coach's requests table on web (`classes.coach-requests-table`), and an accept that answers `409 busy_same_hour`
 - **Then** the failure toast shows the clash line, not `classRequests.refusal.busy_same_hour`; the chat bubble takes its text from the same helper
-test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.busySameHour.test.tsx` › `shows the clash line when the accept is refused busy_same_hour` (+1 more)
+test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.busySameHour.test.tsx` › `shows the clash line when the accept is refused busy_same_hour` (+2 more)
 
 #### CLASSES-CLASS-REQUESTS-42: The iOS request screens show the clash lines (rule 4a)
 - **Given** the iOS request list and the conversation's request bubble
