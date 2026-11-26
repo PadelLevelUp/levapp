@@ -121,6 +121,15 @@ describe("the search box (PAD-795b)", () => {
     await waitFor(() => expect(sent().at(-1)).not.toHaveProperty("search"));
   });
 
+  it("[CLASSES-COACH-REQUESTS-TABLE-23] a link with spaces around the search is trimmed, not left searching", async () => {
+    coachApi.listCoachRequests.mockResolvedValue(page([row]));
+    renderAt("/?search=%20rit%20");
+    await screen.findByTestId("coach-request-row");
+    expect(sent()[0]).toMatchObject({ search: "rit" });
+    await sleep(100);
+    expect(screen.queryByTestId("player-search-searching")).toBeNull();
+  });
+
   it("[CLASSES-COACH-REQUESTS-TABLE-23] below 768 px the box is the first control of the Filtrar block", async () => {
     coachApi.listCoachRequests.mockResolvedValue(page([row]));
     renderAt("/", true);

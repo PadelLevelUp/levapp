@@ -121,6 +121,8 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
 });
 const sent = () => coachApi.listCoachRequests.mock.calls.map((c) => c[0]);
+const strings = (node: unknown): string[] =>
+  typeof node === "string" ? [node] : node && typeof node === "object" && "children" in node ? ((node as { children: unknown[] | null }).children ?? []).flatMap(strings) : [];
 const sleep = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 describe("the search box on the coach's requests screen (PAD-795b)", () => {
@@ -178,5 +180,25 @@ describe("the search box on the coach's requests screen (PAD-795b)", () => {
     await n.flush();
     expect(sent().at(-1)).not.toHaveProperty("search");
     expect(n.queryByTestId("player-search-empty")).toBeNull();
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-23] the dot on Filtrar/Ordenar is for the sheet's filters, not for the box", async () => {
+    coachApi.listCoachRequests.mockResolvedValue(page([row]));
+    const n = await renderNative(
+      <QueryClientProvider client={client}>
+        <CoachRequestsScreen />
+      </QueryClientProvider>
+    );
+    await n.flush();
+    await n.changeText("coach-requests-search", "rit");
+    await sleep(300);
+    await n.flush();
+    expect(sent().at(-1)).toMatchObject({ search: "rit" });
+    expect(strings(n.byTestId("coach-requests-filter-open")).join("")).not.toContain("•");
+    await n.press("coach-requests-filter-open");
+    await n.press("coach-requests-sheet-kind-private");
+    await n.press("coach-requests-sheet-apply");
+    await n.flush();
+    expect(strings(n.byTestId("coach-requests-filter-open")).join("")).toContain("•");
   });
 });

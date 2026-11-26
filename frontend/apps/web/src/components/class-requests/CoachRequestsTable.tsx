@@ -148,7 +148,7 @@ export function CoachRequestsTable() {
 
   // Rule 7 `search` / players.search rule 10: the box answers locally on each keystroke and asks the
   // server 200 ms after the last one. The URL holds the settled text; the box holds what is typed.
-  const urlSearch = params.get("search") ?? "";
+  const urlSearch = (params.get("search") ?? "").trim();
   const [searchText, setSearchText] = useState(urlSearch);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const updateRef = useRef(update);

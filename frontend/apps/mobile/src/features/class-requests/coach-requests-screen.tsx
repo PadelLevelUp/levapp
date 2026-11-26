@@ -121,7 +121,7 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
   };
 
   const hasFilters = Boolean(
-    searchText.trim() || view.kind || view.status || view.side || view.playerId || view.classFrom || view.classTo || view.classTimeFrom || view.classTimeTo || view.requestedFrom || view.requestedTo
+    view.kind || view.status || view.side || view.playerId || view.classFrom || view.classTo || view.classTimeFrom || view.classTimeTo || view.requestedFrom || view.requestedTo
   );
 
   const detail = (r: CoachRequestRow) => {
