@@ -329,7 +329,7 @@ held on the coach's calendar while the request is open.
     or a weekly answer that is valid by rules 14 and 14a with a non-empty start (an empty start waits, criterion 55, and never throws); c — as Send is today. Criteria 55 and 56 speak of the step staying "waiting": that is step c's
     slot list (`wizard-slots`, `data-state="waiting"`), which a and b no longer show; in a and b the same fact is a disabled "Continuar" (criterion 61). Pressing "Continuar" in b makes its date the student's own, so nothing moves
     it afterwards (rule 11). **The 400 ms lock** starts at the commit that shows a step, the first step included: the shell calls the draft's `markShown()` from a layout effect when a step shows, and the lock is measured from it on the shell's clock (the one a test fakes): a "Continuar" press less than 400 ms after it does nothing,
-    one at 401 ms moves one step, and two presses 100 ms apart after the lock move one step, never two.
+    one at 401 ms moves one step, and two presses 100 ms apart after the lock move one step, never two. Send, which sits where "Continuar" sat, is under the same lock: a press inside it sends nothing, so a double tap on "Continuar" that lands on a Send already enabled (a time kept from an earlier visit to c) cannot send.
     **Going back:** the wizard's back control (`wizard-back`) belongs to the shell too, outside the scrolled content, at least 44px by 44px: on web in a head outside the sheet's scrolled body (today the head is inside the scrolling `SheetContent`), on iOS in a bar
     under the native header (today it is a 36px control inside the ScrollView that scrolls away). It goes one step back, and from `people` to the kind; Android's back does the same through the registry of `mobile.android-runtime` rule 3.
     iOS's native header back and the sheet's close leave the wizard, as today. Answers are kept between the three steps and when returning from the kind with the same coach; another coach starts clean (a wizard session, above). A chosen time is cleared when the people or the dates change;
@@ -710,7 +710,7 @@ test: `frontend/apps/mobile/src/features/class-requests/wizard/private-class-ste
 - **When** each is sent, on web and iOS
 - **Then** the two bodies equal, field for field, the fixed bodies in `frontend/packages/config/src/private-request-bodies.fixture.ts`
 - **Baseline.** Those bodies are recorded first, by a test on the OLD single-form step, before any step code exists: it answers the single form with an invitee and the weekly form ending after N classes, captures both full bodies given to `createClassRequest`, and compares them to the literals in the fixture (web: `PrivateClassStep.bodies.test.tsx`; iOS: `private-bodies.test.tsx`; both cite this criterion and pass on the old step). The clock is pinned (`vi.setSystemTime`, `Date` only, so the roster check's debounce and the query waits still run) to a fixed club day, and the test sets every date explicitly, so the literals hold on any day. The steps' test then answers the same through the three steps, under the same pinned clock, and compares to the same fixture. After the split, waves 3 and 4 delete the two recording tests in the same PR (they mount a step that no longer exists); the fixture stays, and this criterion's test line then names only the steps' tests.
-test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `what is sent is what the steps show` (+ iOS: `private-class-steps.test.tsx` › the same title; until the split, the recordings `PrivateClassStep.bodies.test.tsx` and `private-bodies.test.tsx`)
+test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `what is sent is what the steps show` (+ iOS: `private-class-steps.test.tsx` › the same title)
 
 #### CLASSES-CLASS-REQUESTS-60: The button stays in view in a browser (rule 21)
 - **Given** the seeded student booking at 320px and 1280px wide with many free times, and at 320px wide and 420px high
@@ -752,6 +752,7 @@ test: `frontend/apps/mobile/src/features/class-requests/wizard/private-class-ste
 - **Then** the wizard moves one step
 - **When** it is pressed twice, 100 ms apart, after the lock
 - **Then** the wizard moves one step, not two
+- **And** in step c, with a time already picked, Send pressed less than 400 ms after the step shows sends nothing, and a press after the lock sends once: a double tap on "Continuar" in b after coming back from c never sends the request
 test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `the lock and the double tap` (+ iOS: `private-class-steps.test.tsx` › the same title)
 
 #### CLASSES-CLASS-REQUESTS-67: The summary line names the earlier answers, in both languages (rule 21)
