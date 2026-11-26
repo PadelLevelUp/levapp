@@ -53,9 +53,10 @@ onFlowComplete:
 # (Android lane, 2026-11-26). Leave it for the tabs, as flows 42 and 48 leave their own root screens, then log out.
 - tapOn:
     id: "join-coach-go-calendar"
+# The tab bar is the proof the shell is up (as flow 113 waits); which tab it lands on does not matter, the header is on all.
 - extendedWaitUntil:
     visible:
-      id: "screen-calendar"
+      id: "tab-dashboard"
     timeout: 20000
 
 # ── Part 2: the player invitation, signed out ──
