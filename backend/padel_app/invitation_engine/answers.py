@@ -262,7 +262,7 @@ def _join_waiting_list(snapshot: SessionSnapshot, settings: EngineSettings, requ
         return (Refused(snapshot.id, now, sid, "waiting_list", "already_enrolled"),)
     if request.list == "students":
         student = snapshot.students.get(sid)
-        visible = any(st.id == sid for st in snapshot.pool) or sid in snapshot.absent   # a regular who said No
+        visible = sid in snapshot.pool_ids or sid in snapshot.absent   # a regular who said No
         if student is None or not visible or not planner._eligible(student, snapshot, settings):
             return (Refused(snapshot.id, now, sid, "waiting_list", "ineligible"),)
     return (WaitingListJoined(snapshot.id, now, sid, request.list, request.side, request.sides),)
@@ -281,7 +281,7 @@ def _direct_join(snapshot: SessionSnapshot, settings: EngineSettings, request: D
         return (Refused(snapshot.id, now, sid, "direct_join", "already_enrolled"),)
     if sid in snapshot.busy_same_time:
         return (Refused(snapshot.id, now, sid, "direct_join", "busy_same_hour"),)
-    visible = any(st.id == sid for st in snapshot.pool)
+    visible = sid in snapshot.pool_ids
     if student is None or not visible or not planner._eligible(student, snapshot, settings):
         return (Refused(snapshot.id, now, sid, "direct_join", "ineligible"),)
     sides = open_sides(snapshot, settings) & (frozenset({request.side}) if request.side else student.sides)

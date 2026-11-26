@@ -92,6 +92,12 @@ def _sides(app_side: str | None) -> frozenset[str]:
     return frozenset({SIDE_FROM_APP[app_side]}) if app_side in SIDE_FROM_APP else frozenset({"L", "R"})
 
 
+def _same_type(stored, spot_type: SpotType) -> bool:
+    """A stored alert ``[side, level, spots]`` is of ``spot_type``; one stored with no level is of the session's
+    level whatever it is (rule 12), so raising or clearing it replaces the one stored before the fix."""
+    return stored[0] == spot_type.side and stored[1] in (spot_type.level, None)
+
+
 def _encode(value):
     if isinstance(value, datetime):
         return value.isoformat()
@@ -404,21 +410,28 @@ class TableStore:
         missing = [int(s) for s in named if s not in students]
         if missing:                                        # a regular or a waiting student off the coach's roster
             students.update(self._students(coach_id, [], {}, extra=missing))
+        level = self._level(ladder_index_map(coach_id), inst.effective_level_id)
+
+        def spot(side, at_level=None) -> SpotType:
+            # Engine-store rule 12: a spot type stored with no level (before rule 4's effective level)
+            # reads as the session's level, so the fix reopens, re-alerts and re-asks nothing.
+            return SpotType(side, level if at_level is None else at_level)
+
         return SessionSnapshot(
-            id=session, level=self._level(ladder_index_map(coach_id), inst.level_id), capacity=inst.effective_max_players, start=start,
+            id=session, level=level, capacity=inst.effective_max_players, start=start,
             end=end,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
             coach_removed=coach_removed,
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
             confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
-            alerted={SpotType(side, level): spots for side, level, spots in (es.alerted or [])},
+            alerted={spot(side, lv): spots for side, lv, spots in (es.alerted or [])},
             approval=Approval(
                 approved_groups=frozenset(es.approved_groups or ()), removed=frozenset(es.removed or ()),
                 pending=tuple(PendingRequest(p["tier"], p["request"],
-                                             tuple((SpotType(*spot), tuple(ids)) for spot, ids in p["queues"]))
+                                             tuple((spot(*st), tuple(ids)) for st, ids in p["queues"]))
                               for p in es.pending or ()),
-                dismissed_groups=tuple((tier, tuple((SpotType(*spot), n) for spot, n in spots))
+                dismissed_groups=tuple((tier, tuple((spot(*st), n) for st, n in spots))
                                        for tier, spots in es.dismissed_groups or ())),
             students={s: students[s] for s in named if s in students},
             joined_at={s: joined[s] for s in regular_ids if s in joined},
@@ -837,11 +850,11 @@ class TableStore:
             self._approval(db.session.get(EngineSession, iid), e)
         elif isinstance(e, fx.AlertCleared):                       # engine-planning rule 11 (PLANNING-40)
             es = db.session.get(EngineSession, iid)
-            es.alerted = [a for a in (es.alerted or []) if (a[0], a[1]) != (e.spot_type.side, e.spot_type.level)]
+            es.alerted = [a for a in (es.alerted or []) if not _same_type(a, e.spot_type)]
         elif isinstance(e, fx.CoachAlert):
             if e.spot_type is not None:                           # one alert per session and type (rule 11)
                 es = db.session.get(EngineSession, iid)
-                kept = [a for a in (es.alerted or []) if (a[0], a[1]) != (e.spot_type.side, e.spot_type.level)]
+                kept = [a for a in (es.alerted or []) if not _same_type(a, e.spot_type)]
                 es.alerted = kept + [[e.spot_type.side, e.spot_type.level, e.spots]]
         elif isinstance(e, fx.Invited):
             if self._invitation_row(e) is not None:

@@ -11,6 +11,8 @@
 # the two files); today has no coach_invites event, so their hand invitations are not applied.
 # 2026-11-25 (engine/scenarios-proof): P43-P46 added (PAD-804, PAD-807, PAD-824, PAD-813), run against today's
 # engine at origin/staging b8b34453d plus the four files; outcomes and first failures from that run.
+# 2026-11-25 (engine effective level): P47 added, run against today's engine at origin/staging 68cd766e5 plus
+# the file and its level_inherited seed; today reads the class's effective level, so it passes.
 01-exemplo-completo:
   outcome: fail
   evaluated: 16
@@ -1384,3 +1386,10 @@ P46-an-other-side-yes-keeps-its-side-and-withdraws-nothing:
   note: 'structural: today''s groups cannot name the opposite side, so the left-siders are never invited at 08:00 and the
     21:54 Yes has no invitation to answer'
   first_failure: 2026-11-01 08:00 invitations
+P47-an-inherited-class-level-keeps-the-level-groups:
+  outcome: pass
+  evaluated: 2
+  skipped: 0
+  derived_from:
+  - S26
+  - D3

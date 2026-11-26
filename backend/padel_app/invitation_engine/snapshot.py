@@ -11,6 +11,7 @@ Sides are ``"L"`` and ``"R"``; a student holds a non-empty subset of them (D18).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cached_property
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -191,6 +192,12 @@ class SessionSnapshot:
 
     def placement(self, student: str) -> Placement | None:
         return next((p for p in self.going if p.student == student), None)
+
+    @cached_property
+    def pool_ids(self) -> frozenset[str]:
+        """The pool's student ids, built once per snapshot (engine-planning rule 15): membership is a
+        lookup, never a scan of the pool per student, tier and spot type."""
+        return frozenset(st.id for st in self.pool)
 
     def asks(self, student: str) -> int:
         """How many attendance requests to ``student`` count toward the cap (engine-timeline rule 2)."""
