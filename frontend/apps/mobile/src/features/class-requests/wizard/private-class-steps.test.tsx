@@ -34,8 +34,8 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }) }));
 vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/ui/date-picker-input", () => ({
-  DatePickerInput: ({ testID, onChange }: { testID: string; onChange: (v: string) => void }) => (
-    <View testID={testID} {...({ onChangeText: onChange } as object)} />
+  DatePickerInput: ({ testID, value, onChange }: { testID: string; value?: string; onChange: (v: string) => void }) => (
+    <View testID={testID} {...({ value, onChangeText: onChange } as object)} />
   ),
 }));
 vi.mock("@/features/class-requests/wizard/AcademyClassStep", () => ({ AcademyClassStep: () => null }));
@@ -235,6 +235,7 @@ describe("what is sent is what the steps show (criterion 59)", () => {
     await v.flush();
     await v.flush();
     await v.press(`wizard-slot-${PRIVATE_REQUEST_FREE_WINDOW.startTime}`);
+    passLock();
     await v.press("wizard-send");
     await v.flush();
     expect(requests.createClassRequest).toHaveBeenCalledTimes(1);
@@ -253,6 +254,7 @@ describe("what is sent is what the steps show (criterion 59)", () => {
     await v.flush();
     await v.flush();
     await v.press(`wizard-slot-${PRIVATE_REQUEST_FREE_WINDOW.startTime}`);
+    passLock();
     await v.press("wizard-send");
     await v.flush();
     expect(requests.createClassRequest).toHaveBeenCalledTimes(1);
@@ -320,6 +322,71 @@ describe("the lock and the double tap (criterion 66)", () => {
     await v.press("wizard-continue");
     await v.flush();
     expect(privateStep(v)).toBe("when");
+  });
+});
+
+describe("what step c adds (code review S2, S5, S6)", () => {
+  it("[CLASSES-CLASS-REQUESTS-66] c, back to b, Continuar twice 100 ms apart: one step, no request sent", async () => {
+    const v = await toPrivate();
+    await next(v, "when");
+    await next(v, "time");
+    await v.flush();
+    await v.flush();
+    await v.press(`wizard-slot-${PRIVATE_REQUEST_FREE_WINDOW.startTime}`);
+    await v.press("wizard-back");
+    expect(privateStep(v)).toBe("when");
+    passLock();
+    await v.press("wizard-continue");
+    await v.flush();
+    expect(privateStep(v)).toBe("time");
+    expect(v.byTestId("wizard-send").props.disabled).toBeFalsy();
+    setNow(now + 100);
+    await v.press("wizard-send");
+    await v.flush();
+    expect(requests.createClassRequest).not.toHaveBeenCalled();
+    setNow(now + 400);
+    await v.press("wizard-send");
+    await v.flush();
+    expect(requests.createClassRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("[CLASSES-CLASS-REQUESTS-58] Continuar in b makes the date the student's own: a first-free-day read that lands later does not move it", async () => {
+    let release: (v: unknown) => void = () => undefined;
+    availabilityApi.getCoachAvailability.mockImplementation(({ from, to }: { from: string; to: string }) =>
+      from === to
+        ? Promise.resolve({ freeWindows: { [from]: [{ ...PRIVATE_REQUEST_FREE_WINDOW }] }, workingHoursSource: "custom" })
+        : new Promise((r) => { release = r; })
+    );
+    const v = await toPrivate();
+    await next(v, "when");
+    expect(v.byTestId("wizard-date").props.value).toBe("2026-10-01");
+    await next(v, "time");
+    release({ freeWindows: { "2026-10-08": [{ ...PRIVATE_REQUEST_FREE_WINDOW }] }, workingHoursSource: "custom" });
+    await v.flush();
+    await v.flush();
+    await v.press("wizard-back");
+    expect(privateStep(v)).toBe("when");
+    expect(v.byTestId("wizard-date").props.value).toBe("2026-10-01");
+  });
+
+  it("[CLASSES-CLASS-REQUESTS-58] with no free time and no invitees, step c lists the coach's private lessons (rule 13b)", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
+    academyApi.listAcademyClasses.mockResolvedValue({
+      classes: [{
+        id: "1", model: "LessonInstance", originalId: "1", date: "2026-11-20", startTime: "18:00", endTime: "19:30",
+        title: "Private 1", club: { name: "Douro Padel" }, classType: "private", state: "open", spotsLeft: 1, myJoinRequest: null, onWaitingList: false,
+      }],
+    });
+    const v = await toPrivate();
+    await next(v, "when");
+    await next(v, "time");
+    await v.flush();
+    await v.flush();
+    expect(v.queryByTestId("wizard-slots-empty")).not.toBeNull();
+    expect(v.queryByTestId("wizard-private-lessons")).not.toBeNull();
+    expect(ancestors(v.byTestId("wizard-private-lessons")).some((a) => (a as { props?: { testID?: string } }).props?.testID === "class-request-wizard-private-time")).toBe(true);
+    expect(v.queryByTestId("wizard-private-lesson-row-open")).not.toBeNull();
+    academyApi.listAcademyClasses.mockResolvedValue({ classes: [] });
   });
 });
 

@@ -88,10 +88,14 @@ for (const size of [
         await wizard.getByTestId("wizard-recurrence-weekly").click();
         await atLeast44(wizard.locator('[data-testid^="wizard-weekday-"]'));
         await atLeast44(wizard.locator('[data-testid^="request-end-mode-"]'));
+        await wizard.getByTestId("request-end-mode-count").click();
+        await atLeast44(wizard.locator('[data-testid^="request-end-count-"]:is(button)'));
         await wizard.getByTestId("wizard-recurrence-single").click();
         await wizard.getByTestId("wizard-date").fill(isoDaysAhead(13));
       }
 
+      // The next step opens at its top even when this one was scrolled down.
+      await wizard.getByTestId("wizard-body").evaluate((el) => { el.scrollTop = el.scrollHeight; });
       await continueTo(wizard, "time");
       await expect(wizard.getByTestId("wizard-slots")).toHaveAttribute("data-state", "ready", { timeout: 15_000 });
       await checkStep(page, wizard, "wizard-send", true);

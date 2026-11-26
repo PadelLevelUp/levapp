@@ -36,14 +36,21 @@ test("PAD-302: the booking form opens on the first day with a free block when to
   try {
     await loginAsStudent(page);
     await page.goto("/availability");
+    // The first-free-day read fires from the shell's draft as soon as the coach is set (with one coach, when the list
+    // arrives), before any click on the kind: arm the wait before the sheet opens, and only for a read with a coach.
+    const defaulted = page.waitForResponse((r) => {
+      const url = new URL(r.url());
+      return (
+        url.pathname.endsWith("/app/availability") &&
+        !!url.searchParams.get("coachId") &&
+        url.searchParams.get("from") === today &&
+        url.searchParams.get("to") !== today
+      );
+    });
     await page.getByTestId("class-request-book").click();
     // PAD-357: booking is the wizard; the private step's date is the booking date.
     const form = page.getByTestId("class-request-wizard");
     await expect(form).toBeVisible();
-    const defaulted = page.waitForResponse((r) => {
-      const url = new URL(r.url());
-      return url.pathname.endsWith("/app/availability") && url.searchParams.get("from") === today && url.searchParams.get("to") !== today;
-    });
     await expect(form).not.toHaveAttribute("data-step", "loading", { timeout: 10_000 });
     if ((await form.getAttribute("data-step")) === "coach") {
       await form.locator('[data-testid^="wizard-coach-"]').first().click();

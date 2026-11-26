@@ -167,7 +167,7 @@ export default function ClassRequestWizardScreen() {
             answered={draft.stepAnswered(privateStep)}
             sending={draft.sending}
             onContinue={advance}
-            onSend={() => void send()}
+            onSend={() => draft.canAdvance() && void send()}
           />
         </View>
       ) : null}

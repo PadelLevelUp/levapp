@@ -46,10 +46,14 @@ appId: com.padellevelup.app
     timeout: 15000
 
 # Rule 21: the private class is asked in three steps (people, when, time); "Continuar" is the one button of the first two.
-- waitForAnimationToEnd:
-    timeout: 600
-- tapOn:
-    id: "wizard-continue"
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-when"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
 - extendedWaitUntil:
     visible:
       id: "class-request-wizard-private-when"
@@ -72,10 +76,14 @@ appId: com.padellevelup.app
     id: "wizard-weekday-${output.wd}"
 
 # ── The first start time free on every occurrence, send ──
-- waitForAnimationToEnd:
-    timeout: 600
-- tapOn:
-    id: "wizard-continue"
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-time"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
 - extendedWaitUntil:
     visible:
       id: "class-request-wizard-private-time"
@@ -93,8 +101,15 @@ appId: com.padellevelup.app
       id: "wizard-send"
     direction: DOWN
     timeout: 20000
-- tapOn:
-    id: "wizard-send"
+# Send is under the same 400 ms lock as Continuar: tap again while the screen is still there.
+- repeat:
+    while:
+      visible:
+        id: "wizard-send"
+    times: 3
+    commands:
+      - tapOn:
+          id: "wizard-send"
 
 # ── Back on the tab: one pending request, weekly on that weekday ──
 - scrollUntilVisible:

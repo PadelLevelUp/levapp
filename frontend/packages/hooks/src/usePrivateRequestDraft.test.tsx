@@ -142,3 +142,16 @@ describe("the 400 ms lock starts at markShown() (criterion 66's logic)", () => {
     expect(mount().result.current.canAdvance()).toBe(false);
   });
 });
+
+describe("no coach, no read (code review S1)", () => {
+  it("[CLASSES-CLASS-REQUESTS-57] makes no availability or roster call while the coach id is empty, and reads once it is set", async () => {
+    const h = mount("");
+    await settle();
+    expect(api.getCoachAvailability).not.toHaveBeenCalled();
+    expect(api.getRequestParticipants).not.toHaveBeenCalled();
+    h.rerender({ id: "ana" });
+    await settle();
+    expect(api.getCoachAvailability).toHaveBeenCalled();
+    expect(api.getCoachAvailability.mock.calls.every(([a]: [{ coachId: string }]) => a.coachId === "ana")).toBe(true);
+  });
+});

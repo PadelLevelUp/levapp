@@ -5,8 +5,7 @@
  * Asserted by test id / call args, never by rendered copy (`t` returns the key).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MAX_REQUEST_CLASSES } from "@levelup/config";
 
 vi.mock("react-i18next", () => ({
@@ -31,19 +30,11 @@ const availabilityApi = vi.hoisted(() => ({
 const academyApi = vi.hoisted(() => ({ listAcademyClasses: vi.fn().mockResolvedValue({ classes: [] }) }));
 vi.mock("@levelup/api", () => ({ requestAvailabilityApi: availabilityApi, academyClassesApi: academyApi }));
 
-import { PrivateAllSteps } from "./PrivateAllSteps.testing";
+import { renderPrivateStep } from "@/test/privateStepHost";
 
 const WINDOW = { startTime: "18:00", endTime: "19:00" };
 
-function renderStep() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <PrivateAllSteps coachId="ana-id" onDone={vi.fn()} />
-    </QueryClientProvider>
-  );
-}
-
+// Step b owns the recurrence, weekdays, start date and the ending.
 async function goWeekly(weekdayTestIds: string[], startDate: string) {
   fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
   for (const id of weekdayTestIds) fireEvent.click(screen.getByTestId(id));
@@ -68,7 +59,7 @@ describe("\"after N classes\" (rule 14a, PAD-428)", () => {
       workingHoursSource: "custom",
     });
 
-    renderStep();
+    const { show } = renderPrivateStep("when");
     await goWeekly(["wizard-weekday-2", "wizard-weekday-4"], "2026-10-06");
 
     fireEvent.click(screen.getByTestId("request-end-mode-count"));
@@ -77,6 +68,7 @@ describe("\"after N classes\" (rule 14a, PAD-428)", () => {
     const lastDate = await screen.findByTestId("request-end-count-last-date");
     expect(lastDate.textContent).toContain("10/15/2026");
 
+    show("time");
     const slot = await screen.findByTestId("wizard-slot");
     fireEvent.click(slot);
     fireEvent.click(screen.getByTestId("wizard-send"));
@@ -96,7 +88,7 @@ describe("the class-count stepper (rule 14a, PAD-428, PAD-926)", () => {
   it("[CLASSES-CLASS-REQUESTS-36] steps by one class and the last date follows the count", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
 
-    renderStep();
+    renderPrivateStep("when");
     await goWeekly(["wizard-weekday-2"], "2026-10-06");
 
     fireEvent.click(screen.getByTestId("request-end-mode-count"));
@@ -110,7 +102,7 @@ describe("the class-count stepper (rule 14a, PAD-428, PAD-926)", () => {
   it("[CLASSES-CLASS-REQUESTS-36] stays within 1 and the largest allowed count, disabling the button at each end", () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
 
-    renderStep();
+    renderPrivateStep("when");
     fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
     fireEvent.click(screen.getByTestId("request-end-mode-count"));
     const dec = screen.getByTestId("request-end-count-dec") as HTMLButtonElement;
@@ -131,13 +123,14 @@ describe("the class-count stepper (rule 14a, PAD-428, PAD-926)", () => {
       workingHoursSource: "custom",
     });
 
-    renderStep();
+    const { show } = renderPrivateStep("when");
     await goWeekly(["wizard-weekday-2"], "2026-10-06");
     fireEvent.click(screen.getByTestId("request-end-mode-count"));
     fireEvent.click(screen.getByTestId("request-end-count-inc"));
     fireEvent.click(screen.getByTestId("request-end-count-inc"));
     expect(screen.getByTestId("request-end-count").textContent).toBe("6");
 
+    show("time");
     fireEvent.click(await screen.findByTestId("wizard-slot"));
     fireEvent.click(screen.getByTestId("wizard-send"));
 
@@ -151,7 +144,7 @@ describe("the class-count stepper (rule 14a, PAD-428, PAD-926)", () => {
   it("[CLASSES-CLASS-REQUESTS-36] the segmented control swaps the date field for the stepper and back", () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
 
-    renderStep();
+    renderPrivateStep("when");
     fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
     expect(screen.getByTestId("wizard-end-date")).toBeTruthy();
     expect(screen.queryByTestId("request-end-count")).toBeNull();
@@ -170,10 +163,11 @@ describe("\"on a date\" (rule 14a, PAD-428)", () => {
       workingHoursSource: "custom",
     });
 
-    renderStep();
+    const { show } = renderPrivateStep("when");
     await goWeekly(["wizard-weekday-2"], "2026-10-06");
     fireEvent.change(screen.getByTestId("wizard-end-date"), { target: { value: "2026-10-06" } });
 
+    show("time");
     const slot = await screen.findByTestId("wizard-slot");
     fireEvent.click(slot);
     fireEvent.click(screen.getByTestId("wizard-send"));
@@ -192,7 +186,7 @@ describe("\"on a date\" (rule 14a, PAD-428)", () => {
 describe("the end-mode control (rule 14a, PAD-926)", () => {
   it("[CLASSES-CLASS-REQUESTS-44] the selected segment has the primary fill, the other keeps the muted track", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: { "2026-10-06": [WINDOW] }, workingHoursSource: "custom" });
-    renderStep();
+    renderPrivateStep("when");
     await goWeekly(["wizard-weekday-2"], "2026-10-06");
     const date = screen.getByTestId("request-end-mode-date");
     const count = screen.getByTestId("request-end-mode-count");

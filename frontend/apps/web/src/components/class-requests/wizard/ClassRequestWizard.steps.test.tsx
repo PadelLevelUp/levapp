@@ -165,13 +165,40 @@ describe("three steps that keep their answers (criterion 57)", () => {
 
   it("[CLASSES-CLASS-REQUESTS-57] with no free time and no invitees, step c shows rule 13b's list slot, Send stays disabled and the way back to b is offered", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
-    academyApi.listAcademyClasses.mockResolvedValueOnce({ classes: [] });
+    academyApi.listAcademyClasses.mockResolvedValue({
+      classes: [{
+        id: "1", model: "LessonInstance", originalId: "1", date: "2026-11-20", startTime: "18:00", endTime: "19:30",
+        title: "Private 1", club: { name: "Douro Padel" }, classType: "private", state: "open", spotsLeft: 1, myJoinRequest: null, onWaitingList: false,
+      }],
+    });
     await toPrivate();
     await next("when");
     await next("time");
     await waitFor(() => expect(screen.getByTestId("wizard-slots").getAttribute("data-state")).toBe("empty"));
     expect((screen.getByTestId("wizard-send") as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByTestId("wizard-change-when")).not.toBeNull();
+    // Code review S6: rule 13b's list is in step c, under today's message.
+    const list = await screen.findByTestId("wizard-private-lessons");
+    expect(document.querySelector('[data-private-step="time"]')?.contains(list)).toBe(true);
+    expect(screen.getByTestId("wizard-slots").compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("wizard-private-lesson-row-open")).toBeTruthy();
+  });
+
+  it("[CLASSES-CLASS-REQUESTS-57] Continuar in b makes the date the student's own: a first-free-day read that lands later does not move it (code review S5)", async () => {
+    let release: (v: unknown) => void = () => undefined;
+    availabilityApi.getCoachAvailability.mockImplementation(({ from, to }: { from: string; to: string }) =>
+      from === to
+        ? Promise.resolve({ freeWindows: { [from]: [{ ...PRIVATE_REQUEST_FREE_WINDOW }] }, workingHoursSource: "custom" })
+        : new Promise((r) => { release = r; })
+    );
+    await toPrivate();
+    await next("when");
+    expect((screen.getByTestId("wizard-date") as HTMLInputElement).value).toBe("2026-10-01");
+    await next("time");
+    await act(async () => release({ freeWindows: { "2026-10-08": [{ ...PRIVATE_REQUEST_FREE_WINDOW }] }, workingHoursSource: "custom" }));
+    click("wizard-back");
+    await waitFor(() => expect(privateStep()).toBe("when"));
+    expect((screen.getByTestId("wizard-date") as HTMLInputElement).value).toBe("2026-10-01");
   });
 });
 
@@ -188,6 +215,7 @@ describe("what is sent is what the steps show (criterion 59)", () => {
     fireEvent.change(screen.getByTestId("wizard-note"), { target: { value: PRIVATE_REQUEST_NOTE } });
     fireEvent.click(await screen.findByTestId("wizard-slot"));
     await waitFor(() => expect((screen.getByTestId("wizard-send") as HTMLButtonElement).disabled).toBe(false));
+    passLock();
     click("wizard-send");
     await waitFor(() => expect(requests.createClassRequest).toHaveBeenCalledTimes(1));
     expect(requests.createClassRequest.mock.calls[0][0]).toEqual(SINGLE_WITH_INVITEE_BODY);
@@ -204,6 +232,7 @@ describe("what is sent is what the steps show (criterion 59)", () => {
     expect(screen.getByTestId("request-end-count").textContent).toBe("3");
     await next("time");
     fireEvent.click(await screen.findByTestId("wizard-slot"));
+    passLock();
     click("wizard-send");
     await waitFor(() => expect(requests.createClassRequest).toHaveBeenCalledTimes(1));
     expect(requests.createClassRequest.mock.calls[0][0]).toEqual(WEEKLY_AFTER_3_CLASSES_BODY);
@@ -268,6 +297,29 @@ describe("the lock and the double tap (criterion 66)", () => {
     await waitFor(() => expect(privateStep()).toBe("when"));
     setNow(now + 100);
     expect(privateStep()).toBe("when");
+  });
+});
+
+describe("a double tap never sends (code review S2)", () => {
+  it("[CLASSES-CLASS-REQUESTS-66] c, back to b, Continuar twice 100 ms apart: one step, no request sent", async () => {
+    await toPrivate();
+    await next("when");
+    await next("time");
+    fireEvent.click(await screen.findByTestId("wizard-slot"));
+    await waitFor(() => expect((screen.getByTestId("wizard-send") as HTMLButtonElement).disabled).toBe(false));
+    click("wizard-back");
+    await waitFor(() => expect(privateStep()).toBe("when"));
+    passLock();
+    click("wizard-continue");
+    await waitFor(() => expect(privateStep()).toBe("time"));
+    // The slot kept from before is still picked, so Send is enabled the moment c shows.
+    expect((screen.getByTestId("wizard-send") as HTMLButtonElement).disabled).toBe(false);
+    setNow(now + 100);
+    click("wizard-send");
+    expect(requests.createClassRequest).not.toHaveBeenCalled();
+    setNow(now + 400);
+    click("wizard-send");
+    await waitFor(() => expect(requests.createClassRequest).toHaveBeenCalledTimes(1));
   });
 });
 

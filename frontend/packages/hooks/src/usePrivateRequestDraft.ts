@@ -110,7 +110,7 @@ export function usePrivateRequestDraft(coachId: string) {
   useEffect(() => {
     // A repeated name is checked once (the server answers its first spelling).
     const pending = invitees.filter((u, i, all) => !checks[u] && all.findIndex((x) => x.toLowerCase() === u.toLowerCase()) === i);
-    if (pending.length === 0) return;
+    if (!coachId || pending.length === 0) return;
     const timer = setTimeout(() => {
       requestAvailabilityApi
         .getRequestParticipants(coachId, pending)
@@ -129,7 +129,7 @@ export function usePrivateRequestDraft(coachId: string) {
 
   // Rules 11 + 13: for a single class open on the first day that still has free time.
   useEffect(() => {
-    if (recurring !== "single" || dateOwn.current || !allInviteesOk) return;
+    if (!coachId || recurring !== "single" || dateOwn.current || !allInviteesOk) return;
     let active = true;
     requestAvailabilityApi
       .getCoachAvailability({ coachId, from: today, to: addDaysIso(today, FIRST_FREE_DAY_HORIZON_DAYS), participants: invitees })
@@ -157,7 +157,8 @@ export function usePrivateRequestDraft(coachId: string) {
   useEffect(() => {
     patch({ slot: null });
     // A load cancelled by this change never reaches its `finally`, so every early return clears the flag itself.
-    if (!allInviteesOk || !recurrenceValid) {
+    // No coach yet (the shell mounts this before one is picked): nothing to read.
+    if (!coachId || !allInviteesOk || !recurrenceValid) {
       patch({ availability: null, loadingSlots: false });
       return;
     }

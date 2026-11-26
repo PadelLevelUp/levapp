@@ -51,7 +51,21 @@ const availabilityApi = vi.hoisted(() => ({
 const academyApi = vi.hoisted(() => ({ listAcademyClasses: vi.fn() }));
 vi.mock("@levelup/api", () => ({ requestAvailabilityApi: availabilityApi, academyClassesApi: academyApi }));
 
-import { PrivateAllSteps } from "./PrivateAllSteps.testing";
+import { PrivateStepHost, type PrivateStepName } from "@/test/privateStepHost";
+
+// One real step at a time over a draft the real hook builds (rule 21); `show` switches the step over the SAME draft.
+async function mount(step: PrivateStepName = "time"): Promise<Native & { show: (s: PrivateStepName) => Promise<void> }> {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const el = (s: PrivateStepName) => (
+    <QueryClientProvider client={client}>
+      <PrivateStepHost step={s} coachId="ana-id" onDone={vi.fn()} />
+    </QueryClientProvider>
+  );
+  const view = await renderNative(el(step));
+  await view.flush();
+  await view.flush();
+  return { ...view, show: async (s) => { await view.rerender(el(s)); await view.flush(); } };
+}
 
 const NO_TIME = { freeWindows: {}, workingHoursSource: "custom" };
 
@@ -68,17 +82,6 @@ function textOf(node: ReactTestInstance): string {
   return node.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
 }
 
-async function mount(): Promise<Native> {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const view = await renderNative(
-    <QueryClientProvider client={client}>
-      <PrivateAllSteps coachId="ana-id" onDone={vi.fn()} />
-    </QueryClientProvider>
-  );
-  await view.flush();
-  await view.flush();
-  return view;
-}
 
 afterEach(() => {
   joinApi.createClassJoinRequest.mockReset();
@@ -107,8 +110,10 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     expect(view.queryByTestId("wizard-private-lesson-waitlist")).not.toBeNull();
 
     // Weekly too.
+    await view.show("when");
     await view.press("wizard-recurrence-weekly");
     await view.press("wizard-weekday-2");
+    await view.show("time");
     await view.flush();
     await view.flush();
     expect(view.byTestId("wizard-slots-empty")).toBeTruthy();
@@ -156,10 +161,13 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     expect(view.byTestId("wizard-private-lessons")).toBeTruthy();
     const readsAlone = academyApi.listAcademyClasses.mock.calls.length;
 
+    await view.show("people");
     await view.press("wizard-people-2");
     await view.changeText("wizard-invitee-0", "carla");
     await new Promise((r) => setTimeout(r, 450)); // the roster check's debounce
     await view.flush();
+    await view.flush();
+    await view.show("time");
     await view.flush();
     await view.flush();
     expect(availabilityApi.getCoachAvailability).toHaveBeenCalledWith(expect.objectContaining({ participants: ["carla"] }));

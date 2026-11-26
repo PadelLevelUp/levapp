@@ -143,7 +143,7 @@ export function ClassRequestWizard({ open, onClose, onDone }: Props) {
 
           {inPrivate && (
             <div className="shrink-0 border-t bg-background px-6 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]" data-testid="wizard-foot">
-              <PrivateFoot step={privateStep} answered={draft.stepAnswered(privateStep)} sending={draft.sending} onContinue={advance} onSend={() => void send()} />
+              <PrivateFoot step={privateStep} answered={draft.stepAnswered(privateStep)} sending={draft.sending} onContinue={advance} onSend={() => draft.canAdvance() && void send()} />
             </div>
           )}
         </div>

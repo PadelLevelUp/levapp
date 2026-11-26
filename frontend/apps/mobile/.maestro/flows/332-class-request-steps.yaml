@@ -13,10 +13,6 @@ appId: com.padellevelup.app
 - evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
 - evalScript: "${output.before = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
 
-- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
-- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
-- evalScript: "${output.before = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
-
 - runFlow: ../subflows/login-student.yaml
 - tapOn:
     id: "tab-availability"
@@ -43,20 +39,28 @@ appId: com.padellevelup.app
     id: "wizard-continue"
 - assertVisible:
     id: "wizard-back"
-- waitForAnimationToEnd:
-    timeout: 600
-- tapOn:
-    id: "wizard-continue"
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-when"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
 - extendedWaitUntil:
     visible:
       id: "class-request-wizard-private-when"
     timeout: 15000
 
 # ── b: the default date, then c ──
-- waitForAnimationToEnd:
-    timeout: 600
-- tapOn:
-    id: "wizard-continue"
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-time"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
 - extendedWaitUntil:
     visible:
       id: "class-request-wizard-private-time"
@@ -82,8 +86,15 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "wizard-send"
 - takeScreenshot: class-request-steps-note
-- tapOn:
-    id: "wizard-send"
+# Send is under the same 400 ms lock as Continuar: tap again while the screen is still there.
+- repeat:
+    while:
+      visible:
+        id: "wizard-send"
+    times: 3
+    commands:
+      - tapOn:
+          id: "wizard-send"
 
 # ── Back on the tab: pending, then withdrawn ──
 - scrollUntilVisible:
