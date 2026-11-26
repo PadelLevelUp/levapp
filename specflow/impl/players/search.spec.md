@@ -29,7 +29,8 @@ exception in rule 7 (PAD-831).
 2. **Folding (B-531).** Text and query are folded the same way: special letters mapped first
    (`ł→l`, `ø→o`, `ß→ss`, `đ→d`, `æ→ae`, `œ→oe`, `ı→i`), then NFKD with combining marks dropped,
    lower-cased, every character that is neither a Unicode letter, a digit nor a space dropped
-   (PAD-516: "Ana-Rita O'Neil" folds to "anarita oneil"), spaces collapsed. Letters of any script are kept — "Łukasz" folds to "lukasz", never "ukasz".
+   (PAD-516: "Ana-Rita O'Neil" folds to "anarita oneil"; "%" and "_" are dropped the same way, never
+   matched as characters or wildcards: "Ana 100%_ Real" folds to "ana 100 real", PAD-887), spaces collapsed. Letters of any script are kept — "Łukasz" folds to "lukasz", never "ukasz".
 3. **Words.** The query is split into words. A blank query matches everyone and keeps the screen's
    own order, except in the type-ahead `notify/player_search`, which answers an empty list for a
    blank query so an empty box never lists the roster (PAD-109); a query with text but no letter
