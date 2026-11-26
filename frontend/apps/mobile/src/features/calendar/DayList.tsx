@@ -1,0 +1,464 @@
+import { isClubToday } from "@levelup/config";
+import type { useDayList } from "@levelup/hooks";
+import type { CalendarEvent } from "@levelup/types";
+import { format } from "date-fns";
+import * as React from "react";
+import { useTranslation } from "react-i18next";
+import { AccessibilityInfo, Pressable, ScrollView, View } from "react-native";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Text } from "@/components/ui/text";
+import { DayHeader } from "./DayHeader";
+import { EventCard } from "./EventCard";
+import { FAB_CLEARANCE } from "./layout";
+
+const iso = (d: Date) => format(d, "yyyy-MM-dd");
+
+/** Rule 26b: a movement inside the loaded range lasts one second at most. */
+const MOVE_LIMIT_MS = 1000;
+/** A list that has not been placed this long after its days are ready is shown where it stands. */
+const REVEAL_FALLBACK_MS = 1500;
+
+type LayoutEvent = { nativeEvent: { layout: { y: number; height: number } } };
+type ScrollEvent = { nativeEvent: { contentOffset: { y: number } } };
+type ScrollHandle = { scrollTo: (to: { y: number; animated: boolean }) => void };
+
+/**
+ * Dia's one list of days — calendar.mobile-views rule 26 (iOS).
+ *
+ * A ScrollView, not a FlatList or SectionList: card heights are not known before layout (text size changes them)
+ * and those two did not open at the right day without them. Each day is a header (a direct child, so
+ * `stickyHeaderIndices` can name it; its `onLayout` gives the day's offset) and its cards. The list is hidden
+ * until it has scrolled to the opening day. The state — what is loaded, which day is selected while the list
+ * scrolls, the target a date / chevron / Hoje / link sets — is `useDayList`'s; this draws it and reports where
+ * the list is.
+ *
+ * One mechanism keeps the place: an anchor (a day and how far into it the reader is). The target sets it, and
+ * every later layout pass (days prepended or replaced above, a refresh, a text size change) that moves the
+ * anchor's day puts the list back on it without animation.
+ */
+export function DayList({
+  list,
+  eventsByDay,
+  nextEventId,
+  levelCodeById,
+  onEventPress,
+  selectedDay,
+  onToday,
+  todayBottom = 26,
+  refreshControl,
+  filterKey,
+}: {
+  list: ReturnType<typeof useDayList>;
+  /** The loaded days' events (the student's filter already applied), each day in start-time order. */
+  eventsByDay: Record<string, CalendarEvent[]>;
+  nextEventId?: string;
+  levelCodeById: Map<string, string>;
+  onEventPress?: (event: CalendarEvent) => void;
+  selectedDay: Date;
+  /** Rule 26f: Hoje moves the selected day to today. */
+  onToday: () => void;
+  /** Hoje's distance from the bottom, so its centre is the add-event button's. */
+  todayBottom?: number;
+  refreshControl?: React.ReactElement<React.ComponentProps<typeof import("react-native").RefreshControl>>;
+  /** Rule 26g: what the student's filter is now. A change of it puts the selected day's header at the top. */
+  filterKey?: string;
+}) {
+  const { t } = useTranslation();
+  const scroller = React.useRef<ScrollHandle | null>(null);
+  const offsets = React.useRef(new Map<string, number>());
+  const headHeights = React.useRef(new Map<string, number>());
+  const bodyHeights = React.useRef(new Map<string, number>());
+  // Bumped when a range replaces the one on screen: every header remounts and measures again, so no offset of
+  // the old range is ever read for the new one (a retained day whose frame did not change would not report).
+  const epoch = React.useRef(0);
+  const scrollY = React.useRef(0);
+  const viewport = React.useRef(0);
+  const contentReady = React.useRef(false);
+  // One function for the ScrollView's whole life: React calls an inline ref with null and then the node on EVERY
+  // render, which cleared `contentReady` (set only when the content size changes) and made every later target a no-op.
+  const setScroller = React.useCallback((node: unknown) => {
+    scroller.current = node as ScrollHandle | null;
+    if (!node) contentReady.current = false;
+  }, []);
+  const touched = React.useRef(false);
+  const moving = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const movingTo = React.useRef<string | null>(null);
+  const anchor = React.useRef<{ day: string; delta: number } | null>(null);
+  const placed = React.useRef(false);
+  const reduceMotion = React.useRef(false);
+  const [ready, setReady] = React.useState(false);
+  const [filler, setFiller] = React.useState(FAB_CLEARANCE);
+
+  const { days, status, target, jumping, settled } = list;
+  const targetIso = target ? iso(target) : null;
+  const firstDay = days.length ? iso(days[0]) : null;
+  // What the timers and the scroll callbacks read: the target NOW, not the one their render saw.
+  const targetNow = React.useRef<string | null>(null);
+  targetNow.current = targetIso;
+
+  // Reduced motion (rule 26b): read once and followed while the list is mounted.
+  React.useEffect(() => {
+    let alive = true;
+    void AccessibilityInfo.isReduceMotionEnabled?.()?.then((on) => {
+      if (alive) reduceMotion.current = on;
+    });
+    const sub = AccessibilityInfo.addEventListener?.("reduceMotionChanged", (on: boolean) => {
+      reduceMotion.current = on;
+    });
+    return () => {
+      alive = false;
+      sub?.remove?.();
+    };
+  }, []);
+  React.useEffect(
+    () => () => {
+      if (moving.current) clearTimeout(moving.current);
+    },
+    []
+  );
+
+  // A range that replaced the one on screen (a jump outside it) is another list: hidden until it has scrolled to
+  // its target. Days that only grew at the end are the same list.
+  const rangeStart = React.useRef(firstDay);
+  if (rangeStart.current !== firstDay) {
+    rangeStart.current = firstDay;
+    epoch.current += 1;
+    offsets.current.clear();
+    headHeights.current.clear();
+    bodyHeights.current.clear();
+    if (targetIso) {
+      placed.current = false;
+      setReady(false);
+    }
+  }
+
+  const positions = React.useCallback(
+    () =>
+      days.flatMap((d) => {
+        const top = offsets.current.get(iso(d));
+        return top === undefined ? [] : [{ date: iso(d), top }];
+      }),
+    [days]
+  );
+
+  const cancelMove = React.useCallback(() => {
+    if (moving.current) clearTimeout(moving.current);
+    moving.current = null;
+    movingTo.current = null;
+  }, []);
+
+  // The movement to `day` arrived (or its second ran out): the list hands back to its own scroll. A target that
+  // changed meanwhile is not this movement's to clear.
+  const finishMove = React.useCallback(
+    (day: string) => {
+      cancelMove();
+      // Arrival does not depend on the animation: whatever the platform did with it (Android with animations scaled
+      // to 0, a scroll that was interrupted), the list is put on the day, without animation, if it is not there.
+      const y = offsets.current.get(day);
+      if (y !== undefined && Math.abs(scrollY.current - y) > 1) {
+        scrollY.current = y;
+        scroller.current?.scrollTo({ y, animated: false });
+      }
+      anchor.current = { day, delta: 0 };
+      if (targetNow.current === day) settled();
+    },
+    [cancelMove, settled]
+  );
+
+  // Puts the list where it belongs after any layout pass: on the target once its header is measured, else back on
+  // the anchor if its day has moved. Idempotent: calling it twice scrolls once.
+  const reconcile = React.useCallback(() => {
+    const handle = scroller.current;
+    if (!handle || !contentReady.current || status !== "ready") return;
+    if (moving.current) {
+      // Another target arrived while one was moving: the old movement is over, the new one starts below.
+      if (!targetIso || movingTo.current === targetIso) return;
+      cancelMove();
+    }
+    if (targetIso) {
+      const y = offsets.current.get(targetIso);
+      if (y === undefined || jumping) return;
+      touched.current = false;
+      // Already there (a second layout event before the state caught up with the first arrival): nothing to move.
+      if (placed.current && Math.abs(scrollY.current - y) <= 1) {
+        finishMove(targetIso);
+        return;
+      }
+      if (!placed.current || reduceMotion.current) {
+        placed.current = true;
+        scrollY.current = y;
+        handle.scrollTo({ y, animated: false });
+        setReady(true);
+        finishMove(targetIso);
+        return;
+      }
+      // A movement inside the range: smooth, ends with the scroll animation, a touch, or the second's limit.
+      movingTo.current = targetIso;
+      moving.current = setTimeout(() => finishMove(targetIso), MOVE_LIMIT_MS);
+      handle.scrollTo({ y, animated: true });
+      return;
+    }
+    const a = anchor.current;
+    const top = a ? offsets.current.get(a.day) : undefined;
+    if (a && top !== undefined) {
+      const want = top + a.delta;
+      if (Math.abs(scrollY.current - want) > 1) {
+        scrollY.current = want;
+        handle.scrollTo({ y: want, animated: false });
+      }
+    }
+    if (!placed.current) {
+      placed.current = true;
+      setReady(true);
+    }
+  }, [targetIso, jumping, status, finishMove, cancelMove]);
+
+  // A target arriving (or its read landing) is a layout event of its own: the headers may already be measured.
+  // (Not on `days`: a replaced range is placed by its own layout events, never by offsets measured before it.)
+  React.useEffect(() => {
+    reconcile();
+  }, [reconcile]);
+
+  // A change of the filter changes which cards each day holds (rule 26g): the reader keeps the day, not the distance
+  // into it, which a shorter day cannot hold (the list would stand in a later day). A refresh keeps the place.
+  const lastFilter = React.useRef(filterKey);
+  React.useEffect(() => {
+    if (lastFilter.current === filterKey) return;
+    lastFilter.current = filterKey;
+    if (anchor.current) anchor.current = { day: anchor.current.day, delta: 0 };
+    reconcile();
+  }, [filterKey, reconcile]);
+
+  // Every status ends visible (26d): if the list has not been placed a moment after its days are ready, show it.
+  React.useEffect(() => {
+    if (ready || status !== "ready") return;
+    const id = setTimeout(() => {
+      placed.current = true;
+      setReady(true);
+    }, REVEAL_FALLBACK_MS);
+    return () => clearTimeout(id);
+  }, [ready, status, days]);
+
+  // The list ends with filler so its last day can stand at the top, never shorter than rule 18's clearance.
+  const bottomHeight = React.useRef(0);
+  const measureFiller = React.useCallback(() => {
+    const last = days.length ? iso(days[days.length - 1]) : null;
+    const below =
+      (last ? (headHeights.current.get(last) ?? 0) + (bodyHeights.current.get(last) ?? 0) : 0) + bottomHeight.current;
+    setFiller(Math.max(FAB_CLEARANCE, viewport.current - below));
+  }, [days]);
+
+  const report = (y: number) => {
+    scrollY.current = y;
+    list.scrolledTo({ days: positions(), offset: y + 1, touched: touched.current });
+    const here = positions().filter((p) => p.top <= y + 1);
+    const at = here[here.length - 1];
+    // The place the reader is at, for a later layout pass to keep; not while the list is moving to a target.
+    if (at && (!targetNow.current || touched.current)) anchor.current = { day: at.date, delta: y - at.top };
+  };
+
+  // Dia's own earlier days come back with a remounted list, unplaced: while its read is still out, skeleton rows.
+  if (days.length === 0 || (!ready && status === "loading")) {
+    return status === "error" ? (
+      <View testID="calendar-day-list" className="flex-1 items-center gap-3 px-5 py-10">
+        <Text testID="calendar-day-error" className="text-center text-muted-foreground">
+          {t("calendar.mobile.loadFailed")}
+        </Text>
+        <RetryButton testID="calendar-day-retry" onPress={list.retry} label={t("calendar.mobile.retry")} />
+      </View>
+    ) : (
+      <View testID="calendar-day-list" className="flex-1 gap-3 p-4">
+        <SkeletonRows testID="calendar-day-loading" />
+      </View>
+    );
+  }
+
+  // The ScrollView's children, flat, so the headers' indices are known.
+  const children: React.ReactNode[] = [];
+  const sticky: number[] = [];
+  if (status === "error") {
+    // A read that failed while earlier days are on screen (a jump outside the range): say why (26b, 26d).
+    children.push(
+      <View key="error" className="items-center gap-3 px-5 py-4">
+        <Text testID="calendar-day-error" className="text-center text-muted-foreground">
+          {t("calendar.mobile.loadFailed")}
+        </Text>
+        <RetryButton testID="calendar-day-retry" onPress={list.retry} label={t("calendar.mobile.retry")} />
+      </View>
+    );
+  }
+  if (list.edges) {
+    const before = list.edges.before;
+    children.push(
+      <EdgeRow key="before" testID="calendar-day-edge-before" onPress={() => list.goTo(before)}>
+        {t("calendar.mobile.weeksBefore")}
+      </EdgeRow>
+    );
+  }
+  for (const day of days) {
+    const key = iso(day);
+    const dayEvents = eventsByDay[key] ?? [];
+    sticky.push(children.length);
+    children.push(
+      <View
+        key={`h-${epoch.current}-${key}`}
+        testID={`calendar-day-header-${key}`}
+        className="bg-background"
+        onLayout={(e: LayoutEvent) => {
+          offsets.current.set(key, e.nativeEvent.layout.y);
+          headHeights.current.set(key, e.nativeEvent.layout.height);
+          reconcile();
+        }}
+      >
+        <DayHeader day={day} count={dayEvents.length} empty={dayEvents.length === 0} />
+      </View>
+    );
+    // Every day has its section (26g, VIEWS-42): the day's body under its pinned header. An empty day's holds
+    // nothing but a hairline (a childless View is dropped from the iOS tree), the header says it is empty.
+    if (dayEvents.length > 0) {
+      children.push(
+        <View
+          key={`c-${epoch.current}-${key}`}
+          testID={`calendar-day-section-${key}`}
+          className="gap-3 px-5 pb-4 pt-1"
+          onLayout={(e: LayoutEvent) => {
+            bodyHeights.current.set(key, e.nativeEvent.layout.height);
+          }}
+        >
+          {dayEvents.map((event) => (
+            <EventCard
+              key={String(event.id)}
+              event={event}
+              onPress={onEventPress}
+              isNext={event.id === nextEventId}
+              levelCode={event.levelId !== undefined ? levelCodeById.get(String(event.levelId)) : undefined}
+            />
+          ))}
+        </View>
+      );
+    } else {
+      children.push(
+        <View
+          key={`c-${epoch.current}-${key}`}
+          testID={`calendar-day-section-${key}`}
+          collapsable={false}
+          className="pb-2"
+          onLayout={(e: LayoutEvent) => {
+            bodyHeights.current.set(key, e.nativeEvent.layout.height);
+          }}
+        >
+          <View className="h-px" />
+        </View>
+      );
+    }
+  }
+  children.push(
+    <View
+      key="bottom"
+      testID="calendar-day-bottom"
+      collapsable={false}
+      onLayout={(e: LayoutEvent) => {
+        bottomHeight.current = e.nativeEvent.layout.height;
+        measureFiller();
+      }}
+    >
+      {list.tail === "loading" ? (
+        <SkeletonRows testID="calendar-day-tail-loading" />
+      ) : list.tail === "error" ? (
+        <View testID="calendar-day-tail-error" className="items-center gap-2 px-5 py-4">
+          <Text className="text-center text-sm text-muted-foreground">{t("calendar.mobile.loadMoreFailed")}</Text>
+          <RetryButton testID="calendar-day-tail-retry" onPress={list.retryTail} label={t("calendar.mobile.retry")} />
+        </View>
+      ) : (
+        list.edges && (
+          <EdgeRow testID="calendar-day-edge-after" onPress={() => list.goTo(list.edges!.after)}>
+            {t("calendar.mobile.weeksAfter")}
+          </EdgeRow>
+        )
+      )}
+    </View>
+  );
+  children.push(<View key="filler" testID="calendar-day-filler" style={{ height: filler }} />);
+
+  return (
+    <>
+      <ScrollView
+        ref={setScroller}
+        testID="calendar-day-list"
+        className="flex-1"
+        style={{ opacity: ready || status !== "ready" ? 1 : 0 }}
+        stickyHeaderIndices={sticky}
+        scrollEventThrottle={16}
+        refreshControl={refreshControl}
+        onLayout={(e: LayoutEvent) => {
+          viewport.current = e.nativeEvent.layout.height;
+          measureFiller();
+        }}
+        onContentSizeChange={() => {
+          contentReady.current = true;
+          reconcile();
+        }}
+        onScroll={(e: ScrollEvent) => report(e.nativeEvent.contentOffset.y)}
+        // A touch ends a movement at once (26b); the list then reports where it stands.
+        onScrollBeginDrag={() => {
+          touched.current = true;
+          cancelMove();
+          // The reader has the list now: the target is over, wherever the movement had got to.
+          if (targetNow.current) settled();
+          report(scrollY.current);
+        }}
+        onMomentumScrollEnd={(e: ScrollEvent) => {
+          // The end of a programmatic animation arrives here too: that is the target's arrival.
+          scrollY.current = e.nativeEvent.contentOffset.y;
+          if (movingTo.current) finishMove(movingTo.current);
+          report(e.nativeEvent.contentOffset.y);
+        }}
+      >
+        {children}
+      </ScrollView>
+      {!isClubToday(selectedDay) && (
+        <Pressable
+          testID="calendar-day-today"
+          accessibilityLabel={t("calendar.toolbar.today")}
+          role="button"
+          onPress={onToday}
+          style={{ bottom: todayBottom }}
+          className="absolute left-4 min-h-11 items-center justify-center rounded-full border border-border bg-card px-5 shadow-lg active:opacity-90"
+        >
+          <Text className="text-sm font-sans-bold text-foreground">{t("calendar.toolbar.today")}</Text>
+        </Pressable>
+      )}
+    </>
+  );
+}
+
+function EdgeRow({ testID, onPress, children }: { testID: string; onPress: () => void; children: React.ReactNode }) {
+  return (
+    <Pressable testID={testID} role="button" onPress={onPress} className="min-h-11 items-center justify-center px-5">
+      <Text className="text-sm font-sans-bold text-primary">{children}</Text>
+    </Pressable>
+  );
+}
+
+function RetryButton({ testID, onPress, label }: { testID: string; onPress: () => void; label: string }) {
+  return (
+    <Pressable
+      testID={testID}
+      role="button"
+      onPress={onPress}
+      className="min-h-11 items-center justify-center rounded-md border border-border px-4"
+    >
+      <Text className="text-sm font-sans-bold text-foreground">{label}</Text>
+    </Pressable>
+  );
+}
+
+function SkeletonRows({ testID }: { testID: string }) {
+  return (
+    <View testID={testID} className="gap-3 px-5 py-4">
+      {[0, 1, 2].map((i) => (
+        <Skeleton key={i} className="h-20 w-full" />
+      ))}
+    </View>
+  );
+}

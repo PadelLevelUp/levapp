@@ -1,4 +1,5 @@
 export { useCalendar, type CalendarViewMode } from "./useCalendar";
+export { useDayList, type UseDayListOptions } from "./useDayList";
 export { useAutoInviteEnabled } from "./useAutoInviteEnabled";
 export { useFieldAvailability } from "./useFieldAvailability";
 export { queryKeys } from "./queryKeys";

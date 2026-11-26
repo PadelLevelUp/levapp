@@ -82,7 +82,12 @@ test.describe("PAD-52: calendar locale-aware date formatting", () => {
     // old code it was `format(selectedDay, "EEEE d 'de' MMMM", { locale: enUS })`
     // -> e.g. "Friday 10 de July", leaking the Portuguese "de" into English
     // output. The fix formats it as "EEEE, d MMMM" through the locale helper.
-    const dayHeader = page.locator("h3.font-semibold").first();
+    // Dia is one list of days (rule 26): every day has its own h3, so this reads the selected day's
+    // (the strip's pressed column) rather than whichever h3 comes first in the list.
+    const selected = page.locator("[data-testid^='calendar-day-2'][aria-pressed='true']").first();
+    await expect(selected).toBeVisible({ timeout: 5000 });
+    const selectedKey = ((await selected.getAttribute("data-testid")) ?? "").replace("calendar-day-", "");
+    const dayHeader = page.getByTestId(`calendar-day-section-${selectedKey}`).locator("h3.font-semibold");
     await expect(dayHeader).toBeVisible({ timeout: 5000 });
 
     const headerText = (await dayHeader.textContent()) ?? "";

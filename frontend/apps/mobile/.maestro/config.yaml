@@ -436,6 +436,9 @@ executionOrder:
     # back before and after a confirm. Creates and validates its own ten ended classes through the
     # debug route and deletes them in its teardown, so its position is not load bearing.
     - 323-validate-sheet-scrolls-after-confirm
+    # 330 (calendar.mobile-views rule 26, criterion 42): Dia on iOS is one list of days; scroll, Hoje, a pull
+    # at the top, an empty day. Writes nothing, so its position is not load bearing.
+    - 330-calendar-day-scroll
     # 331 (auth.invite-welcome rule 6, criterion 5): the join screen's navy band and its actions, reached by
     # scrolling. Mints a join token as the coach and disconnects e2e-student-3 again; its position is not load bearing.
     - 331-invite-welcome

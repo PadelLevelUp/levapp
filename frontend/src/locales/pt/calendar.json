@@ -47,7 +47,11 @@
       "dayDots_other": "{{count}} eventos",
       "noClassesScheduled": "Sem aulas agendadas",
       "noClasses": "Sem aulas",
-      "loadFailed": "Não foi possível carregar o calendário."
+      "loadFailed": "Não foi possível carregar o calendário.",
+      "weeksBefore": "Semanas anteriores",
+      "weeksAfter": "Semanas seguintes",
+      "loadMoreFailed": "Não foi possível carregar mais semanas.",
+      "retry": "Tentar de novo"
     },
     "addClass": {
       "title": "Nova aula",

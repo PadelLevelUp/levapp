@@ -47,7 +47,11 @@
       "dayDots_zero": "{{count}} events",
       "noClassesScheduled": "No classes scheduled",
       "noClasses": "No classes",
-      "loadFailed": "Could not load the calendar."
+      "loadFailed": "Could not load the calendar.",
+      "weeksBefore": "Previous weeks",
+      "weeksAfter": "Following weeks",
+      "loadMoreFailed": "Could not load more weeks.",
+      "retry": "Try again"
     },
     "addClass": {
       "title": "New class",

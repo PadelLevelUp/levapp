@@ -43,6 +43,8 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
+# Rule 26 (Dia is one list of days): each card tap is scoped to the booked day's pinned header, after the
+# list has stopped moving, so a card of another day in the list is never the one tapped.
 # Same calendar walk as flow 48/50: reset the week in Semana, switch to Dia, then
 # step forward until the class's own day cell is on the strip.
 - tapOn:
@@ -75,7 +77,11 @@ appId: com.padellevelup.app
     visible:
       text: "E2E Student"
     timeout: 15000
-- tapOn: "E2E Student"
+- waitForAnimationToEnd
+- tapOn:
+    text: "E2E Student"
+    below:
+      id: "calendar-day-header-${output.day}"
 - extendedWaitUntil:
     visible:
       id: "class-detail"
@@ -121,7 +127,11 @@ appId: com.padellevelup.app
     visible:
       text: "E2E Student"
     timeout: 15000
-- tapOn: "E2E Student"
+- waitForAnimationToEnd
+- tapOn:
+    text: "E2E Student"
+    below:
+      id: "calendar-day-header-${output.day}"
 - extendedWaitUntil:
     visible:
       id: "class-detail"
@@ -154,7 +164,11 @@ appId: com.padellevelup.app
     visible:
       text: "E2E Student"
     timeout: 15000
-- tapOn: "E2E Student"
+- waitForAnimationToEnd
+- tapOn:
+    text: "E2E Student"
+    below:
+      id: "calendar-day-header-${output.day}"
 - extendedWaitUntil:
     visible:
       id: "class-detail"

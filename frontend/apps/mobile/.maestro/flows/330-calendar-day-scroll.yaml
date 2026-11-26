@@ -1,0 +1,107 @@
+# calendar.mobile-views rule 26 (CALENDAR-MOBILE-VIEWS-42): Dia on iOS is one list of days. The seeded
+# coach opens Dia on today (its header is at the top, Hoje is not offered); a scroll into the next week
+# moves the strip to that week and offers Hoje; Hoje returns to today's header and the strip's selected
+# day; a pull at the list's top ends without the refresh failure; a tapped empty day is its header with
+# the header's own line.
+#
+# Ids only (PAD-320): `calendar-day-header-<date>` is a day's pinned header, `calendar-day-<date>` the
+# strip's cell (selected -> accessibilityState.selected), `calendar-day-today` is Hoje, and
+# `calendar-day-empty` the empty day's line. Writes nothing. Dates are the device's clock (the same one
+# scripts/seeded-monday.js reads), as flow 13's `today`. Backend: -e API_BASE=http://localhost:<port>, else :5001.
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/seeded-monday.js
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+# The same weekday one week on is in the next week whatever day the week starts on.
+- evalScript: "${output.nextWeek = output.fmt(new Date(Date.now() + 7 * 86400000))}"
+# The seeded Monday's Tuesday: the seed puts nothing on it.
+- evalScript: "${output.emptyDay = output.fmt(new Date(Date.parse(output.seededMonday + 'T12:00:00') + 86400000))}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-day-list"
+    timeout: 20000
+
+# ── Opens on today ──
+- extendedWaitUntil:
+    visible:
+      id: "calendar-day-header-${output.today}"
+    timeout: 20000
+- assertVisible:
+    id: "calendar-day-${output.today}"
+    selected: true
+- assertNotVisible:
+    id: "calendar-day-today"
+
+# ── A scroll into the next week: the strip follows, and Hoje is offered ──
+# A drag inside the list, not from an element (an element-anchored swipe is too short). Empty days are
+# short, so a few drags cross the week; the count is generous and stops at the first sight of next week.
+- repeat:
+    times: 12
+    while:
+      notVisible:
+        id: "calendar-day-${output.nextWeek}"
+    commands:
+      - swipe:
+          start: "50%, 80%"
+          end: "50%, 35%"
+          duration: 500
+      - waitForAnimationToEnd
+- assertVisible:
+    id: "calendar-day-${output.nextWeek}"
+- assertVisible:
+    id: "calendar-day-today"
+- assertNotVisible:
+    id: "calendar-day-${output.today}"
+    selected: true
+
+# ── Hoje returns to today ──
+- tapOn:
+    id: "calendar-day-today"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "calendar-day-header-${output.today}"
+    timeout: 10000
+- assertVisible:
+    id: "calendar-day-${output.today}"
+    selected: true
+- assertNotVisible:
+    id: "calendar-day-today"
+
+# ── A pull at the list's top ends, and says nothing failed ──
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 85%"
+    duration: 800
+- waitForAnimationToEnd
+- assertNotVisible:
+    text: ".*(Couldn't refresh|Não foi possível atualizar).*"
+- assertVisible:
+    id: "calendar-day-header-${output.today}"
+
+# ── An empty day is its header and the header's own line ──
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- tapOn:
+    id: "calendar-day-${output.emptyDay}"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "calendar-day-header-${output.emptyDay}"
+    timeout: 10000
+- assertVisible:
+    id: "calendar-day-empty"
+    below:
+      id: "calendar-day-header-${output.emptyDay}"
+- assertVisible:
+    id: "calendar-day-${output.emptyDay}"
+    selected: true
