@@ -9,13 +9,13 @@ describe("coachRequestsParams", () => {
         section: "history", page: 2, perPage: 50, sortBy: "student", sortDir: "desc", kind: "academy",
         status: ["accepted", "rejected"], side: "none", classFrom: "2026-12-01", classTo: "2026-12-31",
         classTimeFrom: "09:00", classTimeTo: "11:00", requestedFrom: "2026-11-01", requestedTo: "2026-11-30",
-        playerId: 7, id: 3,
+        playerId: 7, search: "rita", id: 3,
       }),
     ).toEqual({
       section: "history", page: 2, per_page: 50, sort_by: "student", sort_dir: "desc", kind: "academy",
       status: "accepted,rejected", side: "none", class_from: "2026-12-01", class_to: "2026-12-31",
       class_time_from: "09:00", class_time_to: "11:00", requested_from: "2026-11-01", requested_to: "2026-11-30",
-      player_id: 7, id: 3,
+      player_id: 7, search: "rita", id: 3,
     });
   });
 

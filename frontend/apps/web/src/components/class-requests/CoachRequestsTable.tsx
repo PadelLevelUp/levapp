@@ -20,17 +20,18 @@ import {
   coachRequestStatusKey,
   coachRequestsActiveSort,
   coachRequestsQuery,
+  PLAYER_SEARCH_DEBOUNCE_MS,
   formatShortDate,
   switchCoachRequestsSection,
   type CoachRequestsView,
 } from "@levelup/config";
 import type { CoachRequestRow, CoachRequestsQuery, CoachRequestsSection, CoachRequestsSortKey } from "@levelup/types";
-import { getCoachPlayers } from "@levelup/api/src/resources/players";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { JoinRequestSide } from "@/components/calendar/JoinRequestSide";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { listCoachRequests } from "@/api/coachRequests";
@@ -74,7 +75,7 @@ function useNarrow(): boolean {
   return narrow;
 }
 
-const FILTER_PARAMS = ["kind", "status", "side", "class_from", "class_to", "time_from", "time_to", "requested_from", "requested_to", "player_id"];
+const FILTER_PARAMS = ["kind", "status", "side", "class_from", "class_to", "time_from", "time_to", "requested_from", "requested_to", "player_id", "search"];
 
 function statusVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
   if (status === "accepted") return "default";
@@ -118,6 +119,7 @@ export function CoachRequestsTable() {
       requestedFrom: get("requested_from"),
       requestedTo: get("requested_to"),
       playerId: get("player_id"),
+      search: get("search"),
     };
   }, [params, section, sortBy, sortDir]);
   const activeSort = coachRequestsActiveSort(view);
@@ -128,7 +130,6 @@ export function CoachRequestsTable() {
     queryFn: () => listCoachRequests(query),
     placeholderData: keepPreviousData,
   });
-  const roster = useQuery({ queryKey: queryKeys.coachPlayers, queryFn: getCoachPlayers, staleTime: 60_000 });
 
   useEffect(() => {
     if (result.isError) toast({ variant: "destructive", title: t("classRequests.loadFailed") });
@@ -144,6 +145,30 @@ export function CoachRequestsTable() {
     if (!keepPage && !("page" in patch)) next.delete("page");
     setParams(next, { replace: true });
   };
+
+  // Rule 7 `search` / players.search rule 10: the box answers locally on each keystroke and asks the
+  // server 200 ms after the last one. The URL holds the settled text; the box holds what is typed.
+  const urlSearch = (params.get("search") ?? "").trim();
+  const [searchText, setSearchText] = useState(urlSearch);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const updateRef = useRef(update);
+  updateRef.current = update;
+  const settling = searchText.trim() !== urlSearch;
+  const typeSearch = (text: string) => {
+    setSearchText(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      searchTimer.current = null;
+      updateRef.current({ search: text.trim() || null });
+    }, PLAYER_SEARCH_DEBOUNCE_MS);
+  };
+  useEffect(() => () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+  }, []);
+  // The URL changed by something else (clear, back, a link): the box follows it, unless a keystroke is pending.
+  useEffect(() => {
+    if (!searchTimer.current) setSearchText(urlSearch);
+  }, [urlSearch]);
 
   const pressHeader = (key: CoachRequestsSortKey) =>
     update({ sort_by: key, sort_dir: activeSort.by === key && activeSort.dir === "asc" ? "desc" : "asc" });
@@ -191,7 +216,8 @@ export function CoachRequestsTable() {
   const items = data?.items ?? [];
   const counts = data?.counts ?? { open: 0, history: 0 };
   const pagination = data?.pagination;
-  const hasFilters = FILTER_PARAMS.some((key) => params.get(key));
+  const hasFilters = FILTER_PARAMS.some((key) => params.get(key)) || searchText.trim() !== "";
+  const searched = searchText.trim() !== "";
 
   // The chip and "Usar … no perfil" belong to a request still to be decided (rule 13); a decided row only names the side.
   const sideWord = (side: NonNullable<CoachRequestRow["side"]>) => t(side === "left" ? "players.sideLeft" : side === "right" ? "players.sideRight" : "players.sideBoth");
@@ -229,7 +255,6 @@ export function CoachRequestsTable() {
 
   const field = cn("h-9 rounded-md border bg-background px-2 text-sm", narrow && "w-full min-w-0");
   const inputClass = narrow ? "h-9 w-full min-w-0" : "h-9 w-auto";
-  const students = (roster.data ?? []).map((p) => ({ id: String(p.playerId), label: p.displayName ?? p.name }));
 
   // The fields of one request, the same elements (and test ids) in the table and in a card.
   const fields = (r: CoachRequestRow) => {
@@ -312,12 +337,15 @@ export function CoachRequestsTable() {
       )}
       <label className="flex flex-col gap-1 text-xs">
         {t("classRequests.table.filters.student")}
-        <select className={field} value={params.get("player_id") ?? ""} onChange={(e) => update({ player_id: e.target.value || null })} data-testid="coach-requests-filter-student">
-          <option value="">{t("classRequests.table.filters.allStudents")}</option>
-          {students.map((s) => (
-            <option key={s.id} value={s.id}>{s.label}</option>
-          ))}
-        </select>
+        <Input
+          type="search"
+          className={cn("h-9", narrow ? "w-full min-w-0" : "w-48")}
+          placeholder={t("classRequests.table.filters.studentSearch")}
+          aria-label={t("classRequests.table.filters.student")}
+          value={searchText}
+          onChange={(e) => typeSearch(e.target.value)}
+          data-testid="coach-requests-search"
+        />
       </label>
       <label className="flex flex-col gap-1 text-xs">
         {t("classRequests.table.filters.kind")}
@@ -359,7 +387,12 @@ export function CoachRequestsTable() {
           </div>
         </fieldset>
       ))}
-      <Button variant="ghost" size="sm" className={narrow ? "justify-self-start" : undefined} disabled={!hasFilters} onClick={() => update(Object.fromEntries(FILTER_PARAMS.map((k) => [k, null])))} data-testid="coach-requests-clear">
+      <Button variant="ghost" size="sm" className={narrow ? "justify-self-start" : undefined} disabled={!hasFilters} onClick={() => {
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        searchTimer.current = null;
+        setSearchText("");
+        update(Object.fromEntries(FILTER_PARAMS.map((k) => [k, null])));
+      }} data-testid="coach-requests-clear">
         {t("classRequests.table.filters.clear")}
       </Button>
     </div>
@@ -367,7 +400,7 @@ export function CoachRequestsTable() {
 
   const emptyOrLoading = result.isPending ? (
     <p className="p-3 text-sm text-muted-foreground">…</p>
-  ) : items.length === 0 ? (
+  ) : items.length === 0 && !searched ? (
     <p className="p-3 text-sm text-muted-foreground" data-testid="coach-requests-empty">{t("classRequests.table.empty")}</p>
   ) : null;
 
@@ -522,6 +555,11 @@ export function CoachRequestsTable() {
           </div>
         ) : (
           filterControls
+        )}
+
+        {/* players.search rule 10: "searching" while the text settles or its answer is on the way, "nobody" when it came back empty. */}
+        {searched && (
+          <PlayerSearchFeedback query={searchText} searching={settling || result.isPlaceholderData} count={items.length} className="text-sm text-muted-foreground" />
         )}
 
         {narrow ? cardList : rowTable}
