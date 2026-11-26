@@ -383,6 +383,53 @@ def test_each_filter_narrows_rows_and_counts(world):
     assert world.get(sort_by="nonsense", sort_dir="sideways").status_code == 200  # unknown sort falls back
 
 
+# ── -8 ──────────────────────────────────────────────────────────────────────
+
+@pytest.mark.criterion("CLASSES-COACH-REQUESTS-TABLE-8")
+def test_search_matches_like_the_players_search(world):
+    joao = world.student("João Sousa")
+    joana = world.student("Joana Silva")
+    pedro = world.student("Pedro Mesquita e Sousa")
+    rita = world.student("Rita Gomes", nickname="Ritinha")
+    other = world.student("João Rui", coach="rui")  # another coach's student: never reached
+    rows = {}
+    for label, who in (("joao", joao), ("joana", joana), ("pedro", pedro), ("rita", rita)):
+        rows[label] = [
+            ("private", world.private(who, start=BASE, status="pending")),
+            ("academy", world.academy(who, start=BASE, status="accepted", side="left")),  # a Histórico row
+        ]
+    other_row = ("private", world.private(other, coach="rui"))
+
+    def found(**params):
+        res = world.get(**params)
+        assert res.status_code == 200
+        return set(keys(res)), res.get_json()
+
+    def both_sections(query, **extra):
+        opened, body = found(section="open", search=query, **extra)
+        history, _ = found(section="history", search=query, **extra)
+        return opened | history, body
+
+    got, body = both_sections("joao")
+    assert got == set(rows["joao"] + rows["joana"])  # the typo tier: joao finds Joana too
+    assert body["counts"] == {"open": 2, "history": 2}  # the counts of both sections carry the search
+    assert both_sections("pedro sousa")[0] == set(rows["pedro"])
+    assert both_sections("ritinha")[0] == set(rows["rita"])  # the coach's nickname for her
+    assert both_sections("%")[0] == set()
+    none_body = both_sections("%")[1]
+    assert none_body["counts"] == {"open": 0, "history": 0} and none_body["pagination"]["total"] == 0
+    assert other_row not in both_sections("joao")[0] and other_row not in both_sections("rui")[0]
+    # A blank value is no filter; the search joins the other filters.
+    assert len(both_sections("   ")[0]) == 8
+    got, body = found(section="open", search="ritinha", kind="private")
+    assert got == {rows["rita"][0]} and body["counts"] == {"open": 1, "history": 0}
+    assert found(section="open", search="ritinha", player_id=joao["player_id"])[0] == set()
+    # The rows keep the table's sort, not the match tiers: "jo" matches both Joãos best, then others by sort.
+    res = world.get(section="open", search="jo", sort_by="student", sort_dir="desc")
+    names = [r["playerName"] for r in res.get_json()["items"]]
+    assert names == sorted(names, reverse=True) and set(names) == {"João Sousa", "Joana Silva"}
+
+
 # ── -9 ──────────────────────────────────────────────────────────────────────
 
 @contextmanager
@@ -421,18 +468,21 @@ def test_statement_count_does_not_grow(world):
     params = dict(section="history", per_page=100, status="accepted,declined,rejected,withdrawn,superseded", kind="academy",
                   player_id=people[1]["player_id"], sort_by="student")
     params2 = dict(section="open", per_page=100, sort_by="student")
+    params3 = dict(section="open", per_page=100, sort_by="student", search="student")
     world.get(**params)  # warm-up
     counts = {}
     for label, n_more in (("few", 0), ("many", 295)):
         if n_more:
             _bulk_more(world, people, n_more)
-        for name, p in (("filtered", params), ("open", params2)):
+        for name, p in (("filtered", params), ("open", params2), ("search", params3)):
             with _statement_counter(world.app) as rec:
                 res = world.get(**p)
             assert res.status_code == 200 and res.get_json()["items"]
             counts[(label, name)] = len(rec)
     assert counts[("many", "filtered")] == counts[("few", "filtered")]
     assert counts[("many", "open")] == counts[("few", "open")]
+    assert counts[("many", "search")] == counts[("few", "search")]
+    assert counts[("many", "search")] == counts[("many", "open")] + 1  # the search's one requesters read
     assert max(counts.values()) <= svc.QUERY_BUDGET
 
 

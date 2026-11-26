@@ -19,7 +19,7 @@ from padel_app.utils.dates import to_utc_iso, wall_to_utc_naive
 # specflow/impl/classes/constants.md
 PAGE_SIZE = 25
 MAX_PAGE_SIZE = 100
-QUERY_BUDGET = 13
+QUERY_BUDGET = 14
 PRIVATE_REQUEST_OPEN_STATUSES = ("pending", "countered")
 JOIN_REQUEST_OPEN_STATUSES = ("pending",)
 STATUS_ORDER = ("pending", "countered", "accepted", "declined", "rejected", "withdrawn", "superseded")
@@ -119,6 +119,7 @@ def parse_params(args):
         "time_from": _minutes(args, "class_time_from"), "time_to": _minutes(args, "class_time_to"),
         "requested_from": _date(args, "requested_from"), "requested_to": _date(args, "requested_to"),
         "sort_by": sort_by, "sort_dir": sort_dir,
+        "search": (args.get("search") or "").strip(), "search_ids": None,
         "page": max(1, _int(args.get("page"), 1)), "per_page": max(1, min(MAX_PAGE_SIZE, per_page)),
     }
 
@@ -185,6 +186,8 @@ def _legs(coach_id, p, section, *, with_status):
             q = q.where(ClassJoinRequest.side.is_(None))
         if p["player_id"] is not None:
             q = q.where(model.player_id == p["player_id"])
+        if p["search_ids"] is not None:
+            q = q.where(model.player_id.in_(p["search_ids"]) if p["search_ids"] else literal(False))
         if p["class_from"] is not None:
             q = q.where(start_col >= p["class_from"])
         if p["class_to"] is not None:
@@ -199,6 +202,28 @@ def _legs(coach_id, p, section, *, with_status):
             q = q.where(model.created_at < wall_to_utc_naive(p["requested_to"] + timedelta(days=1)))
         legs.append(q)
     return legs
+
+
+def _search_ids(coach_id, query):
+    """Rule 7 `search`: the ids of the coach's requesters `players.search`'s one rule accepts, over the
+    student's name and the coach's nickname for them. One statement, the size of the coach's requesters;
+    the rows are then filtered by these ids in SQL, so the page is cut after the search."""
+    cp = Association_CoachPlayer
+    requesters = union_all(
+        select(ClassRequest.player_id.label("pid")).where(ClassRequest.coach_id == coach_id),
+        select(ClassJoinRequest.player_id.label("pid")).where(ClassJoinRequest.coach_id == coach_id),
+    ).subquery("requesters")
+    rows = db.session.execute(
+        select(Player.id, User.name, cp.nickname)
+        .select_from(Player)
+        .join(User, User.id == Player.user_id)
+        .outerjoin(cp, and_(cp.coach_id == coach_id, cp.player_id == Player.id))
+        .where(Player.id.in_(select(requesters.c.pid)))
+    ).all()
+    return [
+        pid for pid, name, nickname in rows
+        if player_service.rank_player_match({"name": name, "nickname": nickname}, query) is not None
+    ]
 
 
 def _union(coach_id, p, section, *, with_status):
@@ -318,6 +343,8 @@ def _load_page(coach_id, refs):
 def list_for_coach(coach, args):
     """Rules 1-7: one page of the coach's requests, `{items, pagination, counts}`."""
     p = parse_params(args)
+    if p["search"]:
+        p["search_ids"] = _search_ids(coach.id, p["search"])
     section = p["section"]
     other = "history" if section == "open" else "open"
     counts = {section: _count(coach.id, p, section, with_status=True), other: _count(coach.id, p, other, with_status=False)}
