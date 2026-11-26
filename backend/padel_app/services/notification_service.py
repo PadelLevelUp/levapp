@@ -4443,7 +4443,7 @@ def _clear_decline_source(player_id, lesson_instance_id, answered: dict) -> None
     """Drop the block-decline reason after the new engine answered a reminder (attendance.confirm rule 23);
     a yes the engine did not honour leaves the student absent, and the reason with it."""
     presence = Presence.query.filter_by(player_id=player_id, lesson_instance_id=lesson_instance_id).first()
-    if presence is not None and presence.decline_source is not None and (answered["action"] != "confirmed" or presence.status != "absent"):
+    if presence is not None and presence.decline_source is not None and (answered["action"] == "declined" or presence.status != "absent"):
         presence.decline_source = None
         presence.save()
 
