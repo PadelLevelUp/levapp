@@ -190,7 +190,7 @@ export function usePrivateRequestDraft(coachId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availability, duration, date, recurring, weekdays.join(","), startDate, effectiveEndDate]);
 
-  const slotsState = !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
+  const slotsState: "waiting" | "loading" | "ready" | "empty" = !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
 
   // Rule 13b: the read the current answer belongs to; an answer for an earlier choice is not "no free time".
   const answered =
@@ -254,3 +254,5 @@ export function usePrivateRequestDraft(coachId: string) {
     canAdvance: () => shownAt.current !== null && Date.now() - shownAt.current >= STEP_LOCK_MS,
   };
 }
+
+export type PrivateRequestDraft = ReturnType<typeof usePrivateRequestDraft>;

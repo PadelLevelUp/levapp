@@ -31,7 +31,7 @@ const availabilityApi = vi.hoisted(() => ({
 const academyApi = vi.hoisted(() => ({ listAcademyClasses: vi.fn().mockResolvedValue({ classes: [] }) }));
 vi.mock("@levelup/api", () => ({ requestAvailabilityApi: availabilityApi, academyClassesApi: academyApi }));
 
-import { PrivateClassStep } from "./PrivateClassStep";
+import { PrivateAllSteps } from "./PrivateAllSteps.testing";
 
 const WINDOW = { startTime: "18:00", endTime: "19:00" };
 
@@ -39,7 +39,7 @@ function renderStep() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <PrivateClassStep coachId="ana-id" onDone={vi.fn()} />
+      <PrivateAllSteps coachId="ana-id" onDone={vi.fn()} />
     </QueryClientProvider>
   );
 }

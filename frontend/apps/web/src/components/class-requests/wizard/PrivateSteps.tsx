@@ -1,26 +1,17 @@
 /**
- * PAD-357 (classes.class-requests rules 12–14, classes.availability): the
- * private-class step. Nº de pessoas 1–4 with "Quem vai contigo" usernames
- * (each checked against the coach's roster, one code, no oracle), single or
- * weekly recurrence, duration, the free start times everyone shares, an
- * optional note, send. Free time comes from the server as `freeWindows` and is
- * rendered only through @levelup/config's availability module.
+ * classes.class-requests rule 21: the private class's three steps (people, when, time). Each is a body drawn over
+ * the shell's one draft (`usePrivateRequestDraft`); the foot, the back control and Send belong to the wizard.
+ * The controls are the single-form step's (rules 11 to 14a, PAD-357), split; step c also holds rule 13b's list.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Minus, Plus, X } from "lucide-react";
+import { Loader2, Minus, Plus } from "lucide-react";
 import {
   CLASS_REQUEST_DURATIONS,
-  FIRST_FREE_DAY_HORIZON_DAYS,
   MAX_REQUEST_CLASSES,
   stepEndCount,
-  clubTodayISO,
-  endDateAfterClasses,
-  duplicateInvitees,
-  firstFreeDay,
   formatShortDate,
-  availabilityReadKey,
   lessonMinutes,
   occurrenceDates,
   joinRefusalKey,
@@ -29,13 +20,11 @@ import {
   waitingListSideChoice,
   academyClassAction,
   readsPrivateLessons,
-  slotStarts,
-  weeklyIntersection,
-  type Window,
+  privateRequestSummary,
 } from "@levelup/config";
-import { queryKeys } from "@levelup/hooks";
-import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
-import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
+import { queryKeys, type PrivateRequestDraft } from "@levelup/hooks";
+import type { ParticipantCheck } from "@levelup/types";
+import { academyClassesApi } from "@levelup/api";
 import { classRequestRefusal, createClassRequest } from "@/api/classRequests";
 import { ClassSideChoice } from "@/components/calendar/ClassSideChoice";
 import { Badge } from "@/components/ui/badge";
@@ -55,203 +44,28 @@ function checkCode(c: ParticipantCheck | undefined): string | null {
   return c && "code" in c ? c.code : null;
 }
 
-function addDaysIso(iso: string, n: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+/** One step's root: `data-private-step`, and its title takes the focus when it shows (rule 21, criterion 62). */
+function StepRoot({ step, children }: { step: "people" | "when" | "time"; children: ReactNode }) {
+  const { t } = useTranslation();
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    title.current?.focus();
+  }, []);
+  return (
+    <div className="space-y-5" data-testid="wizard-private" data-private-step={step}>
+      <h3 ref={title} tabIndex={-1} className="text-base font-semibold outline-none" data-testid="wizard-step-title">
+        {t(`classRequestWizard.steps.${step}`)}
+      </h3>
+      {children}
+    </div>
+  );
 }
 
-type Recurring = "single" | "weekly";
-// classes.class-requests rule 14a (PAD-428): "on a date" keeps the pre-PAD-428
-// default end (28 days out); "after N classes" turns a class count into that
-// same `endDate` field through @levelup/config's shared arithmetic.
-type EndMode = "date" | "count";
-const DEFAULT_END_COUNT = 4;
-
-export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone: () => void }) {
-  const { t, i18n } = useTranslation();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const today = clubTodayISO();
-
-  // ── People ──
-  const [people, setPeople] = useState(1);
-  const [usernames, setUsernames] = useState<string[]>([]);
-  const [checks, setChecks] = useState<Record<string, ParticipantCheck>>({});
-
-  // ── Recurrence ──
-  const [recurring, setRecurring] = useState<Recurring>("single");
-  const [date, setDate] = useState(today);
-  const dateTouched = useRef(false);
-  const [weekdays, setWeekdays] = useState<number[]>([]);
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(addDaysIso(today, 28));
-  const [endMode, setEndMode] = useState<EndMode>("date");
-  const [endCount, setEndCount] = useState(DEFAULT_END_COUNT);
-
-  // ── Slot ──
-  const [duration, setDuration] = useState<number>(60);
-  const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
-  // PAD-929 (rule 13b): the read the current answer belongs to. A failed read, one still on its way,
-  // or an answer for an earlier choice is not "no free time" and never offers the private lessons.
-  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [slot, setSlot] = useState<Window | null>(null);
-  const [note, setNote] = useState("");
-  const [sending, setSending] = useState(false);
-
-  const invitees = usernames.slice(0, people - 1).map((u) => u.trim()).filter(Boolean);
-  const inviteesKey = invitees.join(",");
-  // Rule 12: a name repeated on a later field is refused here, as the server refuses it.
-  const repeated = duplicateInvitees(usernames.slice(0, people - 1));
-  const allInviteesOk =
-    invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true) && !repeated.some(Boolean);
-
-  // Keep one username field per invitee.
-  useEffect(() => {
-    setUsernames((u) => Array.from({ length: people - 1 }, (_, i) => u[i] ?? ""));
-  }, [people]);
-
-  // Rule 12: each username checked against this coach's roster (debounced).
-  useEffect(() => {
-    // A repeated name is checked once (the server answers its first spelling).
-    const pending = invitees.filter((u, i, all) => !checks[u] && all.findIndex((x) => x.toLowerCase() === u.toLowerCase()) === i);
-    if (pending.length === 0) return;
-    const timer = setTimeout(() => {
-      requestAvailabilityApi.getRequestParticipants(coachId, pending)
-        .then((rows) => setChecks((c) => ({ ...c, ...Object.fromEntries(rows.map((r) => [r.username, r])) })))
-        .catch(() => undefined);
-    }, 400);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, inviteesKey]);
-
-  // "After N classes" (rule 14a) turns the count into the same `endDate` the
-  // wire always sent; "on a date" keeps the raw picker value unchanged.
-  const computedEndDate = endMode === "count" ? endDateAfterClasses(startDate, weekdays, endCount) : null;
-  const effectiveEndDate = endMode === "count" ? computedEndDate ?? "" : endDate;
-  const recurrence = recurring === "weekly" ? { weekdays: [...weekdays].sort(), startDate, endDate: effectiveEndDate } : null;
-  const recurrenceValid = !recurrence || (weekdays.length > 0 && startDate <= effectiveEndDate && occurrenceDates(recurrence).length > 0);
-
-  // Rules 11 + 13: for a single class open on the first day that still has free time.
-  useEffect(() => {
-    if (recurring !== "single" || dateTouched.current || !allInviteesOk) return;
-    let active = true;
-    requestAvailabilityApi.getCoachAvailability({ coachId, from: today, to: addDaysIso(today, FIRST_FREE_DAY_HORIZON_DAYS), participants: invitees })
-      .then((res) => {
-        // A date the student chose while this was loading wins over the default.
-        if (!active || dateTouched.current) return;
-        const days = Object.entries(res.freeWindows)
-          .filter(([, windows]) => slotStarts(windows, duration).length > 0)
-          .map(([d]) => ({ date: d }));
-        setDate(firstFreeDay(days, today));
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, recurring, inviteesKey, allInviteesOk]);
-
-  // Rule 13: a picked time is for the length it was picked at; a new length starts the pick over,
-  // so the request never posts the old end.
-  useEffect(() => {
-    setSlot(null);
-  }, [duration]);
-
-  // Rule 13: everyone's free windows for the chosen day or recurrence range.
-  useEffect(() => {
-    setSlot(null);
-    // A load cancelled by this change never reaches its `finally`, so every
-    // early return clears the loading flag itself.
-    if (!allInviteesOk || !recurrenceValid) {
-      setAvailability(null);
-      setLoadingSlots(false);
-      return;
-    }
-    const from = recurrence ? startDate : date;
-    const to = recurrence ? effectiveEndDate : date;
-    if (!from || !to) {
-      setLoadingSlots(false);
-      return;
-    }
-    let active = true;
-    setLoadingSlots(true);
-    requestAvailabilityApi.getCoachAvailability({ coachId, from, to, participants: invitees })
-      .then((res) => {
-        if (!active) return;
-        setAvailability(res);
-        setAnsweredFor(availabilityReadKey({ coachId, from, to, participants: invitees }));
-      })
-      .catch(() => active && setAvailability(null))
-      .finally(() => active && setLoadingSlots(false));
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, inviteesKey, allInviteesOk, recurring, date, startDate, effectiveEndDate, weekdays.join(","), recurrenceValid]);
-
-  const starts = useMemo(() => {
-    if (!availability) return [];
-    if (recurrence) return slotStarts(weeklyIntersection(availability.freeWindows, recurrence).windows, duration);
-    return slotStarts(availability.freeWindows[date] ?? [], duration);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availability, duration, date, recurring, weekdays.join(","), startDate, effectiveEndDate]);
-
-  const slotsState = !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
-
-  // PAD-929 (classes.class-requests rule 13b): no free time offers the coach's visible private
-  // lessons (classes.academy-class-booking rule 12); each row's one action goes through the
-  // private-lesson warning, then the side choice (classes.join-requests rule 22).
-  const answered =
-    answeredFor !== null &&
-    answeredFor ===
-      availabilityReadKey({
-        coachId,
-        from: recurrence ? startDate : date,
-        to: recurrence ? effectiveEndDate : date,
-        participants: invitees,
-      });
-  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
-  const privateLessons = useQuery({
-    queryKey: ["academy-classes", coachId, "private"],
-    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
-    enabled: showPrivateLessons,
-  });
-  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
-  const [lessonSideFor, setLessonSideFor] = useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
-  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
-
-  const send = async () => {
-    if (!slot) return;
-    setSending(true);
-    try {
-      await createClassRequest({
-        coachId,
-        date: recurrence ? occurrenceDates(recurrence)[0] : date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        note: note.trim() || null,
-        participants: invitees.length ? invitees : undefined,
-        recurrence: recurrence ?? undefined,
-      });
-      toast({ title: t("classRequests.sent"), description: t("classRequests.sentBody") });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
-      onDone();
-    } catch (err) {
-      const refusal = classRequestRefusal(err);
-      toast({
-        variant: "destructive",
-        title: t("classRequests.failed"),
-        description: refusal ? t(`classRequestWizard.refusal.${refusal.code}`, { defaultValue: t(`classRequests.refusal.${refusal.code}`, { defaultValue: "" }) }) || undefined : undefined,
-      });
-      setSlot(null);
-    } finally {
-      setSending(false);
-    }
-  };
-
+export function PrivatePeopleStep({ draft }: { draft: PrivateRequestDraft }) {
+  const { t } = useTranslation();
+  const { people, setPeople, usernames, setUsernames, checks, repeated } = draft;
   return (
-    <div className="space-y-5" data-testid="wizard-private">
+    <StepRoot step="people">
       {/* Nº de pessoas + Quem vai contigo (rule 12) */}
       <div className="space-y-2">
         <Label>{t("classRequestWizard.people")}</Label>
@@ -264,7 +78,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               data-testid={`wizard-people-${n}`}
               onClick={() => setPeople(n)}
               className={cn(
-                "h-9 w-9 rounded-full text-sm font-medium transition-colors",
+                "h-11 w-11 rounded-full text-sm font-medium transition-colors",
                 people === n ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted-foreground/10"
               )}
             >
@@ -311,7 +125,19 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           </div>
         )}
       </div>
+    </StepRoot>
+  );
+}
 
+export function PrivateWhenStep({ draft }: { draft: PrivateRequestDraft }) {
+  const { t, i18n } = useTranslation();
+  const {
+    recurring, setRecurring, date, setDate, weekdays, setWeekdays, startDate, setStartDate, endDate, setEndDate,
+    endMode, setEndMode, endCount, setEndCount, recurrenceValid, today,
+  } = draft;
+  const computedEndDate = draft.effectiveEndDate && endMode === "count" ? draft.effectiveEndDate : null;
+  return (
+    <StepRoot step="when">
       {/* Recorrência (rule 14) */}
       <div className="space-y-2">
         <Label>{t("classRequestWizard.recurrence")}</Label>
@@ -324,7 +150,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               data-testid={`wizard-recurrence-${mode}`}
               onClick={() => setRecurring(mode)}
               className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                "rounded-md min-h-11 px-3 text-sm font-medium transition-colors",
                 recurring === mode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -341,10 +167,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               min={today}
               value={date}
               data-testid="wizard-date"
-              onChange={(e) => {
-                dateTouched.current = true;
-                setDate(e.target.value);
-              }}
+              onChange={(e) => setDate(e.target.value)}
             />
           </div>
         ) : (
@@ -357,9 +180,9 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                   aria-pressed={weekdays.includes(d)}
                   aria-label={t(`classRequestWizard.weekdays.${d}`)}
                   data-testid={`wizard-weekday-${d}`}
-                  onClick={() => setWeekdays((w) => (w.includes(d) ? w.filter((x) => x !== d) : [...w, d]))}
+                  onClick={() => setWeekdays(weekdays.includes(d) ? weekdays.filter((x) => x !== d) : [...weekdays, d])}
                   className={cn(
-                    "h-9 w-9 rounded-full text-sm font-medium transition-colors",
+                    "h-11 w-11 rounded-full text-sm font-medium transition-colors",
                     weekdays.includes(d) ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted-foreground/10"
                   )}
                 >
@@ -388,7 +211,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                     data-testid={`request-end-mode-${mode}`}
                     onClick={() => setEndMode(mode)}
                     className={cn(
-                      "h-8 rounded px-2 text-xs font-medium",
+                      "h-11 rounded px-2 text-xs font-medium",
                       endMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
                     )}
                   >
@@ -412,11 +235,11 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-9 w-9"
+                    className="h-11 w-11"
                     aria-label={t("classRequestWizard.countDecrease")}
                     data-testid="request-end-count-dec"
                     disabled={endCount <= 1}
-                    onClick={() => setEndCount((n) => stepEndCount(n, -1))}
+                    onClick={() => setEndCount(stepEndCount(endCount, -1))}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -427,11 +250,11 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-9 w-9"
+                    className="h-11 w-11"
                     aria-label={t("classRequestWizard.countIncrease")}
                     data-testid="request-end-count-inc"
                     disabled={endCount >= MAX_REQUEST_CLASSES}
-                    onClick={() => setEndCount((n) => stepEndCount(n, 1))}
+                    onClick={() => setEndCount(stepEndCount(endCount, 1))}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -455,7 +278,39 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           </div>
         )}
       </div>
+    </StepRoot>
+  );
+}
 
+export function PrivateTimeStep({ draft, coachId, onChangeWhen }: { draft: PrivateRequestDraft; coachId: string; onChangeWhen: () => void }) {
+  const { t, i18n } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const {
+    people, recurring, duration, setDuration, availability, loadingSlots, slot, setSlot, note, setNote, starts, slotsState,
+    allInviteesOk, recurrenceValid, answered,
+  } = draft;
+
+  // PAD-929 (classes.class-requests rule 13b): no free time offers the coach's visible private
+  // lessons (classes.academy-class-booking rule 12); each row's one action goes through the
+  // private-lesson warning, then the side choice (classes.join-requests rule 22).
+  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
+  const privateLessons = useQuery({
+    queryKey: ["academy-classes", coachId, "private"],
+    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
+    enabled: showPrivateLessons,
+  });
+  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
+  const [lessonSideFor, setLessonSideFor] = useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
+  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
+  const summary = privateRequestSummary(
+    { people, invitees: draft.invitees, recurring, date: draft.date, weekdays: draft.weekdays, endDate: draft.effectiveEndDate },
+    (key, vars) => t(`classRequestWizard.${key}`, vars)
+  );
+
+  return (
+    <StepRoot step="time">
+      <p className="text-sm text-muted-foreground" data-testid="wizard-summary">{summary}</p>
       {/* Duração e horários livres (rule 13) */}
       <div className="space-y-2">
         <Label>{t("classRequests.duration")}</Label>
@@ -468,7 +323,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               data-testid={`wizard-duration-${d}`}
               onClick={() => setDuration(d)}
               className={cn(
-                "rounded-full border px-3 py-1 text-sm transition-colors",
+                "rounded-full border min-h-11 px-4 text-sm transition-colors",
                 duration === d ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
               )}
             >
@@ -489,6 +344,9 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           ) : !allInviteesOk || !recurrenceValid ? null : starts.length === 0 ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">{t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}</p>
+              <Button type="button" variant="outline" className="min-h-11" data-testid="wizard-change-when" onClick={onChangeWhen}>
+                {t("classRequestWizard.changeWhen")}
+              </Button>
               {lessons.length > 0 && (
                 <div className="space-y-2" data-testid="wizard-private-lessons">
                   <p className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</p>
@@ -552,7 +410,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                   data-start={s.startTime}
                   onClick={() => setSlot(s)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-sm transition-colors",
+                    "rounded-full border min-h-11 px-4 text-sm transition-colors",
                     slot?.startTime === s.startTime ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
                   )}
                 >
@@ -567,12 +425,6 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
       <div className="space-y-2">
         <Label htmlFor="wizard-note">{t("classRequests.note")}</Label>
         <Textarea id="wizard-note" rows={2} placeholder={t("classRequests.notePlaceholder")} value={note} data-testid="wizard-note" onChange={(e) => setNote(e.target.value)} />
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={send} disabled={sending || !slot || !allInviteesOk} data-testid="wizard-send">
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("classRequests.send")}
-        </Button>
       </div>
 
       {lessonSideFor && (
@@ -602,6 +454,60 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           }}
         />
       )}
-    </div>
+    </StepRoot>
+  );
+}
+
+/** Rule 21: Send, as the single form sent it; the wizard's foot calls it. */
+export function usePrivateSend(draft: PrivateRequestDraft, coachId: string, onDone: () => void) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  return async () => {
+    const { slot, recurrence, date, note, invitees } = draft;
+    if (!slot) return;
+    draft.setSending(true);
+    try {
+      await createClassRequest({
+        coachId,
+        date: recurrence ? occurrenceDates(recurrence)[0] : date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        note: note.trim() || null,
+        participants: invitees.length ? invitees : undefined,
+        recurrence: recurrence ?? undefined,
+      });
+      toast({ title: t("classRequests.sent"), description: t("classRequests.sentBody") });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+      onDone();
+    } catch (err) {
+      const refusal = classRequestRefusal(err);
+      toast({
+        variant: "destructive",
+        title: t("classRequests.failed"),
+        description: refusal ? t(`classRequestWizard.refusal.${refusal.code}`, { defaultValue: t(`classRequests.refusal.${refusal.code}`, { defaultValue: "" }) }) || undefined : undefined,
+      });
+      draft.setSlot(null);
+    } finally {
+      draft.setSending(false);
+    }
+  };
+}
+
+/** Rule 21's foot: one main button, full width and at least 44px high; "Continuar" in a and b, Send in c. */
+export function PrivateFoot({
+  step, answered, sending, onContinue, onSend,
+}: {
+  step: "people" | "when" | "time"; answered: boolean; sending: boolean; onContinue: () => void; onSend: () => void;
+}) {
+  const { t } = useTranslation();
+  return step === "time" ? (
+    <Button className="min-h-11 w-full" onClick={onSend} disabled={sending || !answered} data-testid="wizard-send">
+      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("classRequests.send")}
+    </Button>
+  ) : (
+    <Button className="min-h-11 w-full" onClick={onContinue} disabled={!answered} data-testid="wizard-continue">
+      {t("classRequestWizard.continue")}
+    </Button>
   );
 }
