@@ -49,6 +49,14 @@ onFlowComplete:
       id: "join-coach-go-calendar"
     direction: DOWN
     timeout: 20000
+# The joined screen is a root-stack screen without the tab header, so logout.yaml's `header-account` is not on it
+# (Android lane, 2026-11-26). Leave it for the tabs, as flows 42 and 48 leave their own root screens, then log out.
+- tapOn:
+    id: "join-coach-go-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 20000
 
 # ── Part 2: the player invitation, signed out ──
 - runFlow: ../subflows/logout.yaml
