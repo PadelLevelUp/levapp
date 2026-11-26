@@ -1,6 +1,6 @@
 ---
 id: attendance.confirm
-status: implemented
+status: implementing
 depends_on: [attendance.presence]
 serves: [P-ATTENDANCE-2]
 governed_by: []
@@ -39,7 +39,7 @@ Readings:
 5. Cancelling reverts the player to "not attending" and frees the spot using the exact same path as a reminder decline (`no`): it reuses the same vacancy-creation and invitation-engine logic — it does not fork a separate path. In automatic mode invitations are (re)triggered/pre-created; in semi-automatic mode the vacancy awaits coach approval before invitations are sent (see notifications.semi-auto-approval)
 6. The coach configures a cancellation deadline `cancellationDeadlineHours` (default 24) on their NotificationConfig (see notifications.config). The deadline is `cancellationDeadlineHours` real hours before the class's real start. The stored `start_datetime` is Lisbon wall-clock (R-023), so the deadline is computed on instants and holds across a daylight-saving change (PAD-256). A cancellation made at or after this deadline but still before class start is **allowed** (never blocked) but flagged as a **late cancellation** (`Presence.late_cancellation=True`). A cancellation before the deadline sets `late_cancellation=False`. The spot is freed and invitations (re)triggered identically regardless of lateness
 7. Whether a cancellation was late is recorded as `Presence.late_cancellation` until PAD-271 M5 lands, then derived from `response`/`responded_at` against the deadline (`attendance.presence` rule 7; decided 2026-09-11). Serialized presence payloads expose `lateCancellation`; the serialized class-instance payload exposes the effective `cancellationDeadlineHours` (and/or a deadline timestamp) so the frontend can render deadline-aware UX. `cancellationDeadline` is a naive ISO string on the club's wall clock, like every class time, and both clients compare it with the club's clock — `lisbonNow()` in `@levelup/config` — never with the device's, so the moment is right on a phone anywhere (PAD-256, PAD-295)
-8. When a player cancels attendance (`POST /api/app/notify/cancel_attendance`), the **coach is notified** with exactly one message per cancellation. The notification reuses the existing coach↔player direct conversation / system-message infrastructure (no new channel/model): a message is created in that conversation and its push notification is directed at the coach. The message identifies the **student** (name) and the **class instance** (title + start date/time). When the cancellation is late (`late_cancellation=True`), the notification is clearly marked as a late cancellation both in its human-readable text and via a machine-readable `msg_metadata` marker (`lateCancellation: true`, plus `lessonInstanceId`). Reminder declines (`respond_reminder` with `no`) do not emit this coach cancellation notification — it is specific to the `cancel_attendance` path, which is the only path that computes lateness. The single coach notification is in addition to (and does not replace) the existing student-facing acknowledgement message **PAD-288 (coordinator decision, 2026-09-11 — see rule 23): the message is sent for every cancellation; the coach's phone is pushed only for a LATE one (rule 6). Early cancellations are visible, not noisy. Confirmed by the owner, 2026-11-10.** One exception: in semi-automatic mode every cancellation, early included, pushes the coach "Replacement approval needed" (`replacement_approval_service.py`); that push is about the freed spot, not about the cancellation (see notifications.semi-auto-approval).
+8. When a player cancels attendance (`POST /api/app/notify/cancel_attendance`), the **coach is notified** with exactly one message per cancellation. The notification reuses the existing coach↔player direct conversation / system-message infrastructure (no new channel/model): a message is created in that conversation and its push notification is directed at the coach. The message identifies the **student** (name) and the **class instance** (title + start date/time). When the cancellation is late (`late_cancellation=True`), the notification is clearly marked as a late cancellation both in its human-readable text and via a machine-readable `msg_metadata` marker (`lateCancellation: true`, plus `lessonInstanceId`). Reminder declines (`respond_reminder` with `no`) do not emit this coach cancellation notification — it is specific to the `cancel_attendance` path, which is the only path that computes lateness. The single coach notification is in addition to (and does not replace) the existing student-facing acknowledgement message, except for a decline made from an availability block, which sends no acknowledgement (rule 30) **PAD-288 (coordinator decision, 2026-09-11 — see rule 23): the message is sent for every cancellation; the coach's phone is pushed only for a LATE one (rule 6). Early cancellations are visible, not noisy. Confirmed by the owner, 2026-11-10.** One exception: in semi-automatic mode every cancellation, early included, pushes the coach "Replacement approval needed" (`replacement_approval_service.py`); that push is about the freed spot, not about the cancellation (see notifications.semi-auto-approval).
 9. A student can cancel attendance directly from an enrolled class in the calendar class-detail view (not only from a chat reminder). Both surfaces (the class-detail view and the reminder bubble) call the same `POST /api/app/notify/cancel_attendance` and render deadline-aware UX from the class-instance payload's `cancellationDeadline` / `cancellationDeadlineHours`: before the deadline a normal confirm, at/after the deadline a "late cancellation" warning that still allows the cancel. The action is hidden once the class has started; a 409 is handled gracefully with an error message. "Started" is judged on the club's clock: the stored start against Lisbon now, never UTC — on the server (`club_now_naive()`) and on both clients (`lisbonNow()`, PAD-295)
 
 #### Proactive decline (PAD-73)
@@ -310,6 +310,35 @@ Readings:
    unchanged by this ticket: `cancel_attendance` runs the ordinary decline path (rule 5), which
    records the student's answer and overwrites the mark with `absent`; refusing it instead is a
    PAD-567-adjacent decision not taken here.
+
+#### A decline made from an availability block (PAD-772; owner, 26 Nov 2026: "ask them when they save")
+30. **The student's yes in the block dialog is an ordinary decline with a source.** When a student
+    who saved an availability block answers yes to the covered-classes question
+    (`calendar.student-blockers` rules 19–23), each class is declined through this spec's own path —
+    rules 5, 10–15 and 18 hold unchanged (the spot, the timing, proactive or late by the server's
+    clock), and on a new-engine session the engine's "not going" runs as for any No. Three things
+    differ, and only for that source (`const:DECLINE_SOURCE_AVAILABILITY_BLOCK`):
+    - the student-facing acknowledgement of rule 8 (the `reminder_declined` template) is **not**
+      sent: the student answered in the app and the app confirms it. No message whose sender is the
+      coach is created;
+    - on an old-engine session, rule 8's coach notice carries `msg_metadata.availabilityBlock: true`
+      beside its existing keys and says the student marked themselves unavailable, never the block's
+      title or times (wording and late marker: `calendar.student-blockers` rule 23). On a new-engine
+      session no coach chat notice is sent, as for any No there (`cancel_attendance` returns into
+      `engine_entry.student_not_going` before the notice); the coach learns it from the row;
+    - the presence carries `declineSource`, and the coach's row shows the reason in rule 23's detail
+      line: while the row is `not_coming` and not validated, `cancellationDetail` in
+      `@levelup/config` answers `calendar.detail.cancelledUnavailableAt` — "Cancelado pelo aluno ·
+      indisponível · <quando>", the time from `respondedAt` — whenever `declineSource` equals the
+      constant, whatever `cancelledByStudent` says (it is false on a new-engine session, whose
+      absence writes no justification: `engine_store.py:936-938`). Otherwise the line is rule 23's
+      `calendar.detail.cancelledByStudentAt`, as before. It stays a detail line under the one state
+      word "Não vai" (rule 25), on the coach's row only; the student's own row never shows it. It is
+      the ticket's "Não vai · indisponível" in rule 25's shape.
+    "Afinal vou" (rule 28) applies as to any `not_coming`. Clients read `declineSource` only on a
+    `not_coming`, unvalidated row, so a value left after coming back is never shown; the server
+    also clears it, as `calendar.student-blockers` rule 23 says: "Afinal vou" on both engines, and the new engine's
+    reminder answer and ordinary decline.
 
 ### Acceptance Criteria
 
@@ -603,6 +632,20 @@ test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `r
 - **And** it is not offered once the student's `attendanceState` is `not_coming`, once the class has started, on a cancelled class, to a coach, or to someone who is not in the class
 - **And** a row the coach validated absent (`missed`) is not hidden by its state: it belongs to a class that has already run, so the started-class gate hides the action
 test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` › `stays available after the proactive window closes` (+3 more)
+
+#### ATTENDANCE-CONFIRM-42: The coach's row names an unavailability decline as a detail, never a second state (rule 30)
+- **Given** presences that are `not_coming` and not validated: one declined from a block (`declineSource` = `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`, `respondedAt` set, `cancelledByStudent` true), the same on a new-engine session (`cancelledByStudent` false), one ordinary student decline (`cancelledByStudent`, `declineSource` null); then the first once the coach validated it, and a `coming` row that still carries the old `declineSource`
+- **When** `cancellationDetail` is asked for the coach's row and for the student's own row, and the web and iOS participant rows render the first
+- **Then** the coach's row gets `calendar.detail.cancelledUnavailableAt` with `respondedAt` for both block declines, whatever `cancelledByStudent` says, and `calendar.detail.cancelledByStudentAt` for the ordinary one; nothing for the validated row or the `coming` row; the student's row gets nothing
+- **And** each rendered row shows exactly one state word ("Não vai") with the detail line beneath it, on web and on iOS
+test: `frontend/packages/config/src/attendance-state.test.ts` › `[ATTENDANCE-CONFIRM-42] an unavailability decline is a detail line on the coach's row only` (+ `frontend/apps/web/src/components/calendar/AttendanceRow.test.tsx` and `frontend/apps/mobile/src/features/calendar/ParticipantRow.unavailable.test.tsx` › same name)
+
+#### ATTENDANCE-CONFIRM-43: A decline from a block sends the student nothing and marks the coach's notice; every other decline is unchanged (rule 30)
+- **Given** two students in one old-engine class and the coach's `reminder_declined` template customised
+- **When** one declines it through `decline_covered` and the other through `cancel_attendance`
+- **Then** no message whose sender is the coach is created for the first, and the coach's notice for them (sender the student) carries `availabilityBlock: true` with the existing `proactiveDecline`, `lateCancellation` and `lessonInstanceId`; the second gets the `reminder_declined` acknowledgement (sender the coach) and a notice without the marker, as before
+- **And** the serialized presences carry `declineSource` = the constant and null respectively
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_only_a_block_decline_drops_the_student_acknowledgement`
 
 ### Open questions
 - A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,

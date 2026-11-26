@@ -1,3 +1,4 @@
+import type { CoveredClass, DeclineCoveredBody, DeclineCoveredResult } from "@levelup/types";
 import { getApi } from "../client";
 
 // PAD-28: Student availability blockers. A blocker suppresses AUTOMATIC class
@@ -24,6 +25,9 @@ export interface AvailabilityBlocker {
   scheduleId?: string | null;
 }
 
+/** A block as the save routes answer it: PAD-772 adds the classes it covers (absent on an older server). */
+export type SavedBlocker = AvailabilityBlocker & { coveredClasses?: CoveredClass[] };
+
 export interface BlockerInput {
   title?: string | null;
   description?: string | null;
@@ -42,7 +46,7 @@ export async function listBlockers(): Promise<AvailabilityBlocker[]> {
 
 export async function createBlocker(
   data: BlockerInput
-): Promise<AvailabilityBlocker> {
+): Promise<SavedBlocker> {
   const res = await getApi().post("/app/availability_blockers", data);
   return res.data;
 }
@@ -50,7 +54,7 @@ export async function createBlocker(
 export async function updateBlocker(
   id: number,
   data: BlockerInput
-): Promise<AvailabilityBlocker> {
+): Promise<SavedBlocker> {
   const res = await getApi().put(`/app/availability_blockers/${id}`, data);
   return res.data;
 }
@@ -73,6 +77,21 @@ export async function putSchedule(
   data: ScheduleInput
 ): Promise<AvailabilityBlocker[]> {
   const res = await getApi().put(`/app/availability_schedules/${encodeURIComponent(scheduleId)}`, data);
+  return res.data;
+}
+
+/**
+ * PAD-772 (calendar.student-blockers rule 19): the classes saving this schedule would newly cover, read
+ * before the PUT (which answers a bare list). Writes nothing.
+ */
+export async function readScheduleCoveredClasses(scheduleId: string, data: ScheduleInput): Promise<CoveredClass[]> {
+  const res = await getApi().post(`/app/availability_schedules/${encodeURIComponent(scheduleId)}/covered_classes`, data);
+  return res.data.coveredClasses ?? [];
+}
+
+/** PAD-772 (rule 22): the student's yes — the server re-checks each class and declines the ones that still hold. */
+export async function declineCoveredClasses(body: DeclineCoveredBody): Promise<DeclineCoveredResult> {
+  const res = await getApi().post("/app/availability_blockers/decline_covered", body);
   return res.data;
 }
 

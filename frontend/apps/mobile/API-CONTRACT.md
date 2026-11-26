@@ -63,8 +63,10 @@ Calendar blocks / events:
 | GET | `/api/app/calendar_event` | None | `?model=lesson\|lesson_instance\|calendar_block*&original_id=*` | serialize_calendar_event |
 
 Availability blockers (student-only, requires player profile):
-| GET/POST | `/api/app/availability_blockers` | JWT | POST: `{type*, date*, startTime*, endTime*, ...}` | serialize_calendar_block[] / 201 |
-| PUT/DELETE | `/api/app/availability_blockers/<id>` | JWT | PUT: same; DELETE: `{occDate?, scope?}` | block / 204 |
+| GET/POST | `/api/app/availability_blockers` | JWT | POST: `{type*, date*, startTime*, endTime*, ...}` | serialize_calendar_block[] / 201 (POST adds `coveredClasses: [{model, originalId, date, title, start, end}]`, PAD-772) |
+| PUT/DELETE | `/api/app/availability_blockers/<id>` | JWT | PUT: same; DELETE: `{occDate?, scope?}` | block (PUT adds `coveredClasses`: only the newly covered, PAD-772; also `PUT /api/app/calendar_block/<id>` for a student's blocker) / 204 |
+| POST | `/api/app/availability_blockers/decline_covered` | JWT, student | `{occurrences: [{model, originalId, date}]}` | `{declined: [{model, originalId, date, lessonInstanceId}], skipped: [{model, originalId, date, reason}]}`, `reason` = `not_covered` / `not_enrolled` / `started` / `already_answered`; each entry re-checked on the server, declined through `cancel_attendance`, no message to the student (PAD-772) |
+| POST | `/api/app/availability_schedules/<id>/covered_classes` | JWT, student | same body as the schedule PUT | `{coveredClasses}` — the classes that save would newly cover; writes nothing (PAD-772) |
 
 Coach:
 | GET | `/api/app/coach` | JWT | — | `{id, user, club: {id, name}\|null}` |

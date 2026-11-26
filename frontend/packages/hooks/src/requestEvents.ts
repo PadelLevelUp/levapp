@@ -36,6 +36,18 @@ export async function refreshAfterRequestChange(queryClient: QueryClient): Promi
 }
 
 /**
+ * PAD-772 (calendar.student-blockers rule 21): after the student's yes marked classes "Não vai", the
+ * student's calendar, class screens and dashboard are read again.
+ */
+export async function refreshAfterCoveredMark(queryClient: QueryClient): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["calendar-events"] }),
+    queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+  ]);
+}
+
+/**
  * PAD-616 (messaging.sse-realtime rule 18): the answer to the hub's `resync`, the local event it
  * delivers when the stream re-opens after a drop. An event published while the stream was down
  * never arrived, so every query the realtime handlers of both shells keep live is invalidated: the
