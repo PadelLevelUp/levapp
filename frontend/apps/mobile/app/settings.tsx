@@ -3,7 +3,7 @@ import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { useQuery } from "@tanstack/react-query";
 import { CommonActions, usePreventRemove } from "@react-navigation/native";
-import { Stack, useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
+import { Stack, router, useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
 import * as React from "react";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
@@ -29,7 +29,6 @@ import { AutoInviteSection } from "@/features/settings/auto-invite-section";
 import { BuildInfoLine } from "@/features/settings/build-info";
 import { ClubSection } from "@/features/settings/club-section";
 import { ConnectionsSection } from "@/features/settings/connections-section";
-import { ClassRequestsSection } from "@/features/class-requests/class-requests-section";
 import { ImportSection } from "@/features/settings/import-section";
 import { PreferencesSection } from "@/features/settings/preferences-section";
 import { ProfileSection } from "@/features/settings/profile-section";
@@ -43,6 +42,8 @@ import {
   useUnsavedRegistry,
 } from "@/features/settings/unsaved-registry";
 import {
+  settingsLandingRoute,
+  settingsSectionRoute,
   visibleSections,
   type SettingsSectionDef,
   type SettingsSectionId,
@@ -170,10 +171,14 @@ function SettingsScreenBody() {
   // PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" opens Perfil on the
   // email field (`section=profile&focus=email`).
   const params = useLocalSearchParams<{ section?: string; proposeFor?: string; focus?: string }>();
-  const [openId, setOpenId] = React.useState<SettingsSectionId | null>(
-    params.section === "classRequests" ? "classRequests" : params.section === "profile" ? "profile" : null
-  );
-  const proposeFor = params.proposeFor ? Number(params.proposeFor) : null;
+  const [openId, setOpenId] = React.useState<SettingsSectionId | null>(params.section === "profile" ? "profile" : null);
+  // PAD-795 (classes.coach-requests-table rule 16): Pedidos de Aula is a screen of its own; the
+  // `section=classRequests&proposeFor=<id>` link installed builds' chat bubbles push lands on it.
+  const landing = settingsLandingRoute(params);
+  React.useEffect(() => {
+    if (landing) router.replace(landing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.section, params.proposeFor]);
 
   // Web's drill-in resets because navigating away unmounts SettingsPage.
   // Popping this screen off the stack unmounts it too, so the reset is
@@ -236,7 +241,7 @@ function SettingsScreenBody() {
       case "notifications":
         return <AutoInviteSection />;
       case "classRequests":
-        return <ClassRequestsSection role="coach" proposeFor={proposeFor} />;
+        return null; // its own screen (settingsSectionRoute), never a pane
       case "connections":
         return <ConnectionsSection />;
       case "myNotifications":
@@ -323,7 +328,11 @@ function SettingsScreenBody() {
                   <SectionRow
                     key={section.id}
                     section={section}
-                    onPress={() => setOpenId(section.id)}
+                    onPress={() => {
+                      const route = settingsSectionRoute(section.id);
+                      if (route) router.push(route);
+                      else setOpenId(section.id);
+                    }}
                   />
                 ))}
               </CardContent>

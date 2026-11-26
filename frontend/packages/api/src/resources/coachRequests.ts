@@ -1,27 +1,7 @@
-import type { CoachRequestsPage, CoachRequestsSection, CoachRequestsSortKey } from "@levelup/types";
+import type { CoachRequestsPage, CoachRequestsQuery } from "@levelup/types";
 import { getApi } from "../client";
 
-/** classes.coach-requests-table (PAD-795) rules 3-7: every param is optional; the server's defaults apply. */
-export interface CoachRequestsQuery {
-  section?: CoachRequestsSection;
-  page?: number;
-  perPage?: number;
-  sortBy?: CoachRequestsSortKey;
-  sortDir?: "asc" | "desc";
-  kind?: "private" | "academy";
-  /** Statuses of the requested section; sent comma-separated. */
-  status?: string[];
-  side?: "left" | "right" | "both" | "none";
-  classFrom?: string;
-  classTo?: string;
-  classTimeFrom?: string;
-  classTimeTo?: string;
-  requestedFrom?: string;
-  requestedTo?: string;
-  playerId?: string | number;
-  /** One request, whatever its section (needs `kind`). */
-  id?: string | number;
-}
+export type { CoachRequestsQuery };
 
 /** The query string the endpoint reads; unset and empty values are left out. */
 export function coachRequestsParams(q: CoachRequestsQuery): Record<string, string | number> {

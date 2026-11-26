@@ -165,7 +165,8 @@
         "requestDates": "Request day",
         "from": "From",
         "to": "To",
-        "clear": "Clear filters"
+        "clear": "Clear filters",
+        "studentSearch": "Search a student"
       },
       "pager": {
         "previous": "Previous",
@@ -181,6 +182,15 @@
         "coach": "Coach",
         "recurrence": "Weekly ({{days}}) until {{end}}",
         "none": "—"
+      },
+      "sheet": {
+        "open": "Filter/Sort",
+        "title": "Filter and sort",
+        "sortBy": "Sort by",
+        "direction": "Direction",
+        "asc": "Ascending",
+        "desc": "Descending",
+        "apply": "Apply"
       }
     }
   }

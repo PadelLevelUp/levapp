@@ -12,8 +12,17 @@ import { useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus } from "lucide-react";
 import { queryKeys } from "@levelup/hooks";
-import { clubDateOfInstant, clubTimeOfInstant, coachRequestStatusKey } from "@levelup/config";
-import type { CoachRequestRow, CoachRequestsSection, CoachRequestsSortKey } from "@levelup/types";
+import {
+  COACH_REQUESTS_SECTION_STATUSES,
+  COACH_REQUESTS_SORT_KEYS,
+  clubDateOfInstant,
+  clubTimeOfInstant,
+  coachRequestStatusKey,
+  coachRequestsActiveSort,
+  coachRequestsQuery,
+  type CoachRequestsView,
+} from "@levelup/config";
+import type { CoachRequestRow, CoachRequestsQuery, CoachRequestsSection, CoachRequestsSortKey } from "@levelup/types";
 import { getCoachPlayers } from "@levelup/api/src/resources/players";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,18 +31,8 @@ import { Input } from "@/components/ui/input";
 import { JoinRequestSide } from "@/components/calendar/JoinRequestSide";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { listCoachRequests, type CoachRequestsQuery } from "@/api/coachRequests";
+import { listCoachRequests } from "@/api/coachRequests";
 import { useCoachRequestActions } from "./useCoachRequestActions";
-
-const DEFAULT_SORT: Record<CoachRequestsSection, { by: CoachRequestsSortKey; dir: "asc" | "desc" }> = {
-  open: { by: "class_date", dir: "asc" },
-  history: { by: "requested_at", dir: "desc" },
-};
-const SECTION_STATUSES: Record<CoachRequestsSection, string[]> = {
-  open: ["pending", "countered"],
-  history: ["accepted", "declined", "rejected", "withdrawn", "superseded"],
-};
-const SORT_KEYS: CoachRequestsSortKey[] = ["class_date", "class_time", "requested_at", "student", "kind", "side", "status"];
 
 // Rule 11: the eight columns, in order, each with the sort key it presses.
 const COLUMNS: { id: string; label: string; sort: CoachRequestsSortKey }[] = [
@@ -68,19 +67,19 @@ export function CoachRequestsTable() {
   const section: CoachRequestsSection = params.get("tab") === "history" ? "history" : "open";
   const page = Math.max(1, Number(params.get("page")) || 1);
   const rawSortBy = params.get("sort_by") as CoachRequestsSortKey | null;
-  const sortBy = rawSortBy && SORT_KEYS.includes(rawSortBy) ? rawSortBy : null;
-  const sortDir = params.get("sort_dir") === "desc" ? "desc" : params.get("sort_dir") === "asc" ? "asc" : null;
-  const activeSort = sortBy ? { by: sortBy, dir: sortDir ?? "asc" } : DEFAULT_SORT[section];
+  const sortBy = rawSortBy && COACH_REQUESTS_SORT_KEYS.includes(rawSortBy) ? rawSortBy : undefined;
+  const sortDir = params.get("sort_dir") === "desc" ? "desc" : params.get("sort_dir") === "asc" ? "asc" : undefined;
 
-  const query: CoachRequestsQuery = useMemo(() => {
+  // The URL is the view (rule 11); the shared builder turns it into the request iOS sends too.
+  const view: CoachRequestsView = useMemo(() => {
     const get = (key: string) => params.get(key) || undefined;
     return {
       section,
-      page,
-      ...(sortBy ? { sortBy, sortDir: sortDir ?? "asc" } : {}),
-      kind: get("kind") as CoachRequestsQuery["kind"],
-      status: get("status")?.split(","),
-      side: get("side") as CoachRequestsQuery["side"],
+      sortBy,
+      sortDir,
+      kind: get("kind") as CoachRequestsView["kind"],
+      status: get("status"),
+      side: get("side") as CoachRequestsView["side"],
       classFrom: get("class_from"),
       classTo: get("class_to"),
       classTimeFrom: get("time_from"),
@@ -89,7 +88,9 @@ export function CoachRequestsTable() {
       requestedTo: get("requested_to"),
       playerId: get("player_id"),
     };
-  }, [params, section, page, sortBy, sortDir]);
+  }, [params, section, sortBy, sortDir]);
+  const activeSort = coachRequestsActiveSort(view);
+  const query: CoachRequestsQuery = useMemo(() => coachRequestsQuery(view, page), [view, page]);
 
   const result = useQuery({
     queryKey: queryKeys.coachRequests(query),
@@ -241,7 +242,7 @@ export function CoachRequestsTable() {
             {t("classRequests.table.filters.status")}
             <select className={field} value={params.get("status") ?? ""} onChange={(e) => update({ status: e.target.value || null })} data-testid="coach-requests-filter-status">
               <option value="">{t("classRequests.table.filters.all")}</option>
-              {SECTION_STATUSES[section].map((s) => (
+              {COACH_REQUESTS_SECTION_STATUSES[section].map((s) => (
                 <option key={s} value={s}>{t(coachRequestStatusKey("academy", s as CoachRequestRow["status"], null))}</option>
               ))}
             </select>

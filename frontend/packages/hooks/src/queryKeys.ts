@@ -1,6 +1,5 @@
-import type { CalendarEvent } from "@levelup/types";
+import type { CalendarEvent, CoachRequestsQuery } from "@levelup/types";
 import type { PlayersQueryParams } from "@levelup/api/src/resources/players";
-import type { CoachRequestsQuery } from "@levelup/api/src/resources/coachRequests";
 
 /**
  * Central query-key registry. Keys used by the web app are kept identical to

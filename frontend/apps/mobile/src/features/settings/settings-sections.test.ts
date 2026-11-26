@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   SETTINGS_SECTIONS,
+  settingsLandingRoute,
+  settingsSectionRoute,
   showsSetupGuideEntry,
   visibleSections,
   type SettingsSectionId,
@@ -125,5 +127,23 @@ describe("Configurar conta (settings.role-scope rule 10, PAD-839)", () => {
     // A row inside Profile, not a section: the two section lists are unchanged.
     expect(visibleSections(false).map((s) => s.id)).not.toContain("setupGuide");
     expect(visibleSections(true).map((s) => s.id)).not.toContain("setupGuide");
+  });
+});
+
+describe("Pedidos de Aula is a screen of its own (classes.coach-requests-table rule 12, PAD-795)", () => {
+  it("[CLASSES-COACH-REQUESTS-TABLE-18] the Settings entry opens the screen; no other section does", () => {
+    expect(settingsSectionRoute("classRequests")).toBe("/class-requests");
+    for (const section of SETTINGS_SECTIONS) {
+      if (section.id !== "classRequests") expect(settingsSectionRoute(section.id), section.id).toBeNull();
+    }
+    // The entry stays where it was, with the same test id (`settings-nav-classRequests`).
+    expect(idsFor(true)).toContain("classRequests");
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-21] the chat's /settings?section=classRequests&proposeFor= link lands on the screen", () => {
+    expect(settingsLandingRoute({ section: "classRequests", proposeFor: "7" })).toEqual({ pathname: "/class-requests", params: { proposeFor: "7" } });
+    expect(settingsLandingRoute({ section: "classRequests" })).toEqual({ pathname: "/class-requests", params: {} });
+    expect(settingsLandingRoute({ section: "profile" })).toBeNull();
+    expect(settingsLandingRoute({})).toBeNull();
   });
 });

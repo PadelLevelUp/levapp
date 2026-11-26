@@ -12,7 +12,7 @@ const SHEET = read("src/features/calendar/ClassSideSheet.tsx");
 const SCREEN = read("app/class/[id].tsx");
 const ACADEMY = read("src/features/class-requests/wizard/AcademyClassStep.tsx");
 const CHIP = read("src/features/calendar/join-request-side.tsx");
-const REQUESTS = read("src/features/class-requests/class-requests-section.tsx");
+const REQUESTS = read("src/features/class-requests/coach-requests-screen.tsx");
 const STANDING = read("src/features/players/waiting-list-dialog.tsx");
 const I18N = read("src/lib/i18n.ts");
 const PT = JSON.parse(readFileSync(resolve(root, "../../src/locales/pt/calendar.json"), "utf8")).calendar.sidePick;
@@ -73,7 +73,7 @@ describe("the class screen", () => {
 
   it("shows the coach each request's side chip", () => {
     expect(SCREEN).toContain("<JoinRequestSide request={req} />");
-    expect(REQUESTS).toContain('role === "coach" ? <JoinRequestSide request={r} />');
+    expect(REQUESTS).toContain("<JoinRequestSide request={{ coachId: r.coachId");
   });
 });
 

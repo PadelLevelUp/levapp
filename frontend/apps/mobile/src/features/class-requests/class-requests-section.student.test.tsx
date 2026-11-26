@@ -1,8 +1,9 @@
 /**
- * PAD-660 part 2 (players.nickname rule 8) on iOS: the coach's class-requests list prints the
- * coach's display name for the student (private and academy rows); a student's list prints the
- * coach, never a roster name. The hooks are the real @levelup/hooks since PAD-406 (stand-ins
- * before), in a real QueryClientProvider, over api spies: the roster names one player id.
+ * The student's requests list on iOS (Availability), untouched by the coach's requests screen
+ * (classes.coach-requests-table, PAD-795): it keeps the two old reads and the waiting list, shows
+ * the coach and never a roster name (players.nickname rule 8, PAD-660), and never calls the
+ * coach's endpoint. The hooks are the real @levelup/hooks (PAD-406), in a real QueryClientProvider,
+ * over api spies.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,6 +21,8 @@ vi.mock("@/components/ui/time-picker-input", () => ({ TimePickerInput: () => nul
 vi.mock("@/components/ui/date-picker-input", () => ({ DatePickerInput: () => null }));
 
 const getCoachPlayers = vi.hoisted(() => vi.fn());
+const listCoachRequests = vi.hoisted(() => vi.fn());
+vi.mock("@levelup/api/src/resources/coachRequests", () => ({ listCoachRequests }));
 vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getCoachPlayers: (...a: unknown[]) => getCoachPlayers(...a),
@@ -64,27 +67,28 @@ beforeEach(() => {
   getCoachPlayers.mockReset().mockResolvedValue([{ playerId: "jorge-id", name: "Jorge Silva", displayName: "Jorge chato" }]);
 });
 
-const screen = async (role: "coach" | "student") => {
+const screen = async () => {
   const n = await renderNative(
     <QueryClientProvider client={client}>
-      <ClassRequestsSection role={role} />
+      <ClassRequestsSection />
     </QueryClientProvider>
   );
-  await n.flush(); // the lists and the roster land
+  await n.flush(); // the lists land
   return JSON.stringify(n.root.toJSON());
 };
 
-describe("class requests print the coach's name for the student (PAD-660 rule 8)", () => {
-  it("coach: private row and academy row show the nickname, never the real name", async () => {
-    const out = await screen("coach");
-    expect(out).toContain("classRequests.from|Jorge chato");
-    expect(out).toContain('"Jorge chato"');
-    expect(out).not.toContain("Jorge Silva");
-    expect(getCoachPlayers).toHaveBeenCalled(); // the coach's roster is asked for
+describe("the student's list on iOS (PAD-795 Not this spec)", () => {
+  it("[CLASSES-COACH-REQUESTS-TABLE-20] the student's list keeps the old reads", async () => {
+    const out = await screen();
+    // Both kinds of row render from the two old endpoints, merged, with the coach named.
+    expect(out).toContain("class-request-row-pending");
+    expect(out).toContain("class-join-list-row-pending");
+    expect(out).toContain("classRequests.with|Ana");
+    expect(listCoachRequests).not.toHaveBeenCalled();
   });
 
-  it("student: the hook is off and no roster name appears", async () => {
-    const out = await screen("student");
+  it("[PLAYERS-NICKNAME-8] the roster is never asked for and no nickname appears", async () => {
+    const out = await screen();
     expect(out).not.toContain("Jorge chato");
     expect(getCoachPlayers).not.toHaveBeenCalled(); // the student never asks for the roster
   });

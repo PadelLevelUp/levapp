@@ -253,7 +253,7 @@ export default function AvailabilityScreen() {
         {/* Rule 14: Pedidos de aula — classes.class-requests as the second card.
             PAD-281: `?proposeFor=<id>` (from the chat bubble) opens the
             "propose another time" picker on that request. */}
-        <ClassRequestsSection role="student" proposeFor={proposeFor} />
+        <ClassRequestsSection proposeFor={proposeFor} />
       </ScrollView>
 
       <BlockerSheet

@@ -2,8 +2,13 @@
 # "Pedidos de Aula" (Settings → Pedidos de Aula) beside private requests, with the "Academy"
 # badge, and the coach accepts it from the list.
 #
+# PAD-795 (classes.coach-requests-table rule 12): Pedidos de Aula is a screen of its own with two
+# tabs, "Em aberto" and "Histórico"; a decided request leaves Em aberto for Histórico. The state
+# is part of the kind badge's id (`coach-request-kind-badge-<kind>-<status>`): Maestro cannot read
+# attributes. NOT run with the change (no simulator slot); update it here if the first run finds more.
+#
 # Mirrors: backend/padel_app/tests/test_pad460_join_request_lists.py (the list endpoint) and the
-# web ClassRequestsSection.joinRequests.test.tsx (the merged list and its actions).
+# web CoachRequestsTable.joinRequests.test.tsx (the merged list and its actions).
 #
 # Setup and teardown through the API, like flow 67 (R-040: the flow creates what it needs and
 # removes it):
@@ -49,15 +54,18 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "settings-nav-classRequests"
+# Its own screen, on the Em aberto tab.
+- extendedWaitUntil:
+    visible:
+      id: "screen-class-requests"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       text: "${output.title}"
     direction: DOWN
     timeout: 30000
 - assertVisible:
-    id: "class-join-list-row-pending"
-- assertVisible:
-    id: "class-join-list-kind"
+    id: "coach-request-kind-badge-academy-pending"
 
 # ── Accept it (newest first, so this request's row is the first pending academy row) ──
 - tapOn:
@@ -69,18 +77,18 @@ appId: com.padellevelup.app
     commands:
       - tapOn:
           id: "eligibility-confirm-proceed"
-# A decided request moves to the collapsed "earlier requests" section (first run, 2026-09-26:
-# the accept worked but the accepted row was hidden there). Wait for the pending row to go,
-# then open the history by id.
+# A decided request leaves Em aberto for Histórico (first run, 2026-09-26: the accept worked but
+# the accepted row was hidden in the old collapsed section). Wait for the pending row to go, then
+# open the Histórico tab by id.
 - extendedWaitUntil:
     notVisible:
-      id: "class-join-list-row-pending"
+      id: "coach-request-kind-badge-academy-pending"
     timeout: 20000
 - tapOn:
-    id: "class-requests-history-toggle"
+    id: "coach-requests-tab-history"
 - scrollUntilVisible:
     element:
-      id: "class-join-list-row-accepted"
+      id: "coach-request-kind-badge-academy-accepted"
     direction: DOWN
     timeout: 20000
 - evalScript: "${output.after = json(http.get(output.api + '/api/app/class-join-requests', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (r) { return r.id === output.req.id; })[0]}"

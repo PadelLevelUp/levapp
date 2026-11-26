@@ -541,6 +541,28 @@ export interface CoachRequestRow {
 export type CoachRequestsSection = "open" | "history";
 export type CoachRequestsSortKey = "class_date" | "class_time" | "requested_at" | "student" | "kind" | "side" | "status";
 
+/** classes.coach-requests-table (PAD-795) rules 3-7: every param is optional; the server's defaults apply. */
+export interface CoachRequestsQuery {
+  section?: CoachRequestsSection;
+  page?: number;
+  perPage?: number;
+  sortBy?: CoachRequestsSortKey;
+  sortDir?: "asc" | "desc";
+  kind?: "private" | "academy";
+  /** Statuses of the requested section; sent comma-separated. */
+  status?: string[];
+  side?: "left" | "right" | "both" | "none";
+  classFrom?: string;
+  classTo?: string;
+  classTimeFrom?: string;
+  classTimeTo?: string;
+  requestedFrom?: string;
+  requestedTo?: string;
+  playerId?: string | number;
+  /** One request, whatever its section (needs `kind`). */
+  id?: string | number;
+}
+
 export interface CoachRequestsPage {
   items: CoachRequestRow[];
   pagination: { page: number; perPage: number; total: number; pages: number; hasNext: boolean; hasPrev: boolean };
