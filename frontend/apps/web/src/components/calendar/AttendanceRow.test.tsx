@@ -122,6 +122,30 @@ describe("the cancellation line is provenance, not a second state", () => {
   });
 });
 
+describe("an unavailability decline is a detail line (PAD-772)", () => {
+  const UNAVAILABLE = { ...CANCELLED, declineSource: "availability_block", respondedAt: "2026-09-21T10:00:00+00:00" };
+
+  it("[ATTENDANCE-CONFIRM-42] an unavailability decline is a detail line on the coach's row only", () => {
+    const badge = row(UNAVAILABLE);
+    // One state word, with the reason beneath it as a detail line, never a second state.
+    expect(badge).toHaveAttribute("data-state", "not_coming");
+    expect(screen.getAllByTestId("attendance-state")).toHaveLength(1);
+    const detail = screen.getByTestId("attendance-cancelled-by-student");
+    expect(detail).toHaveTextContent("calendar.detail.cancelledUnavailableAt:2026-09-21T10:00:00+00:00".split(":")[0]);
+    expect(detail.className).toMatch(/text-muted-foreground/);
+  });
+
+  it("[ATTENDANCE-CONFIRM-42] the same decline on a new-engine session (cancelledByStudent false) reads the same", () => {
+    row({ ...UNAVAILABLE, cancelledByStudent: false, cancelledAt: null, justification: null });
+    expect(screen.getByTestId("attendance-cancelled-by-student")).toHaveTextContent("calendar.detail.cancelledUnavailableAt");
+  });
+
+  it("[ATTENDANCE-CONFIRM-42] is absent on the student's own row and once the coach validated", () => {
+    row(UNAVAILABLE, "student");
+    expect(screen.queryByTestId("attendance-cancelled-by-student")).toBeNull();
+  });
+});
+
 describe("B-017's reminder signal, demoted and conditional", () => {
   it("shows while the row is planned and a reminder went out", () => {
     row({ attendanceState: "planned", reminderSentAt: "2026-09-18T08:00:00+00:00" });

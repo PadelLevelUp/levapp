@@ -5,6 +5,7 @@
  * yes marks them "Não vai" through `POST /app/availability_blockers/decline_covered`.
  */
 import type { CoveredClass, DeclineCoveredBody, DeclineCoveredResult } from "@levelup/types";
+import { formatShortDate } from "./dateLocale";
 
 export type { CoveredClass, DeclineCoveredBody, DeclineCoveredResult };
 
@@ -22,6 +23,8 @@ export function declineCoveredBody(classes: readonly CoveredClass[]): DeclineCov
 export type CoveredFollowUp = {
   /** The dialog was shown. */
   asked: boolean;
+  /** What the student chose; null when nothing was asked. */
+  answered: "yes" | "keep" | null;
   /** How many classes the server declined (0 for keep, for no question and for a failed mark). */
   marked: number;
   /** The mark failed: the shell says so; the block itself is saved all the same. */
@@ -39,12 +42,18 @@ export async function decideCoveredFollowUp(
   mark: (body: DeclineCoveredBody) => Promise<DeclineCoveredResult>
 ): Promise<CoveredFollowUp> {
   const classes = coveredClassesOf(answer);
-  if (classes.length === 0) return { asked: false, marked: 0, failed: false };
-  if ((await ask(classes)) !== "yes") return { asked: true, marked: 0, failed: false };
+  if (classes.length === 0) return { asked: false, answered: null, marked: 0, failed: false };
+  if ((await ask(classes)) !== "yes") return { asked: true, answered: "keep", marked: 0, failed: false };
   try {
     const result = await mark(declineCoveredBody(classes));
-    return { asked: true, marked: result.declined.length, failed: false };
+    return { asked: true, answered: "yes", marked: result.declined.length, failed: false };
   } catch {
-    return { asked: true, marked: 0, failed: true };
+    return { asked: true, answered: "yes", marked: 0, failed: true };
   }
+}
+
+/** The parts of one dialog line (rule 21): title, weekday, date in the language's short format, time. */
+export function coveredClassParts(c: CoveredClass, lang: string) {
+  const weekday = new Date(`${c.date}T12:00:00`).toLocaleDateString(lang, { weekday: "short" });
+  return { title: c.title ?? "", weekday, date: formatShortDate(c.date, lang), time: `${c.start.slice(11, 16)}–${c.end.slice(11, 16)}` };
 }

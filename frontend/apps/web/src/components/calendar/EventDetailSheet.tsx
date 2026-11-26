@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { getCalendarBlock, editCalendarBlock, deleteCalendarBlock } from '@/api/calendar';
+import { useBlockerCoveredFollowUp } from '@/components/availability/BlockerCoveredDialog';
 import { ClassScopeDialog } from './ClassScopeDialog';
 import type { ApplyScope } from './ClassScopeDialog';
 
@@ -69,6 +70,8 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
     off_work: t('calendar.eventDetail.typeOffWork'),
   };
   const { toast } = useToast();
+  // PAD-772 (calendar.student-blockers rules 19-21): a student's own blocker asks after the save.
+  const covered = useBlockerCoveredFollowUp();
   const [block, setBlock] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -137,6 +140,8 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
       setDraft(null);
       onSaved();
       toast({ title: t('calendar.eventDetail.eventUpdated') });
+      setSaving(false);
+      await covered.follow(updated); // saved: whatever follows never says it was not
     } catch {
       toast({ variant: 'destructive', title: t('calendar.eventDetail.failedUpdateEvent') });
     } finally {
@@ -372,6 +377,7 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
         </div>
       </SheetContent>
     </Sheet>
+    {covered.dialog}
     </>
   );
 }

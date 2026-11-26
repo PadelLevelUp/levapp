@@ -65,6 +65,18 @@
       "end_before_start": "The end time must be after the start time.",
       "end_date_before_start_date": "The end date must be on or after the start date."
     },
+    "covered": {
+      "title": "You have classes in this period",
+      "body_one": "This block covers {{count}} class you are enrolled in. Do you want to say you are not going?",
+      "body_other": "This block covers {{count}} classes you are enrolled in. Do you want to say you are not going?",
+      "item": "{{title}} · {{weekday}} {{date}} · {{time}}",
+      "decline": "Yes, I am not going",
+      "keep": "Keep the classes",
+      "marked_one": "{{count}} class marked as \"Not going\"",
+      "marked_other": "{{count}} classes marked as \"Not going\"",
+      "markedNone": "No class was marked: none applied any more.",
+      "failed": "Could not mark the classes. The block is saved; you can say you are not going to each class."
+    },
     "blockersCard": {
       "title": "Unavailability",
       "intro": "Block the times you can't play. While a block is on you get no class invitations or reminders, and they are left out when you book a class.",

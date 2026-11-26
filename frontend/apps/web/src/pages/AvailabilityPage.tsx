@@ -3,6 +3,7 @@ import { CalendarOff, Repeat, Trash2, Pencil, CalendarX } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ClassRequestsSection } from "@/components/class-requests/ClassRequestsSection";
 import { BlockerSheet } from "@/components/availability/BlockerSheet";
+import { useBlockerCoveredFollowUp } from "@/components/availability/BlockerCoveredDialog";
 import {
   Card,
   CardContent,
@@ -36,6 +37,8 @@ import {
 export default function AvailabilityPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  // PAD-772 (calendar.student-blockers rule 21): the question after a save that covers classes.
+  const covered = useBlockerCoveredFollowUp();
 
   const describeBlocker = (b: AvailabilityBlocker): string => {
     const time = `${b.startTime ?? ""}–${b.endTime ?? ""}`;
@@ -95,16 +98,20 @@ export default function AvailabilityPage() {
   const handleSave = async (payload: BlockerInput) => {
     try {
       setSaving(true);
+      let answer: { coveredClasses?: unknown };
       if (editing) {
-        await updateBlocker(editing.id, payload);
+        answer = await updateBlocker(editing.id, payload);
         toast({ title: t("availability.updatedToast") });
       } else {
-        await createBlocker(payload);
+        answer = await createBlocker(payload);
         toast({ title: t("availability.addedToast") });
       }
       setSheetOpen(false);
       setEditing(null);
       await refresh();
+      setSaving(false);
+      // The block is saved and listed; a failure from here on never says it was not.
+      await covered.follow(answer);
     } catch {
       toast({
         variant: "destructive",
@@ -132,6 +139,7 @@ export default function AvailabilityPage() {
 
   return (
     <AppLayout>
+      {covered.dialog}
       <div className="p-4 md:p-6 space-y-6 max-w-3xl" data-testid="availability-page">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold flex items-center gap-2">
