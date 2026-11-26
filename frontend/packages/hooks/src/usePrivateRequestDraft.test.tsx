@@ -32,7 +32,8 @@ afterEach(() => {
   api.getCoachAvailability.mockReset();
 });
 
-const mount = (coachId = "ana") => renderHook(({ id }: { id: string }) => usePrivateRequestDraft(id), { initialProps: { id: coachId } });
+const mount = (coachId = "ana", reads = true) =>
+  renderHook(({ id, on }: { id: string; on?: boolean }) => usePrivateRequestDraft(id, on), { initialProps: { id: coachId, on: reads } });
 const settle = async () => { await act(async () => { await new Promise((r) => setTimeout(r, 450)); }); };
 
 describe("the draft keeps and drops answers (criterion 57's logic)", () => {
@@ -149,9 +150,23 @@ describe("no coach, no read (code review S1)", () => {
     await settle();
     expect(api.getCoachAvailability).not.toHaveBeenCalled();
     expect(api.getRequestParticipants).not.toHaveBeenCalled();
-    h.rerender({ id: "ana" });
+    h.rerender({ id: "ana", on: true });
     await settle();
     expect(api.getCoachAvailability).toHaveBeenCalled();
     expect(api.getCoachAvailability.mock.calls.every(([a]: [{ coachId: string }]) => a.coachId === "ana")).toBe(true);
+  });
+});
+
+describe("the academy kind reads nothing (PAD-358 flow 66)", () => {
+  it("[CLASSES-CLASS-REQUESTS-57] makes no availability or roster call while the shell is not on the private kind, and reads once it is", async () => {
+    const h = mount("ana", false);
+    act(() => { h.result.current.setPeople(2); h.result.current.setUsernames(["bia"]); });
+    await settle();
+    expect(api.getCoachAvailability).not.toHaveBeenCalled();
+    expect(api.getRequestParticipants).not.toHaveBeenCalled();
+    expect(h.result.current.people).toBe(2);
+    h.rerender({ id: "ana", on: true });
+    await settle();
+    expect(api.getRequestParticipants).toHaveBeenCalled();
   });
 });

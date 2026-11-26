@@ -77,7 +77,11 @@ function emptyDraft(): Draft {
   };
 }
 
-export function usePrivateRequestDraft(coachId: string) {
+/**
+ * `reads` is false while the shell is on another kind (the academy class): the answers are kept, nothing is read, so the
+ * academy list is not re-rendered by reads that belong to the private class (PAD-358 flow 66).
+ */
+export function usePrivateRequestDraft(coachId: string, reads = true) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [boundCoach, setBoundCoach] = useState(coachId);
   // Whether the date is the student's own (rule 11): a ref, so the first-free-day read sees it while it is loading.
@@ -91,6 +95,7 @@ export function usePrivateRequestDraft(coachId: string) {
     dateOwn.current = false;
   }
 
+  const live = !!coachId && reads;
   const patch = useCallback((p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p })), []);
   const today = clubTodayISO();
   const { people, usernames, checks, recurring, date, weekdays, startDate, endDate, endMode, endCount, duration, availability, answeredFor, loadingSlots, slot } = draft;
@@ -110,7 +115,7 @@ export function usePrivateRequestDraft(coachId: string) {
   useEffect(() => {
     // A repeated name is checked once (the server answers its first spelling).
     const pending = invitees.filter((u, i, all) => !checks[u] && all.findIndex((x) => x.toLowerCase() === u.toLowerCase()) === i);
-    if (!coachId || pending.length === 0) return;
+    if (!live || pending.length === 0) return;
     const timer = setTimeout(() => {
       requestAvailabilityApi
         .getRequestParticipants(coachId, pending)
@@ -119,7 +124,7 @@ export function usePrivateRequestDraft(coachId: string) {
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, inviteesKey]);
+  }, [coachId, live, inviteesKey]);
 
   // "After N classes" (rule 14a) turns the count into the same `endDate` the wire always sent.
   const computedEndDate = endMode === "count" ? endDateAfterClasses(startDate, weekdays, endCount) : null;
@@ -129,7 +134,7 @@ export function usePrivateRequestDraft(coachId: string) {
 
   // Rules 11 + 13: for a single class open on the first day that still has free time.
   useEffect(() => {
-    if (!coachId || recurring !== "single" || dateOwn.current || !allInviteesOk) return;
+    if (!live || recurring !== "single" || dateOwn.current || !allInviteesOk) return;
     let active = true;
     requestAvailabilityApi
       .getCoachAvailability({ coachId, from: today, to: addDaysIso(today, FIRST_FREE_DAY_HORIZON_DAYS), participants: invitees })
@@ -146,7 +151,7 @@ export function usePrivateRequestDraft(coachId: string) {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, recurring, inviteesKey, allInviteesOk]);
+  }, [coachId, live, recurring, inviteesKey, allInviteesOk]);
 
   // Rule 13: a picked time is for the length it was picked at; a new length starts the pick over.
   useEffect(() => {
@@ -158,7 +163,7 @@ export function usePrivateRequestDraft(coachId: string) {
     patch({ slot: null });
     // A load cancelled by this change never reaches its `finally`, so every early return clears the flag itself.
     // No coach yet (the shell mounts this before one is picked): nothing to read.
-    if (!coachId || !allInviteesOk || !recurrenceValid) {
+    if (!live || !allInviteesOk || !recurrenceValid) {
       patch({ availability: null, loadingSlots: false });
       return;
     }
@@ -182,7 +187,7 @@ export function usePrivateRequestDraft(coachId: string) {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, inviteesKey, allInviteesOk, recurring, date, startDate, effectiveEndDate, weekdays.join(","), recurrenceValid]);
+  }, [coachId, live, inviteesKey, allInviteesOk, recurring, date, startDate, effectiveEndDate, weekdays.join(","), recurrenceValid]);
 
   const starts = useMemo(() => {
     if (!availability) return [];

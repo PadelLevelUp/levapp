@@ -33,7 +33,7 @@ export function ClassRequestWizard({ open, onClose, onDone }: Props) {
   const [coachId, setCoachId] = useState<string | null>(null);
   const [kind, setKind] = useState<ClassRequestKind | null>(null);
   const [privateStep, setPrivateStep] = useState<PrivateStep>("people");
-  const draft = usePrivateRequestDraft(coachId ?? "");
+  const draft = usePrivateRequestDraft(coachId ?? "", step === "private");
   const scroller = useRef<HTMLDivElement>(null);
   const box = useVisibleViewportBox(open);
 

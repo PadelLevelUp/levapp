@@ -44,7 +44,7 @@ export default function ClassRequestWizardScreen() {
   const [coachId, setCoachId] = React.useState<string | null>(null);
   const [kind, setKind] = React.useState<ClassRequestKind | null>(null);
   const [privateStep, setPrivateStep] = React.useState<PrivateStep>("people");
-  const draft = usePrivateRequestDraft(coachId ?? "");
+  const draft = usePrivateRequestDraft(coachId ?? "", step === "private");
 
   const coachesQuery = useQuery({
     queryKey: queryKeys.classRequestCoaches,
