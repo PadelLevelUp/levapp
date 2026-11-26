@@ -146,7 +146,7 @@ def test_lists_both_kinds_of_the_coachs_requests_only(world):
     p = world.private(bruno, created=datetime(2026, 11, 20, 9, 30), decided_at=None, note="olá")
     a1 = world.academy(carla, side="left", title="Quarta", created=datetime(2026, 11, 21, 10, 0))
     a2 = world.academy(diana, side="both", start=BASE + timedelta(days=1))
-    world.private(other, coach="rui")
+    rui_private = world.private(other, coach="rui")
     world.academy(other, coach="rui")
 
     res = world.get(section="open")
@@ -171,6 +171,13 @@ def test_lists_both_kinds_of_the_coachs_requests_only(world):
 
     student = world.app.test_client().get(URL, headers=world.headers(bruno["user_id"]))
     assert student.status_code == 403
+
+    # Another coach's request or student is never read, by id or by player (S7).
+    for params in ({"kind": "private", "id": rui_private}, {"player_id": other["player_id"]},
+                   {"section": "history", "kind": "private", "id": rui_private}):
+        got = world.get(**params)
+        assert got.status_code == 200 and got.get_json()["items"] == [], params
+        assert got.get_json()["pagination"]["total"] == 0, params
 
 
 # ── -2 ──────────────────────────────────────────────────────────────────────
@@ -346,6 +353,11 @@ def test_each_filter_narrows_rows_and_counts(world):
     assert ids(section="history", status="accepted")[0] == {("private", late), ("academy", both)}
     assert ids(section="history", status="accepted,rejected")[0] == {("private", late), ("academy", both), ("academy", nosd)}
     assert ids(section="open", status="accepted")[0] == set()  # a status of the other section matches nothing
+    # An academy status never matches a private row, nor the reverse (B1: a native enum compared across the UNION).
+    assert ids(kind="private", status="rejected")[0] == set()
+    assert ids(section="history", kind="private", status="rejected")[0] == set()
+    assert ids(section="history", kind="academy", status="countered")[0] == set()
+    assert ids(section="history", kind="private", status="superseded,rejected")[0] == set()
     got, body = ids(section="history", status="accepted", kind="private")
     assert body["counts"] == {"open": 1, "history": 1}  # the other section ignores `status`, applies the rest
     assert ids(section="history", class_from="2026-12-03", class_to="2026-12-04")[0] == {("academy", both), ("academy", nosd)}
@@ -358,10 +370,13 @@ def test_each_filter_narrows_rows_and_counts(world):
     assert ids(section="open", kind="private", id=priv_open)[0] == {("private", priv_open)}
     assert ids(section="open", kind="private", id=late)[0] == {("private", late)}  # whatever its section
     assert ids(kind="academy", id=both)[0] == {("academy", both)}
+    # N2: with `id` the total counts the one row found, whatever `status` says about the other section.
+    got, body = ids(section="open", kind="private", id=late, status="accepted")
+    assert got == {("private", late)} and body["pagination"]["total"] == 1
     # kind + status + class date range together
     assert ids(section="history", kind="academy", status="accepted", class_from="2026-12-01", class_to="2026-12-03")[0] == {("academy", both)}
     for bad in ({"class_to": "not-a-date"}, {"class_time_from": "25:99"}, {"kind": "x"}, {"side": "up"},
-                {"player_id": "x"}, {"id": "5"}, {"sort_by": "kind", "requested_from": "2026-13-01"}):
+                {"player_id": "x"}, {"id": "5"}, {"player_id": "99999999999"}, {"kind": "private", "id": "99999999999"}, {"sort_by": "kind", "requested_from": "2026-13-01"}):
         res = world.get(**bad)
         assert res.status_code == 400 and res.get_json()["code"] == "invalid_filter", bad
         assert res.get_json()["field"]
@@ -449,3 +464,15 @@ def test_old_list_endpoints_unchanged(world):
     assert joins[0]["kind"] == "academy" and joins[0]["createdAt"] == "2026-11-22T09:00:00"
     student = client.get("/api/app/class-requests", headers=world.headers(who["user_id"]))
     assert student.status_code == 200 and [r["id"] for r in student.get_json()] == [p2, p1]
+
+
+# ── -15 (server half): a decided request offers nothing, not even "use this side" ───────────
+
+@pytest.mark.criterion("CLASSES-COACH-REQUESTS-TABLE-15")
+def test_a_profile_side_is_suggested_only_while_the_request_is_open(world):
+    carla = world.student("Carla Dias")
+    pending = world.academy(carla, side="left", status="pending")
+    accepted = world.academy(carla, side="right", status="accepted", start=BASE + timedelta(days=1))
+    rows = {r["id"]: r for r in world.get(section="open").get_json()["items"] + world.get(section="history").get_json()["items"]}
+    assert rows[pending]["suggestedProfileSide"] == "left"
+    assert rows[accepted]["suggestedProfileSide"] is None

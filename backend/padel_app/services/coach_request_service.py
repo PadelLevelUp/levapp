@@ -61,6 +61,17 @@ def _date(args, field):
         raise InvalidFilter(field)
 
 
+def _id(raw, field):
+    """An integer key; a value past what a Postgres integer holds is a malformed filter, not a 500."""
+    try:
+        value = int(raw)
+    except ValueError:
+        raise InvalidFilter(field)
+    if not 0 <= value <= 2**31 - 1:
+        raise InvalidFilter(field)
+    return value
+
+
 def _minutes(args, field):
     raw = args.get(field)
     if raw in (None, ""):
@@ -88,20 +99,14 @@ def parse_params(args):
         raise InvalidFilter("status")
     player_id = args.get("player_id")
     if player_id not in (None, ""):
-        try:
-            player_id = int(player_id)
-        except ValueError:
-            raise InvalidFilter("player_id")
+        player_id = _id(player_id, "player_id")
     else:
         player_id = None
     request_id = args.get("id")
     if request_id not in (None, ""):
         if kind is None:
             raise InvalidFilter("kind")
-        try:
-            request_id = int(request_id)
-        except ValueError:
-            raise InvalidFilter("id")
+        request_id = _id(request_id, "id")
     else:
         request_id = None
     sort_by, sort_dir = args.get("sort_by"), args.get("sort_dir")
@@ -139,6 +144,9 @@ def _legs(coach_id, p, section, *, with_status):
     ):
         if p["kind"] and p["kind"] != kind:
             continue
+        # B1: `status` is a native enum on Postgres, and the two legs do not share its values: compare and
+        # sort it as text, so an academy status asked of a private leg is false, not an error.
+        status_col = cast(model.status, String)
         display = case((and_(cp.nickname_as_name.is_(True), cp.nickname.isnot(None), cp.nickname != ""), cp.nickname), else_=User.name)
         minutes = extract("hour", start_col) * 60 + extract("minute", start_col)
         q = (
@@ -149,11 +157,11 @@ def _legs(coach_id, p, section, *, with_status):
                 start_col.label("class_start"),
                 minutes.label("class_minutes"),
                 model.created_at.label("req_at"),
-                model.status.label("status"),
+                status_col.label("status"),
                 cast(side_col, String).label("side"),
                 literal(0 if kind == "academy" else 1).label("kind_rank"),
                 _side_rank(side_col).label("side_rank"),
-                _status_rank(model.status).label("status_rank"),
+                _status_rank(status_col).label("status_rank"),
                 func.lower(display).label("student_key"),
             )
             .select_from(model)
@@ -165,11 +173,11 @@ def _legs(coach_id, p, section, *, with_status):
         if kind == "academy":
             q = q.join(LessonInstance, LessonInstance.id == ClassJoinRequest.lesson_instance_id)
         if section is not None:
-            q = q.where(model.status.in_(open_statuses[kind]) if section == "open" else model.status.not_in(open_statuses[kind]))
+            q = q.where(status_col.in_(open_statuses[kind]) if section == "open" else status_col.not_in(open_statuses[kind]))
         if p["id"] is not None:
             q = q.where(model.id == p["id"])
         if with_status and p["statuses"]:
-            q = q.where(model.status.in_(p["statuses"]))
+            q = q.where(status_col.in_(p["statuses"]))
         side = p["side"]
         if side in SIDES:
             q = q.where(side_col == side) if kind == "academy" else q.where(literal(False))
@@ -275,7 +283,11 @@ def _serialize(kind, row, players, rels, instances, invitees, coach_id):
             "participants": [],
             "lessonId": None,
             "lessonInstanceId": str(row.lesson_instance_id),
-            "suggestedProfileSide": row.side if row.side in ("left", "right") and rel is not None and not rel.side else None,
+            # Only while the request can still be decided: a decided row offers nothing (rule 13).
+            "suggestedProfileSide": (
+                row.side if row.side in ("left", "right") and rel is not None and not rel.side
+                and row.status in JOIN_REQUEST_OPEN_STATUSES else None
+            ),
         })
     return out
 
@@ -312,7 +324,7 @@ def list_for_coach(coach, args):
     # `id` reads one request whatever its section (rule 7): the page ignores the section, the total
     # is the one row found in either.
     one = p["id"] is not None
-    total = counts["open"] + counts["history"] if one else counts[section]
+    total = _count(coach.id, p, None, with_status=True) if one else counts[section]
     pages = max(1, -(-total // p["per_page"]))
     u = _union(coach.id, p, None if one else section, with_status=True)
     refs = db.session.execute(
