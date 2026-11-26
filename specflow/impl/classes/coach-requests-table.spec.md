@@ -102,11 +102,14 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
      that day's boundaries turned into UTC (`club-local-day-boundary`);
    - `player_id=<id>`: one student;
    - `id=<id>` with `kind`: one request, whatever its section (rule 16);
-   - `search=<text>` (**waits on the owner, see Open questions**): the student's name or the coach's
-     nickname for them, matched by `players.search`'s one rule (`player_service.rank_player_match` over
-     `{name, nickname}`; a match is any tier): the server matches over the coach's distinct requesters
-     (a set the size of the coach's students, not of their requests), then filters the rows by those
-     player ids in SQL, before the page is cut. The table keeps its own sort; tiers do not reorder it.
+   - `search=<text>` (owner, 26 Nov 2026: the requests table is a search surface): the student's name or
+     the coach's nickname for them, matched by `players.search`'s one rule
+     (`player_service.rank_player_match` over `{name, nickname}`; a match is any tier): the server reads
+     the coach's distinct requesters in one statement (a set the size of the coach's students, not of
+     their requests), matches them in Python, then filters the rows by those player ids in SQL, before
+     the page is cut, in both sections and in their counts. A blank value is no filter; a value with no
+     letter or digit finds nobody. It joins the other filters (`player_id` included) and never reaches a
+     request of another coach. The table keeps its own sort; tiers do not reorder it.
    A malformed value answers `400 {code: "invalid_filter", field}`; it never silently widens the list.
 8. **A page costs the same whatever the coach's history.** The number of SQL statements one request to
    the endpoint issues — counted at the cursor (`before_cursor_execute`), the whole request including
@@ -138,8 +141,8 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
     "Aceitar" and a "…" menu holding the other actions (Recusar, Propor outro horário; Rejeitar for an
     academy row). Dates read in the app's short date format of the language (`formatShortDate`, as the
     class-request wizards print them), times as HH:MM. Filters sit
-    above the table: a student search box (rule 7 `search`, once the owner answers; until then a student
-    picker sending `player_id`), kind, status (the section's statuses), side, a class date range, a class
+    above the table: a student search box (rule 7 `search`; it waits 200 ms after the last keystroke and
+    shows the feedback lines of `players.search` rule 10), kind, status (the section's statuses), side, a class date range, a class
     time range and a request date range, with one "Limpar filtros". Changing a sort or a filter returns
     to page 1; changing the tab returns to page 1, clears the status filter and the chosen sort (rule 6).
     A pager under the table
@@ -192,8 +195,6 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
 - Closing open requests whose class has passed (see Open questions).
 - Any change to what an action does, to the chat bubbles, or to the request lifecycle.
 - Waiting-list places (`classes.academy-class-booking` rule 11): a student-side row kind only.
-- Changing `players.search` rule 8's list of search surfaces (an owner-confirmed list; see Open
-  questions).
 - Exporting the table, saved views, bulk actions.
 - A database migration (see Open questions).
 - Posting the ticket's requested screenshots to Linear (nothing goes to Linear without the owner's word).
@@ -258,7 +259,7 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
 - **Name search:** `player_service.rank_player_match` / `name_matches_query` and `@levelup/config`
   `nameMatchesQuery` (`players.search`, folding in Python, no `unaccent` in prod). Its typo tier makes
   `joao` match "Joana Silva" (run in the backend venv, 25 Nov). `players.search` rule 8 lists the
-  surfaces that use it (owner-confirmed 2026-10-14); "Pedidos de Aula" is not among them.
+  surfaces that use it; the owner added "Pedidos de Aula" on 26 Nov 2026.
 - **Statement counting precedent:** `backend/padel_app/tests/test_pad204_conversation_list_perf.py`
   `_statement_counter` counts every cursor statement of the whole request, authentication included, and
   compares a small and a large case.
@@ -326,16 +327,17 @@ test: `backend/padel_app/tests/test_pad795_coach_requests_table.py` › `test_ev
 - **And** a request made at 00:30 Lisbon time on 2 Jul (23:30 UTC on 1 Jul) is out of `requested_from=2026-07-01&requested_to=2026-07-01` and in the same read for 2 Jul; `side=both` returns only Diana-like rows; `side=none` returns every private row; a status of the other section returns nothing; `kind=private&id=<n>` returns that one request in either section; and `class_to=not-a-date` answers `400 invalid_filter`
 test: `backend/padel_app/tests/test_pad795_coach_requests_table.py` › `test_each_filter_narrows_rows_and_counts`
 
-#### CLASSES-COACH-REQUESTS-TABLE-8: The name search is the players search (rule 7; waits on the owner's answer on players.search rule 8, buildable on its own)
+#### CLASSES-COACH-REQUESTS-TABLE-8: The name search is the players search (rule 7)
 - **Given** requests from "João Sousa", "Joana Silva", "Pedro Mesquita e Sousa" and "Rita Gomes", whom Ana calls "Ritinha"
 - **When** Ana searches `joao`, then `pedro sousa`, then `ritinha`, then `%`
 - **Then** `joao` finds João Sousa and Joana Silva (the typo tier) and not the others; `pedro sousa` finds Pedro Mesquita e Sousa only; `ritinha` finds Rita Gomes; `%` finds nobody — each the set `player_service.rank_player_match` over `{name, nickname}` accepts for those names
 - **And** the rows keep the table's sort, not the match tiers
+- **And** a search joins the other filters: `ritinha` with `kind=private` returns her private requests only, and the counts of both sections count only her requests; a search never returns another coach's request
 test: `backend/padel_app/tests/test_pad795_coach_requests_table.py` › `test_search_matches_like_the_players_search`
 
 #### CLASSES-COACH-REQUESTS-TABLE-9: A request's statement count does not grow with the coach's requests or the page's rows (rule 8)
 - **Given** Ana with 10 requests, then with 600 (both kinds, with invitees, sides, nicknames and notes)
-- **When** she reads page 1 with `per_page` = const:COACH_REQUESTS_MAX_PAGE_SIZE, with a `player_id`, a `status` and a `kind` filter on (the `search` joins them when it is built, CLASSES-COACH-REQUESTS-TABLE-8), counting every statement at the cursor for the whole request after one warm-up request
+- **When** she reads page 1 with `per_page` = const:COACH_REQUESTS_MAX_PAGE_SIZE, with a `search`, a `status` and a `kind` filter on (and once with `player_id`), counting every statement at the cursor for the whole request after one warm-up request
 - **Then** the 600-request read issues exactly as many statements as the 10-request read, and neither issues more than const:COACH_REQUESTS_QUERY_BUDGET
 test: `backend/padel_app/tests/test_pad795_coach_requests_table.py` › `test_statement_count_does_not_grow`
 
@@ -418,6 +420,14 @@ test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.test.t
 - **Then** no table is in the page; each request is a card showing its class day and time, request day and time, `displayName`, kind, side and rule 10's words, with Aceitar and the other actions of its kind; the request sent carries `sort_by=student`, `sort_dir=desc`, `kind=academy` and `page=1`; the card opens its detail; "Em aberto (n)", "Histórico (n)" and the pager are the table's
 test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.narrow.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-22] below 768 px cards carry the table's fields, actions, sort and filters`
 
+#### CLASSES-COACH-REQUESTS-TABLE-23: The search box waits for the typing to stop, sends `search`, goes back to page 1 and says when nobody matches (rules 7, 11; `players.search` rule 10)
+- **Given** the coach on page 2 of Em aberto, with the sort by student descending and `kind=private` on
+- **When** she types `rit` letter by letter, faster than 200 ms apart, then waits
+- **Then** one request goes out, 200 ms after the last letter, carrying `search=rit`, `page=1`, the sort and the kind, and `search` is in the URL on web; while it is in flight `player-search-searching` shows and the previous rows stay
+- **And** when the answer has no rows, `player-search-empty` reads "Nenhum jogador encontrado para «rit»" in place of the table's own empty line; clearing the box removes `search` from the request and the URL; changing the tab keeps the text and sends it with the other section; "Limpar filtros" clears it
+- **And** below 768 px on web, and in iOS's "Filtrar/Ordenar" sheet, the box is the first control of the filters, with the same behaviour
+test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.search.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-23] the search box debounces, resets the page and says when nobody matches`; `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.search.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-23] the search box debounces, resets the page and says when nobody matches`
+
 ### Performance
 A coach with thousands of requests reads one page in a bounded, constant number of statements
 (CLASSES-COACH-REQUESTS-TABLE-9). const:COACH_REQUESTS_QUERY_BUDGET is set from the statements one
@@ -426,8 +436,8 @@ authentication and the coach (4: the token check, the user twice, the coach), th
 (2; the requested section's count is also the page's total), the page's rows (1), and six batch loads —
 the private rows, the academy rows, students and their users, the coach's relation rows, lesson
 instances with their classes, and invitees (6): 13. The club's time zone is one constant
-(`utils/dates.CLUB_TZ`), so the request-date bounds cost no statement. Building `search` (rule 7) adds the
-requesters read (1): 14, an amendment of the constant then. It is a hard bound:
+(`utils/dates.CLUB_TZ`), so the request-date bounds cost no statement. `search` (rule 7) adds the
+requesters read (1), only for a non-blank value: 14, so the constant is 14 since PAD-795b. It is a hard bound:
 raising it is an amendment of the constant with a reason. Before the PR merges, the build also times the
 endpoint on a staging copy shaped like the busiest coach (each section, default sort, a search and a
 filter) and writes the timings in the PR; a page over 300 ms server time there reopens the index
@@ -437,9 +447,9 @@ question below. That timing checks the build; the statement bound is what holds 
 1. **Backend list shape.** `constants.md`; CLASSES-COACH-REQUESTS-TABLE-1, -2, -3 (backend half), -4,
    -5, -6, -7, -9, -10 — `GET /app/coach-requests`, a new service beside `class_request_service` /
    `class_join_request_service`, batch-loading serializers; `@levelup/api` resource and types.
-   CLASSES-COACH-REQUESTS-TABLE-8 (`search`) is built in this wave only once the owner answers the
-   search-surface question; until then the endpoint has no `search` param and the clients use
-   `player_id`.
+   CLASSES-COACH-REQUESTS-TABLE-8 (`search`) was built after the merge (PAD-795b, once the owner
+   answered the search-surface question), with the clients' search box; the picker over the coach's
+   students that stood in for it is gone.
 2. **Web.** CLASSES-COACH-REQUESTS-TABLE-3 (client half), -11, -12, -13, -14, -15 (web), -16 (web),
    -17 (web), -20 (web), -21 (web) — `@levelup/config` `coachRequestStatusKey` and the open-status
    constants, the `declinedByStudent` key in pt and en, `CoachRequestsTable` on `ClassRequestsPage`,
@@ -454,20 +464,11 @@ Web and mobile ship in the same PR (owner: "web and iOS together, own PR").
 
 ### Open questions
 **For the owner:**
-- **Is the requests table a new search surface under `players.search` rule 8?** Rule 8 is an
-  owner-confirmed inventory (2026-10-14) and "Pedidos de Aula" is not in it; the ticket asks for "pesquisa
-  por nome do aluno, coerente com a pesquisa de jogadores". Options: (a) yes — add it to rule 8 (an
-  amendment of that rule) and build rule 7's `search` with CLASSES-COACH-REQUESTS-TABLE-8; (b) no — the
-  table filters by one student (`player_id`, a picker over the coach's students) only. Until the answer,
-  -8 waits and the rest builds; the `player_id` filter covers "um aluno".
-- **Should a `countered` request be in Em aberto?** The ticket defines Em aberto as "os pedidos que
-  esperam decisão do treinador"; a `countered` request waits on the student. Options: (a) keep it in Em
-  aberto, labelled "À espera do aluno" — today's split in both apps (CLASSES-JOIN-REQUESTS-25); (b) move
-  it to Histórico, which would read as closed while it is still open. The spec builds (a) until the
-  owner says otherwise.
-- **The one new status wording:** a private request whose proposal the student declined,
-  `coachStatus.declinedByStudent`, proposed pt "Recusado pelo aluno", en "Declined by the student".
-  Every other status keeps its words. Proposed copy.
+- **Answered by the owner, 26 Nov 2026 (via the orchestrator):** the requests table IS a search surface
+  (`players.search` rule 8 now lists it; `search` is rule 7's, CLASSES-COACH-REQUESTS-TABLE-8); a
+  `countered` request stays in Em aberto, labelled "À espera do aluno"; and the wording
+  `coachStatus.declinedByStudent` stays, pt "Recusado pelo aluno", en "Declined by the student". Every
+  other status keeps its words.
 
 **Decided in this run (reversible at review):**
 - **Migration / index: no.** Both tables already index `coach_id`; a coach's requests number in the
@@ -490,7 +491,7 @@ Web and mobile ship in the same PR (owner: "web and iOS together, own PR").
   filters by time of day.** The request instant is stored in UTC, and its club-local time of day needs a
   per-row timezone conversion SQL cannot do portably (SQLite tests, Postgres prod); the class time is
   stored as wall clock and can. — decided by me.
-- **Search mechanism, if the owner says yes:** match in Python over the coach's distinct requesters with
+- **Search mechanism:** match in Python over the coach's distinct requesters with
   `rank_player_match` over name and nickname, then an SQL `IN`; folding all rows in Python would defeat
   SQL paging. — decided by me.
 - **The student column sorts by `displayName`** (the nickname when the coach shows it as the name),
@@ -524,4 +525,4 @@ Web and mobile ship in the same PR (owner: "web and iOS together, own PR").
 - **This spec touches two others.** `classes.join-requests` rule 17 and CLASSES-JOIN-REQUESTS-15
   (the coach's list order) and `classes.class-requests` rule 9 (which list reads which endpoint) were
   amended with it; no rule, Not-this-spec line or recorded owner decision is changed by this spec.
-  `players.search` rule 8 is not amended; it is the first owner question above.
+  `players.search` rule 8 is amended with it (PAD-795b, the owner's answer above).

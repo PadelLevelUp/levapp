@@ -5,7 +5,7 @@ constants:
   LESSON_LIST_TYPES: ["academy", "private"]           # values of the academy-classes read's `type`; the first is the default
   COACH_REQUESTS_PAGE_SIZE: 25
   COACH_REQUESTS_MAX_PAGE_SIZE: 100
-  COACH_REQUESTS_QUERY_BUDGET: 13
+  COACH_REQUESTS_QUERY_BUDGET: 14
   PRIVATE_REQUEST_OPEN_STATUSES: "pending, countered"
   JOIN_REQUEST_OPEN_STATUSES: "pending"
   COACH_REQUESTS_STATUS_ORDER: "pending, countered, accepted, declined, rejected, withdrawn, superseded"
@@ -23,6 +23,7 @@ Values more than one `classes/` spec uses. `academy-class-booking`, `join-reques
   counted at the cursor for the whole request, authentication included, whatever the coach's total number
   of requests and whatever the page size (`classes.coach-requests-table` rule 8). The count it comes from
   is in that spec's Performance section. A hard bound: raising it is an amendment with a reason.
+  14 since PAD-795b: the name `search` reads the coach's requesters in one extra statement.
 - `PRIVATE_REQUEST_OPEN_STATUSES`: the statuses of a private class request (`classes.class-requests`)
   that are still open — awaiting the coach (`pending`) or the student (`countered`). Every other status
   is closed. The server's "Em aberto" section and `@levelup/config` `isOpenClassRequestRow` read this
