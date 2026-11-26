@@ -16,6 +16,9 @@ from padel_app.models.notification_config import (
 
 OLD_EN_INVITE = "Hey {name}, we have an opening in the {level} class next {weekday} at {time}. Do you want to come?"
 OLD_PT_REMINDER = "Olá {name}, lembrete: tens a aula de {level} esta {weekday} às {time}. Vens?"
+# PAD-815 (rule 27): these Portuguese built-ins have since become the owner's approved texts. The
+# migration's own target stays PAD-830's text, and is no longer the model default for them.
+PAD815_REPLACED_PT = {"invite", "reminder", "reminder_followup", "waiting_list_invite"}
 
 
 def _load():
@@ -70,7 +73,7 @@ def test_exact_old_defaults_follow_the_new_default():
     _run(conn, "upgrade")
     en, pt, miss, trailing, nothing = _saved(conn)
     assert en == {"invite": DEFAULT_MESSAGE_TEMPLATES["invite"], "side_moved": "my own side text"}
-    assert pt == {"reminder": DEFAULT_MESSAGE_TEMPLATES_PT["reminder"]}
+    assert pt == {"reminder": mod.PT["reminder"][1]}
     assert miss == {"invite": near_miss, "reminder": own}
     assert trailing == {"invite": OLD_EN_INVITE + " "}
     assert nothing is None
@@ -87,7 +90,10 @@ def test_every_old_default_in_both_locales_is_migrated():
             assert "{level}" in old and "{level}" not in new
             # PAD-840 (rule 26): a text the model has since retired is read as its current default.
             read = _RETIRED_DEFAULTS.get(key, {}).get(new, new)
-            assert read == defaults[key], f"{key}: the migration's new text drifted from the model default"
+            if table is mod.PT and key in PAD815_REPLACED_PT:
+                assert read != defaults[key] and "{day}" in defaults[key], key
+            else:
+                assert read == defaults[key], f"{key}: the migration's new text drifted from the model default"
             conn = _scratch({key: old})
             _run(conn, "upgrade")
             assert _saved(conn) == [{key: new}]

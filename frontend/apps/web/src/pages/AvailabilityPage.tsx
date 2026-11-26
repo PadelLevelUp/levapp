@@ -3,6 +3,7 @@ import { CalendarOff, Repeat, Trash2, Pencil, CalendarX } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ClassRequestsSection } from "@/components/class-requests/ClassRequestsSection";
 import { BlockerSheet } from "@/components/availability/BlockerSheet";
+import { useBlockerSaveFollowUp } from "@/components/availability/useBlockerSaveFollowUp";
 import {
   Card,
   CardContent,
@@ -36,6 +37,8 @@ import {
 export default function AvailabilityPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  // PAD-772 (calendar.student-blockers rule 21): the count line after a save that marked classes.
+  const afterSave = useBlockerSaveFollowUp();
 
   const describeBlocker = (b: AvailabilityBlocker): string => {
     const time = `${b.startTime ?? ""}–${b.endTime ?? ""}`;
@@ -93,13 +96,14 @@ export default function AvailabilityPage() {
 
   // The sheet validates and builds the payload (rule 16); this only persists it.
   const handleSave = async (payload: BlockerInput) => {
+    let answer: { markedClasses?: unknown };
     try {
       setSaving(true);
       if (editing) {
-        await updateBlocker(editing.id, payload);
+        answer = await updateBlocker(editing.id, payload);
         toast({ title: t("availability.updatedToast") });
       } else {
-        await createBlocker(payload);
+        answer = await createBlocker(payload);
         toast({ title: t("availability.addedToast") });
       }
       setSheetOpen(false);
@@ -111,9 +115,13 @@ export default function AvailabilityPage() {
         title: t("availability.couldNotSaveTitle"),
         description: t("availability.couldNotSaveDescription"),
       });
+      return;
     } finally {
       setSaving(false);
     }
+    // The block is saved and listed; what follows is said outside the save's try, so a failure
+    // there never says it was not saved.
+    afterSave(answer);
   };
 
   const handleDelete = async (id: number) => {

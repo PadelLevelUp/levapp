@@ -29,6 +29,7 @@ import {
 } from "@levelup/config";
 import { useAvailabilityBlockers, useDeleteSchedule, useSaveSchedule } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
+import type { ScheduleInput } from "@/api/availability";
 import { ScheduleEditor } from "./ScheduleEditor";
 import type { SetupGuide } from "./useSetupGuide";
 
@@ -60,12 +61,18 @@ export function StepUnavailability({
   const [failed, setFailed] = useState(false);
   const end = saved ? scheduleEnd(saved.rows) : null;
 
+  /**
+   * One schedule save (calendar.student-blockers rules 19, 21, 26): only the PUT. The server marks the classes
+   * the rows newly cover; the hook re-reads the calendar and dashboard after every save, and nothing is asked.
+   */
+  const saveSchedule = (scheduleId: string, data: ScheduleInput) => save.mutateAsync({ scheduleId, data });
+
   const write = async (scheduleId: string, schedule: Schedule, endDate: string) => {
     setFailed(false);
     try {
-      await save.mutateAsync({
-        scheduleId,
-        data: { title: schedule.name, blockers: scheduleToBlockerInputs(schedule, { startDate: today, endDate }) },
+      await saveSchedule(scheduleId, {
+        title: schedule.name,
+        blockers: scheduleToBlockerInputs(schedule, { startDate: today, endDate }),
       });
       return true;
     } catch {
@@ -86,9 +93,9 @@ export function StepUnavailability({
     if (!saved) return;
     setFailed(false);
     try {
-      await save.mutateAsync({
-        scheduleId: saved.scheduleId,
-        data: { title: saved.rows[0]?.title ?? null, blockers: rowsWithEnd(saved.rows, prolongedEnd(end, today)) },
+      await saveSchedule(saved.scheduleId, {
+        title: saved.rows[0]?.title ?? null,
+        blockers: rowsWithEnd(saved.rows, prolongedEnd(end, today)),
       });
     } catch {
       setFailed(true);
@@ -206,6 +213,10 @@ export function StepUnavailability({
           {t("setupGuide.unavailability.failed")}
         </p>
       )}
+      {/* PAD-772 (calendar.student-blockers rule 26): nothing is asked, so the step says what saving does. */}
+      <p className="text-sm text-muted-foreground" data-testid="blocker-covered-notice">
+        {t("availability.covered.notice")}
+      </p>
       <Button disabled={!selected || save.isPending} onClick={() => void saveAndContinue()} data-testid="setup-unavailability-save">
         {t("setupGuide.unavailability.save")}
       </Button>

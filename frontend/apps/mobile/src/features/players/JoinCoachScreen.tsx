@@ -1,22 +1,17 @@
-import { Ionicons } from "@expo/vector-icons";
 import { joinTokensApi } from "@levelup/api";
-import { lightTheme } from "@levelup/config";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import { useAuth } from "@/auth/AuthContext";
 import { rememberPendingJoin } from "@/auth/pendingJoin";
+import { StatusBar } from "expo-status-bar";
 import { LevAppMark } from "@/components/brand/LevAppMark";
+import { PreAuthShell, WelcomeBand } from "@/features/auth/PreAuthShell";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Ionicons } from "@expo/vector-icons";
+import { lightTheme } from "@levelup/config";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 
@@ -83,6 +78,8 @@ export function JoinCoachScreen({ token }: { token: string | null }) {
     }
   };
 
+  // auth.invite-welcome: every state but loading and invalid puts its words on the navy band, outside the card.
+  // Loading and invalid stay as they were (rule 5): the 30pt mark over a card, no scroll view.
   const shell = (children: React.ReactNode, testID: string) => (
     <View className="flex-1 justify-center bg-sidebar p-4">
       <StatusBar style="light" />
@@ -91,6 +88,18 @@ export function JoinCoachScreen({ token }: { token: string | null }) {
       </View>
       <Card testID={testID}>{children}</Card>
     </View>
+  );
+  const welcome = (
+    band: { title: string; description: string; names?: { coach: string; club: string } },
+    children: React.ReactNode,
+    testID: string
+  ) => (
+    <PreAuthShell testID="join-coach-screen">
+      <WelcomeBand {...band} />
+      <Card testID={testID}>
+        <CardContent className="gap-3 pt-6">{children}</CardContent>
+      </Card>
+    </PreAuthShell>
   );
 
   const icon = (name: React.ComponentProps<typeof Ionicons>["name"]) => (
@@ -132,92 +141,67 @@ export function JoinCoachScreen({ token }: { token: string | null }) {
   }
 
   if (!isAuthenticated) {
-    return shell(
+    return welcome(
+      {
+        title: t("players.joinCoach.signInTitle", { coach: preview.coachName }),
+        description: t("players.joinCoach.signInDescription"),
+        names: { coach: preview.coachName, club: preview.clubName },
+      },
       <>
-        <CardHeader className="items-center">
-          {icon("qr-code-outline")}
-          <CardTitle className="text-center">
-            {t("players.joinCoach.signInTitle", { coach: preview.coachName })}
-          </CardTitle>
-          <CardDescription className="text-center">{t("players.joinCoach.signInDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="gap-3">
-          <Button testID="join-coach-create-account" onPress={() => goToAuth("/signup")}>
-            <Text>{t("players.joinCoach.createAccount")}</Text>
-          </Button>
-          <Button variant="outline" testID="join-coach-sign-in" onPress={() => goToAuth("/login")}>
-            <Text>{t("players.joinCoach.signIn")}</Text>
-          </Button>
-        </CardContent>
+        <Button testID="join-coach-create-account" onPress={() => goToAuth("/signup")} className="min-h-11">
+          <Text>{t("players.joinCoach.createAccount")}</Text>
+        </Button>
+        <Button variant="outline" testID="join-coach-sign-in" onPress={() => goToAuth("/login")} className="min-h-11">
+          <Text>{t("players.joinCoach.signIn")}</Text>
+        </Button>
       </>,
       "join-coach-signed-out"
     );
   }
 
   if (isCoach) {
-    return shell(
-      <>
-        <CardHeader className="items-center">
-          {icon("shield-outline")}
-          <CardTitle className="text-center">{t("players.joinCoach.coachTitle")}</CardTitle>
-          <CardDescription className="text-center">{t("players.joinCoach.coachDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="outline" onPress={() => router.replace("/(tabs)/dashboard")}>
-            <Text>{t("players.connect.goToDashboard")}</Text>
-          </Button>
-        </CardContent>
-      </>,
+    return welcome(
+      { title: t("players.joinCoach.coachTitle"), description: t("players.joinCoach.coachDescription") },
+      <Button variant="outline" onPress={() => router.replace("/(tabs)/dashboard")} className="min-h-11">
+        <Text>{t("players.connect.goToDashboard")}</Text>
+      </Button>,
       "join-coach-is-coach"
     );
   }
 
   if (status === "joined" && result) {
-    return shell(
-      <>
-        <CardHeader className="items-center">
-          {icon("checkmark-circle-outline")}
-          <CardTitle className="text-center">{t("players.joinCoach.successTitle", { coach: result.coachName })}</CardTitle>
-          <CardDescription className="text-center">
-            {result.alreadyMember
-              ? t("players.joinCoach.alreadyMember", { coach: result.coachName })
-              : t("players.joinCoach.successDescription", { coach: result.coachName, club: result.clubName })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button testID="join-coach-go-calendar" onPress={() => router.replace("/(tabs)/calendar")}>
-            <Text>{t("players.joinCoach.goToCalendar")}</Text>
-          </Button>
-        </CardContent>
-      </>,
+    return welcome(
+      {
+        title: t("players.joinCoach.successTitle", { coach: result.coachName }),
+        description: result.alreadyMember
+          ? t("players.joinCoach.alreadyMember", { coach: result.coachName })
+          : t("players.joinCoach.successDescription", { coach: result.coachName, club: result.clubName }),
+      },
+      <Button testID="join-coach-go-calendar" onPress={() => router.replace("/(tabs)/calendar")} className="min-h-11">
+        <Text>{t("players.joinCoach.goToCalendar")}</Text>
+      </Button>,
       "join-coach-success"
     );
   }
 
-  return shell(
+  return welcome(
+    {
+      title: t("players.joinCoach.prompt", { coach: preview.coachName, club: preview.clubName }),
+      description: t("players.joinCoach.explain", { coach: preview.coachName }),
+      names: { coach: preview.coachName, club: preview.clubName },
+    },
     <>
-      <CardHeader className="items-center">
-        {icon("qr-code-outline")}
-        <CardTitle className="text-center">
-          {t("players.joinCoach.prompt", { coach: preview.coachName, club: preview.clubName })}
-        </CardTitle>
-        <CardDescription className="text-center">
-          {t("players.joinCoach.explain", { coach: preview.coachName })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="gap-3">
-        {error ? (
-          <Text className="text-center text-sm text-destructive" testID="join-coach-error">
-            {error}
-          </Text>
-        ) : null}
-        <Button testID="join-coach-confirm" disabled={status === "joining"} onPress={handleJoin}>
-          <Text>{status === "joining" ? t("players.joinCoach.joining") : t("players.joinCoach.confirm")}</Text>
-        </Button>
-        <Button variant="ghost" onPress={() => router.replace("/(tabs)/dashboard")}>
-          <Text>{t("players.connect.goToDashboard")}</Text>
-        </Button>
-      </CardContent>
+      {error ? (
+        <Text className="text-center text-sm text-destructive" testID="join-coach-error">
+          {error}
+        </Text>
+      ) : null}
+      <Button testID="join-coach-confirm" disabled={status === "joining"} onPress={handleJoin} className="min-h-11">
+        <Text>{status === "joining" ? t("players.joinCoach.joining") : t("players.joinCoach.confirm")}</Text>
+      </Button>
+      <Button variant="ghost" onPress={() => router.replace("/(tabs)/dashboard")} className="min-h-11">
+        <Text>{t("players.connect.goToDashboard")}</Text>
+      </Button>
     </>,
     "join-coach-preview"
   );

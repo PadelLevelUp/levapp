@@ -33,6 +33,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import * as availabilityApi from "@levelup/api/src/resources/availability";
 import { ScheduleEditor } from "@/features/availability/ScheduleEditor";
 import { LeaveButton } from "./steps";
 import type { SetupGuide } from "./useSetupGuide";
@@ -58,12 +59,18 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
   const [busy, setBusy] = React.useState(false);
   const end = saved ? scheduleEnd(saved.rows) : null;
 
+  /**
+   * One schedule save (calendar.student-blockers rules 19, 21, 26): only the PUT. The server marks the classes
+   * the rows newly cover; the hook re-reads the calendar and dashboard after every save, and nothing is asked.
+   */
+  const saveSchedule = (scheduleId: string, data: availabilityApi.ScheduleInput) => save.mutateAsync({ scheduleId, data });
+
   const write = async (scheduleId: string, schedule: Schedule, endDate: string) => {
     setFailed(false);
     try {
-      await save.mutateAsync({
-        scheduleId,
-        data: { title: schedule.name, blockers: scheduleToBlockerInputs(schedule, { startDate: today, endDate }) },
+      await saveSchedule(scheduleId, {
+        title: schedule.name,
+        blockers: scheduleToBlockerInputs(schedule, { startDate: today, endDate }),
       });
       return true;
     } catch {
@@ -84,9 +91,9 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
     if (!saved) return;
     setFailed(false);
     try {
-      await save.mutateAsync({
-        scheduleId: saved.scheduleId,
-        data: { title: saved.rows[0]?.title ?? null, blockers: rowsWithEnd(saved.rows, prolongedEnd(end, today)) },
+      await saveSchedule(saved.scheduleId, {
+        title: saved.rows[0]?.title ?? null,
+        blockers: rowsWithEnd(saved.rows, prolongedEnd(end, today)),
       });
     } catch {
       setFailed(true);
@@ -241,6 +248,10 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
           {t("setupGuide.unavailability.failed")}
         </Text>
       ) : null}
+      {/* PAD-772 (calendar.student-blockers rule 26): nothing is asked, so the step says what saving does. */}
+      <Text className="text-sm text-muted-foreground" testID="blocker-covered-notice">
+        {t("availability.covered.notice")}
+      </Text>
       <Button disabled={!selected || save.isPending} onPress={() => void saveAndContinue()} testID="setup-unavailability-save">
         <Text>{t("setupGuide.unavailability.save")}</Text>
       </Button>

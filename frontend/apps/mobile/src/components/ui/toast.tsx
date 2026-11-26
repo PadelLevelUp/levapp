@@ -109,6 +109,8 @@ function ToastItem({ record }: { record: ToastRecord }) {
       }}
     >
       <Pressable
+        // A Maestro flow waits for this id to be gone before it taps what sits under the toast (flow 66).
+        testID="toast-item"
         onPress={dismiss}
         accessibilityRole="alert"
         accessibilityLiveRegion="polite"

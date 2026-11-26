@@ -76,8 +76,9 @@ test.describe("PAD-295: the calendar judges past and next on the club's clock", 
     await expect(todayColumn).toBeVisible();
     await todayColumn.click();
 
+    // Dia is one list of days (rule 26): the cards are read in today's section.
     const card = (title: string) =>
-      page.getByTestId("calendar-event-card").filter({ hasText: title });
+      page.getByTestId(`calendar-day-section-${today}`).getByTestId("calendar-event-card").filter({ hasText: title });
     if (behindFits) await expect(card("Behind Us")).toHaveAttribute("data-event-state", "past");
     if (aheadFits) await expect(card("Ahead Of Us")).toHaveAttribute("data-event-state", "next");
   });

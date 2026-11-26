@@ -11,6 +11,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
+import { continueTo, pressSend } from "../helpers/class-request-steps";
 
 const STUDENT_NAME = "E2E Student";
 
@@ -54,6 +55,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     }
     await expect(form).toHaveAttribute("data-step", "kind", { timeout: 10_000 });
     await form.getByTestId("wizard-kind-private").click();
+    await continueTo(form, "when");
     // Wait for the chosen day's windows before reading a slot, or the start comes
     // from the default day's list and the click lands on the re-rendered one.
     const blocksForDay = page.waitForResponse(
@@ -61,6 +63,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     );
     await form.getByTestId("wizard-date").fill(day);
     await blocksForDay;
+    await continueTo(form, "time");
     await expect(form.getByTestId("wizard-slots")).toHaveAttribute("data-state", "ready", { timeout: 15_000 });
     const firstSlot = form.getByTestId("wizard-slot").first();
     const start = (await firstSlot.getAttribute("data-start")) ?? "";
@@ -68,7 +71,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     const createdResponse = page.waitForResponse(
       (r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/app/class-requests"),
     );
-    await form.getByTestId("wizard-send").click();
+    await pressSend(form);
     const created = await createdResponse;
     expect(created.status(), await created.text()).toBe(201);
     const requestId = String((await created.json()).id);

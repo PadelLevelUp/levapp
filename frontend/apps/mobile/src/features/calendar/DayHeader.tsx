@@ -10,7 +10,7 @@ import { useDateLocale } from "@/lib/date-locale";
  * port of apps/web's `DayHeader`: navy circle with the day number, the full
  * weekday and date in the active language, and how many things are on.
  */
-export function DayHeader({ day, count }: { day: Date; count: number }) {
+export function DayHeader({ day, count, empty = false }: { day: Date; count: number; empty?: boolean }) {
   const { t } = useTranslation();
   const locale = useDateLocale();
 
@@ -32,9 +32,16 @@ export function DayHeader({ day, count }: { day: Date; count: number }) {
         >
           {format(day, "EEEE, d MMMM", { locale })}
         </Text>
-        <Text className="mt-0.5 text-sm text-muted-foreground">
-          {t("calendar.mobile.classCount", { count })}
-        </Text>
+        {empty ? (
+          // Dia's empty day (rule 26): the header's own line says it, once.
+          <Text testID="calendar-day-empty" className="mt-0.5 text-sm text-muted-foreground">
+            {t("calendar.mobile.noClassesScheduled")}
+          </Text>
+        ) : (
+          <Text className="mt-0.5 text-sm text-muted-foreground">
+            {t("calendar.mobile.classCount", { count })}
+          </Text>
+        )}
       </View>
     </View>
   );

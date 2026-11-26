@@ -6,8 +6,7 @@
  * never by rendered copy (`t` returns the key).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -28,7 +27,7 @@ const availabilityApi = vi.hoisted(() => ({
 const academyApi = vi.hoisted(() => ({ listAcademyClasses: vi.fn() }));
 vi.mock("@levelup/api", () => ({ requestAvailabilityApi: availabilityApi, academyClassesApi: academyApi }));
 
-import { PrivateClassStep } from "./PrivateClassStep";
+import { renderPrivateStep } from "@/test/privateStepHost";
 
 const NO_TIME = { freeWindows: {}, workingHoursSource: "custom" };
 
@@ -39,15 +38,6 @@ function lesson(id: string, state: "open" | "full", mine: { requestStatus?: stri
     spotsLeft: state === "open" ? 1 : 0, myJoinRequest: mine.requestStatus ? { id: Number(id), status: mine.requestStatus } : null,
     onWaitingList: mine.waiting ?? false,
   };
-}
-
-function renderStep() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <PrivateClassStep coachId="ana-id" onDone={vi.fn()} />
-    </QueryClientProvider>
-  );
 }
 
 async function emptyState() {
@@ -67,7 +57,7 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
     academyApi.listAcademyClasses.mockResolvedValue({ classes: [lesson("1", "open"), lesson("2", "full")] });
 
-    renderStep();
+    const { show } = renderPrivateStep("time");
     await emptyState();
     expect(await screen.findByTestId("wizard-private-lessons")).toBeTruthy();
     expect(academyApi.listAcademyClasses).toHaveBeenCalledWith("ana-id", "private");
@@ -83,9 +73,11 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     expect(full.querySelector('[data-testid="wizard-private-lesson-waitlist"]')).toBeTruthy();
     expect(full.querySelector('[data-testid="wizard-private-lesson-request"]')).toBeNull();
 
-    // Weekly too.
+    // Weekly too (recurrence is step b's).
+    show("when");
     fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
     fireEvent.click(screen.getByTestId("wizard-weekday-2"));
+    show("time");
     await emptyState();
     expect(await screen.findByTestId("wizard-private-lesson-row-full")).toBeTruthy();
   });
@@ -93,7 +85,7 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
   it("[CLASSES-CLASS-REQUESTS-45] with no private lesson, only the message shows", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
     academyApi.listAcademyClasses.mockResolvedValue({ classes: [] });
-    renderStep();
+    renderPrivateStep("time");
     await emptyState();
     await waitFor(() => expect(academyApi.listAcademyClasses).toHaveBeenCalled());
     expect(screen.queryByTestId("wizard-private-lessons")).toBeNull();
@@ -103,7 +95,7 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
   it("[CLASSES-CLASS-REQUESTS-45] a failed list read shows the message alone", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
     academyApi.listAcademyClasses.mockRejectedValue(new Error("403"));
-    renderStep();
+    renderPrivateStep("time");
     await emptyState();
     await waitFor(() => expect(academyApi.listAcademyClasses).toHaveBeenCalled());
     expect(screen.queryByTestId("wizard-private-lessons")).toBeNull();
@@ -115,14 +107,14 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
       freeWindows: { [from]: [{ startTime: "18:00", endTime: "19:00" }] },
       workingHoursSource: "custom",
     }));
-    renderStep();
+    renderPrivateStep("time");
     await waitFor(() => expect(screen.getByTestId("wizard-slots").getAttribute("data-state")).toBe("ready"));
     expect(academyApi.listAcademyClasses).not.toHaveBeenCalled();
   });
 
   it("[CLASSES-CLASS-REQUESTS-45] never reads them when the availability read failed", async () => {
     availabilityApi.getCoachAvailability.mockRejectedValue(new Error("400"));
-    renderStep();
+    renderPrivateStep("time");
     await emptyState();
     // Give any query a chance to start.
     await new Promise((r) => setTimeout(r, 20));
@@ -134,16 +126,18 @@ describe("no free time offers the coach's visible private lessons (rule 13b)", (
     availabilityApi.getCoachAvailability.mockResolvedValue(NO_TIME);
     availabilityApi.getRequestParticipants.mockResolvedValue([{ username: "carla", ok: true }]);
     academyApi.listAcademyClasses.mockResolvedValue({ classes: [lesson("1", "open")] });
-    renderStep();
+    const { show } = renderPrivateStep("time");
     // Alone, the student is offered the lesson; with Carla coming, the same empty answer is not.
     expect(await screen.findByTestId("wizard-private-lessons")).toBeTruthy();
     const readsAlone = academyApi.listAcademyClasses.mock.calls.length;
+    show("people");
     fireEvent.click(screen.getByTestId("wizard-people-2"));
     fireEvent.change(screen.getByTestId("wizard-invitee-0"), { target: { value: "carla" } });
     await waitFor(
       () => expect(availabilityApi.getCoachAvailability).toHaveBeenCalledWith(expect.objectContaining({ participants: ["carla"] })),
       { timeout: 2000 },
     );
+    show("time");
     await emptyState();
     expect(screen.queryByTestId("wizard-private-lessons")).toBeNull();
     expect(academyApi.listAcademyClasses.mock.calls.length).toBe(readsAlone);
@@ -156,7 +150,7 @@ describe("a list row joins through the warning (classes.join-requests rule 22)",
     academyApi.listAcademyClasses.mockResolvedValue({ classes: [lesson("1", "open"), lesson("2", "full")] });
     joinApi.createClassJoinRequest.mockResolvedValue({ id: 9, status: "pending", side: "right" });
     joinApi.joinClassWaitingList.mockResolvedValue({ onWaitingList: true });
-    renderStep();
+    renderPrivateStep("time");
     await emptyState();
 
     // Open row: NÃO sends nothing; SIM opens the side choice, and the request carries the confirmation.
@@ -197,7 +191,7 @@ describe("a row's action follows the student's request (rule 13b, academyClassAc
         lesson("5", "full", { waiting: true }),
       ],
     });
-    renderStep();
+    renderPrivateStep("time");
     await emptyState();
     await screen.findByTestId("wizard-private-lessons");
     const row = (id: string) => document.querySelector(`[data-class-id="${id}"]`) as HTMLElement;

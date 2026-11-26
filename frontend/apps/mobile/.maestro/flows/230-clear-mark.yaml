@@ -27,7 +27,7 @@ appId: com.padellevelup.app
 - evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
 - assertTrue: "${output.accepted == true}"
 
-# ── The coach opens the class (same calendar walk as 229) ──
+# ── The coach opens the class (same calendar walk as 229; rule 26: each card tap is below the day's pinned header) ──
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:
     id: "tab-calendar"
@@ -71,7 +71,11 @@ appId: com.padellevelup.app
     visible:
       text: "E2E Student"
     timeout: 15000
-- tapOn: "E2E Student"
+- waitForAnimationToEnd
+- tapOn:
+    text: "E2E Student"
+    below:
+      id: "calendar-day-header-${output.day}"
 # PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
 - scrollUntilVisible:
     element:
@@ -110,7 +114,11 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
-- tapOn: "E2E Student"
+- waitForAnimationToEnd
+- tapOn:
+    text: "E2E Student"
+    below:
+      id: "calendar-day-header-${output.day}"
 # PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
 - scrollUntilVisible:
     element:
@@ -153,7 +161,11 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
-- tapOn: "E2E Student"
+- waitForAnimationToEnd
+- tapOn:
+    text: "E2E Student"
+    below:
+      id: "calendar-day-header-${output.day}"
 # PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
 - scrollUntilVisible:
     element:

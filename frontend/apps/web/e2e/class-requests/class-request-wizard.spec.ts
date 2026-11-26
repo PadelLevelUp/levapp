@@ -10,6 +10,7 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 import { COACH_PASSWORD, COACH_USERNAME, STUDENT2_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { deleteClassRequests, withdrawClassRequests } from "../helpers/cleanup";
+import { continueTo, pressSend } from "../helpers/class-request-steps";
 
 async function bearer(request: APIRequestContext, username: string, password: string) {
   const res = await request.post(`${API_ROOT}/auth/login`, { data: { username, password } });
@@ -53,6 +54,7 @@ async function openPrivateStep(page: Page) {
   await expect(wizard).toHaveAttribute("data-step", "kind", { timeout: 10_000 });
   await wizard.getByTestId("wizard-kind-private").click();
   await expect(wizard).toHaveAttribute("data-step", "private");
+  await expect(wizard.locator('[data-private-step="people"]')).toBeVisible();
   return wizard;
 }
 
@@ -61,7 +63,7 @@ async function sendFirstSlot(page: Page) {
   await expect(wizard.getByTestId("wizard-slots")).toHaveAttribute("data-state", "ready", { timeout: 15_000 });
   await wizard.getByTestId("wizard-slot").first().click();
   const posted = page.waitForResponse((r) => /\/api\/app\/class-requests$/.test(r.url()) && r.request().method() === "POST");
-  await wizard.getByTestId("wizard-send").click();
+  await pressSend(wizard);
   const res = await posted;
   expect(res.status(), await res.text()).toBeLessThan(300);
   await expect(wizard).toHaveCount(0);
@@ -74,8 +76,10 @@ test("PAD-357: a single private class for one person becomes a pending request",
   try {
     const wizard = await openPrivateStep(page);
     await expect(wizard.getByTestId("wizard-people-1")).toHaveAttribute("aria-pressed", "true");
+    await continueTo(wizard, "when");
     await expect(wizard.getByTestId("wizard-recurrence-single")).toHaveAttribute("aria-pressed", "true");
     await wizard.getByTestId("wizard-date").fill(isoDaysAhead(13));
+    await continueTo(wizard, "time");
     await wizard.getByTestId("wizard-duration-90").click();
     const { body, payload } = await sendFirstSlot(page);
     ids.push(String(body.id));
@@ -106,11 +110,13 @@ test("PAD-357: a weekly class with an invitee from the coach's roster is one req
     await expect(wizard.getByTestId("wizard-invitees-note")).toBeVisible();
     await wizard.getByTestId("wizard-invitee-0").fill(STUDENT2_USERNAME);
     await expect(wizard.getByTestId("wizard-invitee-0")).toHaveAttribute("data-state", "ok", { timeout: 10_000 });
+    await continueTo(wizard, "when");
 
     await wizard.getByTestId("wizard-recurrence-weekly").click();
     await wizard.getByTestId(`wizard-weekday-${isoWeekday(startDate)}`).click();
     await wizard.getByTestId("wizard-start-date").fill(startDate);
     await wizard.getByTestId("wizard-end-date").fill(endDate);
+    await continueTo(wizard, "time");
 
     const { body, payload } = await sendFirstSlot(page);
     ids.push(String(body.id));
@@ -132,6 +138,7 @@ test("PAD-357: an invitee who is not on the coach's roster blocks the request", 
   await wizard.getByTestId("wizard-invitee-0").fill(`no-such-player-${Date.now()}`);
   await expect(wizard.getByTestId("wizard-invitee-0")).toHaveAttribute("data-state", "USERNAME_NOT_FOUND", { timeout: 10_000 });
   await expect(wizard.getByTestId("wizard-invitee-0-error")).toHaveAttribute("data-reason", "USERNAME_NOT_FOUND");
-  await expect(wizard.getByTestId("wizard-slots")).toHaveAttribute("data-state", "waiting");
-  await expect(wizard.getByTestId("wizard-send")).toBeDisabled();
+  // Rule 21: the refused name keeps the first step from being passed; the slot list is a later step's.
+  await expect(wizard.getByTestId("wizard-continue")).toBeDisabled();
+  await expect(wizard.getByTestId("wizard-slots")).toHaveCount(0);
 });

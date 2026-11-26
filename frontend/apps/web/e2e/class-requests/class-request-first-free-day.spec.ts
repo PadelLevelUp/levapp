@@ -7,6 +7,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
+import { continueTo } from "../helpers/class-request-steps";
 
 const BLOCK_TITLE = "PAD-302 all day";
 
@@ -35,14 +36,21 @@ test("PAD-302: the booking form opens on the first day with a free block when to
   try {
     await loginAsStudent(page);
     await page.goto("/availability");
+    // The first-free-day read fires from the shell's draft as soon as the coach is set (with one coach, when the list
+    // arrives), before any click on the kind: arm the wait before the sheet opens, and only for a read with a coach.
+    const defaulted = page.waitForResponse((r) => {
+      const url = new URL(r.url());
+      return (
+        url.pathname.endsWith("/app/availability") &&
+        !!url.searchParams.get("coachId") &&
+        url.searchParams.get("from") === today &&
+        url.searchParams.get("to") !== today
+      );
+    });
     await page.getByTestId("class-request-book").click();
     // PAD-357: booking is the wizard; the private step's date is the booking date.
     const form = page.getByTestId("class-request-wizard");
     await expect(form).toBeVisible();
-    const defaulted = page.waitForResponse((r) => {
-      const url = new URL(r.url());
-      return url.pathname.endsWith("/app/availability") && url.searchParams.get("from") === today && url.searchParams.get("to") !== today;
-    });
     await expect(form).not.toHaveAttribute("data-step", "loading", { timeout: 10_000 });
     if ((await form.getAttribute("data-step")) === "coach") {
       await form.locator('[data-testid^="wizard-coach-"]').first().click();
@@ -50,17 +58,21 @@ test("PAD-302: the booking form opens on the first day with a free block when to
     await expect(form).toHaveAttribute("data-step", "kind", { timeout: 10_000 });
     await form.getByTestId("wizard-kind-private").click();
     await defaulted;
+    await continueTo(form, "when");
 
     const dateInput = form.getByTestId("wizard-date");
     await expect.poll(async () => dateInput.inputValue()).not.toBe(today);
     const chosen = await dateInput.inputValue();
     expect(chosen > today).toBe(true);
-    await expect(form.getByTestId("wizard-slot").first()).toBeVisible({ timeout: 15_000 });
 
-    // A typed date stays the typed date.
+    // A typed date stays the typed date, and so does the one confirmed with "Continuar" (rule 21).
     const typed = isoDaysAhead(20);
     await dateInput.fill(typed);
     await expect.poll(async () => dateInput.inputValue()).toBe(typed);
+    await continueTo(form, "time");
+    await expect(form.getByTestId("wizard-slot").first()).toBeVisible({ timeout: 15_000 });
+    await form.getByTestId("wizard-back").click();
+    await expect(form.getByTestId("wizard-date")).toHaveValue(typed);
   } finally {
     const events = await (await request.get(`${API_ROOT}/app/calendar?from=${today}T00:00:00&to=${today}T23:59:59`, { headers: auth })).json();
     for (const e of events as Array<Record<string, unknown>>) {

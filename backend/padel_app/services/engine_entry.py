@@ -188,13 +188,31 @@ def student_not_going(instance, presence, now: datetime | None = None) -> dict:
 
 def answer_attendance_request(instance, presence, action: str, now: datetime | None = None) -> dict:
     """Yes or No to the attendance request (the reminder): a Yes confirms, or brings a regular who had
-    said No back (``RegularReturns``); a No is ``student_not_going``. In the reminder route's shape."""
+    said No back (``RegularReturns``, ``spot_filled`` when the engine does not place them); a No is
+    ``student_not_going``. In the reminder route's shape."""
     if action == "no":
         student_not_going(instance, presence, now)
         return {"action": "declined"}
     student = str(presence.player_id)
-    returning = _is_regular(presence) and presence.status == "absent"
-    handle(instance, rq.RegularReturns(student) if returning else rq.ConfirmAttendance(student), now)
+    now = now or utcnow_naive()
+    if presence.status == "absent":
+        # "Afinal vou" (attendance.confirm rule 28; engine-store rule 14): only a regular has a return in
+        # the engine. One it does not place (their side is full), and a student who is not a regular
+        # (no engine rule: see engine-store's open questions), answer spot_filled, never confirmed.
+        if not _is_regular(presence):
+            return {"action": "spot_filled"}
+        effects = handle(instance, rq.RegularReturns(student), now)
+        placed = any(isinstance(e, fx.Placed) and e.student == student for e in effects)
+        return {"action": "confirmed"} if placed else {"action": "spot_filled"}
+    effects = handle(instance, rq.ConfirmAttendance(student), now)
+    if not any(isinstance(e, fx.Answered) and e.student == student for e in effects):
+        # engine-store rule 13: a yes the engine already counts answers nothing; the store repairs a
+        # presence an earlier yes left unwritten, in its own unit.
+        from padel_app.services.engine_store import TableStore
+
+        store = TableStore()
+        with store.unit((str(instance.id),)):
+            store.repair_confirmed(str(instance.id), student, now)
     return {"action": "confirmed"}
 
 

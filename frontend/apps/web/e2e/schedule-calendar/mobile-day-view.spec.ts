@@ -261,10 +261,12 @@ test.describe("PAD-246: phone calendar Dia view", () => {
     await expect(todayColumn).not.toContainText("Finished Session");
     await expect(page.getByText(/^\+\d+$/)).toHaveCount(0);
 
-    // Selected-day header: navy circle with the day number and the full date.
-    const header = page.getByRole("heading", { level: 3 });
+    // Selected-day header: navy circle with the day number and the full date. Dia is one list of days
+    // (rule 26), so every day has its own h3: this is today's section's.
+    const today = page.getByTestId(`calendar-day-section-${TODAY}`);
+    const header = today.getByRole("heading", { level: 3 });
     await expect(header).toContainText(format(new Date(), "d"));
-    await expect(page.getByText("5 classes")).toBeVisible();
+    await expect(today.getByText("5 classes")).toBeVisible();
   });
 
   test("US-246-4: no legend on the phone, FABs for both add actions", async ({

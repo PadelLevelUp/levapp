@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { BlockerSheet } from "@/features/availability/BlockerSheet";
+import { useBlockerSaveFollowUp } from "@/features/availability/use-blocker-save-follow-up";
 import {
   useCreateBlocker,
   useDeleteBlocker,
@@ -68,6 +69,8 @@ export default function AvailabilityScreen() {
   const createBlocker = useCreateBlocker();
   const updateBlocker = useUpdateBlocker();
   const deleteBlocker = useDeleteBlocker();
+  // PAD-772 (calendar.student-blockers rule 21): the count line after a save that marked classes.
+  const afterSave = useBlockerSaveFollowUp();
 
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<AvailabilityBlocker | null>(
@@ -99,16 +102,18 @@ export default function AvailabilityScreen() {
 
   const handleSubmit = async (payload: BlockerDraftInput) => {
     setSaveError(null);
+    let answer: { markedClasses?: unknown };
     try {
-      if (editing) {
-        await updateBlocker.mutateAsync({ id: editing.id, data: payload });
-      } else {
-        await createBlocker.mutateAsync(payload);
-      }
+      answer = editing
+        ? await updateBlocker.mutateAsync({ id: editing.id, data: payload })
+        : await createBlocker.mutateAsync(payload);
       closeSheet();
     } catch {
       setSaveError(t("availability.couldNotSaveMessage"));
+      return;
     }
+    // The block is saved and listed; the server marked the classes it covers, and nothing from here on says it was not.
+    afterSave(answer);
   };
 
   const handleDelete = async () => {

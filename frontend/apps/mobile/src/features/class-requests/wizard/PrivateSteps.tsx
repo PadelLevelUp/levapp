@@ -1,25 +1,16 @@
 /**
- * PAD-357 (classes.class-requests rules 12–14, classes.availability): the
- * private-class step, mirroring web's PrivateClassStep. Nº de pessoas 1–4 with
- * "Quem vai contigo" usernames (each checked against the coach's roster), single
- * or weekly recurrence, duration, the free start times everyone shares, an
- * optional note, send. Free time comes from the server as `freeWindows` and is
- * rendered only through @levelup/config's availability module, so web and iOS
- * cannot offer different times.
+ * classes.class-requests rule 21: the private class's three steps (people, when, time) on the phone, mirroring web's
+ * PrivateSteps. Each is a body drawn over the shell's one draft (`usePrivateRequestDraft`); the foot, the back control
+ * and Send belong to the screen. The controls are the single-form step's (rules 11 to 14a, PAD-357), split; step c also
+ * holds rule 13b's list. Free time is rendered only through @levelup/config's availability module.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, View } from "react-native";
+import { AccessibilityInfo, Pressable, View, findNodeHandle } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CLASS_REQUEST_DURATIONS,
-  FIRST_FREE_DAY_HORIZON_DAYS,
-  clubTodayISO,
-  endDateAfterClasses,
-  duplicateInvitees,
-  firstFreeDay,
   formatShortDate,
-  availabilityReadKey,
   lessonMinutes,
   JOIN_REFUSAL_CODES,
   joinRefusalKey,
@@ -28,18 +19,16 @@ import {
   needsPrivateLessonWarning,
   occurrenceDates,
   readsPrivateLessons,
-  slotStarts,
-  weeklyIntersection,
-  type Window,
+  privateRequestSummary,
 } from "@levelup/config";
-import { queryKeys } from "@levelup/hooks";
-import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
-import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
+import { queryKeys, type PrivateRequestDraft } from "@levelup/hooks";
+import type { ParticipantCheck } from "@levelup/types";
+import { academyClassesApi } from "@levelup/api";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
-import { EndModeControls, type EndMode } from "./EndModeControls";
+import { EndModeControls } from "./EndModeControls";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
@@ -58,17 +47,6 @@ const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
 function checkCode(c: ParticipantCheck | undefined): string | null {
   return c && "code" in c ? c.code : null;
 }
-
-function addDaysIso(iso: string, n: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
-}
-
-type Recurring = "single" | "weekly";
-// classes.class-requests rule 14a (PAD-428): "on a date" keeps the pre-PAD-428
-// default end (28 days out); "after N classes" turns a class count into that
-// same `endDate` field through @levelup/config's shared arithmetic.
-const DEFAULT_END_COUNT = 4;
 
 /** A round choice button: selected fills with the primary colour. */
 function Chip({
@@ -95,229 +73,45 @@ function Chip({
       onPress={onPress}
       className={cn(
         "items-center justify-center border",
-        round ? "h-9 w-9 rounded-full" : "rounded-full px-3 py-1.5",
+        round ? "h-11 w-11 rounded-full" : "min-h-11 rounded-full px-3",
         selected ? "border-primary bg-primary" : "border-border bg-background"
       )}
     >
-      <Text className={cn("text-sm font-medium", selected ? "text-primary-foreground" : "text-foreground")}>
+      <Text
+        maxFontSizeMultiplier={round ? 1.3 : undefined}
+        className={cn("text-sm font-medium", selected ? "text-primary-foreground" : "text-foreground")}
+      >
         {label}
       </Text>
     </Pressable>
   );
 }
 
-export function PrivateClassStep({
-  coachId,
-  onDone,
-  onNoteFocus,
-}: {
-  coachId: string;
-  onDone: () => void;
-  /** PAD-487: the wizard scrolls the note above the keyboard once it is up. */
-  onNoteFocus?: () => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const queryClient = useQueryClient();
-  const today = clubTodayISO();
-
-  // ── People ──
-  const [people, setPeople] = React.useState(1);
-  const [usernames, setUsernames] = React.useState<string[]>([]);
-  const [checks, setChecks] = React.useState<Record<string, ParticipantCheck>>({});
-
-  // ── Recurrence ──
-  const [recurring, setRecurring] = React.useState<Recurring>("single");
-  const [date, setDate] = React.useState(today);
-  const dateTouched = React.useRef(false);
-  const [weekdays, setWeekdays] = React.useState<number[]>([]);
-  const [startDate, setStartDate] = React.useState(today);
-  const [endDate, setEndDate] = React.useState(addDaysIso(today, 28));
-  const [endMode, setEndMode] = React.useState<EndMode>("date");
-  const [endCount, setEndCount] = React.useState(DEFAULT_END_COUNT);
-
-  // ── Slot ──
-  const [duration, setDuration] = React.useState<number>(60);
-  const [availability, setAvailability] = React.useState<AvailabilityResponse | null>(null);
-  // PAD-929 (rule 13b): the read the current answer belongs to. A failed read, one still on its way,
-  // or an answer for an earlier choice is not "no free time" and never offers the private lessons.
-  const [answeredFor, setAnsweredFor] = React.useState<string | null>(null);
-  const [loadingSlots, setLoadingSlots] = React.useState(false);
-  const [slot, setSlot] = React.useState<Window | null>(null);
-  const [note, setNote] = React.useState("");
-  const [sending, setSending] = React.useState(false);
-
-  const invitees = usernames
-    .slice(0, people - 1)
-    .map((u) => u.trim())
-    .filter(Boolean);
-  const inviteesKey = invitees.join(",");
-  // Rule 12: a name repeated on a later field is refused here, as the server refuses it.
-  const repeated = duplicateInvitees(usernames.slice(0, people - 1));
-  const allInviteesOk =
-    invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true) && !repeated.some(Boolean);
-
-  // Keep one username field per invitee.
+/** One step's root: `class-request-wizard-private-<step>`, and its title takes the screen reader's focus when it shows (rule 21, criterion 62). */
+function StepRoot({ step, children }: { step: "people" | "when" | "time"; children: React.ReactNode }) {
+  const { t } = useTranslation();
+  const title = React.useRef<unknown>(null);
   React.useEffect(() => {
-    setUsernames((u) => Array.from({ length: people - 1 }, (_, i) => u[i] ?? ""));
-  }, [people]);
-
-  // Rule 12: each username checked against this coach's roster (debounced).
-  React.useEffect(() => {
-    // A repeated name is checked once (the server answers its first spelling).
-    const pending = invitees.filter((u, i, all) => !checks[u] && all.findIndex((x) => x.toLowerCase() === u.toLowerCase()) === i);
-    if (pending.length === 0) return;
-    const timer = setTimeout(() => {
-      requestAvailabilityApi
-        .getRequestParticipants(coachId, pending)
-        .then((rows) => setChecks((c) => ({ ...c, ...Object.fromEntries(rows.map((r) => [r.username, r])) })))
-        .catch(() => undefined);
-    }, 400);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, inviteesKey]);
-
-  // "After N classes" (rule 14a) turns the count into the same `endDate` the
-  // wire always sent; "on a date" keeps the raw picker value unchanged.
-  const computedEndDate = endMode === "count" ? endDateAfterClasses(startDate, weekdays, endCount) : null;
-  const effectiveEndDate = endMode === "count" ? computedEndDate ?? "" : endDate;
-  const recurrence =
-    recurring === "weekly"
-      ? { weekdays: [...weekdays].sort((a, b) => a - b), startDate, endDate: effectiveEndDate }
-      : null;
-  const recurrenceValid =
-    !recurrence || (weekdays.length > 0 && startDate <= effectiveEndDate && occurrenceDates(recurrence).length > 0);
-
-  // Rules 11 + 13: for a single class open on the first day that still has free time.
-  React.useEffect(() => {
-    if (recurring !== "single" || dateTouched.current || !allInviteesOk) return;
-    let active = true;
-    requestAvailabilityApi
-      .getCoachAvailability({
-        coachId,
-        from: today,
-        to: addDaysIso(today, FIRST_FREE_DAY_HORIZON_DAYS),
-        participants: invitees,
-      })
-      .then((res) => {
-        // A date the student chose while this was loading wins (web fcd894769).
-        if (!active || dateTouched.current) return;
-        const days = Object.entries(res.freeWindows)
-          .filter(([, windows]) => slotStarts(windows, duration).length > 0)
-          .map(([d]) => ({ date: d }));
-        setDate(firstFreeDay(days, today));
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, recurring, inviteesKey, allInviteesOk]);
-
-  // Rule 13: a picked time is for the length it was picked at; a new length starts the pick over,
-  // so the request never posts the old end.
-  React.useEffect(() => {
-    setSlot(null);
-  }, [duration]);
-
-  // Rule 13: everyone's free windows for the chosen day or recurrence range.
-  React.useEffect(() => {
-    setSlot(null);
-    // Every early return clears the spinner: a load cancelled by this effect's
-    // cleanup never reaches its .finally (web fcd894769).
-    if (!allInviteesOk || !recurrenceValid) {
-      setAvailability(null);
-      setLoadingSlots(false);
-      return;
-    }
-    const from = recurrence ? startDate : date;
-    const to = recurrence ? effectiveEndDate : date;
-    if (!from || !to) {
-      setLoadingSlots(false);
-      return;
-    }
-    let active = true;
-    setLoadingSlots(true);
-    requestAvailabilityApi
-      .getCoachAvailability({ coachId, from, to, participants: invitees })
-      .then((res) => {
-        if (!active) return;
-        setAvailability(res);
-        setAnsweredFor(availabilityReadKey({ coachId, from, to, participants: invitees }));
-      })
-      .catch(() => active && setAvailability(null))
-      .finally(() => active && setLoadingSlots(false));
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, inviteesKey, allInviteesOk, recurring, date, startDate, effectiveEndDate, weekdays.join(","), recurrenceValid]);
-
-  const starts = React.useMemo(() => {
-    if (!availability) return [];
-    if (recurrence) return slotStarts(weeklyIntersection(availability.freeWindows, recurrence).windows, duration);
-    return slotStarts(availability.freeWindows[date] ?? [], duration);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availability, duration, date, recurring, weekdays.join(","), startDate, effectiveEndDate]);
-
-  const send = async () => {
-    if (!slot) return;
-    setSending(true);
-    try {
-      await classRequestsApi.createClassRequest({
-        coachId,
-        date: recurrence ? occurrenceDates(recurrence)[0] : date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        note: note.trim() || null,
-        participants: invitees.length ? invitees : undefined,
-        recurrence: recurrence ?? undefined,
-      });
-      toast.success(t("classRequests.sent"), t("classRequests.sentBody"));
-      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
-      onDone();
-    } catch (err) {
-      const refusal = classRequestsApi.classRequestRefusal(err);
-      const detail = refusal
-        ? t(`classRequestWizard.refusal.${refusal.code}`, {
-            defaultValue: t(`classRequests.refusal.${refusal.code}`, { defaultValue: "" }),
-          })
-        : "";
-      toast.error(t("classRequests.failed"), detail || undefined);
-      setSlot(null);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  // "waiting" before "loading": an invitee that turns invalid mid-load must not
-  // leave the slots stuck on a spinner (web fcd894769).
-  const slotsState =
-    !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
-
-  // PAD-929 (classes.class-requests rule 13b), as on web: no free time offers the coach's visible
-  // private lessons (classes.academy-class-booking rule 12); each row's one action goes through the
-  // private-lesson warning, then the side sheet (classes.join-requests rule 22).
-  const answered =
-    answeredFor !== null &&
-    answeredFor ===
-      availabilityReadKey({
-        coachId,
-        from: recurrence ? startDate : date,
-        to: recurrence ? effectiveEndDate : date,
-        participants: invitees,
-      });
-  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
-  const privateLessons = useQuery({
-    queryKey: ["academy-classes", coachId, "private"],
-    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
-    enabled: showPrivateLessons,
-  });
-  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
-  const [lessonSideFor, setLessonSideFor] = React.useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
-  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
-
+    const tag = findNodeHandle(title.current as never);
+    if (tag != null) AccessibilityInfo.setAccessibilityFocus(tag);
+  }, []);
   return (
-    <View className="gap-5" testID="wizard-private">
+    <View testID={`class-request-wizard-private-${step}`} collapsable={false}>
+      <View className="gap-5" testID="wizard-private">
+        <View ref={title as never} accessible accessibilityRole="header" testID="wizard-step-title">
+          <Text className="text-base font-semibold">{t(`classRequestWizard.steps.${step}`)}</Text>
+        </View>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+export function PrivatePeopleStep({ draft }: { draft: PrivateRequestDraft }) {
+  const { t } = useTranslation();
+  const { people, setPeople, usernames, setUsernames, checks, repeated } = draft;
+  return (
+    <StepRoot step="people">
       {/* Nº de pessoas + Quem vai contigo (rule 12) */}
       <View className="gap-2">
         <Label>{t("classRequestWizard.people")}</Label>
@@ -376,7 +170,19 @@ export function PrivateClassStep({
           </View>
         ) : null}
       </View>
+    </StepRoot>
+  );
+}
 
+export function PrivateWhenStep({ draft }: { draft: PrivateRequestDraft }) {
+  const { t, i18n } = useTranslation();
+  const {
+    recurring, setRecurring, setDate, date, weekdays, setWeekdays, startDate, setStartDate, endDate, setEndDate,
+    endMode, setEndMode, endCount, setEndCount, recurrenceValid,
+  } = draft;
+  const computedEndDate = endMode === "count" && draft.effectiveEndDate ? draft.effectiveEndDate : null;
+  return (
+    <StepRoot step="when">
       {/* Recorrência (rule 14) */}
       <View className="gap-2">
         <Label>{t("classRequestWizard.recurrence")}</Label>
@@ -396,10 +202,7 @@ export function PrivateClassStep({
             testID="wizard-date"
             label={t("classRequests.date")}
             value={date}
-            onChange={(v) => {
-              dateTouched.current = true;
-              setDate(v);
-            }}
+            onChange={setDate}
           />
         ) : (
           <View className="gap-3">
@@ -409,7 +212,7 @@ export function PrivateClassStep({
                   key={d}
                   round
                   selected={weekdays.includes(d)}
-                  onPress={() => setWeekdays((w) => (w.includes(d) ? w.filter((x) => x !== d) : [...w, d]))}
+                  onPress={() => setWeekdays(weekdays.includes(d) ? weekdays.filter((x) => x !== d) : [...weekdays, d])}
                   testID={`wizard-weekday-${d}`}
                   label={t(`classRequestWizard.weekdayInitials.${d}`)}
                   accessibilityLabel={t(`classRequestWizard.weekdays.${d}`)}
@@ -450,7 +253,39 @@ export function PrivateClassStep({
           </View>
         )}
       </View>
+    </StepRoot>
+  );
+}
 
+export function PrivateTimeStep({
+  draft, coachId, onChangeWhen, onNoteFocus,
+}: { draft: PrivateRequestDraft; coachId: string; onChangeWhen: () => void; onNoteFocus?: () => void }) {
+  const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
+  const {
+    people, recurring, duration, setDuration, availability, slot, setSlot, note, setNote, starts, slotsState, answered,
+  } = draft;
+
+  // PAD-929 (classes.class-requests rule 13b), as on web: no free time offers the coach's visible
+  // private lessons (classes.academy-class-booking rule 12); each row's one action goes through the
+  // private-lesson warning, then the side sheet (classes.join-requests rule 22).
+  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
+  const privateLessons = useQuery({
+    queryKey: ["academy-classes", coachId, "private"],
+    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
+    enabled: showPrivateLessons,
+  });
+  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
+  const [lessonSideFor, setLessonSideFor] = React.useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
+  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
+  const summary = privateRequestSummary(
+    { people, invitees: draft.invitees, recurring, date: draft.date, weekdays: draft.weekdays, endDate: draft.effectiveEndDate },
+    (key, vars) => t(`classRequestWizard.${key}`, vars)
+  );
+
+  return (
+    <StepRoot step="time">
+      <Text className="text-sm text-muted-foreground" testID="wizard-summary">{summary}</Text>
       {/* Duração e horários livres (rule 13) */}
       <View className="gap-2">
         <Label>{t("classRequests.duration")}</Label>
@@ -485,6 +320,9 @@ export function PrivateClassStep({
               <Text className="text-sm text-muted-foreground">
                 {t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}
               </Text>
+              <Button variant="outline" className="min-h-11" testID="wizard-change-when" onPress={onChangeWhen}>
+                <Text>{t("classRequestWizard.changeWhen")}</Text>
+              </Button>
               {lessons.length > 0 ? (
                 <View className="gap-2" testID="wizard-private-lessons">
                   <Text className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</Text>
@@ -567,11 +405,6 @@ export function PrivateClassStep({
         />
       </View>
 
-      <Button testID="wizard-send" disabled={sending || !slot || !allInviteesOk} onPress={() => void send()}>
-        {sending ? <Spinner size="small" color="white" /> : null}
-        <Text>{t("classRequests.send")}</Text>
-      </Button>
-
       {lessonSideFor ? (
         <ClassSideSheet
           open
@@ -597,6 +430,61 @@ export function PrivateClassStep({
           }}
         />
       ) : null}
-    </View>
+    </StepRoot>
+  );
+}
+
+/** Rule 21: Send, as the single form sent it; the screen's foot calls it. */
+export function usePrivateSend(draft: PrivateRequestDraft, coachId: string, onDone: () => void) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  return async () => {
+    const { slot, recurrence, date, note, invitees } = draft;
+    if (!slot) return;
+    draft.setSending(true);
+    try {
+      await classRequestsApi.createClassRequest({
+        coachId,
+        date: recurrence ? occurrenceDates(recurrence)[0] : date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        note: note.trim() || null,
+        participants: invitees.length ? invitees : undefined,
+        recurrence: recurrence ?? undefined,
+      });
+      toast.success(t("classRequests.sent"), t("classRequests.sentBody"));
+      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+      onDone();
+    } catch (err) {
+      const refusal = classRequestsApi.classRequestRefusal(err);
+      const detail = refusal
+        ? t(`classRequestWizard.refusal.${refusal.code}`, {
+            defaultValue: t(`classRequests.refusal.${refusal.code}`, { defaultValue: "" }),
+          })
+        : "";
+      toast.error(t("classRequests.failed"), detail || undefined);
+      draft.setSlot(null);
+    } finally {
+      draft.setSending(false);
+    }
+  };
+}
+
+/** Rule 21's foot: one main button, full width and at least 44px high; "Continuar" in a and b, Send in c. */
+export function PrivateFoot({
+  step, answered, sending, onContinue, onSend,
+}: {
+  step: "people" | "when" | "time"; answered: boolean; sending: boolean; onContinue: () => void; onSend: () => void;
+}) {
+  const { t } = useTranslation();
+  return step === "time" ? (
+    <Button className="h-auto min-h-11 w-full" testID="wizard-send" disabled={sending || !answered} onPress={onSend}>
+      {sending ? <Spinner size="small" color="white" /> : null}
+      <Text>{t("classRequests.send")}</Text>
+    </Button>
+  ) : (
+    <Button className="h-auto min-h-11 w-full" testID="wizard-continue" disabled={!answered} onPress={onContinue}>
+      <Text>{t("classRequestWizard.continue")}</Text>
+    </Button>
   );
 }

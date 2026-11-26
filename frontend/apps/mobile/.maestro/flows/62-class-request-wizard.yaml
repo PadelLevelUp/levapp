@@ -5,7 +5,7 @@
 # - the student opens the wizard from the Pedidos de aula card and picks a
 #   private class (the seeded student has one coach, so the coach step is skipped);
 # - an invitee who is not on the coach's roster is refused (USERNAME_NOT_FOUND)
-#   and the slots wait;
+#   and the first step cannot be passed (rule 21: people, when, time);
 # - an invitee from the roster (e2e-student-2) is accepted, a 90-minute slot is
 #   picked, and the request is sent;
 # - the tab lists it as pending, and the student withdraws it.
@@ -60,11 +60,10 @@ appId: com.padellevelup.app
     visible:
       id: "wizard-invitee-0-error-USERNAME_NOT_FOUND"
     timeout: 15000
-- scrollUntilVisible:
-    element:
-      id: "wizard-slots-waiting"
-    direction: DOWN
-    timeout: 20000
+# Rule 21: the refused name keeps the first step from being passed; the slot list is the last step's.
+- assertVisible:
+    id: "wizard-continue"
+    enabled: false
 
 # ── A player from the roster is accepted ──
 - scrollUntilVisible:
@@ -81,6 +80,30 @@ appId: com.padellevelup.app
     visible:
       id: "wizard-invitee-0-ok"
     timeout: 15000
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-when"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-when"
+    timeout: 15000
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-time"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-time"
+    timeout: 15000
 
 # ── 90 minutes, the first free start time, send ──
 - scrollUntilVisible:
@@ -90,6 +113,20 @@ appId: com.padellevelup.app
     timeout: 20000
 - tapOn:
     id: "wizard-duration-90"
+# The date is the first day with 60 free minutes, which late in the evening is today with less than 90 left (the club
+# day ends at 22:00 by default: CI at 20:35 UTC showed "No free time on that day"). Then the flow books 60 instead; the
+# 90-minute choice itself is covered by the unit and Playwright tests.
+- extendedWaitUntil:
+    visible:
+      id: "wizard-slots-(ready|empty)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "wizard-slots-empty"
+    commands:
+      - tapOn:
+          id: "wizard-duration-60"
 - scrollUntilVisible:
     element:
       id: "wizard-slots-ready"
@@ -103,8 +140,15 @@ appId: com.padellevelup.app
       id: "wizard-send"
     direction: DOWN
     timeout: 20000
-- tapOn:
-    id: "wizard-send"
+# Send is under the same 400 ms lock as Continuar: tap again while the screen is still there.
+- repeat:
+    while:
+      visible:
+        id: "wizard-send"
+    times: 3
+    commands:
+      - tapOn:
+          id: "wizard-send"
 
 # ── Back on the tab: pending, then withdrawn ──
 - scrollUntilVisible:

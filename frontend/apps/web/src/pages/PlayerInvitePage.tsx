@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { InviteWelcome } from "@/components/auth/InviteWelcome";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -241,59 +242,36 @@ const PlayerInvitePage = () => {
 
   if (claimStatus === "claimed") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md text-center" data-testid="invite-claim-success">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">
-              {t("auth.playerInvite.claimSuccessTitle")}
-            </CardTitle>
-            <CardDescription>
-              {t("auth.playerInvite.claimSuccessDescription", { coachName: claimedCoach })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" onClick={() => navigate("/dashboard")} data-testid="invite-claim-go-dashboard">
+      <InviteWelcome testId="invite-claim-success" cardClassName="text-center"
+        title={t("auth.playerInvite.claimSuccessTitle")}
+        description={t("auth.playerInvite.claimSuccessDescription", { coachName: claimedCoach })}
+      >
+            <Button className="w-full min-h-11" onClick={() => navigate("/dashboard")} data-testid="invite-claim-go-dashboard">
               {t("auth.playerInvite.claimGoToDashboard")}
             </Button>
-          </CardContent>
-        </Card>
-      </div>
+      </InviteWelcome>
     );
   }
 
   if (isAuthenticated && isCoach) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md text-center" data-testid="invite-claim-is-coach">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">
-              {t("auth.playerInvite.claimIsCoachTitle")}
-            </CardTitle>
-            <CardDescription>{t("auth.playerInvite.claimIsCoachDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" className="w-full" onClick={() => navigate("/dashboard")}>
+      <InviteWelcome testId="invite-claim-is-coach" cardClassName="text-center"
+        title={t("auth.playerInvite.claimIsCoachTitle")}
+        description={t("auth.playerInvite.claimIsCoachDescription")}
+      >
+            <Button variant="outline" className="w-full min-h-11" onClick={() => navigate("/dashboard")}>
               {t("auth.playerInvite.claimGoToDashboard")}
             </Button>
-          </CardContent>
-        </Card>
-      </div>
+      </InviteWelcome>
     );
   }
 
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md" data-testid="invite-claim">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">
-              {t("auth.playerInvite.claimTitle")}
-            </CardTitle>
-            <CardDescription className="text-center">
-              {t("auth.playerInvite.claimDescription", { playerName })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      <InviteWelcome testId="invite-claim"
+        title={t("auth.playerInvite.claimTitle")}
+        description={t("auth.playerInvite.claimDescription", { playerName })}
+      >
             <p className="text-center text-sm text-muted-foreground">
               {t("auth.playerInvite.claimSignedInAs", { name: user?.name ?? user?.username ?? "" })}
             </p>
@@ -303,7 +281,7 @@ const PlayerInvitePage = () => {
               </p>
             )}
             <Button
-              className="w-full"
+              className="w-full min-h-11"
               onClick={handleClaim}
               disabled={claimStatus === "claiming"}
               data-testid="invite-claim-confirm"
@@ -315,25 +293,15 @@ const PlayerInvitePage = () => {
             <p className="text-center text-xs text-muted-foreground">
               {t("auth.playerInvite.claimUseAnotherAccount")}
             </p>
-          </CardContent>
-        </Card>
-      </div>
+      </InviteWelcome>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            {t("auth.playerInvite.title", { playerName })}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {t("auth.playerInvite.description")}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
+    <InviteWelcome
+      title={t("auth.playerInvite.title", { playerName })}
+      description={t("auth.playerInvite.description")}
+    >
           <form onSubmit={handleSubmit} className="space-y-4">
             {[
               { id: "username", label: t("auth.playerInvite.username") },
@@ -408,7 +376,7 @@ const PlayerInvitePage = () => {
               <p className="text-sm text-destructive">{submitError}</p>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button type="submit" className="w-full min-h-11" disabled={submitting}>
               {submitting ? t("auth.playerInvite.completing") : t("auth.playerInvite.complete")}
             </Button>
           </form>
@@ -426,9 +394,8 @@ const PlayerInvitePage = () => {
               {t("auth.playerInvite.claimSignIn")}
             </button>
           </p>
-        </CardContent>
-      </Card>
-    </div>
+
+    </InviteWelcome>
   );
 };
 

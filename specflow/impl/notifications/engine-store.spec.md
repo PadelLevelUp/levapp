@@ -141,6 +141,32 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     level and is later given one: its no-level state reads at the new level, so nothing reopens or is asked
     again, while a change from one level to another does reopen and re-ask as before. A class with no level
     reads exactly as before. No stored row is rewritten by a migration.
+13. **An attendance request's answer reaches the presence (`notifications.reminders`, `event-detail` rule
+    24; as the old engine's reminder answer did).** When the store writes an `Answered` yes to an attendance
+    request, the student's going presence is written as coming: `confirmed`, `response` `confirmed` and
+    `responded_at` the answer's time, and one `presence_changed` live event is queued for the class's coach,
+    sent after the unit commits (none on a rollback). A yes the engine already
+    counts (rule 6: a yes `ReminderAttempt`) has no effect, so the app's answer route, when the engine returns
+    no `Answered` for a going student who has a yes `ReminderAttempt` and whose presence is not written as
+    coming, has the store write it as above, in its own unit, before the class starts: a presence an earlier
+    yes left unwritten is repaired by the student's next tap. Who the engine counts as confirmed (rule 6) and
+    who it asks again do not change.
+14. **A No and "Afinal vou" reach the presence (`attendance.confirm` rules 28-29, `event-detail` rule 24;
+    as the old engine's did).** A `Left` (a regular's No, a cancellation, the reminder's No) queues one
+    `presence_changed` for the class's coach, sent after the commit; the No's own fields stay as rule 4,
+    the `Absence` and owner ruling D4 write them (`status` `absent`, the notice as `response`, never a
+    justification). A regular's "Afinal vou" (`RegularReturns`) that the engine places (`Placed`
+    `regular_returns`) writes the presence as coming as the old path's return did: the coach's "Não vai"
+    mark cleared (`validated` false), `confirmed`, `response` `confirmed` and `responded_at` the placement's
+    time, and one `presence_changed`; so they count as confirmed (rule 6) and are not asked again for that
+    occurrence (`attendance.confirm` rule 28). When the engine places nobody (the regular's side is full: a
+    "sorry" only), the answer route answers `spot_filled` and nothing on the presence changes. A student who
+    is not a regular and said No has no return in the engine (`notifications.engine-answers`): the route asks
+    the engine nothing and answers `spot_filled`, the presence stays absent (see Open questions). A
+    `spot_filled` changes nothing on the presence, its block-decline reason (`decline_source`) included.
+    Neither rule 13's write nor its repair touches a presence the coach already marked (`validated`,
+    `attendance.confirm` rule 29, as the old path's `already_marked`) or one that is `absent`: its
+    `confirmed`, `response` and `recorded_by` stay as they were.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -320,6 +346,64 @@ spots an open counting invitation offered with no level covers, then it counts t
 offer at the session's level.
 test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_the_card_and_the_admin_coverage_read_a_no_level_spot_type_at_the_sessions_level`
 
+#### NOTIFICATIONS-ENGINE-STORE-25: A yes to the attendance request confirms the presence and tells the coach (rule 13)
+Given a new-engine class with its regular going and unconfirmed, when the regular answers yes to the
+attendance request, then their presence is `confirmed` with `response` `confirmed` and `responded_at` the
+answer's time, their `ReminderAttempt` is answered yes, and one `presence_changed` for them reaches the
+class's coach after the commit.
+test: `backend/padel_app/tests/test_engine_reminder_yes_presence.py` › `test_a_yes_to_the_attendance_request_confirms_the_presence`
+
+#### NOTIFICATIONS-ENGINE-STORE-26: A repeat yes repairs a presence an earlier yes left unconfirmed (rule 13)
+Given a new-engine class whose regular has a yes `ReminderAttempt` and a going presence that is not
+confirmed (`response` `none`), when the regular answers yes again, then the engine returns no effect, and
+the presence is `confirmed` with `response` `confirmed`, and one `presence_changed` reaches the coach after
+the commit; a repeat yes once the class has started repairs nothing.
+test: `backend/padel_app/tests/test_engine_reminder_yes_presence.py` › `test_a_repeat_yes_repairs_an_unconfirmed_presence`
+
+#### NOTIFICATIONS-ENGINE-STORE-27: The student's in-app yes confirms the presence (rule 13)
+Given a new-engine class with its regular going and unconfirmed, when the regular posts yes to
+`/api/app/notify/respond_reminder` (the reminder bubble's and the class detail's confirm button), then the
+answer is `confirmed` and the presence is `confirmed` with `response` `confirmed`.
+test: `backend/padel_app/tests/test_engine_reminder_yes_presence.py` › `test_the_in_app_yes_confirms_the_presence`
+
+#### NOTIFICATIONS-ENGINE-STORE-28: A No to the attendance request and a cancellation tell the coach (rule 14)
+Given a new-engine class with its regular going, when the regular answers no to the attendance request,
+then the presence is `absent` with the notice as its `response` (`cancelled` inside the cancellation
+deadline) and no justification, and one `presence_changed` for them reaches the class's coach after the
+commit; and when a student placed for that one class cancels, one `presence_changed` for them reaches the
+coach too.
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_no_and_a_cancellation_tell_the_coach`
+
+#### NOTIFICATIONS-ENGINE-STORE-29: A regular's "Afinal vou" with a spot lands on coming (rule 14)
+Given a new-engine class whose regular said No, when the regular answers yes, then the answer is
+`confirmed`, the presence is going with `confirmed`, `response` `confirmed` and `responded_at` the answer's
+time, the snapshot counts them confirmed, and one `presence_changed` reaches the coach; and given the same
+regular marked "Não vai" by the coach (`validated`) before the class, their yes also clears `validated`, so
+the state reads `coming`.
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_regulars_return_with_a_spot_lands_on_coming`
+
+#### NOTIFICATIONS-ENGINE-STORE-30: A regular's "Afinal vou" on a full side answers spot_filled (rule 14)
+Given a new-engine class whose regular said No and whose seat was then taken, when the regular answers yes,
+then the answer is `spot_filled` and the presence stays `absent` with its `response` and its
+`decline_source` unchanged.
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_regulars_return_on_a_full_side_answers_spot_filled`
+
+#### NOTIFICATIONS-ENGINE-STORE-31: A non-regular's "Afinal vou" answers spot_filled, never confirmed (rule 14)
+Given a new-engine class where a student placed for that one class cancelled, when they answer yes, then
+the answer is `spot_filled` and the presence stays `absent`.
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_non_regulars_return_answers_spot_filled`
+
+#### NOTIFICATIONS-ENGINE-STORE-32: A yes never writes over the coach's mark (rule 14)
+Given a new-engine class whose regular the coach marked present (`validated`) before the start, when the
+regular answers yes, and again (the repair), then the presence's `confirmed`, `response` and `recorded_by`
+are as the coach's mark left them.
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_yes_never_writes_over_the_coachs_mark`
+
+#### NOTIFICATIONS-ENGINE-STORE-33: An attendance-request yes is never written on an absent presence (rule 14)
+Given a new-engine class whose regular said No, when the store applies an `Answered` yes to the attendance
+request for them, then the presence stays `absent` with its `confirmed` and `response` unchanged.
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_an_answered_yes_is_never_written_on_an_absent_presence`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -338,6 +422,11 @@ test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_the_car
    `pending`, `dismissed_groups`; `CoachAlert` and `AlertCleared` writes).
 8. (engine effective level, transition readers) STORE-24 — `services/engine_outbox.py` (`card`),
    `services/admin/engine_health.py` (`_open_spots`).
+9. (engine reminder yes, 2026-11-26) STORE-25 to STORE-27 — `services/engine_store.py` (`Answered`,
+   `repair_confirmed`), `services/engine_entry.py` (`answer_attendance_request`).
+10. (engine "Afinal vou", 2026-11-26) STORE-28 to STORE-33 — `services/engine_store.py` (`Left`, `Placed`
+   `regular_returns`, `Answered`, `repair_confirmed`), `services/engine_entry.py` (`answer_attendance_request`),
+   `services/notification_service.py` (`_clear_decline_source`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
@@ -349,6 +438,13 @@ test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_the_car
   student's other open engine invitations paid by that entry be withdrawn? The engine never revokes (D4),
   and a withdrawal needs its own bubble state and copy. Until then a second Yes from that entry places the
   student without a credit.
+- "Afinal vou" from a student who is not a regular (rule 14, STORE-31; 26 Nov 2026) — decision (P0 fix
+  agent, orchestrator's order not to invent engine rules; the owner can reverse it): `attendance.confirm`
+  rule 28 lets any student who said No come back while a spot is free, but the engine returns only a
+  regular (`notifications.engine-answers`, `RegularReturns`); a student placed for one class who cancelled
+  has no return there. Until the engine has one, the route answers `spot_filled` (the screen then offers
+  the waiting list) instead of a `confirmed` that seated nobody. Open for the owner: should such a student
+  take a free seat back on the new engine, and through which engine request?
 - The run's log line (rule 7, STORE-20; prod slowness, 25 Nov 2026) — decision (hotfix agent, owner's
   order, nobody reachable to review; the owner can reverse it): a log line only, not exposed on admin
   engine-health, because APScheduler logs no run lines and the log is the cheapest place to read it.

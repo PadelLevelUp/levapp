@@ -32,8 +32,12 @@ onFlowComplete:
     visible:
       text: "PAD-377 Weekly Event.*"
     timeout: 20000
+# Rule 26 (Dia is one list of days): the series has a card on every Monday of the list, so the tap is
+# scoped to the seeded Monday's pinned header.
 - tapOn:
     text: "PAD-377 Weekly Event.*"
+    below:
+      id: "calendar-day-header-${output.seededMonday}"
 - extendedWaitUntil:
     visible:
       id: "event-detail"

@@ -5,10 +5,8 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { CountryField } from "@/features/auth/CountryField";
-import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
-import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
+import { PreAuthShell, WelcomeBand } from "@/features/auth/PreAuthShell";
 import { typedChosenUsername } from "@levelup/config";
 
 /**
@@ -38,6 +36,8 @@ import { typedChosenUsername } from "@levelup/config";
  * wrapper (which paints the signed-in background and expects a tab navigator).
  */
 
+export { PreAuthShell, WelcomeBand };
+
 export type AccountFormField = {
   /** Key in the values object; also the i18n suffix for the label. */
   id: string;
@@ -51,34 +51,6 @@ export type AccountFormField = {
    * PAD-637: "terms" is the Terms box (`values[id]` is "true" when ticked; auth.register rule 19b). */
   kind?: "country" | "terms";
 };
-
-export function PreAuthShell({
-  children,
-  testID,
-}: {
-  children: React.ReactNode;
-  testID: string;
-}) {
-  return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-sidebar"
-      behavior={keyboardAvoidingBehavior()}
-    >
-      <StatusBar style="light" />
-      <ScrollView
-        testID={testID}
-        contentContainerClassName="flex-grow justify-center p-4"
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        <View className="mb-8 items-center">
-          <LevAppMark size={40} />
-        </View>
-        {children}
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
 
 /**
  * Full-screen spinner while the invitation / user lookup is in flight.
@@ -108,6 +80,7 @@ export function AccountSetupNotice({
   onAction,
   testID,
   tone = "destructive",
+  welcome = false,
 }: {
   title: string;
   description: string;
@@ -115,7 +88,23 @@ export function AccountSetupNotice({
   onAction: () => void;
   testID: string;
   tone?: "destructive" | "neutral";
+  /** auth.invite-welcome: the words stand on the navy, outside the card (the invite screens' states). */
+  welcome?: boolean;
 }) {
+  if (welcome) {
+    return (
+      <PreAuthShell testID={testID}>
+        <WelcomeBand title={title} description={description} />
+        <Card className="w-full">
+          <CardContent className="pt-6">
+            <Button testID={`${testID}-action`} onPress={onAction} className="min-h-11">
+              <Text>{actionLabel}</Text>
+            </Button>
+          </CardContent>
+        </Card>
+      </PreAuthShell>
+    );
+  }
   return (
     <PreAuthShell testID={testID}>
       <Card className="w-full">
@@ -152,6 +141,7 @@ export function AccountSetupForm({
   submitError,
   testID,
   footer,
+  welcome = false,
 }: {
   title: string;
   description: string;
@@ -167,16 +157,21 @@ export function AccountSetupForm({
   testID: string;
   /** Rendered under the card — the legal links on the register screen. */
   footer?: React.ReactNode;
+  /** auth.invite-welcome: the words stand on the navy, outside the card (the two invitation screens). */
+  welcome?: boolean;
 }) {
   return (
     <PreAuthShell testID={testID}>
+      {welcome ? <WelcomeBand title={title} description={description} /> : null}
       <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-center">{title}</CardTitle>
-          <CardDescription className="text-center">{description}</CardDescription>
-        </CardHeader>
+        {welcome ? null : (
+          <CardHeader>
+            <CardTitle className="text-center">{title}</CardTitle>
+            <CardDescription className="text-center">{description}</CardDescription>
+          </CardHeader>
+        )}
 
-        <CardContent className="gap-4">
+        <CardContent className={welcome ? "gap-4 pt-6" : "gap-4"}>
           {fields.map((field) =>
             field.kind === "terms" ? (
               <TermsAcceptField
@@ -242,6 +237,7 @@ export function AccountSetupForm({
             accessibilityLabel={submitLabel}
             onPress={onSubmit}
             disabled={submitting}
+            className={welcome ? "min-h-11" : undefined}
           >
             {submitting ? (
               <ActivityIndicator color="#ffffff" />

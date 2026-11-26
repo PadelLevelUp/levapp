@@ -65,9 +65,15 @@
       "end_before_start": "The end time must be after the start time.",
       "end_date_before_start_date": "The end date must be on or after the start date."
     },
+    "covered": {
+      "marked_one": "{{count}} class marked as \"Not going\"",
+      "marked_other": "{{count}} classes marked as \"Not going\"",
+      "marked_zero": "{{count}} classes marked as \"Not going\"",
+      "notice": "Classes you are enrolled in during this period are marked as Not going."
+    },
     "blockersCard": {
       "title": "Unavailability",
-      "intro": "Block the times you can't play. While a block is on you get no class invitations or reminders, and they are left out when you book a class.",
+      "intro": "Block the times you can't play. While a block is on you get no class invitations or reminders, and they are left out when you book a class. Classes you are enrolled in during that period are marked as Not going when you save.",
       "cta": "Create block"
     },
     "sheet": {

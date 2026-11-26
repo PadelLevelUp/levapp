@@ -29,7 +29,7 @@ vi.mock("@levelup/api/src/resources/messages", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getConversations: never,
 }));
-vi.mock("@levelup/api", () => ({ messagesApi: { createConversation: vi.fn() } }));
+vi.mock("@levelup/api", () => ({ messagesApi: { createConversation: vi.fn() }, requestAvailabilityApi: { getRequestParticipants: vi.fn().mockResolvedValue([]), getCoachAvailability: vi.fn().mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" }) } }));
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ user: { id: 1 } }) }));
 vi.mock("@/features/messages/hooks", () => ({
   useMessageableUsers: () => ({ data: [], isLoading: true, isError: false, refetch: vi.fn() }),
@@ -37,7 +37,7 @@ vi.mock("@/features/messages/hooks", () => ({
 vi.mock("@/features/class-requests/wizard/AcademyClassStep", () => ({ AcademyClassStep: () => null }));
 vi.mock("@/features/class-requests/wizard/CoachStep", () => ({ CoachStep: () => null }));
 vi.mock("@/features/class-requests/wizard/KindStep", () => ({ KindStep: () => null }));
-vi.mock("@/features/class-requests/wizard/PrivateClassStep", () => ({ PrivateClassStep: () => null }));
+vi.mock("@/features/class-requests/wizard/PrivateSteps", () => ({ PrivateFoot: () => null, PrivatePeopleStep: () => null, PrivateTimeStep: () => null, PrivateWhenStep: () => null, usePrivateSend: () => async () => undefined }));
 
 import ClassRequestWizardScreen from "../../app/class-request-wizard";
 import NewConversationScreen from "../../app/conversation/new";
