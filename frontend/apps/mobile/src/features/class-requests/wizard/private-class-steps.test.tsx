@@ -453,3 +453,20 @@ describe("Android's back goes one step back, then leaves (criterion 65)", () => 
     expect(privateStep(v)).toBe("when");
   });
 });
+
+describe("the largest text size (iOS run t27)", () => {
+  it("[CLASSES-CLASS-REQUESTS-60] the foot's button grows with its label (min height, no fixed one) and the people circles keep their size and cap their digit", async () => {
+    const v = await toPrivate();
+    const fixedHeight = (id: string) => /(^|\s)h-(?!auto)\d/.test(String(v.byTestId(id).props.className));
+    expect(fixedHeight("wizard-continue")).toBe(false);
+    expect(String(v.byTestId("wizard-continue").props.className)).toMatch(/min-h-1[12]/);
+    // A circle stays a circle: the digit stops growing at 1.3x, the circle keeps 44 x 44.
+    const circle = v.byTestId("wizard-people-2");
+    expect(String(circle.props.className)).toContain("h-11 w-11");
+    const digit = circle.findAll((n: { props: { maxFontSizeMultiplier?: number } }) => n.props.maxFontSizeMultiplier !== undefined);
+    expect(digit.length).toBeGreaterThan(0);
+    await next(v, "when");
+    await next(v, "time");
+    expect(fixedHeight("wizard-send")).toBe(false);
+  });
+});

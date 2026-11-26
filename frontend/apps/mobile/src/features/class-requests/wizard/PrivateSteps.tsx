@@ -77,7 +77,10 @@ function Chip({
         selected ? "border-primary bg-primary" : "border-border bg-background"
       )}
     >
-      <Text className={cn("text-sm font-medium", selected ? "text-primary-foreground" : "text-foreground")}>
+      <Text
+        maxFontSizeMultiplier={round ? 1.3 : undefined}
+        className={cn("text-sm font-medium", selected ? "text-primary-foreground" : "text-foreground")}
+      >
         {label}
       </Text>
     </Pressable>
@@ -475,12 +478,12 @@ export function PrivateFoot({
 }) {
   const { t } = useTranslation();
   return step === "time" ? (
-    <Button className="min-h-11 w-full" testID="wizard-send" disabled={sending || !answered} onPress={onSend}>
+    <Button className="h-auto min-h-11 w-full" testID="wizard-send" disabled={sending || !answered} onPress={onSend}>
       {sending ? <Spinner size="small" color="white" /> : null}
       <Text>{t("classRequests.send")}</Text>
     </Button>
   ) : (
-    <Button className="min-h-11 w-full" testID="wizard-continue" disabled={!answered} onPress={onContinue}>
+    <Button className="h-auto min-h-11 w-full" testID="wizard-continue" disabled={!answered} onPress={onContinue}>
       <Text>{t("classRequestWizard.continue")}</Text>
     </Button>
   );

@@ -502,11 +502,11 @@ export function PrivateFoot({
 }) {
   const { t } = useTranslation();
   return step === "time" ? (
-    <Button className="min-h-11 w-full" onClick={onSend} disabled={sending || !answered} data-testid="wizard-send">
+    <Button className="h-auto min-h-11 w-full" onClick={onSend} disabled={sending || !answered} data-testid="wizard-send">
       {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("classRequests.send")}
     </Button>
   ) : (
-    <Button className="min-h-11 w-full" onClick={onContinue} disabled={!answered} data-testid="wizard-continue">
+    <Button className="h-auto min-h-11 w-full" onClick={onContinue} disabled={!answered} data-testid="wizard-continue">
       {t("classRequestWizard.continue")}
     </Button>
   );

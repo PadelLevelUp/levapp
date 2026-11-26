@@ -365,3 +365,32 @@ describe("the sheet follows the visible viewport (criterion 64)", () => {
     expect((screen.getByTestId("class-request-wizard") as HTMLElement).style.maxHeight).toBe("");
   });
 });
+
+describe("the academy kind reads nothing of the private class (PAD-358 flow 66)", () => {
+  it("[CLASSES-CLASS-REQUESTS-57] the academy kind makes no availability or roster read, and the private kind still reads after it", async () => {
+    requests.listClassRequestCoaches.mockResolvedValue([COACHES[0]]);
+    availabilityApi.getCoachAvailability.mockClear();
+    availabilityApi.getRequestParticipants.mockClear();
+    mount();
+    fireEvent.click(await screen.findByTestId("wizard-kind-academy"));
+    await waitFor(() => expect(academyApi.listAcademyClasses).toHaveBeenCalled());
+    await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+    expect(availabilityApi.getCoachAvailability).not.toHaveBeenCalled();
+    expect(availabilityApi.getRequestParticipants).not.toHaveBeenCalled();
+    click("wizard-back");
+    fireEvent.click(await screen.findByTestId("wizard-kind-private"));
+    await waitFor(() => expect(availabilityApi.getCoachAvailability).toHaveBeenCalled());
+  });
+});
+
+describe("larger text (iOS run t27, same check on the web)", () => {
+  it("[CLASSES-CLASS-REQUESTS-60] the foot's button grows with its label: a minimum height, no fixed one", async () => {
+    await toPrivate();
+    const fixed = (id: string) => /(^|\s)h-(?!auto)\d/.test(screen.getByTestId(id).className);
+    expect(fixed("wizard-continue")).toBe(false);
+    expect(screen.getByTestId("wizard-continue").className).toContain("min-h-11");
+    await next("when");
+    await next("time");
+    expect(fixed("wizard-send")).toBe(false);
+  });
+});
