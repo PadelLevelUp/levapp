@@ -450,7 +450,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       when none is an old-engine job, and otherwise finds each job's coach in a fixed number of queries
       and asks only a coach who owns one whether they are drained. Every occurrence still materialises and is adopted at the same
       run as before. One coach's failure in the adoption pass is logged and rolled back, and the run
-      goes on with the other coaches, the cutover pass, the sessions and the outbox.
+      goes on with the other coaches, the cutover pass, the sessions and the outbox. A failure of the
+      cutover pass's shared reads (the scheduler's jobs, their owners) is logged and rolled back, and the
+      run goes on with the sessions and the outbox.
 19. **A new-engine coach's settings come from the stored configuration (swap plan §2; PAD-913).** For a
     coach on the new engine (rule 18), the store builds `EngineSettings` from this spec's stored values
     at every call (`notifications.engine-settings` rule 9), with no new copy of them:
@@ -1100,7 +1102,7 @@ Given switched coaches with weekly classes and past occurrences, drained, and a 
 becomes due, when `engine_tick`'s adoption pass (`adopt_due`) and cutover pass (`cutover_pass`) run, then
 they issue the same number of SQL statements with 10 classes per coach as with 40, and with 4 weeks of
 past occurrences as with 30. And with old-engine jobs still armed for an undrained coach, the cutover
-pass reads the scheduler's jobs once and issues the same statements whether or not more drained coaches
+pass reads the scheduler's jobs once and issues the same number of statements whether or not more drained coaches
 with classes and history are switched; once that coach drains, their jobs are removed.
 test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_the_runs_queries_do_not_grow_with_classes_or_history` (+1 more)
 
@@ -1119,6 +1121,12 @@ and a listed session, when the first coach's adoption raises outside a single oc
 the second coach's occurrence is adopted, the cutover pass and the sessions' tick still run, and the
 failure is logged.
 test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_one_coachs_failure_in_the_adoption_pass_does_not_stop_the_run`
+
+#### NOTIFICATIONS-CONFIG-88: A failure of the cutover pass's shared reads does not stop the run (rule 18)
+Given a listed session and old-engine jobs still armed, when the cutover pass's lookup of the jobs'
+owners raises, then the failure is logged, the session's tick and the outbox still run, and the database
+session is usable afterwards.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_a_failure_of_the_cutover_passs_shared_reads_does_not_stop_the_run`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
