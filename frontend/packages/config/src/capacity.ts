@@ -60,6 +60,20 @@ export function effectiveFilledSpotsOf(
   );
 }
 
+/**
+ * The count a sheet shows (calendar.event-detail rule 5, PO M-7512). A student's payload lists only their own
+ * row, so recounting it reads 1 whatever the class holds: a student takes the payload's `participantCount`, the
+ * number the card carries, from the same server helper. An older server sends none, and the coach (whose
+ * lists are complete, and whose edit draft changes them, B-240) keeps the local count.
+ */
+export function viewFilledSpots(
+  serverCount: number | null | undefined,
+  isCoach: boolean,
+  localCount: number
+): number {
+  return !isCoach && typeof serverCount === "number" ? serverCount : localCount;
+}
+
 /** An i18n key with its values, rendered by the caller's `t`. */
 export interface ParticipantsHeader {
   key: string;

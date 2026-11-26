@@ -508,6 +508,90 @@ export interface ClassJoinRequestListRow extends ClassJoinRequest {
 }
 
 /**
+ * classes.coach-requests-table (PAD-795) rule 1: one row of `GET /app/coach-requests`, a private
+ * class request or an academy join request, with the fields of both kinds (null / [] where a field
+ * belongs to the other kind). `createdAt` and `decidedAt` carry their UTC offset.
+ */
+export interface CoachRequestRow {
+  kind: "private" | "academy";
+  id: number;
+  playerId: string;
+  playerName: string;
+  nickname: string | null;
+  nicknameAsName: boolean;
+  displayName: string;
+  coachId: string;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  classTitle: string | null;
+  recurrence: ClassRequestRecurrence | null;
+  createdAt: string | null;
+  decidedAt: string | null;
+  decidedBy: "coach" | "student" | null;
+  note: string | null;
+  status: "pending" | "countered" | "accepted" | "declined" | "rejected" | "withdrawn" | "superseded";
+  side: PlayerSide | null;
+  participants: { playerId: string; name: string; username: string }[];
+  lessonId: string | null;
+  lessonInstanceId: string | null;
+  suggestedProfileSide: "left" | "right" | null;
+}
+
+export type CoachRequestsSection = "open" | "history";
+export type CoachRequestsSortKey = "class_date" | "class_time" | "requested_at" | "student" | "kind" | "side" | "status";
+
+/** classes.coach-requests-table (PAD-795) rules 3-7: every param is optional; the server's defaults apply. */
+/** PAD-772 (`calendar.student-blockers` rule 19): a class a saved block covers, in the shape `cancel_attendance` takes. */
+export interface CoveredClass {
+  model: "Lesson" | "LessonInstance";
+  originalId: number;
+  date: string;
+  title: string | null;
+  /** Club wall clock, `YYYY-MM-DDTHH:MM:SS`. */
+  start: string;
+  end: string;
+}
+
+export interface DeclineCoveredBody {
+  occurrences: { model: "Lesson" | "LessonInstance"; originalId: number; date: string }[];
+}
+
+export interface DeclineCoveredResult {
+  declined: { model: string; originalId: number; date: string; lessonInstanceId: number }[];
+  skipped: { model: string; originalId: number; date: string; reason: "not_covered" | "not_enrolled" | "started" | "already_answered" }[];
+}
+
+export interface CoachRequestsQuery {
+  section?: CoachRequestsSection;
+  page?: number;
+  perPage?: number;
+  sortBy?: CoachRequestsSortKey;
+  sortDir?: "asc" | "desc";
+  kind?: "private" | "academy";
+  /** Statuses of the requested section; sent comma-separated. */
+  status?: string[];
+  side?: "left" | "right" | "both" | "none";
+  classFrom?: string;
+  classTo?: string;
+  classTimeFrom?: string;
+  classTimeTo?: string;
+  requestedFrom?: string;
+  requestedTo?: string;
+  playerId?: string | number;
+  /** The student's name or the coach's nickname for them (rule 7 `search`; `players.search`'s one rule, server side). */
+  search?: string;
+  /** One request, whatever its section (needs `kind`). */
+  id?: string | number;
+}
+
+export interface CoachRequestsPage {
+  items: CoachRequestRow[];
+  pagination: { page: number; perPage: number; total: number; pages: number; hasNext: boolean; hasPrev: boolean };
+  counts: { open: number; history: number };
+}
+
+/**
  * classes.academy-class-booking rule 11 (PAD-504): one of the student's per-class waiting-list
  * places, for their request history (`GET /app/class-waiting-list`). `status` is derived by the
  * server; `createdAt` equals `joinedAt` so the three kinds of row sort by one key.
@@ -568,6 +652,8 @@ export interface ClassInstance {
   engineVersion?: "old" | "new";
   /** PAD-920 (rule 20): the student picks own/other/both on the waiting list; false on `old`. */
   waitingListSideChoice?: boolean;
+  /** PAD-840 (`classes.delete` rule 14): the class this occurrence belongs to; absent on older servers. */
+  lessonId?: string;
   /**
    * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
    * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
@@ -583,6 +669,8 @@ export interface ClassInstance {
   endTime: string;
   status: ClassInstanceStatus;
   classType?: string;
+  /** calendar.event-detail rule 5 (PO M-7512): the class's filled spots, the calendar event's number; one aggregate, no names. */
+  participantCount?: number;
   name?: string;
   color?: string;
   levelId?: string;
@@ -708,6 +796,11 @@ export interface Presence {
    */
   cancelledByStudent?: boolean;
   cancelledAt?: string | null;
+  /**
+   * PAD-772 (`attendance.confirm` rule 30): `availability_block` when the student declined through the
+   * dialog after saving a block, else null. Read only while the row is `not_coming` and not validated.
+   */
+  declineSource?: string | null;
   /**
    * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence — the
    * coach's override when `sideOverride`, else their usual side — and whether the coach may still
@@ -1459,6 +1552,8 @@ export interface MessageTemplates {
    *  recurring class. Optional: older configs lack them and the server falls back to its defaults. */
   removed_from_class?: string;
   removed_from_series?: string;
+  /** PAD-840 (rule 26): the coach cancelled a class. Optional, like the two above. */
+  class_cancelled?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────

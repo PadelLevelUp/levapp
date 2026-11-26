@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { CalendarX, CalendarX2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export type ApplyScope = 'single' | 'future';
@@ -32,6 +33,10 @@ interface ClassScopeDialogProps {
    * used to say that recorded attendance goes with the occurrence.
    */
   note?: string;
+  /** PAD-840 (`classes.delete` rule 12): what the class's own dialog asks above its buttons. */
+  children?: ReactNode;
+  /** classes.delete rule 13: the confirm buttons stay off while the edited message is over its limit. */
+  confirmDisabled?: boolean;
 }
 
 export function ClassScopeDialog({
@@ -41,6 +46,8 @@ export function ClassScopeDialog({
   onConfirm,
   keyPrefix = 'calendar.scope',
   note,
+  children,
+  confirmDisabled,
 }: ClassScopeDialogProps) {
   const { t } = useTranslation();
   const text = {
@@ -54,7 +61,7 @@ export function ClassScopeDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle>{text.title}</AlertDialogTitle>
           <AlertDialogDescription>
@@ -70,11 +77,14 @@ export function ClassScopeDialog({
           )}
         </AlertDialogHeader>
 
+        {children}
+
         <div className="flex flex-col gap-3 py-4">
           <Button
             variant="outline"
             className="justify-start h-auto p-4 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
             onClick={() => onConfirm('single')}
+            disabled={confirmDisabled}
             data-testid="class-scope-single"
           >
             <CalendarX className="w-5 h-5 mr-3 shrink-0" />
@@ -90,6 +100,7 @@ export function ClassScopeDialog({
             variant="outline"
             className="justify-start h-auto p-4 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
             onClick={() => onConfirm('future')}
+            disabled={confirmDisabled}
             data-testid="class-scope-future"
           >
             <CalendarX2 className="w-5 h-5 mr-3 shrink-0" />

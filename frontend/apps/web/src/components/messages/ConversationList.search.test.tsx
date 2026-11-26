@@ -123,7 +123,7 @@ describe("ConversationList — a coach's search (PAD-831)", () => {
     for (const q of ["eurico", "EURICO", "goncalves", "eur gon"]) {
       type(q);
       expect(starts(), q).toEqual(["conversation-start-42"]);
-      expect(screen.getByTestId("conversation-start-42")).toHaveTextContent("messages.startConversation");
+      expect(screen.getByTestId("conversation-start-42")).toHaveTextContent("messages.startConversationRow");
     }
     fireEvent.click(screen.getByTestId("conversation-start-42"));
     await waitFor(() => expect(onNewConversation).toHaveBeenCalledWith("42"));

@@ -52,6 +52,12 @@ describe("web shell capabilities", () => {
     expect(declared).toContain("join-side");
   });
 
+  // PAD-929 (classes.join-requests rule 22): the private-lesson warning exists, so the server may
+  // answer an unconfirmed private join with 409 private_unconfirmed.
+  it("[CLASSES-JOIN-REQUESTS-43] declares private-confirm", () => {
+    expect(declared).toContain("private-confirm");
+  });
+
   it("is what the client actually sends", () => {
     expect(source).toContain("capabilities: WEB_CAPABILITIES");
   });

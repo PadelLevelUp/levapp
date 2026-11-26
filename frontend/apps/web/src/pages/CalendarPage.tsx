@@ -51,6 +51,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { subscribeAppEvents } from "@/api/events";
 import { RescheduleDialog } from "@/components/calendar/RescheduleDialog";
 import type { ApplyScope } from "@/components/calendar/ClassScopeDialog";
+import type { CancelReason } from "@levelup/api/src/resources/classes";
 
 /**
  * Reads the `/calendar?classId=…&date=YYYY-MM-DD` deep link (dashboard.navigation rule 8).
@@ -390,12 +391,15 @@ export default function CalendarPage() {
 
   const handleDeleteClass = async (
     event: CalendarEvent,
-    scope: "single" | "future"
+    scope: "single" | "future",
+    cancel?: CancelReason
   ) => {
     setDeletingClassId(event.id);
 
     try {
-      await removeClass(event, scope);
+      await removeClass(event, scope, cancel);
+      // classes.delete rule 14 (PAD-840): the class's list of cancellations just grew.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classCancellations() });
 
       editEvents(prev => prev.filter(e => e.id !== event.id));
       setSelectedClassEvent(null);

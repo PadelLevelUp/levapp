@@ -49,10 +49,11 @@ describe("removing a player", () => {
     expect(seen[0].url).toBe("/app/player/9/removal_impact");
   });
 
-  it("names the refusal code of a refused removal and nothing else", () => {
+  it("[PLAYERS-REMOVE-9] names the refusal code of a refused removal and nothing else", () => {
     const refused = (code: unknown) => ({ response: { status: 409, data: { code } } });
     expect(playersApi.removePlayerErrorCode(refused("PLAYER_HAS_ACCOUNT"))).toBe("PLAYER_HAS_ACCOUNT");
     expect(playersApi.removePlayerErrorCode(refused("PLAYER_HAS_OTHER_COACHES"))).toBe("PLAYER_HAS_OTHER_COACHES");
+    expect(playersApi.removePlayerErrorCode({ response: { status: 400, data: { code: "INVALID_ACTION" } } })).toBe("INVALID_ACTION");
     expect(playersApi.removePlayerErrorCode(refused("SOMETHING_ELSE"))).toBeNull();
     expect(playersApi.removePlayerErrorCode(new Error("network"))).toBeNull();
     expect(playersApi.removePlayerErrorCode(null)).toBeNull();

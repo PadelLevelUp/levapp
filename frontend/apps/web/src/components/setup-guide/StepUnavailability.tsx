@@ -29,6 +29,8 @@ import {
 } from "@levelup/config";
 import { useAvailabilityBlockers, useDeleteSchedule, useSaveSchedule } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
+import { useBlockerCoveredFollowUp } from "@/components/availability/BlockerCoveredDialog";
+import { readScheduleCoveredClasses, type ScheduleInput } from "@/api/availability";
 import { ScheduleEditor } from "./ScheduleEditor";
 import type { SetupGuide } from "./useSetupGuide";
 
@@ -51,6 +53,8 @@ export function StepUnavailability({
   const { t } = useTranslation();
   const blockers = useAvailabilityBlockers();
   const save = useSaveSchedule();
+  // PAD-772 (calendar.student-blockers rules 19, 21): the question after a schedule save that covers classes.
+  const covered = useBlockerCoveredFollowUp();
   const remove = useDeleteSchedule();
   const today = clubTodayISO();
   const saved = useMemo(() => savedSchedules(blockers.data ?? [])[0] ?? null, [blockers.data]);
@@ -60,12 +64,27 @@ export function StepUnavailability({
   const [failed, setFailed] = useState(false);
   const end = saved ? scheduleEnd(saved.rows) : null;
 
+  /**
+   * One schedule save. The classes it would newly cover are read first (the PUT answers a bare list); a
+   * failed read saves without asking. The question follows the PUT and is answered before the caller moves on.
+   */
+  const saveSchedule = async (scheduleId: string, data: ScheduleInput) => {
+    let coveredClasses: unknown[] = [];
+    try {
+      coveredClasses = await readScheduleCoveredClasses(scheduleId, data);
+    } catch {
+      // No warning, like the failed conflict check: the schedule still saves.
+    }
+    await save.mutateAsync({ scheduleId, data });
+    await covered.follow({ coveredClasses });
+  };
+
   const write = async (scheduleId: string, schedule: Schedule, endDate: string) => {
     setFailed(false);
     try {
-      await save.mutateAsync({
-        scheduleId,
-        data: { title: schedule.name, blockers: scheduleToBlockerInputs(schedule, { startDate: today, endDate }) },
+      await saveSchedule(scheduleId, {
+        title: schedule.name,
+        blockers: scheduleToBlockerInputs(schedule, { startDate: today, endDate }),
       });
       return true;
     } catch {
@@ -86,9 +105,9 @@ export function StepUnavailability({
     if (!saved) return;
     setFailed(false);
     try {
-      await save.mutateAsync({
-        scheduleId: saved.scheduleId,
-        data: { title: saved.rows[0]?.title ?? null, blockers: rowsWithEnd(saved.rows, prolongedEnd(end, today)) },
+      await saveSchedule(saved.scheduleId, {
+        title: saved.rows[0]?.title ?? null,
+        blockers: rowsWithEnd(saved.rows, prolongedEnd(end, today)),
       });
     } catch {
       setFailed(true);
@@ -132,6 +151,7 @@ export function StepUnavailability({
 
   return (
     <div className="flex flex-col gap-4" data-testid="setup-unavailability">
+      {covered.dialog}
       <h1 className="font-display text-2xl font-bold">{t("setupGuide.unavailability.title")}</h1>
       <p className="text-sm text-muted-foreground">{t("setupGuide.unavailability.body")}</p>
 

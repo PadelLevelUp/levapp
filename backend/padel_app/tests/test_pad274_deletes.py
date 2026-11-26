@@ -188,9 +188,11 @@ def test_a_placeholder_another_coach_also_has_is_not_deleted(app, client, world)
         assert _count("SELECT count(*) FROM players WHERE id = :p", p=placeholder_id) == 1
 
 
+@pytest.mark.criterion("PLAYERS-REMOVE-9")
 def test_an_unknown_action_is_refused(app, client, world):
     res = _remove(app, client, world, world["student_id"], "purge")
     assert res.status_code == 400
+    assert res.get_json()["code"] == "INVALID_ACTION"
     with app.app_context():
         assert _count("SELECT count(*) FROM coach_in_player WHERE id = :r", r=world["rel_id"]) == 1
 

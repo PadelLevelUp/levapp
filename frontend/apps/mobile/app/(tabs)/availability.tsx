@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { BlockerSheet } from "@/features/availability/BlockerSheet";
+import { useBlockerCoveredFollowUp } from "@/features/availability/blocker-covered-dialog";
 import {
   useCreateBlocker,
   useDeleteBlocker,
@@ -68,6 +69,8 @@ export default function AvailabilityScreen() {
   const createBlocker = useCreateBlocker();
   const updateBlocker = useUpdateBlocker();
   const deleteBlocker = useDeleteBlocker();
+  // PAD-772 (calendar.student-blockers rule 21): the question after a save that covers classes.
+  const covered = useBlockerCoveredFollowUp();
 
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<AvailabilityBlocker | null>(
@@ -99,16 +102,18 @@ export default function AvailabilityScreen() {
 
   const handleSubmit = async (payload: BlockerDraftInput) => {
     setSaveError(null);
+    let answer: { coveredClasses?: unknown };
     try {
-      if (editing) {
-        await updateBlocker.mutateAsync({ id: editing.id, data: payload });
-      } else {
-        await createBlocker.mutateAsync(payload);
-      }
+      answer = editing
+        ? await updateBlocker.mutateAsync({ id: editing.id, data: payload })
+        : await createBlocker.mutateAsync(payload);
       closeSheet();
     } catch {
       setSaveError(t("availability.couldNotSaveMessage"));
+      return;
     }
+    // The block is saved and listed; nothing from here on says it was not.
+    await covered.follow(answer);
   };
 
   const handleDelete = async () => {
@@ -219,6 +224,7 @@ export default function AvailabilityScreen() {
 
   return (
     <Screen testID="screen-availability">
+      {covered.dialog}
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -253,7 +259,7 @@ export default function AvailabilityScreen() {
         {/* Rule 14: Pedidos de aula — classes.class-requests as the second card.
             PAD-281: `?proposeFor=<id>` (from the chat bubble) opens the
             "propose another time" picker on that request. */}
-        <ClassRequestsSection role="student" proposeFor={proposeFor} />
+        <ClassRequestsSection proposeFor={proposeFor} />
       </ScrollView>
 
       <BlockerSheet

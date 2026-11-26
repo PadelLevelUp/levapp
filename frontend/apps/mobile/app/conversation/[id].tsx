@@ -1269,7 +1269,7 @@ export default function ConversationScreen() {
     if (message.metadata?.classRequest?.kind === "proposed") {
       router.push({ pathname: "/(tabs)/availability", params: { proposeFor: String(id) } });
     } else {
-      router.push({ pathname: "/settings", params: { section: "classRequests", proposeFor: String(id) } });
+      router.push({ pathname: "/class-requests", params: { proposeFor: String(id) } });
     }
   };
 
@@ -1788,6 +1788,44 @@ export default function ConversationScreen() {
               </View>
             }
           />
+          {/* PAD-224 rule 12 — one control, two reasons to show it. Scrolled more
+              than a screen back, it is a plain jump-to-bottom chevron: the reader
+              asked for a way home from a long scroll and previously had none.
+              With unseen messages it is the same button carrying rule 10's "New
+              messages" label, so the two never appear as competing chips.
+              Mirrors web's MessageList `showScrollDown` control, and like it sits
+              inside the list's own box, so the composer never covers it (B-734). */}
+          {showJumpToBottom && anchored ? (
+            <Pressable
+              testID={hasNewBelow ? "messages-new-below" : "messages-jump-to-bottom"}
+              accessibilityLabel={t(
+                hasNewBelow ? "messages.newMessagesBelow" : "messages.jumpToBottom"
+              )}
+              role="button"
+              hitSlop={8}
+              onPress={() => scrollToBottom(true)}
+              className={
+                hasNewBelow
+                  ? "absolute bottom-4 self-center flex-row items-center gap-1 rounded-full px-3 py-2 active:opacity-80"
+                  : "absolute bottom-4 right-4 h-11 w-11 items-center justify-center rounded-full active:opacity-80"
+              }
+              style={{ backgroundColor: lightTheme.sidebarBackground }}
+            >
+              {hasNewBelow ? (
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: lightTheme.sidebarForeground }}
+                >
+                  {t("messages.newMessagesBelow")}
+                </Text>
+              ) : null}
+              <Ionicons
+                name="chevron-down"
+                size={hasNewBelow ? 14 : 22}
+                color={lightTheme.sidebarForeground}
+              />
+            </Pressable>
+          ) : null}
           </View>
           </>
         )}
@@ -1804,44 +1842,6 @@ export default function ConversationScreen() {
           >
             <ChatSkeleton />
           </View>
-        ) : null}
-
-        {/* PAD-224 rule 12 — one control, two reasons to show it. Scrolled more
-            than a screen back, it is a plain jump-to-bottom chevron: the reader
-            asked for a way home from a long scroll and previously had none.
-            With unseen messages it is the same button carrying rule 10's "New
-            messages" label, so the two never appear as competing chips.
-            Mirrors web's MessageList `showScrollDown` control. */}
-        {showJumpToBottom && conversation && anchored ? (
-          <Pressable
-            testID={hasNewBelow ? "messages-new-below" : "messages-jump-to-bottom"}
-            accessibilityLabel={t(
-              hasNewBelow ? "messages.newMessagesBelow" : "messages.jumpToBottom"
-            )}
-            role="button"
-            hitSlop={8}
-            onPress={() => scrollToBottom(true)}
-            className={
-              hasNewBelow
-                ? "absolute bottom-24 self-center flex-row items-center gap-1 rounded-full px-3 py-2 active:opacity-80"
-                : "absolute bottom-24 right-4 h-11 w-11 items-center justify-center rounded-full active:opacity-80"
-            }
-            style={{ backgroundColor: lightTheme.sidebarBackground }}
-          >
-            {hasNewBelow ? (
-              <Text
-                className="text-xs font-semibold"
-                style={{ color: lightTheme.sidebarForeground }}
-              >
-                {t("messages.newMessagesBelow")}
-              </Text>
-            ) : null}
-            <Ionicons
-              name="chevron-down"
-              size={hasNewBelow ? 14 : 22}
-              color={lightTheme.sidebarForeground}
-            />
-          </Pressable>
         ) : null}
 
         {/* Composer / edit composer */}

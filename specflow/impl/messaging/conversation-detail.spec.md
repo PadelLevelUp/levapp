@@ -120,7 +120,8 @@ through the history without the thread ever moving under the reader.
     It is not conditional on anything having arrived — a reader who has simply scrolled a long
     way back can always get straight back. When messages *have* arrived unseen meanwhile it is
     the same control, carrying rule 10's "New messages" label, so the two never appear as two
-    competing buttons. Both shells
+    competing buttons. Both shells. The control sits above the composer, fully visible,
+    with the keyboard open or closed and whatever the composer's height (B-734)
 13. The composer row is padded symmetrically: the space below the input equals the space above it. While the keyboard is open the row adds no extra bottom inset (the keyboard already covers the home indicator); while the keyboard is down the row clears the home indicator by the safe-area inset
 14. The send control is an icon button with the same height as the single-line input, the standard button corner radius (not a circle), and the outline paper-plane glyph — identical on web and iOS
 15. **A message whose class is gone says so (PAD-325; number from Session E's range).** A message
@@ -380,3 +381,9 @@ test: `frontend/apps/mobile/src/features/messages/landing-state.test.ts` › `[M
 - **Then** no scroll is issued with the send, and the list scrolls to its end a frame after its content grew
 - **And** if the list settles short of the end, the scroll is issued again, a bounded number of times, and not once it settled at the end or the reader dragged
 test: `frontend/apps/mobile/src/features/messages/landing-state.test.ts` › `[MESSAGING-CONVERSATION-DETAIL-29] repeats the scroll to the end until the list settles there` (+1 more)
+
+#### MESSAGING-CONVERSATION-DETAIL-30: The phone's jump-to-bottom control clears the composer (rule 12, B-734)
+- **Given** a thread on a phone scrolled more than a screen above its bottom, with the keyboard closed or open
+- **When** the jump-to-bottom control, or its "New messages" form, shows
+- **Then** it is placed against the message list, not against the screen, so the composer never covers it
+test: `frontend/apps/mobile/src/features/messages/jump-control.test.ts` › `[MESSAGING-CONVERSATION-DETAIL-30] the jump control is placed inside the list's own box, above the composer`

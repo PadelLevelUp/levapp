@@ -1,10 +1,8 @@
 /**
- * classes.join-requests rule 17 (PAD-460): the coach's "Pedidos de Aula" and the
- * student's Availability list show academy join requests beside the private
- * ClassRequest rows — merged newest first, split into the same open/closed
- * sections. Accepting an academy row goes through the same ineligible → confirm
- * flow as the class sheet (rule 7); the student may withdraw her own pending
- * academy row. Asserted by test id, never by rendered copy (`t` returns the key).
+ * classes.join-requests rule 17 (PAD-460): the student's Availability list shows academy join
+ * requests beside the private ClassRequest rows, merged newest first; she may withdraw her own
+ * pending academy row. The coach's side is the table's (CoachRequestsTable.joinRequests.test.tsx).
+ * Asserted by test id, never by rendered copy (`t` returns the key).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -45,6 +43,14 @@ const joinRequestsApi = vi.hoisted(() => ({
     r?.reasons?.includes("side") ? r.requestedSide : null,
 }));
 vi.mock("@/api/classJoinRequests", () => joinRequestsApi);
+// The coach's endpoint, mocked where it is defined: whichever path the section reads it by, a call lands here.
+const coachApi = vi.hoisted(() => ({ listCoachRequests: vi.fn() }));
+vi.mock("@levelup/api/src/resources/coachRequests", async (orig) => ({
+  ...(await orig<typeof import("@levelup/api/src/resources/coachRequests")>()),
+  listCoachRequests: coachApi.listCoachRequests,
+}));
+const academyApi = vi.hoisted(() => ({ listClassWaitingList: vi.fn(), leaveClassWaitingList: vi.fn() }));
+vi.mock("@/api/academyClasses", () => academyApi);
 
 import { ClassRequestsSection } from "./ClassRequestsSection";
 
@@ -90,116 +96,22 @@ function academyRow(overrides: Partial<ClassJoinRequestListRow>): ClassJoinReque
   };
 }
 
-function renderSection(role: "coach" | "student") {
+function renderSection() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <ClassRequestsSection role={role} />
+        <ClassRequestsSection />
       </QueryClientProvider>
     </MemoryRouter>
   );
 }
 
 afterEach(() => {
+  coachApi.listCoachRequests.mockReset();
+  Object.values(academyApi).forEach((fn) => fn.mockReset());
   Object.values(requestsApi).forEach((fn) => typeof fn === "function" && "mockReset" in fn && fn.mockReset());
   Object.values(joinRequestsApi).forEach((fn) => typeof fn === "function" && "mockReset" in fn && fn.mockReset());
-});
-
-describe("the coach's list merges academy rows with private ones (rule 17)", () => {
-  it("[CLASSES-JOIN-REQUESTS-15] shows an academy row, newest-first, between two private rows, with the badge, class title and time", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([
-      privateRow({ id: 1, createdAt: "2026-10-06T14:00:00" }),
-      privateRow({ id: 2, createdAt: "2026-10-06T08:00:00" }),
-    ]);
-    joinRequestsApi.listClassJoinRequests.mockResolvedValue([
-      academyRow({ id: 100, createdAt: "2026-10-06T10:00:00" }),
-    ]);
-
-    renderSection("coach");
-
-    const academy = await screen.findByTestId("class-join-list-row");
-    expect(academy.getAttribute("data-kind")).toBe("academy");
-    expect(academy.getAttribute("data-status")).toBe("pending");
-    expect(academy.getAttribute("data-request-id")).toBe("100");
-    expect(academy.textContent).toContain("Terça 18h");
-    expect(academy.textContent).toContain("18:00");
-    expect(academy.textContent).toContain("19:00");
-    expect(screen.getByTestId("class-join-list-kind")).toBeTruthy();
-
-    // Merged newest first: private-1 (14:00) > academy-100 (10:00) > private-2 (08:00).
-    const rows = screen
-      .getAllByTestId(/^(class-request-row|class-join-list-row)$/)
-      .map((el) => el.getAttribute("data-request-id"));
-    expect(rows).toEqual(["1", "100", "2"]);
-  });
-
-  it("accepting a pending academy row calls acceptClassJoinRequest", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([]);
-    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
-    joinRequestsApi.acceptClassJoinRequest.mockResolvedValue(academyRow({ id: 100, status: "accepted" }));
-
-    renderSection("coach");
-    fireEvent.click(await screen.findByTestId("class-join-list-accept"));
-
-    await waitFor(() => expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledWith(100, false));
-  });
-
-  it("[CLASSES-JOIN-REQUESTS-11] an ineligible 409 opens the confirm dialog, and confirming accepts with confirm: true", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([]);
-    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
-    joinRequestsApi.acceptClassJoinRequest
-      .mockRejectedValueOnce({ response: { data: { code: "ineligible", ineligible: [{ playerId: 1, name: "Carla", failures: [] }] } } })
-      .mockResolvedValueOnce(academyRow({ id: 100, status: "accepted" }));
-
-    renderSection("coach");
-    fireEvent.click(await screen.findByTestId("class-join-list-accept"));
-
-    const confirmButton = await screen.findByTestId("eligibility-confirm-proceed");
-    fireEvent.click(confirmButton);
-
-    await waitFor(() => expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledWith(100, true));
-    expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledTimes(2);
-  });
-
-  // PAD-808 (rule 7a): the side part of the same 409.
-  it("[CLASSES-JOIN-REQUESTS-9] a side-only 409 asks about the other side's spot, naming the student, and confirming accepts", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([]);
-    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
-    joinRequestsApi.acceptClassJoinRequest
-      .mockRejectedValueOnce({ response: { data: { code: "ineligible", ineligible: [], reasons: ["side"], requestedSide: "left", openSides: ["right"] } } })
-      .mockResolvedValueOnce(academyRow({ id: 100, status: "accepted" }));
-
-    renderSection("coach");
-    fireEvent.click(await screen.findByTestId("class-join-list-accept"));
-
-    const dialog = await screen.findByTestId("eligibility-confirm");
-    expect(dialog.textContent).toContain("calendar.eligibilityConfirm.sideTitle");
-    expect(dialog.textContent).toContain("calendar.eligibilityConfirm.sideGoneLeft");
-    expect(screen.queryByTestId("eligibility-confirm-side")).toBeNull();
-    fireEvent.click(screen.getByTestId("eligibility-confirm-proceed"));
-
-    await waitFor(() => expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledWith(100, true));
-  });
-
-  it("[CLASSES-JOIN-REQUESTS-10] both parts come in one dialog: the bar's students and the side line", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([]);
-    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
-    joinRequestsApi.acceptClassJoinRequest.mockRejectedValueOnce({
-      response: { data: {
-        code: "ineligible", ineligible: [{ playerId: 1, name: "Carla", failures: [] }],
-        reasons: ["eligibility", "side"], requestedSide: "right", openSides: ["left"],
-      } },
-    });
-
-    renderSection("coach");
-    fireEvent.click(await screen.findByTestId("class-join-list-accept"));
-
-    const dialog = await screen.findByTestId("eligibility-confirm");
-    expect(dialog.textContent).toContain("calendar.eligibilityConfirm.title");
-    expect(screen.getAllByTestId("eligibility-confirm-student")).toHaveLength(1);
-    expect(screen.getByTestId("eligibility-confirm-side").textContent).toContain("calendar.eligibilityConfirm.sideGoneRight");
-  });
 });
 
 describe("the student's list shows and lets her withdraw her own academy request (rule 17)", () => {
@@ -208,9 +120,40 @@ describe("the student's list shows and lets her withdraw her own academy request
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
     joinRequestsApi.withdrawClassJoinRequest.mockResolvedValue(academyRow({ id: 100, status: "withdrawn" }));
 
-    renderSection("student");
+    renderSection();
     fireEvent.click(await screen.findByTestId("class-join-list-withdraw"));
 
     await waitFor(() => expect(joinRequestsApi.withdrawClassJoinRequest).toHaveBeenCalledWith(100));
+  });
+});
+
+describe("the student's list is untouched by the coach's table (classes.coach-requests-table, PAD-795)", () => {
+  it("[CLASSES-COACH-REQUESTS-TABLE-20] the student's list keeps the old reads", async () => {
+    // A pending private request, a decided academy request and a waiting-list place (newest first).
+    requestsApi.listClassRequests.mockResolvedValue([privateRow({ id: 1, createdAt: "2026-10-06T12:00:00" })]);
+    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100, status: "accepted", createdAt: "2026-10-06T10:00:00" })]);
+    academyApi.listClassWaitingList.mockResolvedValue([
+      { kind: "waiting_list", id: 5, lessonInstanceId: 70, classTitle: "Quinta", date: "2026-10-08", startTime: "18:00", endTime: "19:00",
+        coachName: "Ana", status: "active", joinedAt: "2026-10-06T11:00:00", createdAt: "2026-10-06T11:00:00" },
+    ]);
+
+    renderSection();
+
+    const all = await screen.findAllByTestId(/^(class-request-row|class-join-list-row|class-waiting-list-row)$/);
+    // Merged newest first: the private request (12:00), the waiting-list place (11:00), the academy request (10:00).
+    expect(all.map((el) => `${el.getAttribute("data-testid")}:${el.getAttribute("data-request-id") ?? el.getAttribute("data-instance-id")}`)).toEqual([
+      "class-request-row:1",
+      "class-waiting-list-row:70",
+      "class-join-list-row:100",
+    ]);
+    // Em aberto holds the pending and the active place; the decided academy request is behind "Histórico".
+    const history = screen.getByTestId("class-requests-history-toggle").closest("details")!;
+    expect(history.contains(all[2])).toBe(true);
+    expect(history.contains(all[0])).toBe(false);
+    expect(history.contains(all[1])).toBe(false);
+    expect(requestsApi.listClassRequests).toHaveBeenCalled();
+    expect(joinRequestsApi.listClassJoinRequests).toHaveBeenCalled();
+    expect(academyApi.listClassWaitingList).toHaveBeenCalled();
+    expect(coachApi.listCoachRequests).not.toHaveBeenCalled();
   });
 });

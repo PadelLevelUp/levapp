@@ -170,3 +170,21 @@ export function visibleSections(isCoach: boolean): readonly SettingsSectionDef[]
       (isCoach ? s.audience === "coach" : s.audience === "student"),
   );
 }
+
+/**
+ * classes.coach-requests-table rule 12 (PAD-795): Pedidos de Aula leaves the Settings scroll view and
+ * opens a screen of its own, from the same entry (`settings-nav-classRequests`). Every other section
+ * still opens inside Settings.
+ */
+export function settingsSectionRoute(id: SettingsSectionId): "/class-requests" | null {
+  return id === "classRequests" ? "/class-requests" : null;
+}
+
+/**
+ * Installed builds' chat bubbles push `/settings?section=classRequests&proposeFor=<id>`; that link
+ * lands on the screen, carrying `proposeFor` (rule 16). Any other Settings link stays on Settings.
+ */
+export function settingsLandingRoute(params: { section?: string; proposeFor?: string }) {
+  if (params.section !== "classRequests") return null;
+  return { pathname: "/class-requests" as const, params: params.proposeFor ? { proposeFor: params.proposeFor } : {} };
+}

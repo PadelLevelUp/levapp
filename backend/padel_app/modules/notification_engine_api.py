@@ -104,7 +104,7 @@ def template_preview():
         abort(400, "template is too long")
     locale = _resolve_locale(coach)
     return jsonify({
-        "text": render_template_preview(template or "", locale),
+        "text": render_template_preview(template or "", locale, key=data.get("key")),
         "examples": template_preview_examples(locale),
     })
 

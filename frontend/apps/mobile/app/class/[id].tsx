@@ -16,6 +16,7 @@ import {
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
+  viewFilledSpots,
   participantsHeader,
   inviteeActionsFor,
   outcomeAfterCoachAction,
@@ -41,6 +42,7 @@ import {
   joinRefusalOf,
   isEngineApproval,
   classTypeChipKey,
+  needsPrivateLessonWarning,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -107,6 +109,7 @@ import {
   hasClassStarted,
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
+import { ClassWhenHeader } from "@/features/calendar/ClassWhenHeader";
 import { ClassCapacityBar } from "@/features/calendar/ClassCapacityBar";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { classCourtsQuery } from "@/features/calendar/class-courts";
@@ -116,8 +119,11 @@ import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import { messagesApi, presencesApi } from "@levelup/api";
+import type { CancelReason } from "@levelup/api/src/resources/classes";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { ClassJoinRequest, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
+import { ClassCancellationsSection } from "@/features/calendar/class-cancellations-section";
+import { ClassDeleteDialog } from "@/features/calendar/class-delete-dialog";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
 import { classEditRefusal, commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
 import {
@@ -646,9 +652,14 @@ export default function ClassDetailScreen() {
   // PAD-71: same rule as the calendar event card's X/Y badge. Students only ever
   // receive their OWN presence row, so subtracting declines would under-count
   // their view — the guard keeps that behaviour unchanged.
-  const filled = effectiveFilledSpots(
-    countedParticipants.length,
-    isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
+  // PO M-7512 (rule 5): a student takes the class's count from the payload, the card's number.
+  const filled = viewFilledSpots(
+    instance?.participantCount,
+    isCoach,
+    effectiveFilledSpots(
+      countedParticipants.length,
+      isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
+    )
   );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
   // PAD-771 (calendar.event-detail rule 5): the coach's participants header.
@@ -991,10 +1002,10 @@ export default function ClassDetailScreen() {
     }
   };
 
-  const handleDelete = async (scope: "single" | "future") => {
+  const handleDelete = async (scope: "single" | "future", cancel?: CancelReason) => {
     setDeleteOpen(false);
     try {
-      await removeClass.mutateAsync({ event, scope });
+      await removeClass.mutateAsync({ event, scope, cancel });
       router.back();
     } catch {
       setFeedback(t("classDetail.deleteFailed"));
@@ -1304,8 +1315,18 @@ export default function ClassDetailScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerClassName="gap-4 p-4 pb-10">
-          {/* Info cards: Date, Time, Capacity, Level (2×2, mirrors web's grid) */}
-          <View className="gap-3">
+          {/* Info cards: Date, Time, Capacity, Level (2×2, mirrors web's grid) while editing; while reading
+              (calendar.event-detail rule 28, UI idea 6) one header block, then the capacity line. */}
+          <ClassWhenHeader
+            editing={isEditing}
+            date={active?.date || event.date}
+            startTime={startTime}
+            endTime={endTime}
+            levelCode={levels?.find((level) => level.id === active?.levelId)?.code}
+            clubName={active?.clubName}
+            courtName={active?.courtName}
+          >
+            {isEditing ? (
             <View className="flex-row gap-3">
               <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
                 <View className="flex-row items-center gap-1.5">
@@ -1394,8 +1415,13 @@ export default function ClassDetailScreen() {
                 )}
               </View>
             </View>
-            <View className="flex-row gap-3">
-              <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
+            ) : null}
+            <View className={isEditing ? "flex-row gap-3" : undefined}>
+              <View
+                testID="class-detail-capacity"
+                className={isEditing ? "flex-1 gap-2 rounded-lg border border-border bg-card p-3" : "gap-1"}
+              >
+                {isEditing ? (
                 <View className="flex-row items-center gap-1.5">
                   <Ionicons
                     name="people-outline"
@@ -1406,6 +1432,7 @@ export default function ClassDetailScreen() {
                     {t("calendar.detail.capacity")}
                   </Text>
                 </View>
+                ) : null}
                 {isEditing && draft ? (
                   <View className="flex-row items-center gap-2">
                     <Pressable
@@ -1442,7 +1469,11 @@ export default function ClassDetailScreen() {
                   </View>
                 ) : (
                   <>
-                    <Text className="text-sm font-medium">
+                    <Text
+                      className="text-sm font-medium"
+                      accessibilityLabel={t("calendar.detail.capacity")}
+                      accessibilityValue={{ text: maxPlayers ? `${filled}/${maxPlayers}` : "—" }}
+                    >
                       {maxPlayers ? `${filled}/${maxPlayers}` : "—"}
                     </Text>
                     {/* PAD-920 (ND2): the open spots and "N pendentes", as on web. */}
@@ -1464,6 +1495,7 @@ export default function ClassDetailScreen() {
                   </>
                 )}
               </View>
+              {isEditing ? (
               <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
                 <Text className="text-xs text-muted-foreground">
                   {t("calendar.detail.level")}
@@ -1505,9 +1537,11 @@ export default function ClassDetailScreen() {
                   <Text className="text-sm font-medium">{levelLabel}</Text>
                 )}
               </View>
+              ) : null}
             </View>
 
             {/* Club · Court (clubs.courts rule 7, PAD-194) */}
+            {isEditing ? (
             <View className="gap-2 rounded-lg border border-border bg-card p-3" testID="class-detail-place">
               <Text className="text-xs text-muted-foreground">{t("calendar.detail.club")}</Text>
               {isEditing && draft && clubCourts && clubCourts.length > 0 ? (
@@ -1532,7 +1566,8 @@ export default function ClassDetailScreen() {
                 </Text>
               )}
             </View>
-          </View>
+            ) : null}
+          </ClassWhenHeader>
 
           {isRecurring && !isEditing ? (
             <View className="flex-row items-center gap-1.5">
@@ -2282,6 +2317,12 @@ export default function ClassDetailScreen() {
             </Text>
           ) : null}
 
+          <ClassCancellationsSection
+            lessonId={instance?.lessonId}
+            enabled={isCoach && isRecurring && !isEditing}
+            formatDate={(iso) => formatDay(iso, locale)}
+          />
+
           {/* Training planning — coach only */}
           {isCoach ? (
             <>
@@ -2537,6 +2578,12 @@ export default function ClassDetailScreen() {
           onRequestSent={(request) => void handleSideRequestSent(request)}
           onWaitingListJoined={handleSideWaitingJoined}
           onFailed={(err, mode) => void handleSideFailed(err, mode)}
+          // PAD-929 (rule 22): a private lesson asks before the side; a stale answer re-reads it.
+          privateWarning={needsPrivateLessonWarning(
+            { classType: active?.classType ?? event.classType, studentRelation: event.studentRelation },
+            sideSheet === "waiting" ? "waitlist" : "request",
+          )}
+          onPrivateUnconfirmed={() => void refreshInstance()}
         />
       ) : null}
 
@@ -2615,61 +2662,15 @@ export default function ClassDetailScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete confirmation (scope choice for recurring classes) */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("calendar.deleteDialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {isRecurring
-                ? t("classDetail.deleteRecurringDescription")
-                : t("classDetail.deleteSingleDescription", { title })}
-            </AlertDialogDescription>
-            {attendanceRecorded ? (
-              <Text
-                testID="delete-attendance-note"
-                className="text-sm font-medium text-destructive"
-              >
-                {t("calendar.detail.deleteAttendanceNote")}
-              </Text>
-            ) : null}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            {isRecurring ? (
-              <>
-                <Button
-                  testID="class-delete-confirm"
-                  accessibilityLabel={t("classDetail.deleteOnlyThisAria")}
-                  variant="destructive"
-                  onPress={() => handleDelete("single")}
-                >
-                  <Text>{t("calendar.deleteDialog.singleTitle")}</Text>
-                </Button>
-                <Button
-                  testID="class-delete-confirm-future"
-                  accessibilityLabel={t("classDetail.deleteFutureAria")}
-                  variant="destructive"
-                  onPress={() => handleDelete("future")}
-                >
-                  <Text>{t("calendar.deleteDialog.futureTitle")}</Text>
-                </Button>
-              </>
-            ) : (
-              <Button
-                testID="class-delete-confirm"
-                accessibilityLabel={t("classDetail.confirmDeleteAria")}
-                variant="destructive"
-                onPress={() => handleDelete("single")}
-              >
-                <Text>{t("calendar.detail.delete")}</Text>
-              </Button>
-            )}
-            <AlertDialogCancel testID="class-delete-cancel">
-              <Text>{t("common.cancel")}</Text>
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ClassDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        event={event}
+        title={title}
+        isRecurring={isRecurring}
+        attendanceRecorded={attendanceRecorded}
+        onConfirm={handleDelete}
+      />
 
       {/* Student cancel-attendance confirmation */}
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>

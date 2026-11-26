@@ -15,6 +15,7 @@ function seeded() {
     queryKeys.classRequests,
     queryKeys.classJoinRequests,
     queryKeys.classWaitingList,
+    queryKeys.coachRequests({ section: "history", page: 2 }),
     ["class-instance", { id: 1 }],
     queryKeys.dashboard({ from: "a", to: "b" }),
     ["unrelated"],
@@ -24,11 +25,11 @@ function seeded() {
 }
 
 describe("refreshAfterRequestChange (PAD-488)", () => {
-  it("marks the calendar, the request lists (waiting lists too, PAD-504), the class sheet and the dashboard stale, nothing else", async () => {
+  it("[CLASSES-COACH-REQUESTS-TABLE-16] marks the calendar, the request lists (the coach's table pages and waiting lists too, PAD-795, PAD-504), the class sheet and the dashboard stale, nothing else", async () => {
     const { qc, keys } = seeded();
     await refreshAfterRequestChange(qc);
     const stale = keys.map((k) => qc.getQueryState(k)?.isInvalidated ?? false);
-    expect(stale).toEqual([true, true, true, true, true, true, false]);
+    expect(stale).toEqual([true, true, true, true, true, true, true, false]);
   });
 
   it("knows the request events, and only them", () => {

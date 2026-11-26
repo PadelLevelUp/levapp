@@ -59,6 +59,9 @@ from padel_app.services.lesson_service import (
     confirm_presences_service,
     get_lesson_instances_in_range,
     edit_class_service,
+    lesson_cancellations,
+    parse_cancel_reason,
+    parse_message_override,
     remove_class_service,
 )
 from padel_app.services.player_service import (
@@ -169,7 +172,9 @@ from padel_app.services.student_availability_service import (
     ScheduleError,
     put_student_schedule,
     delete_student_schedule,
+    parse_schedule,
 )
+from padel_app.services.blocker_covered_service import covered_for_blocks, newly_covered, snapshot as block_snapshot
 from padel_app.services.ai_service import stream_import_analysis
 from padel_app.services.import_service import (
     bulk_create_coach_levels,
@@ -1149,6 +1154,19 @@ def coach_players_paginated():
     return jsonify(result)
 
 
+@bp.get("/coach-requests")
+@jwt_required()
+def coach_requests():
+    """classes.coach-requests-table (PAD-795): the coach's private and academy requests, one page."""
+    from padel_app.services import coach_request_service
+
+    coach = require_coach()
+    try:
+        return jsonify(coach_request_service.list_for_coach(coach, request.args))
+    except coach_request_service.InvalidFilter as exc:
+        return jsonify({"code": "invalid_filter", "field": exc.field}), 400
+
+
 @bp.get("/coach_levels")
 @jwt_required()
 def get_coach_levels():
@@ -1898,8 +1916,17 @@ def get_calendar_block(block_id):
 @jwt_required()
 def put_calendar_block(block_id):
     data = request.get_json() or {}
-    block = edit_event_service(block_id, current_user().id, data)
-    return jsonify(serialize_calendar_block(block))
+    user = current_user()
+    # PAD-772 (rules 19-21): a student's own availability blocker opened from the calendar answers
+    # the classes it newly covers; any other block (a coach's, a break) answers as before.
+    row = CalendarBlock.query.filter_by(id=block_id, user_id=user.id).first()
+    asks = row is not None and row.blocks_auto_invitations is True and current_player() is not None
+    before = covered_for_blocks(user, [block_snapshot(row)]) if asks else []
+    block = edit_event_service(block_id, user.id, data)
+    body = serialize_calendar_block(block)
+    if asks and block.blocks_auto_invitations:
+        body["coveredClasses"] = newly_covered(covered_for_blocks(user, [block]), before)
+    return jsonify(body)
 
 
 @bp.delete("/calendar_block/<int:block_id>")
@@ -1943,13 +1970,35 @@ def get_availability_blockers():
     return jsonify([serialize_calendar_block(b) for b in blocks])
 
 
+def _covered_before(user, block_id):
+    """PAD-772 rule 20: what the student's block covered before an edit writes it (nothing for a block that
+    is not theirs; the edit then answers 404 itself)."""
+    row = CalendarBlock.query.filter_by(id=block_id, user_id=user.id).first()
+    return covered_for_blocks(user, [block_snapshot(row)]) if row is not None else []
+
+
+@bp.post("/availability_blockers/decline_covered")
+@jwt_required()
+def decline_covered_classes():
+    """PAD-772 (calendar.student-blockers rule 22): the student's yes marks the listed occurrences "Não vai",
+    each re-checked against their stored blockers; the ones that fail are skipped with a reason."""
+    from padel_app.services.blocker_decline_service import decline_covered
+
+    user = _require_student()
+    data = request.get_json(silent=True) or {}
+    return jsonify(decline_covered(user, data.get("occurrences")))
+
+
 @bp.post("/availability_blockers")
 @jwt_required()
 def create_availability_blocker():
     user = _require_student()
     data = request.get_json() or {}
     block = create_student_blocker(user.id, data)
-    return jsonify(serialize_calendar_block(block)), 201
+    # PAD-772 (calendar.student-blockers rule 19): the answer says which classes this block covers.
+    body = serialize_calendar_block(block)
+    body["coveredClasses"] = covered_for_blocks(user, [block])
+    return jsonify(body), 201
 
 
 @bp.put("/availability_blockers/<int:block_id>")
@@ -1957,8 +2006,11 @@ def create_availability_blocker():
 def update_availability_blocker(block_id):
     user = _require_student()
     data = request.get_json() or {}
+    before = _covered_before(user, block_id)
     block = update_student_blocker(block_id, user.id, data)
-    return jsonify(serialize_calendar_block(block))
+    body = serialize_calendar_block(block)
+    body["coveredClasses"] = newly_covered(covered_for_blocks(user, [block]), before)  # rule 20
+    return jsonify(body)
 
 
 @bp.delete("/availability_blockers/<int:block_id>")
@@ -1994,6 +2046,23 @@ def put_availability_schedule(schedule_id):
     except ScheduleError as exc:
         return _schedule_refusal(exc)
     return jsonify([serialize_calendar_block(b) for b in rows])
+
+
+@bp.post("/availability_schedules/<schedule_id>/covered_classes")
+@jwt_required()
+def availability_schedule_covered_classes(schedule_id):
+    """PAD-772 (calendar.student-blockers rule 19): the classes a schedule save would newly cover, read
+    before the PUT. Writes nothing; refuses what the PUT refuses."""
+    from padel_app.models import CalendarBlock as _Block
+
+    user = _require_student()
+    try:
+        rows = parse_schedule(user.id, schedule_id, request.get_json(silent=True) or {})
+    except ScheduleError as exc:
+        return _schedule_refusal(exc)
+    stored = _Block.query.filter_by(user_id=user.id, schedule_id=schedule_id).all()
+    before = covered_for_blocks(user, [block_snapshot(b) for b in stored]) if stored else []
+    return jsonify({"coveredClasses": newly_covered(covered_for_blocks(user, rows), before)})
 
 
 @bp.delete("/availability_schedules/<schedule_id>")
@@ -2428,7 +2497,7 @@ def create_class_join_request():
     data = request.get_json() or {}
     row, created = create_join_request_service(
         player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note"),
-        side=data.get("side"),
+        side=data.get("side"), private_confirmed=data.get("privateConfirmed"),  # PAD-929 (rule 22)
     )
     return jsonify(serialize_join_request(row)), (201 if created else 200)
 
@@ -2437,14 +2506,25 @@ def create_class_join_request():
 @bp.get("/academy-classes")
 @jwt_required()
 def list_academy_classes_route():
-    from padel_app.services.academy_class_service import list_academy_classes
+    from padel_app.services.academy_class_service import LESSON_LIST_TYPES, list_academy_classes
 
     player = current_player()
     if player is None or current_coach() is not None:
         abort(403, "Only a student can list a coach's academy classes")
     if not request.args.get("coachId"):
         abort(400, "coachId is required")
-    return jsonify(list_academy_classes(player, request.args.get("coachId")))
+    # PAD-929 (rule 9): exactly one of the types, checked before the roster. With no `type`, a
+    # client that declares `private-confirm` gets academy classes only; an older app has no private
+    # list, so it keeps both types in this one, as before PAD-929 (rule 2).
+    from padel_app.utils.client_capabilities import PRIVATE_CONFIRM, client_declares
+
+    if "type" in request.args:
+        lesson_type = request.args["type"]
+        if lesson_type not in LESSON_LIST_TYPES:
+            abort(400, f"type must be one of {', '.join(LESSON_LIST_TYPES)}")
+    else:
+        lesson_type = LESSON_LIST_TYPES[0] if client_declares(PRIVATE_CONFIRM) else None
+    return jsonify(list_academy_classes(player, request.args.get("coachId"), lesson_type=lesson_type))
 
 
 @bp.post("/class-waiting-list")
@@ -2457,7 +2537,8 @@ def join_class_waiting_list_route():
         abort(403, "Only a student can join a waiting list")
     data = request.get_json() or {}
     entry, created = join_class_waiting_list_service(
-        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side")
+        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side"),
+        private_confirmed=data.get("privateConfirmed"),  # PAD-929 (join-requests rule 22)
     )
     return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True,
                     "side": entry.side}), (201 if created else 200)  # PAD-672: the side stored
@@ -2978,6 +3059,30 @@ def remove_class():
     return jsonify(result), status
 
 
+@bp.post("/class_cancellation_preview")
+@jwt_required()
+def class_cancellation_preview():
+    """PAD-840 (classes.delete rule 12): the message a removal with this reason would send."""
+    from padel_app.services.system_messages import cancellation_preview
+
+    data = request.get_json() or {}
+    source = _assert_owns_class_payload(require_coach(), data)
+    parsed = parse_cancel_reason(data)
+    override = parse_message_override(data)
+    if source is None or parsed is None or override is None:
+        return jsonify({"error": "Invalid payload"}), 400
+    reason, send = parsed
+    return jsonify(cancellation_preview(source, reason if send else "", override))
+
+
+@bp.get("/class/<int:lesson_id>/cancellations")
+@jwt_required()
+def class_cancellations(lesson_id):
+    """PAD-840 (classes.delete rule 14): the kept cancellations, for the class's own coach."""
+    lesson = require_owned_class(require_coach(), "Lesson", lesson_id)
+    return jsonify({"cancellations": lesson_cancellations(lesson)})
+
+
 UNIQUE_FIELD_CHECKS = {
     ("user", "username"),
     ("user", "email"),
@@ -3013,11 +3118,14 @@ def check_field_available():
     The frontend decides whether a 409 blocks submission (unique fields) or is a
     soft warning (duplicate fields).
 
-    Scoping (name warn-check): the caller must pass a ``scope`` (or ``coach``)
-    field carrying the requesting coach's id. Only players in that coach's
-    ``Association_CoachPlayer`` roster are considered. If no scope is supplied we
-    deliberately skip the warn (return ``available: true``) rather than fall back
-    to a global match, which would resurface the cross-club false positive.
+    Scoping (name warn-check): the roster checked is the CALLER's own, taken from
+    the JWT (PAD-92); only players in that coach's ``Association_CoachPlayer``
+    roster are considered. A ``scope`` (or ``coach``) field in the body is optional
+    and only an assertion: when present it must name the caller's coach id. A
+    missing ``scope`` does not skip the warning. A caller with no coach (a student)
+    has no roster, so the warn is skipped (``available: true``) rather than
+    falling back to a global match, which would resurface the cross-club false
+    positive.
     """
     data = request.get_json() or {}
     model_key = (data.get("model") or "").strip().lower()

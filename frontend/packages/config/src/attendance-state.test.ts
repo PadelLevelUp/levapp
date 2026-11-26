@@ -197,6 +197,35 @@ describe("cancellationDetail — provenance, not a second state", () => {
   });
 });
 
+describe("cancellationDetail — an unavailability decline (PAD-772)", () => {
+  const blockDecline = {
+    attendanceState: "not_coming",
+    cancelledByStudent: true,
+    cancelledAt: "2026-09-20T09:30:00+00:00",
+    declineSource: "availability_block",
+    respondedAt: "2026-09-21T10:00:00+00:00",
+    validated: false,
+  };
+
+  it("[ATTENDANCE-CONFIRM-42] an unavailability decline is a detail line on the coach's row only", () => {
+    const unavailable = { key: "calendar.detail.cancelledUnavailableAt", when: "2026-09-21T10:00:00+00:00" };
+    // Whatever cancelledByStudent says: the new engine's absence writes no justification.
+    expect(cancellationDetail(blockDecline, "coach")).toEqual(unavailable);
+    expect(cancellationDetail({ ...blockDecline, cancelledByStudent: false, cancelledAt: null }, "coach")).toEqual(unavailable);
+    // The ordinary decline keeps its line.
+    expect(cancellationDetail({ ...blockDecline, declineSource: null }, "coach")).toEqual({
+      key: "calendar.detail.cancelledByStudentAt",
+      when: "2026-09-20T09:30:00+00:00",
+    });
+    // Nothing once the coach validated, nothing on a row that came back (`coming` with the old source), nothing for the student.
+    expect(cancellationDetail({ ...blockDecline, validated: true }, "coach")).toBeNull();
+    expect(cancellationDetail({ ...blockDecline, attendanceState: "coming" }, "coach")).toBeNull();
+    expect(cancellationDetail(blockDecline, "student")).toBeNull();
+    // Without the instant there is nothing to say.
+    expect(cancellationDetail({ ...blockDecline, respondedAt: null }, "coach")).toBeNull();
+  });
+});
+
 describe("reminderHint — B-017's signal, demoted and conditional", () => {
   // Coordinator, 2026-09-12: "have they been asked yet?" is only an open question
   // while nobody has answered, so the line renders on `planned` and nowhere else.

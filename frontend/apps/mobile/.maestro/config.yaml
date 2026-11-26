@@ -439,6 +439,9 @@ executionOrder:
     # 330 (calendar.mobile-views rule 26, criterion 42): Dia on iOS is one list of days; scroll, Hoje, a pull
     # at the top, an empty day. Writes nothing, so its position is not load bearing.
     - 330-calendar-day-scroll
+    # 331 (auth.invite-welcome rule 6, criterion 5): the join screen's navy band and its actions, reached by
+    # scrolling. Mints a join token as the coach and disconnects e2e-student-3 again; its position is not load bearing.
+    - 331-invite-welcome
     # 333-336 (PAD-834, players.profile rules 9, 11, 12; players.list rule 15): the player card's
     # needs-configuring and pending states, its Assiduidade block, and the roster's pending filter.
     # 333, 334 and 336 create and delete their own placeholder (scripts/pad834-setup.js); 335 writes

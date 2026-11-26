@@ -165,6 +165,10 @@ Stated as observable records; storage is the engine package's (PAD-902).
       later return to semi-automatic asks again for each group; switching to `semi_automatic` leaves open
       invitations as they are (rule 10).
     Nothing is planned before `first_invite_at` (rule 1), so no request is raised before the window.
+15. **A run's cost grows at most linearly with the pool (engine review, 2026-11-25).** Whether a student is in
+    the session's pool is answered from the pool's ids, built once per snapshot, never by scanning the pool
+    for each student, tier and spot type; so the pool reads of one plan grow at most linearly with the
+    pool's size. Behaviour is unchanged.
 
 ### Not this spec
 - Answers (`notifications.engine-answers`) and the session's clock (`notifications.engine-timeline`).
@@ -466,6 +470,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    (`notifications.semi-auto-approval`, new-engine section) the coach's message and card.
 7. (PAD-916) PLANNING-32 — the store (one invitation per student and session, `StoreConflict`).
 8. (Owner decisions, PAD-915) PLANNING-26, PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-38 again, PLANNING-41 to PLANNING-43 — `invitation_engine/planner.py`, `requests.py`, `effects.py` (per-group approval, reopening from the waiting list).
+9. (engine review, 2026-11-25) PLANNING-48 — `invitation_engine/snapshot.py` (`SessionSnapshot.pool_ids`),
+   `invitation_engine/planner.py` and `answers.py` (pool membership from it).
 
 #### NOTIFICATIONS-ENGINE-PLANNING-47: Single-side holders fill budgets before a flexible one (rule 4)
 Given must(L) 1 and must(R) 1 at X = 3, the left type the hardest, and counting holders: one {left, right},
@@ -485,6 +491,12 @@ test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_f
 Given 2 left and 1 right spots open at X = 3 and 12 {left, right} candidates in one group, when the run
 plans, then 9 are invited, no side named.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P40-flexible-candidates-three-spots]`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-48: A plan's pool reads grow at most linearly with the pool (rule 15)
+Given one session with open spots on both sides and a pool of 50, then of 200 students, when the run plans,
+then the students read from the pool at 200 are at most 6 times those at 50 (linear: 4 times, plus slack),
+and the plan invites the same students as before the change.
+test: `backend/padel_app/tests/test_engine_pool_lookup_cost.py` › `test_a_plans_pool_reads_grow_linearly_with_the_pool`
 
 ### Open questions
 - Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator

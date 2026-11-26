@@ -29,7 +29,6 @@ students genuinely share a name).
 5. `POST /api/app/check_field_available` accepts `("user", "name")` and matches
    case-insensitively. `username` is also case-insensitive (`username_taken`, PAD-799: `Ana`
    is taken when `ana` exists); `email` keeps its exact, case-sensitive match.
-   - Code to follow: add a mixed-case username test to `test_check_field_available.py`.
 6. Excel import preview flags each Players row whose name matches an existing player, showing a
    clear "Possible duplicate" indicator. Flagged rows can still be imported.
 
@@ -63,8 +62,6 @@ students genuinely share a name).
 - **Given** the calling coach's roster holds a player named "John Doe"
 - **When** POST `/api/app/check_field_available` with `{"model": "user", "field": "name", "value": "JOHN DOE"}`
 - **Then** the response is 409 with a duplicate message
-- Code to follow: correct the docstring of the `check_field_available` route in `frontend_api.py`,
-  which says a missing `scope` skips the warning; the caller's own roster is used.
 
 #### PLAYERS-DUPLICATE-NAME-CHECK-4: Import preview flags duplicate names
 - **Given** a coach with an existing player "John Doe"

@@ -264,6 +264,7 @@
       "proactiveDeclineDone": "Avisámos o teu professor. A tua vaga foi libertada.",
       "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
       "cancelledByStudentAt": "Cancelado pelo aluno a {{when}}",
+      "cancelledUnavailableAt": "Cancelado pelo aluno · indisponível · {{when}}",
       "colorOption": "Cor {{color}}",
       "invitedCount": "Convidados ({{count}})",
       "club": "Clube",
@@ -571,7 +572,8 @@
         "busy_same_hour": "Já estás inscrito noutra aula à mesma hora",
         "side_full": "Já não há vaga do teu lado. Podes entrar na lista de espera.",
         "has_spots": "Esta aula ainda tem vagas: pede para entrar.",
-        "already_on_list": "Já estás na lista de espera desta aula."
+        "already_on_list": "Já estás na lista de espera desta aula.",
+        "private_unconfirmed": "Confirma que queres entrar nesta aula privada."
       },
       "coachTitle_one": "{{count}} pedido para entrar",
       "coachTitle_zero": "{{count}} pedidos para entrar",
@@ -585,6 +587,11 @@
       "classClosedToast": "A aula já não está aberta — o pedido foi encerrado",
       "confirmTitle": "Aceitar um aluno que já não cumpre os critérios?",
       "confirmBody": "Aceitar um pedido é uma adição manual — os critérios dizem o que mudou; a decisão é tua."
+    },
+    "privateLessonWarning": {
+      "body": "Esta é uma aula privada. Pode ter preços e condições diferentes mediante o que foi definido pelo teu professor e clube. Tens a certeza que pretendes avançar?",
+      "yes": "SIM",
+      "no": "NÃO"
     },
     "attendanceState": {
       "planned": {
@@ -750,6 +757,23 @@
     },
     "busySameHour": {
       "line": "{{name}} já está inscrito noutra aula à mesma hora ({{title}}, {{date}} {{time}}). Remove-o dessa aula primeiro."
+    },
+    "cancelReason": {
+      "label": "Motivo",
+      "placeholder": "Opcional",
+      "send": "Enviar o motivo aos alunos",
+      "preview": "Mensagem para os alunos",
+      "nobody": "Nenhum aluno será avisado.",
+      "edit": "Editar a mensagem",
+      "restore": "Repor mensagem original",
+      "removeToken": "Remover {{name}}",
+      "renderedPreview": "O que os alunos vão receber"
+    },
+    "cancellations": {
+      "title": "Aulas canceladas",
+      "andFollowing": "e as seguintes",
+      "sent": "Enviado aos alunos",
+      "notSent": "Não enviado aos alunos"
     }
   }
 }

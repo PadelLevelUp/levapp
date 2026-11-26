@@ -1,0 +1,114 @@
+import { classWhenHeader } from "@levelup/config";
+import * as React from "react";
+import { useTranslation } from "react-i18next";
+import { View } from "react-native";
+import { Text } from "@/components/ui/text";
+import { cn } from "@/lib/utils";
+
+/**
+ * calendar.event-detail rule 28 (UI idea 6), iOS: reading a class starts with when it is.
+ *
+ * While the coach edits, the children are the boxes, as before. While reading (marking attendance and planning
+ * are reading), it is one header block, `class-detail-when`: a date tile, the time range in the display face on one
+ * line (24 when the block is under 320 wide, 26 otherwise; it shrinks to its line at larger text sizes), a facts line
+ * (level, then club and court) of what exists, and then its children, which are the capacity line the screen already
+ * has. The series' end is NOT here: the screen's one repeat line says it. No count is computed here.
+ *
+ * The tile has a minimum width, not a fixed one, each of its three lines is one line, and its text scales to 1.3 at
+ * most: at the largest accessibility size a fixed 56pt tile wrapped one character per line and pushed the title out.
+ *
+ * The labels the boxes showed stay as the accessible names of the values: read out, not drawn. VoiceOver reads an
+ * element's label and value, so the tile, the time and the facts line (one element) carry them; the capacity's is on
+ * its count Text, in the screen.
+ */
+export function ClassWhenHeader({
+  editing,
+  date,
+  startTime,
+  endTime,
+  levelCode,
+  clubName,
+  courtName,
+  children,
+}: {
+  editing: boolean;
+  date?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  levelCode?: string | null;
+  clubName?: string | null;
+  courtName?: string | null;
+  children: React.ReactNode;
+}) {
+  const { t, i18n } = useTranslation();
+  const [narrow, setNarrow] = React.useState(false);
+  if (editing) return <View className="gap-3">{children}</View>;
+
+  const when = classWhenHeader({ date, startTime, endTime }, i18n.language);
+  const place = [clubName, courtName].filter(Boolean).join(" · ");
+  const hasFacts = !!levelCode || !!place;
+
+  return (
+    <View
+      testID="class-detail-when"
+      className="gap-3"
+      onLayout={(e) => setNarrow(e.nativeEvent.layout.width < 320)}
+    >
+      <View className="flex-row items-center gap-3">
+        <View
+          testID="class-detail-date-tile"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={t("calendar.detail.date")}
+          accessibilityValue={{ text: when.spokenDate }}
+          className="min-w-14 shrink-0 items-center rounded-lg border border-border bg-card py-1.5"
+        >
+          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} className="text-[11px] font-sans-semibold uppercase text-muted-foreground">{when.weekday}</Text>
+          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} className="my-0.5 font-display text-3xl text-foreground">{when.day}</Text>
+          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} className="text-[11px] font-sans-semibold uppercase text-muted-foreground">{when.month}</Text>
+        </View>
+        <View className="min-w-0 flex-1">
+          <Text
+            testID="class-detail-time"
+            accessibilityLabel={t("calendar.detail.time")}
+            accessibilityValue={{ text: when.timeRange }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            // A class, not a style: it replaces the wrapper's text-base and its 24px line, which would cut the digits.
+            className={cn("font-display text-foreground", narrow ? "text-[24px]" : "text-[26px]")}
+          >
+            {when.timeRange}
+          </Text>
+        </View>
+      </View>
+
+      {hasFacts ? (
+        // A Text nested in a Text is not an element on iOS, so this outer line is the one that is read: the labels
+        // the boxes had, with their values, in today's words ("Nível I1, Clube ...").
+        <Text
+          testID="class-detail-facts"
+          accessible
+          accessibilityLabel={[
+            levelCode ? `${t("calendar.detail.level")} ${levelCode}` : null,
+            place ? `${t("calendar.detail.club")} ${place}` : null,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+          className="text-sm text-muted-foreground"
+        >
+          {levelCode ? (
+            <Text testID="class-detail-level" className="text-sm font-sans-semibold text-foreground">
+              {levelCode}
+            </Text>
+          ) : null}
+          {levelCode && place ? " · " : null}
+          {place ? (
+            <Text testID="class-detail-place" className="text-sm text-muted-foreground">{place}</Text>
+          ) : null}
+        </Text>
+      ) : null}
+
+      {children}
+    </View>
+  );
+}

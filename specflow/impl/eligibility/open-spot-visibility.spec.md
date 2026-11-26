@@ -1,6 +1,6 @@
 ---
 id: eligibility.open-spot-visibility
-status: implemented
+status: implementing
 depends_on: [eligibility.cascade, calendar.view]
 serves: [P-ELIGIBILITY-3]
 governed_by: []
@@ -35,8 +35,15 @@ separate browse screen. A coach controls whether their open spots are advertised
     default is read-time resolution from `Lesson.type`: no row is written, so private lessons that
     already exist get it too, and an explicit lesson or instance value is kept (coordinator,
     2026-09-25, option a). Everything gated on `effective_open_spots_visible` follows: calendar
-    discovery, the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2) and join
-    requests (`classes.join-requests`).
+    discovery and join requests (`classes.join-requests`). **Where a visible private class is found
+    (PAD-929):** by browsing, a student who is not in it finds it only in their calendar (rules 1, 1a) and in the
+    private-request wizard's no-free-time list (`classes.academy-class-booking` rule 12). It is never
+    found in the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2), except by an
+    older app that declares no `private-confirm`: it has no such list, so its academy step keeps
+    listing it (same rule). A student
+    enrolled in it sees it as their own class whatever the setting (`calendar.view`). Invitations
+    (`calendar.view` rule 22, PAD-609) and the coach's standing list are not browsing and are
+    outside this rule.
 3. **Visibility is a coach toggle that cascades exactly like eligibility** — coach standard,
    overridable per recurring group and per single class, most specific wins, tiers do not merge
    (`eligibility.cascade` rules 1–3). Coach-facing label: "make empty spots for future classes
@@ -219,6 +226,13 @@ test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_rou
 - **When** the student's open spots are loaded at exactly 10:00 Lisbon time
 - **Then** the class is not offered
 - **And** one minute earlier it is
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-18: A private lesson is found by other students only in the two places, and only when visible (rule 3a)
+- **Given** Ana's private lesson with Carla enrolled and one spot left, and Bruno eligible
+- **When** the lesson is visible, and again when it is hidden (the default)
+- **Then** visible: Bruno's calendar (`open-spots` declared) has it as an open spot; hidden: it does not (the two lists are CLASSES-ACADEMY-CLASS-BOOKING-20 and -21)
+- **And** Carla's calendar shows it as her own class in both cases
+test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_a_private_lesson_is_found_only_in_the_calendar_and_the_private_list`
 
 ### Notes
 - **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:

@@ -291,7 +291,7 @@ def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts
         entry = _entry(snapshot, sid, "coach")
         return (entry is not None and sid not in snapshot.busy_same_time
                 and _entry_admits(entry, student, values, settings))
-    in_pool = any(st.id == sid for st in snapshot.pool)
+    in_pool = sid in snapshot.pool_ids
     if (not in_pool or sid in snapshot.busy_same_time or sid in snapshot.postponed
             or not _eligible(student, snapshot, settings)):
         return False
@@ -791,7 +791,7 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
                     or w.student in snapshot.busy_same_time      # never two sessions at one hour (answers rule 10)
                     or w.student in snapshot.blocked or w.student in snapshot.approval.removed):
                 continue                                      # the coach's list too keeps these out (rule 3)
-            visible = any(st.id == w.student for st in snapshot.pool) or w.student in snapshot.absent  # a regular back
+            visible = w.student in snapshot.pool_ids or w.student in snapshot.absent  # a regular back
             if which == "students" and (not visible or w.student in snapshot.postponed
                                         or not _eligible(student, snapshot, settings)):
                 continue                                      # every gate its tier holds (tiers rules 3, 10)
@@ -931,7 +931,7 @@ def _out_stage(student: Student, spot_type: SpotType, counts: SpotCounts, snapsh
     if on_coach_list and sid in snapshot.busy_same_time:   # the coach's list keeps this gate (rule 4)
         return "busy_same_time"
     if not on_coach_list:                            # the coach's list bypasses the pool's gates (rule 3)
-        if not any(st.id == sid for st in snapshot.pool):
+        if sid not in snapshot.pool_ids:
             return "not_in_pool"
         if sid in snapshot.busy_same_time:
             return "busy_same_time"

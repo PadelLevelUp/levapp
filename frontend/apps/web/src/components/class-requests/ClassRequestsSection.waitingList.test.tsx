@@ -69,12 +69,12 @@ function waitingRow(overrides: Partial<ClassWaitingListRow>): ClassWaitingListRo
   };
 }
 
-function renderSection(role: "coach" | "student") {
+function renderSection() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <ClassRequestsSection role={role} />
+        <ClassRequestsSection />
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -88,7 +88,7 @@ describe("ClassRequestsSection — waiting lists (PAD-504)", () => {
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
     academyApi.listClassWaitingList.mockResolvedValue([waitingRow({})]);
     academyApi.leaveClassWaitingList.mockResolvedValue({ lessonInstanceId: 70, onWaitingList: false });
-    renderSection("student");
+    renderSection();
 
     const row = await screen.findByTestId("class-waiting-list-row");
     expect(row.getAttribute("data-status")).toBe("active");
@@ -109,7 +109,7 @@ describe("ClassRequestsSection — waiting lists (PAD-504)", () => {
       waitingRow({ id: 1, lessonInstanceId: 11, status: "placed" }),
       waitingRow({ id: 2, lessonInstanceId: 12, status: "left" }),
     ]);
-    renderSection("student");
+    renderSection();
     fireEvent.click(await screen.findByTestId("class-requests-history-toggle"));
     const rows = await screen.findAllByTestId("class-waiting-list-row");
     expect(rows.map((r) => r.getAttribute("data-status")).sort()).toEqual(["left", "placed"]);
@@ -120,7 +120,7 @@ describe("ClassRequestsSection — waiting lists (PAD-504)", () => {
     requestsApi.listClassRequests.mockResolvedValue([]);
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
     academyApi.listClassWaitingList.mockResolvedValue([waitingRow({ joinedAt: "2026-10-02T23:30:00" })]);
-    renderSection("student");
+    renderSection();
     const row = await screen.findByTestId("class-waiting-list-row");
     expect(row.textContent).toContain('classRequests.waitingList.joinedOn:{"date":"2026-10-03"}');
   });
@@ -132,7 +132,7 @@ describe("ClassRequestsSection — waiting lists (PAD-504)", () => {
       .mockResolvedValueOnce([waitingRow({})])
       .mockResolvedValue([waitingRow({ status: "left" })]);
     academyApi.leaveClassWaitingList.mockRejectedValue({ response: { status: 404 } });
-    renderSection("student");
+    renderSection();
 
     const row = await screen.findByTestId("class-waiting-list-row");
     fireEvent.click(within(row).getByTestId("class-waiting-list-leave"));
@@ -147,20 +147,12 @@ describe("ClassRequestsSection — waiting lists (PAD-504)", () => {
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
     academyApi.listClassWaitingList.mockResolvedValue([waitingRow({})]);
     academyApi.leaveClassWaitingList.mockRejectedValue({ response: { status: 500 } });
-    renderSection("student");
+    renderSection();
 
     const row = await screen.findByTestId("class-waiting-list-row");
     fireEvent.click(within(row).getByTestId("class-waiting-list-leave"));
     fireEvent.click(within(row).getByTestId("class-waiting-list-leave-yes"));
     await waitFor(() => expect(toastFn).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" })));
     await waitFor(() => expect(academyApi.listClassWaitingList).toHaveBeenCalledTimes(2));
-  });
-
-  it("a coach's section never asks for waiting lists", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([]);
-    joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
-    renderSection("coach");
-    await screen.findByTestId("class-requests");
-    expect(academyApi.listClassWaitingList).not.toHaveBeenCalled();
   });
 });

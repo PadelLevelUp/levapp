@@ -39,6 +39,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import { useBlockerCoveredFollowUp } from "@/features/availability/blocker-covered-dialog";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import {
   BLOCK_TYPES,
@@ -104,6 +105,8 @@ export default function EventDetailScreen() {
     Number.isFinite(originalId) ? originalId : null
   );
   const editEvent = useEditEvent();
+  // PAD-772 (calendar.student-blockers rules 19-21): the question after a student's blocker save that covers classes.
+  const covered = useBlockerCoveredFollowUp();
   const removeEvent = useRemoveEvent();
 
   const [isEditing, setIsEditing] = React.useState(false);
@@ -161,17 +164,21 @@ export default function EventDetailScreen() {
       toast.error(t("calendar.addEvent.missingFieldsTitle"), t("calendar.addEvent.missingFieldsDescription", { fields: missing }));
       return;
     }
+    let updated: { coveredClasses?: unknown };
     try {
-      await editEvent.mutateAsync({
+      updated = (await editEvent.mutateAsync({
         blockId: originalId,
         data: draftToPayload(draft),
-      });
+      })) as { coveredClasses?: unknown };
       setIsEditing(false);
       setDraft(null);
       toast.success(t("calendar.eventDetail.eventUpdated"));
     } catch {
       toast.error(t("calendar.eventDetail.failedUpdateEvent"));
+      return;
     }
+    // PAD-772 (calendar.student-blockers rules 19-21): a student's own blocker asks after the save.
+    await covered.follow(updated);
   };
 
   const handleDelete = () => {
@@ -203,6 +210,7 @@ export default function EventDetailScreen() {
 
   return (
     <Screen edges={["top"]} testID="event-detail">
+      {covered.dialog}
       <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
         <Pressable
           testID="event-detail-back"

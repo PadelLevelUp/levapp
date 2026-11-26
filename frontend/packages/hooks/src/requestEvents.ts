@@ -25,8 +25,22 @@ export async function refreshAfterRequestChange(queryClient: QueryClient): Promi
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
     queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
+    // PAD-795 (classes.coach-requests-table rule 14): every page the coach's table has cached.
+    queryClient.invalidateQueries({ queryKey: queryKeys.coachRequests() }),
     // PAD-504: a student's waiting-list places sit in the same request history.
     queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList }),
+    queryClient.invalidateQueries({ queryKey: ["calendar-events"] }),
+    queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+  ]);
+}
+
+/**
+ * PAD-772 (calendar.student-blockers rule 21): after the student's yes marked classes "Não vai", the
+ * student's calendar, class screens and dashboard are read again.
+ */
+export async function refreshAfterCoveredMark(queryClient: QueryClient): Promise<void> {
+  await Promise.all([
     queryClient.invalidateQueries({ queryKey: ["calendar-events"] }),
     queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
     queryClient.invalidateQueries({ queryKey: ["dashboard"] }),

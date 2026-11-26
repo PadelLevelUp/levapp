@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "@levelup/types";
+import type { CalendarEvent, CoachRequestsQuery } from "@levelup/types";
 import type { PlayersQueryParams } from "@levelup/api/src/resources/players";
 
 /**
@@ -13,6 +13,9 @@ export const queryKeys = {
     ["calendar-events", { from, to }] as const,
   classInstance: (event: Pick<CalendarEvent, "model" | "originalId" | "date">) =>
     ["class-instance", event.model, event.originalId, event.date] as const,
+  // PAD-840 (classes.delete rule 14): a class's kept cancellations; without an id, the prefix a removal invalidates.
+  classCancellations: (lessonId?: string) =>
+    (lessonId === undefined ? ["class-cancellations"] : ["class-cancellations", lessonId]) as readonly unknown[],
   // The class screen's by-id read (calendar.event-detail rule 15): under the class-instance family so every
   // broad invalidation of it (the live events in requestEvents.ts, the calendar mutations) refreshes it too.
   lessonInstanceById: (instanceId: number | null | undefined) =>
@@ -58,6 +61,10 @@ export const queryKeys = {
   // classes.join-requests rule 17 (PAD-460): the caller's academy join requests, shown
   // beside `classRequests` in the same lists.
   classJoinRequests: ["class-join-requests"] as const,
+  // classes.coach-requests-table rule 14 (PAD-795): one page of the coach's table; the bare prefix
+  // is what every request event invalidates, so each page, sort and filter reads again.
+  coachRequests: (params?: CoachRequestsQuery) =>
+    (params === undefined ? ["coach-requests"] : ["coach-requests", params]) as readonly unknown[],
   /** PAD-504: the student's waiting-list places (classes.academy-class-booking rule 11). */
   classWaitingList: ["class-waiting-list"] as const,
   classRequestFreeBlocks: (coachId: string, date: string, excludeRequestId?: number) =>

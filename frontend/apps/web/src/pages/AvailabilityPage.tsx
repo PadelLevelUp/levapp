@@ -3,6 +3,7 @@ import { CalendarOff, Repeat, Trash2, Pencil, CalendarX } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ClassRequestsSection } from "@/components/class-requests/ClassRequestsSection";
 import { BlockerSheet } from "@/components/availability/BlockerSheet";
+import { useBlockerCoveredFollowUp } from "@/components/availability/BlockerCoveredDialog";
 import {
   Card,
   CardContent,
@@ -36,6 +37,8 @@ import {
 export default function AvailabilityPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  // PAD-772 (calendar.student-blockers rule 21): the question after a save that covers classes.
+  const covered = useBlockerCoveredFollowUp();
 
   const describeBlocker = (b: AvailabilityBlocker): string => {
     const time = `${b.startTime ?? ""}–${b.endTime ?? ""}`;
@@ -93,13 +96,14 @@ export default function AvailabilityPage() {
 
   // The sheet validates and builds the payload (rule 16); this only persists it.
   const handleSave = async (payload: BlockerInput) => {
+    let answer: { coveredClasses?: unknown };
     try {
       setSaving(true);
       if (editing) {
-        await updateBlocker(editing.id, payload);
+        answer = await updateBlocker(editing.id, payload);
         toast({ title: t("availability.updatedToast") });
       } else {
-        await createBlocker(payload);
+        answer = await createBlocker(payload);
         toast({ title: t("availability.addedToast") });
       }
       setSheetOpen(false);
@@ -111,9 +115,13 @@ export default function AvailabilityPage() {
         title: t("availability.couldNotSaveTitle"),
         description: t("availability.couldNotSaveDescription"),
       });
+      return;
     } finally {
       setSaving(false);
     }
+    // The block is saved and listed; what follows is asked outside the save's try, so a failure
+    // there never says it was not saved (and a failure of the question itself is not worth a second toast).
+    await covered.follow(answer).catch(() => undefined);
   };
 
   const handleDelete = async (id: number) => {
@@ -132,6 +140,7 @@ export default function AvailabilityPage() {
 
   return (
     <AppLayout>
+      {covered.dialog}
       <div className="p-4 md:p-6 space-y-6 max-w-3xl" data-testid="availability-page">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -226,7 +235,7 @@ export default function AvailabilityPage() {
         </Card>
 
         {/* PAD-104 / PAD-356: the student books a class in the coach's free time. */}
-        <ClassRequestsSection role="student" />
+        <ClassRequestsSection />
       </div>
 
       <BlockerSheet

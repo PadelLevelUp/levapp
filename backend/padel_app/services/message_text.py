@@ -38,10 +38,42 @@ def _side_phrase(side: str | None, locale: str | None) -> str:
     return _SIDE_PHRASES.get("en" if locale == "en" else "pt", {}).get(side or "", "")
 
 
+# PAD-840 (message-templates rule 25): where the cancellation reason goes while the rest of the text
+# is cleaned up; a private-use character, so no rule below can touch it.
+_REASON_SLOT = "\ue000"
+_SENTENCE_END = re.compile(r"[.!?]+(?=\s|$)|\n")
+
+
+def _drop_reason_sentences(template: str) -> str:
+    """Rule 25: without a reason, the whole sentence that holds ``{reason}`` goes, from the end of the
+    one before it (or the line break, or the start) to its own end."""
+    while "{reason}" in template:
+        at = template.index("{reason}")
+        start, end = 0, len(template)
+        for m in _SENTENCE_END.finditer(template):
+            if m.end() <= at:
+                start = m.start() if m.group() == "\n" else m.end()
+            elif m.start() >= at:
+                end = m.start() if m.group() == "\n" else m.end()
+                break
+        template = template[:start] + template[end:]
+    return template
+
+
+def _put_reason(template: str, reason: str) -> str:
+    """Rule 25: the reason last and verbatim, with one full stop ("Chuva." never becomes "Chuva..")."""
+    if reason[-1:] in (".", "!", "?"):
+        template = template.replace(_REASON_SLOT + ".", _REASON_SLOT)
+    return template.replace(_REASON_SLOT, reason)
+
+
 def _format_template(template: str, **variables) -> str:
+    reason = str(variables.pop("reason", None) or "").strip()
     # The coach may open a template on punctuation ("- Lembrete: …"); only a
     # leading run the substitution *exposed* is stripped below (B's #455 review).
     opens_on_punctuation = bool(_LEADING_PUNCTUATION.match(template.strip()))
+    # PAD-840 (rule 25): filled only by a class cancellation that sends one; anywhere else its sentence goes.
+    template = template.replace("{reason}", _REASON_SLOT) if reason else _drop_reason_sentences(template)
     for key, val in variables.items():
         val = str(val)
         if val == "":
@@ -63,6 +95,7 @@ def _format_template(template: str, **variables) -> str:
     # The new engine's placeholders (message-templates N2): `{sideName}` (side_moved) and `{count}`
     # (coach_no_candidate) are stripped the same way anywhere they are not filled.
     template = template.replace("{sideName}", "").replace("{count}", "")
+    template = template.replace("{reason}", "")  # one that came in with a value, like a class title
     # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
     template = re.sub(r"\(\s*\)|\[\s*\]", "", template)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a
@@ -76,7 +109,7 @@ def _format_template(template: str, **variables) -> str:
     trimmed = _LEADING_PUNCTUATION.sub("", template)
     if trimmed != template and not opens_on_punctuation:
         template = trimmed[:1].upper() + trimmed[1:]
-    return template
+    return _put_reason(template, reason)
 
 
 # Portuguese weekday names, indexed by ``datetime.weekday()`` (Monday == 0).
@@ -203,12 +236,18 @@ def template_preview_examples(locale, now=None) -> dict:
         "class": "Treino de grupo" if is_pt else "Group training",
         "when": _format_when(start, locale, dated=True).strip(),
         "side": _side_phrase("left", locale),
+        # PAD-840 (rule 26): the example cancellation reason.
+        "reason": "Chuva forte" if is_pt else "Heavy rain",
     }
 
 
-def render_template_preview(template, locale, now=None) -> str:
-    """PAD-549: the coach's template rendered through ``_format_template`` with the examples."""
-    return _format_template(template or "", **template_preview_examples(locale, now=now))
+def render_template_preview(template, locale, now=None, key=None) -> str:
+    """PAD-549: the coach's template rendered through ``_format_template`` with the examples. PAD-840
+    (rule 26): the reason only for the one template that is ever sent with it."""
+    examples = template_preview_examples(locale, now=now)
+    if key != "class_cancelled":
+        examples.pop("reason")
+    return _format_template(template or "", **examples)
 
 
 def _format_duration(start, end) -> str:

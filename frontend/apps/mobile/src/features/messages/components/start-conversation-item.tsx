@@ -42,7 +42,7 @@ export function StartConversationItem({ person, name, starting, disabled, onPres
           {name}
         </Text>
         <Text numberOfLines={1} className="text-sm text-muted-foreground">
-          {t("messages.startConversation")}
+          {t("messages.startConversationRow")}
         </Text>
       </View>
       {starting ? <ActivityIndicator color={lightTheme.primary} /> : null}

@@ -440,6 +440,19 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       scheduling window), and adopted as it is created; the old lesson-level start jobs
       (`invite_start_lesson_*`) are not armed for a switched coach. Decision (S, owner away, PAD-921,
       2026-11-12; the owner can reverse it), from R's option (b): one owner, measurable on staging.
+    - **The run stays cheap (prod slowness, 25 Nov 2026).** The adoption pass and the cutover pass run
+      every minute, so their database work is bounded by a small number of queries per switched coach,
+      independent of how many classes the coach has and of how many occurrences those classes already
+      had: the pass reads a coach's classes with their primary coaches in one query and their
+      not-yet-started occurrences' dates in one more, walks a class's occurrences in start order only
+      until the first one not yet due (its due time grows with its start), and the cutover pass reads
+      the scheduler's jobs once per run (in prod a read of the job store's table), reads nothing more
+      when none is an old-engine job, and otherwise finds each job's coach in a fixed number of queries
+      and asks only a coach who owns one whether they are drained. Every occurrence still materialises and is adopted at the same
+      run as before. One coach's failure in the adoption pass is logged and rolled back, and the run
+      goes on with the other coaches, the cutover pass, the sessions and the outbox. A failure of the
+      cutover pass's shared reads (the scheduler's jobs, their owners) is logged and rolled back, and the
+      run goes on with the sessions and the outbox.
 19. **A new-engine coach's settings come from the stored configuration (swap plan §2; PAD-913).** For a
     coach on the new engine (rule 18), the store builds `EngineSettings` from this spec's stored values
     at every call (`notifications.engine-settings` rule 9), with no new copy of them:
@@ -1084,6 +1097,37 @@ the row is created on `old` with no `engine_switched_at`; and when the operator 
 that occurrence is adopted (an engine session row).
 test: `backend/padel_app/tests/test_new_coach_starts_on_the_new_engine.py` › `test_a_row_created_for_a_coach_with_classes_waits_on_old_for_the_switch`
 
+#### NOTIFICATIONS-CONFIG-85: The run's queries do not grow with a coach's classes or history (rule 18)
+Given switched coaches with weekly classes and past occurrences, drained, and a minute at which nothing
+becomes due, when `engine_tick`'s adoption pass (`adopt_due`) and cutover pass (`cutover_pass`) run, then
+they issue the same number of SQL statements with 10 classes per coach as with 40, and with 4 weeks of
+past occurrences as with 30. And with old-engine jobs still armed for an undrained coach, the cutover
+pass reads the scheduler's jobs once and issues the same number of statements whether or not more drained coaches
+with classes and history are switched; once that coach drains, their jobs are removed.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_the_runs_queries_do_not_grow_with_classes_or_history` (+1 more)
+
+#### NOTIFICATIONS-CONFIG-86: Every due occurrence is still materialised at its run (rule 18)
+Given a switched coach whose invitations start 9 days before (so two weekly occurrences fall due in one
+run) and whose attendance request is earlier than the invitation start for another class, when
+`engine_tick` runs one minute before and at each one's due minute, then none is materialised a minute
+before, and each is materialised and adopted at its own due minute, the second occurrence of the series
+included; a class whose invitations start at creation (`first_invite` none) still materialises every
+occurrence within the scheduling window.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_every_due_occurrence_is_still_materialised_at_its_run`
+
+#### NOTIFICATIONS-CONFIG-87: One coach's failure in the adoption pass does not stop the run (rule 18)
+Given two switched coaches, each with an occurrence created after the switch and no engine session row,
+and a listed session, when the first coach's adoption raises outside a single occurrence's adoption, then
+the second coach's occurrence is adopted, the cutover pass and the sessions' tick still run, and the
+failure is logged.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_one_coachs_failure_in_the_adoption_pass_does_not_stop_the_run`
+
+#### NOTIFICATIONS-CONFIG-88: A failure of the cutover pass's shared reads does not stop the run (rule 18)
+Given a listed session and old-engine jobs still armed, when the cutover pass's lookup of the jobs'
+owners raises, then the failure is logged, the session's tick and the outbox still run, and the database
+session is usable afterwards.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_a_failure_of_the_cutover_passs_shared_reads_does_not_stop_the_run`
+
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
   15-minute floor drops to const:ENGINE_T_FLOOR with the new timing controls
@@ -1126,3 +1170,12 @@ test: `backend/padel_app/tests/test_new_coach_starts_on_the_new_engine.py` › `
 - The `engine` object's names and storage (rule 20) — R's proposal (PAD-918, 2026-11-12), adopted by S
   with one guard: `different_from_vacancy` is refused for a coach on `old`, whose engine would let
   everyone through on it. The controls' words are proposed, **for the owner's approval**.
+- The engine run's cost (rule 18, CONFIG-85 to 87; prod slowness, 25 Nov 2026: `engine_tick` ran 1-2
+  minutes, about half its fires skipped) — decision (hotfix agent, owner's order to fix it today, nobody
+  reachable to review; the owner can reverse it): bound the adoption and cutover passes' queries per
+  coach, with no change to when anything is materialised or adopted (no lag added to any window), and
+  isolate one coach's failure. This touches two specs (this one and `notifications.engine-store` rule 7)
+  without a separate review, on the owner's order. The sessions' tick (`Engine.tick`'s three snapshots
+  per session, about 110 statements per listed session) is left for a follow-up: it is the pure engine
+  under `notifications.engine-planning`, and it grows only with listed sessions. Pausing a coach
+  (`autoNotifyEnabled` off) still materialises their due occurrences, as before.

@@ -23,6 +23,8 @@ from padel_app.sql_db import db
 from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 
 WINDOW_DAYS = 14
+# PAD-929 (rules 9, 12): the read's `type` values; the first is the default.
+LESSON_LIST_TYPES = ("academy", "private")
 
 
 def _require_roster(player, coach_id):
@@ -41,10 +43,12 @@ def _instance_id_of(event):
     return int(event["originalId"]) if event.get("model") == "LessonInstance" else None
 
 
-def list_academy_classes(player, coach_id, *, now=None) -> dict:
+def list_academy_classes(player, coach_id, *, lesson_type=LESSON_LIST_TYPES[0], now=None) -> dict:
     """Rules 1–4 and 7: the coach's classes for fourteen club-local days that the
     student may join, each with its state and what the student already did.
-    Reads only — nothing is materialised."""
+    Reads only — nothing is materialised. PAD-929: classes of ``lesson_type`` only — the academy
+    step's academy classes (rule 2), or the coach's visible private lessons (rule 12); ``None`` is
+    an older app's read, both types (rule 2)."""
     from padel_app.helpers.calendar_helpers import load_open_spot_events_for_player
 
     cp = _require_roster(player, coach_id)
@@ -55,7 +59,7 @@ def list_academy_classes(player, coach_id, *, now=None) -> dict:
     end = start + timedelta(days=WINDOW_DAYS)
 
     events = load_open_spot_events_for_player(
-        player.id, start, end, now=now, coach_id=cp.coach_id, include_full=True
+        player.id, start, end, now=now, coach_id=cp.coach_id, include_full=True, lesson_type=lesson_type
     )
     instance_ids = [i for i in (_instance_id_of(e) for e in events) if i is not None]
     latest = {}
@@ -96,7 +100,8 @@ def list_academy_classes(player, coach_id, *, now=None) -> dict:
     }
 
 
-def join_class_waiting_list_service(player, model, original_id, date_str, *, side=None, now=None):
+def join_class_waiting_list_service(player, model, original_id, date_str, *, side=None,
+                                    private_confirmed=None, now=None):
     """Rule 6: the student's own place on a full class's waiting list. Returns
     ``(entry, created)`` — ``created`` is False when they were already on it."""
     from padel_app.models import Presence
@@ -107,6 +112,7 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, sid
         _is_full,
         _refuse,
         open_spot_sides,
+        refuse_unconfirmed_private,
         requested_side,
         resolve_instance,
         side_has_spot,
@@ -138,12 +144,13 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, sid
     # invitation to this class has already been shown it, so the open-spot visibility switch does
     # not hide its waiting list from them — "ainda que naquele momento não hajam vagas". Their own
     # "no" is final (rule 18) and grants nothing. The roster, has-spots and eligibility gates stand.
-    if cp is None or not (
-        effective_open_spots_visible(instance, coach_id, config)
-        or _was_invited(instance.id, player.id)
-        or gave_up_place
-    ):
+    exempt = gave_up_place or _was_invited(instance.id, player.id)
+    if cp is None or not (effective_open_spots_visible(instance, coach_id, config) or exempt):
         _refuse("not_visible", "This class is not open to requests")
+    # PAD-929 (join-requests rule 22): a student invited to the class, or who gave up their place in
+    # it, is already part of it; anyone else confirms a private lesson's warning first.
+    if not exempt:
+        refuse_unconfirmed_private(instance, private_confirmed)
     from padel_app.services.engine_switch import engine_for
 
     if engine_for(instance) == "new":

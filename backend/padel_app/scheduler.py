@@ -643,6 +643,20 @@ def _old_job_key(job_id: str):
     return None
 
 
+def old_engine_jobs_by_key() -> dict:
+    """Every old-engine job the scheduler holds, by its key (``_old_job_key``); empty with no scheduler.
+    One ``get_jobs()``: in prod that is a read of the job store's table and an unpickle of every job,
+    so the cutover pass makes it once per run and reuses it (CONFIG-85)."""
+    if _scheduler is None:
+        return {}
+    out: dict = {}
+    for job in _scheduler.get_jobs():
+        key = _old_job_key(job.id)
+        if key is not None:
+            out.setdefault(key, []).append(job)
+    return out
+
+
 def old_engine_jobs(*, instance_ids=(), lesson_ids=(), vacancy_ids=()) -> list:
     """The scheduler's old-engine jobs keyed on any of ``instance_ids``, ``lesson_ids`` or
     ``vacancy_ids`` (a decline job is keyed on its vacancy)."""

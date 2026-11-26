@@ -32,6 +32,7 @@ import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
+import { ClassWhenHeader } from "./ClassWhenHeader";
 import { ClassCapacityBar } from "./ClassCapacityBar";
 import { ClassPlanningSection } from "./ClassPlanningSection";
 
@@ -48,11 +49,12 @@ import type {
 } from "@/types";
 
 
-import { assignedSideOf, blockedNames, classBarRefusal, classTypeChipKey, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
-import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
+import { assignedSideOf, blockedNames, classBarRefusal, classTypeChipKey, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, needsPrivateLessonWarning, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
+import { useCancelReason, useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
+import type { CancelReason } from "@levelup/api/src/resources/classes";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, participantsHeader, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, viewFilledSpots, participantsHeader, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -125,6 +127,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { CancelReasonFields } from "./CancelReasonFields";
+import { ClassCancellationsSection } from "./ClassCancellationsSection";
 import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import type { SideInOccurrence } from "./SideInOccurrenceControl";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
@@ -153,7 +157,7 @@ interface ClassDetailSheetProps {
 
   canManage: boolean,
 
-  onDelete: (event: CalendarEvent, scope: ApplyScope) => void;
+  onDelete: (event: CalendarEvent, scope: ApplyScope, cancel?: CancelReason) => void;
   onEdit: (
     event: CalendarEvent,
     updated: Partial<ClassInstance>,
@@ -226,6 +230,8 @@ export function ClassDetailSheet({
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // classes.delete rule 12 (PAD-840): the reason, shared by the two delete confirmations.
+  const cancelReason = useCancelReason(event, deleteDialogOpen || confirmDeleteOpen);
   const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
   const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
   // PAD-150: a manual add that fails the bar asks first (rule 7d). The pending
@@ -1343,7 +1349,23 @@ export function ClassDetailSheet({
 
         <div className="mt-6 space-y-6">
           {/* 2×2 Info Blocks */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* calendar.event-detail rule 28 (UI idea 6): reading is one header block, editing the five boxes. */}
+          <ClassWhenHeader
+            editing={isEditing}
+            date={active.date}
+            startTime={active.startTime}
+            endTime={active.endTime}
+            until={
+              active.recurrenceEnd && !active.parentClassId
+                ? t("calendar.detail.untilDate", { date: format(parseISODate(active.recurrenceEnd), "d MMM", { locale: dateFnsLocale(i18n.language) }) })
+                : null
+            }
+            levelCode={levels.find((l) => l.id === active.levelId)?.code}
+            clubName={active.clubName}
+            courtName={active.courtName}
+          >
+            {isEditing && (
+            <>
             {/* Date */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -1432,9 +1454,12 @@ export function ClassDetailSheet({
               )}
             </div>
 
+            </>
+            )}
+
             {/* Capacity */}
-            <div data-testid="class-detail-capacity" className="rounded-lg border bg-muted/30 p-3 space-y-1">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
+            <div data-testid="class-detail-capacity" className={isEditing ? "rounded-lg border bg-muted/30 p-3 space-y-1" : undefined}>
+              <div className={isEditing ? "flex items-center gap-1.5 text-muted-foreground" : "sr-only"}>
                 <Users className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{t("calendar.detail.capacity")}</span>
               </div>
@@ -1473,9 +1498,10 @@ export function ClassDetailSheet({
                     // (backend `LessonInstance.effective_filled_spots`).
                     // B-240: over the listed students only, so an edit's unticked
                     // declined student is not subtracted (calendar.event-detail rule 5).
-                    const effectiveFilled = effectiveFilledSpotsOf(
-                      active.participants,
-                      active.presences
+                    const effectiveFilled = viewFilledSpots(
+                      active.participantCount,
+                      canManage,
+                      effectiveFilledSpotsOf(active.participants, active.presences)
                     );
                     const openSpots = active.maxPlayers - effectiveFilled;
                     // PAD-920 (ND2): a new-engine session counts only the invitations that still count.
@@ -1507,6 +1533,8 @@ export function ClassDetailSheet({
               )}
             </div>
 
+            {isEditing && (
+            <>
             {/* Level */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -1568,7 +1596,9 @@ export function ClassDetailSheet({
                 </p>
               )}
             </div>
-          </div>
+            </>
+            )}
+          </ClassWhenHeader>
 
           {/* Auto notifications */}
           {/* PAD-793 (classes.create rule 6b): shown whatever the coach's engine state. */}
@@ -1743,7 +1773,11 @@ export function ClassDetailSheet({
                   // student made the two contradict each other — "0/4, 4 open"
                   // above "Participants (1/4)". A not-coming student is listed,
                   // visibly not coming, and not counted as filling a spot.
-                  current: effectiveFilledSpotsOf(active.participants, active.presences),
+                  current: viewFilledSpots(
+                    active.participantCount,
+                    canManage,
+                    effectiveFilledSpotsOf(active.participants, active.presences)
+                  ),
                   max: active.maxPlayers,
                 })}
               </h4>
@@ -2267,6 +2301,8 @@ export function ClassDetailSheet({
             </div>
           )}
 
+          <ClassCancellationsSection lessonId={classInstance?.lessonId} enabled={canManage && (canApplyScope || classInstance?.isRecurring === true) && !isEditing} />
+
           <Separator />
 
           {!isEditing ? (
@@ -2573,6 +2609,12 @@ export function ClassDetailSheet({
           onRequestSent={(request) => void handleSideRequestSent(request)}
           onWaitingListJoined={handleSideWaitingJoined}
           onFailed={(err, mode) => void handleSideFailed(err, mode)}
+          // PAD-929 (rule 22): a private lesson asks before the side; a stale answer re-reads it.
+          privateWarning={needsPrivateLessonWarning(
+            { classType: active?.classType ?? event.classType, studentRelation: event.studentRelation },
+            sideSheet === "waiting" ? "waitlist" : "request",
+          )}
+          onPrivateUnconfirmed={() => void refreshInstance()}
         />
       )}
       <AlertDialog open={inviteeToDelete !== null} onOpenChange={(open) => { if (!open) setInviteeToDelete(null); }}>
@@ -2736,7 +2778,7 @@ export function ClassDetailSheet({
       {/* PAD-58: confirm deletion of a non-recurring class before removing it. */}
       {canManage && onDelete && (
         <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
             <AlertDialogHeader>
               <AlertDialogTitle>
                 {t("calendar.detail.deleteConfirmTitle")}
@@ -2753,17 +2795,19 @@ export function ClassDetailSheet({
                 </p>
               )}
             </AlertDialogHeader>
+            <CancelReasonFields state={cancelReason} />
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>
                 {t("calendar.detail.cancel")}
               </AlertDialogCancel>
               <AlertDialogAction
+                data-testid="class-delete-confirm"
                 onClick={(e) => {
                   e.preventDefault();
                   setConfirmDeleteOpen(false);
-                  if (event) onDelete(event, "single");
+                  if (event) onDelete(event, "single", cancelReason.cancel);
                 }}
-                disabled={deleting}
+                disabled={deleting || cancelReason.messageTooLong}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {t("calendar.detail.delete")}
@@ -2777,13 +2821,16 @@ export function ClassDetailSheet({
         <ClassScopeDialog
           open={deleteDialogOpen}
           mode="delete"
+          confirmDisabled={cancelReason.messageTooLong}
           note={deleteAttendanceNote}
           onClose={() => setDeleteDialogOpen(false)}
           onConfirm={(scope) => {
             setDeleteDialogOpen(false);
-            if (event) onDelete(event, scope);
+            if (event) onDelete(event, scope, cancelReason.cancel);
           }}
-        />
+        >
+          <CancelReasonFields state={cancelReason} />
+        </ClassScopeDialog>
       )}
 
       {canManage && onEdit && (

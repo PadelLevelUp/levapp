@@ -264,6 +264,7 @@
       "proactiveDeclineDone": "Your coach has been notified. Your spot has been freed.",
       "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
       "cancelledByStudentAt": "Cancelled by the student on {{when}}",
+      "cancelledUnavailableAt": "Cancelled by the student · unavailable · {{when}}",
       "colorOption": "Color {{color}}",
       "invitedCount": "Invited ({{count}})",
       "club": "Club",
@@ -571,7 +572,8 @@
         "busy_same_hour": "You're already in another class at the same time",
         "side_full": "There's no spot left on your side. You can join the waiting list.",
         "has_spots": "This class still has spots: ask to join.",
-        "already_on_list": "You're already on this class's waiting list."
+        "already_on_list": "You're already on this class's waiting list.",
+        "private_unconfirmed": "Please confirm you want to join this private class."
       },
       "coachTitle_one": "{{count}} request to join",
       "coachTitle_other": "{{count}} requests to join",
@@ -585,6 +587,11 @@
       "classClosedToast": "The class is no longer open — the request was closed",
       "confirmTitle": "Accept a student who no longer meets the bar?",
       "confirmBody": "Accepting a request is a manual add — the bar says what changed; you decide."
+    },
+    "privateLessonWarning": {
+      "body": "This is a private class. Its prices and conditions may differ, as set by your coach and club. Are you sure you want to go ahead?",
+      "yes": "YES",
+      "no": "NO"
     },
     "attendanceState": {
       "planned": {
@@ -750,6 +757,23 @@
     },
     "busySameHour": {
       "line": "{{name}} is already in another class at the same time ({{title}}, {{date}} {{time}}). Remove them from that class first."
+    },
+    "cancelReason": {
+      "label": "Reason",
+      "placeholder": "Optional",
+      "send": "Send the reason to the students",
+      "preview": "Message to the students",
+      "nobody": "No student will be told.",
+      "edit": "Edit the message",
+      "restore": "Restore original message",
+      "removeToken": "Remove {{name}}",
+      "renderedPreview": "What the students will receive"
+    },
+    "cancellations": {
+      "title": "Cancelled classes",
+      "andFollowing": "and the following ones",
+      "sent": "Sent to the students",
+      "notSent": "Not sent to the students"
     }
   }
 }

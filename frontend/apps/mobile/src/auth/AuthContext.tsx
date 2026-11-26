@@ -17,7 +17,7 @@ import {
 import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
 import { launchMark } from "@/lib/launch-timeline";
-import { getPushRegistrar, startPushFailureReport, startPushRecovery } from "@/lib/push";
+import { getPushRegistrar, startPushFailureReport, startPushRecovery, startPushRefusalReport } from "@/lib/push";
 import { clearSessionCache } from "./session-cache";
 import { endSessionState, signOut } from "./sign-out";
 
@@ -138,6 +138,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!signedIn) return;
     return startPushRecovery(getPushRegistrar());
   }, [signedIn]);
+  // messaging.push-notifications rule 18 (PAD-789 item 3): a refused permission is reported once
+  // per change, from here because only here is the signed-in user known.
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId == null) return;
+    return startPushRefusalReport(userId);
+  }, [userId]);
 
   // 401 anywhere → drop session and land on the login screen.
   // Guard: only navigate when a user was actually signed in. Without it,
