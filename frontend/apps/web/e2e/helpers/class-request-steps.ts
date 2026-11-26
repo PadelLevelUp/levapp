@@ -9,3 +9,9 @@ export async function continueTo(wizard: Locator, step: "when" | "time") {
   await wizard.getByTestId("wizard-continue").click();
   await expect(wizard.locator(`[data-private-step="${step}"]`)).toBeVisible();
 }
+
+/** Send sits under the same 400 ms lock as "Continuar" (rule 21, criterion 66): wait it out, then press it. */
+export async function pressSend(wizard: Locator) {
+  await wizard.page().waitForTimeout(450);
+  await wizard.getByTestId("wizard-send").click();
+}

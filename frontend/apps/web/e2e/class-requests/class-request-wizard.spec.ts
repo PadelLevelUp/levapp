@@ -10,7 +10,7 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 import { COACH_PASSWORD, COACH_USERNAME, STUDENT2_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { deleteClassRequests, withdrawClassRequests } from "../helpers/cleanup";
-import { continueTo } from "../helpers/class-request-steps";
+import { continueTo, pressSend } from "../helpers/class-request-steps";
 
 async function bearer(request: APIRequestContext, username: string, password: string) {
   const res = await request.post(`${API_ROOT}/auth/login`, { data: { username, password } });
@@ -63,7 +63,7 @@ async function sendFirstSlot(page: Page) {
   await expect(wizard.getByTestId("wizard-slots")).toHaveAttribute("data-state", "ready", { timeout: 15_000 });
   await wizard.getByTestId("wizard-slot").first().click();
   const posted = page.waitForResponse((r) => /\/api\/app\/class-requests$/.test(r.url()) && r.request().method() === "POST");
-  await wizard.getByTestId("wizard-send").click();
+  await pressSend(wizard);
   const res = await posted;
   expect(res.status(), await res.text()).toBeLessThan(300);
   await expect(wizard).toHaveCount(0);

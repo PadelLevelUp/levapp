@@ -11,7 +11,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
-import { continueTo } from "../helpers/class-request-steps";
+import { continueTo, pressSend } from "../helpers/class-request-steps";
 
 const STUDENT_NAME = "E2E Student";
 
@@ -71,7 +71,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     const createdResponse = page.waitForResponse(
       (r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/app/class-requests"),
     );
-    await form.getByTestId("wizard-send").click();
+    await pressSend(form);
     const created = await createdResponse;
     expect(created.status(), await created.text()).toBe(201);
     const requestId = String((await created.json()).id);
