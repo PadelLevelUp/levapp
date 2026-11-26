@@ -14,6 +14,6 @@ A student marks times they are unavailable so the invitation system stops reachi
 - A block suppresses every class-slot solicitation for a class inside its window, not automatic invitations alone: manual invitations, reminders and waiting-list offers are held back too, and a coach who sends by hand is told which students were skipped (PAD-107).
 - A coach can still enrol a blocked student by hand after confirming a warning; the student is not told about that addition.
 - The coach sees only that a student is unavailable at a time, never the block's title, description or reason.
-- A student who saves a block over classes they are already in is asked whether they are not going to those classes; only a yes marks them "Não vai", the student gets no message for it, and the coach sees the student is unavailable (PAD-772, owner, 26 Nov 2026).
+- A student who saves a block over classes they are already in is not asked anything: saving marks those classes "Não vai" at once, the student gets no message and no reminder or attendance request for them, removing the block keeps the marks ("Afinal vou" is the way back), and the coach sees the student is unavailable (PAD-772; owner, 26 Nov 2026: "Nothing should be asked about").
 
 It does not promise a coach's own personal blocks.

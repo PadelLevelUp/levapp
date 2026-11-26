@@ -311,16 +311,19 @@ Readings:
    records the student's answer and overwrites the mark with `absent`; refusing it instead is a
    PAD-567-adjacent decision not taken here.
 
-#### A decline made from an availability block (PAD-772; owner, 26 Nov 2026: "ask them when they save")
-30. **The student's yes in the block dialog is an ordinary decline with a source.** When a student
-    who saved an availability block answers yes to the covered-classes question
-    (`calendar.student-blockers` rules 19–23), each class is declined through this spec's own path —
+#### A decline made from an availability block (PAD-772; owner, 26 Nov 2026, corrected the same day: "Nothing should be asked about")
+30. **Saving an availability block over a class is an ordinary decline with a source.** When a
+    student saves an availability block over classes they are in, the save marks each covered class
+    "Não vai" at once, with no question (`calendar.student-blockers` rules 19–23); each class is
+    declined through this spec's own path —
     rules 5, 10–15 and 18 hold unchanged (the spot, the timing, proactive or late by the server's
     clock), and on a new-engine session the engine's "not going" runs as for any No. Three things
     differ, and only for that source (`const:DECLINE_SOURCE_AVAILABILITY_BLOCK`):
     - the student-facing acknowledgement of rule 8 (the `reminder_declined` template) is **not**
-      sent: the student answered in the app and the app confirms it. No message whose sender is the
-      coach is created;
+      sent: the student decided by saving the block, and the app's toast says how many classes were
+      marked (`calendar.student-blockers` rule 21). No message whose sender is the coach is created,
+      and no reminder or attendance request reaches the student for those classes on either engine
+      (`calendar.student-blockers` rule 23);
     - on an old-engine session, rule 8's coach notice carries `msg_metadata.availabilityBlock: true`
       beside its existing keys and says the student marked themselves unavailable, never the block's
       title or times (wording and late marker: `calendar.student-blockers` rule 23). On a new-engine
@@ -642,10 +645,10 @@ test: `frontend/packages/config/src/attendance-state.test.ts` › `[ATTENDANCE-C
 
 #### ATTENDANCE-CONFIRM-43: A decline from a block sends the student nothing and marks the coach's notice; every other decline is unchanged (rule 30)
 - **Given** two students in one old-engine class and the coach's `reminder_declined` template customised
-- **When** one declines it through `decline_covered` and the other through `cancel_attendance`
+- **When** one saves an availability block covering it and the other declines through `cancel_attendance`
 - **Then** no message whose sender is the coach is created for the first, and the coach's notice for them (sender the student) carries `availabilityBlock: true` with the existing `proactiveDecline`, `lateCancellation` and `lessonInstanceId`; the second gets the `reminder_declined` acknowledgement (sender the coach) and a notice without the marker, as before
 - **And** the serialized presences carry `declineSource` = the constant and null respectively
-test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_only_a_block_decline_drops_the_student_acknowledgement`
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_only_a_block_save_drops_the_student_acknowledgement`
 
 ### Open questions
 - A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,
