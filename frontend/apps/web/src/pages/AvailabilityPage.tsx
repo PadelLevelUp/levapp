@@ -226,7 +226,7 @@ export default function AvailabilityPage() {
         </Card>
 
         {/* PAD-104 / PAD-356: the student books a class in the coach's free time. */}
-        <ClassRequestsSection role="student" />
+        <ClassRequestsSection />
       </div>
 
       <BlockerSheet

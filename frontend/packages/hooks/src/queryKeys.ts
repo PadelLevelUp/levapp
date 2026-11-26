@@ -1,5 +1,6 @@
 import type { CalendarEvent } from "@levelup/types";
 import type { PlayersQueryParams } from "@levelup/api/src/resources/players";
+import type { CoachRequestsQuery } from "@levelup/api/src/resources/coachRequests";
 
 /**
  * Central query-key registry. Keys used by the web app are kept identical to
@@ -61,6 +62,10 @@ export const queryKeys = {
   // classes.join-requests rule 17 (PAD-460): the caller's academy join requests, shown
   // beside `classRequests` in the same lists.
   classJoinRequests: ["class-join-requests"] as const,
+  // classes.coach-requests-table rule 14 (PAD-795): one page of the coach's table; the bare prefix
+  // is what every request event invalidates, so each page, sort and filter reads again.
+  coachRequests: (params?: CoachRequestsQuery) =>
+    (params === undefined ? ["coach-requests"] : ["coach-requests", params]) as readonly unknown[],
   /** PAD-504: the student's waiting-list places (classes.academy-class-booking rule 11). */
   classWaitingList: ["class-waiting-list"] as const,
   classRequestFreeBlocks: (coachId: string, date: string, excludeRequestId?: number) =>

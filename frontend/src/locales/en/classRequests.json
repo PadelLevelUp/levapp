@@ -46,6 +46,7 @@
       "countered": "Waiting for the student",
       "accepted": "Booked",
       "declined": "Declined",
+      "declinedByStudent": "Declined by the student",
       "withdrawn": "Withdrawn by the student",
       "rejected": "Declined",
       "superseded": "Spot taken"
@@ -132,6 +133,55 @@
     },
     "busySameHour": {
       "studentLine": "{{name}} is already in another class at the same time ({{title}}, {{date}} {{time}})."
+    },
+    "table": {
+      "tabOpen": "Open",
+      "tabHistory": "History",
+      "columns": {
+        "classDay": "Class: day",
+        "classTime": "Class: time",
+        "requestedDay": "Request: day",
+        "requestedTime": "Request: time",
+        "student": "Student",
+        "kind": "Class type",
+        "side": "Preferred side",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "kind": {
+        "academy": "Academy",
+        "private": "Private"
+      },
+      "filters": {
+        "kind": "Class type",
+        "status": "Status",
+        "side": "Side",
+        "sideNone": "No side",
+        "student": "Student",
+        "all": "All",
+        "allStudents": "All students",
+        "classDates": "Class day",
+        "classTimes": "Class time",
+        "requestDates": "Request day",
+        "from": "From",
+        "to": "To",
+        "clear": "Clear filters"
+      },
+      "pager": {
+        "previous": "Previous",
+        "next": "Next"
+      },
+      "empty": "No requests in this view.",
+      "detail": {
+        "note": "Student's note",
+        "requestedAt": "Requested on {{when}}",
+        "decidedAt": "Decided on {{when}}",
+        "decidedBy": "Decided by: {{who}}",
+        "student": "Student",
+        "coach": "Coach",
+        "recurrence": "Weekly ({{days}}) until {{end}}",
+        "none": "—"
+      }
     }
   }
 }

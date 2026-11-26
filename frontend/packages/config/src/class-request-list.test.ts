@@ -6,7 +6,13 @@
  */
 import { describe, expect, it } from "vitest";
 import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow } from "@levelup/types";
-import { isOpenClassRequestRow, mergeClassRequestRows, splitClassRequestRows } from "./class-request-list";
+import {
+  isOpenClassRequestRow,
+  JOIN_REQUEST_OPEN_STATUSES,
+  mergeClassRequestRows,
+  PRIVATE_REQUEST_OPEN_STATUSES,
+  splitClassRequestRows,
+} from "./class-request-list";
 
 function privateRow(overrides: Partial<ClassRequest>): ClassRequest {
   return {
@@ -141,5 +147,16 @@ describe("PAD-504: the student's waiting lists join the same list (academy-class
 
   it("callers that pass two lists are unchanged", () => {
     expect(mergeClassRequestRows([privateRow({ id: 1 })], [])).toHaveLength(1);
+  });
+});
+
+describe("the open statuses (classes.coach-requests-table rule 3, PAD-795)", () => {
+  it("[CLASSES-COACH-REQUESTS-TABLE-3] open statuses match the constants", () => {
+    // specflow/impl/classes/constants.md: PRIVATE_REQUEST_OPEN_STATUSES, JOIN_REQUEST_OPEN_STATUSES.
+    expect([...PRIVATE_REQUEST_OPEN_STATUSES]).toEqual(["pending", "countered"]);
+    expect([...JOIN_REQUEST_OPEN_STATUSES]).toEqual(["pending"]);
+    for (const status of ["pending", "countered", "accepted", "declined", "withdrawn"] as const) {
+      expect(isOpenClassRequestRow(privateRow({ status }))).toBe(PRIVATE_REQUEST_OPEN_STATUSES.includes(status));
+    }
   });
 });
