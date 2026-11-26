@@ -343,6 +343,18 @@ Readings:
     also clears it, as `calendar.student-blockers` rule 23 says: "Afinal vou" on both engines, and the new engine's
     reminder answer and ordinary decline.
 
+31. **A second "Não vou" changes nothing (review of PAD-772, 26 Nov 2026).** `POST
+    /api/app/notify/cancel_attendance` on a presence whose `attendanceState` is already `not_coming`
+    and which is not validated answers `{"action": "declined", "proactive": false, "duplicate": true}`
+    and writes, sends and clears nothing, on both engines: no second coach notice (rule 8), no
+    `reminder_declined` to the student, no new `respondedAt` or `response`, `declineSource` kept, no
+    vacancy or engine request. The check runs after the started (409) and enrolment (403) checks, so
+    those answers are unchanged. It is the server half of rule 25's gate ("not already declined"):
+    a stale screen — notably an iOS build that re-reads only its blocker list after a block save
+    marked the class (`calendar.student-blockers` rule 25) — can still send the tap. A validated row
+    is not covered by this rule: rule 29's behaviour for it is unchanged. Clients treat `duplicate`
+    like any decline answer; builds that do not read it see an ordinary decline.
+
 ### Acceptance Criteria
 
 #### ATTENDANCE-CONFIRM-1: Player confirms attendance
@@ -649,6 +661,14 @@ test: `frontend/packages/config/src/attendance-state.test.ts` › `[ATTENDANCE-C
 - **Then** no message whose sender is the coach is created for the first, and the coach's notice for them (sender the student) carries `availabilityBlock: true` with the existing `proactiveDecline`, `lateCancellation` and `lessonInstanceId`; the second gets the `reminder_declined` acknowledgement (sender the coach) and a notice without the marker, as before
 - **And** the serialized presences carry `declineSource` = the constant and null respectively
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_only_a_block_save_drops_the_student_acknowledgement`
+
+#### ATTENDANCE-CONFIRM-44: A decline on a row already declined writes, sends and clears nothing (rule 31)
+- **Given** a student whose presence was marked by an availability block save (`declineSource` set), on an old-engine class and on a new-engine class, and a second student who declined an old-engine class plainly
+- **When** each posts `cancel_attendance` for that class again (by `lessonInstanceId` and by `(model, originalId, date)`)
+- **Then** each answer is `{"action": "declined", "proactive": false, "duplicate": true}`
+- **And** the presence rows are unchanged (`declineSource`, `respondedAt`, `response`, `status`), no message is created (no second coach notice, no `reminder_declined`), no push is sent, no vacancy changes, and on the new engine no engine request is handled
+- **And** a validated `missed` row still follows rule 29, and a class that has started still answers 409
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_second_decline_on_a_declined_row_is_a_no_op`
 
 ### Open questions
 - A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,
