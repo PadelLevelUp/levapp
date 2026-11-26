@@ -116,8 +116,9 @@ export function filterPlayers(
 }
 
 /**
- * The rows the screen lists: the filter's matches, ordered by `sort`. While a name is typed and
- * the coach has left the sort at its default, the best match comes first instead (PAD-665).
+ * The rows the screen lists: the filter's matches, ordered by `sort`. The table always has a sort
+ * of its own, so a typed name only filters; the sort wins, never the best match (players.search
+ * rule 6, decision 2026-10-14 (a)).
  */
 export function presenceRows(
   players: PresencePlayerStats[],

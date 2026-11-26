@@ -204,8 +204,7 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** the last level comes into view, and tapping it chooses it and closes the list —
   Maestro flow `280-level-select-scrolls` (red on the code before the fix: six swipes and the
   last level never appeared)
-- Code to follow: tag the Maestro flow `280-level-select-scrolls` to this criterion, so a device
-  flow points at it.
+test: `frontend/apps/mobile/.maestro/flows/280-level-select-scrolls.yaml` (tag `MOBILE-ANDROID-RUNTIME-7`)
 
 #### MOBILE-ANDROID-RUNTIME-8: A long select near the bottom of a form is reachable on Android (rule 9, PAD-727)
 - **Given** the coach has 16 levels and opens a student's edit form on the Android emulator
@@ -246,8 +245,8 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
   `addViewAt` mounting exception. Maestro flow `51-verify-transition-rate` walks this 10 times
   and `44-signup` once. Both failed at the first walk on the code before this change (B-089 face
   C) and pass after it
-- Code to follow: tag the Maestro flows `51-verify-transition-rate` and `44-signup` to this
-  criterion, so a device flow points at it.
+test: `frontend/apps/mobile/.maestro/flows/51-verify-transition-rate.yaml` (tag `MOBILE-ANDROID-RUNTIME-12`)
+test: `frontend/apps/mobile/.maestro/flows/44-signup.yaml` (tag `MOBILE-ANDROID-RUNTIME-12`)
 
 #### MOBILE-ANDROID-RUNTIME-13: Login and the calendar pass on the emulator lane
 - **Given** the PAD-297 lane with `MAESTRO_FLOWS` set to `01-login`, `31-week-view` and a

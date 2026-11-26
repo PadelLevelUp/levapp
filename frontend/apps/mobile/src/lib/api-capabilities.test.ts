@@ -44,16 +44,26 @@ describe("mobile API client declares its capabilities (PAD-352)", () => {
     expect(initApiCall()).toMatch(/capabilities:\s*\[[^\]]*["']evaluations["'][^\]]*\]/);
   });
 
-  // MOBILE-RELEASE-BUILD-TARGET-11: the whole list, so a dropped token fails here and not in the field.
-  it("[MOBILE-RELEASE-BUILD-TARGET-11] declares all fourteen tokens", () => {
-    const list = initApiCall().match(/capabilities:\s*\[([^\]]*)\]/)?.[1] ?? "";
-    const tokens = [...list.matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
-    expect(tokens.sort()).toEqual(
-      [
-        "open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance",
-        "country-on-completion", "terms-on-completion", "adult-roster-confirmation", "student-relations",
-        "full-classes", "join-side", "notification-sound", "waiting-list-side", "private-confirm",
-      ].sort(),
-    );
+  it("[MOBILE-RELEASE-BUILD-TARGET-11] declares the whole list of fourteen capability tokens, by value", () => {
+    const call = initApiCall();
+    const match = call.match(/capabilities:\s*\[([^\]]*)\]/);
+    expect(match, "no capabilities list in the initApi call").not.toBeNull();
+    const tokens = [...match![1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
+    expect(tokens).toEqual([
+      "open-spots",
+      "evaluations",
+      "class-type-defaults",
+      "coach-invite-email",
+      "terms-acceptance",
+      "country-on-completion",
+      "terms-on-completion",
+      "adult-roster-confirmation",
+      "student-relations",
+      "full-classes",
+      "join-side",
+      "notification-sound",
+      "waiting-list-side",
+      "private-confirm",
+    ]);
   });
 });

@@ -275,7 +275,7 @@ test: `backend/padel_app/tests/test_pad128_eligibility.py` › `test_eligibility
 - **And** a value survives a change of operation only when the new operation takes one, and a change of attribute resets the operation and drops the value
 - **And** removing one rule leaves the other, and removing the last one stores `null`
 test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` › `starts on the first attribute's first operation, with no value` (+11 more)
-- Code to follow: web `EligibilitySection.tsx` moves its inline rule transitions onto the shared helper (or gains its own tests of add, change attribute, change operation and remove), so the web editor is proved too.
+test: `frontend/apps/web/src/components/settings/EligibilitySection.test.tsx` › `[ELIGIBILITY-RULES-15] adding a rule appends level same_as_class with no value` (+5 more)
 
 #### ELIGIBILITY-RULES-16: Within N is one menu entry with a direction that changes only the operation (rules 6, 11; PAD-481)
 - **Given** the eligibility editor on web or iOS and a rule `within_n_of_class` with N 2

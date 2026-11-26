@@ -1,3 +1,4 @@
+# Proof on iOS/device for MOBILE-ANDROID-RUNTIME-12 (tag).
 # PAD-210 — self-service signup (auth.register) and the coach approval gate
 # (auth.coach-approval). PAD-234 adds the email code step in between
 # (auth.email-verification): the flag-gated backend captures the mail and

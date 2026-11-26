@@ -1,18 +1,20 @@
 """
-B-192 — the "Add to classes" picker's week includes its Sunday.
+B-192 — the "Add to classes" picker's week includes its last day (Saturday).
 
 Every picker (web `AddToClassesDialog`, iOS `add-to-classes-dialog`, and the App Store
-builds already installed) asks `GET /api/app/lesson_instances?from=<Monday>&to=<Sunday>`
-with date-only bounds, meaning "through Sunday". The route parsed a date-only `to` as
-Sunday 00:00, so every class on the week's Sunday after midnight was left out, and a
+builds already installed) asks `GET /api/app/lesson_instances?from=<Sunday>&to=<Saturday>`
+(the week runs Sunday to Saturday, PAD-682) with date-only bounds, meaning "through
+Saturday". The route parsed a date-only `to` as Saturday 00:00, so every class on the
+week's last day after midnight was left out, and a
 coach could not add a player to it. A date-only `to` now means the end of that day,
 exactly what the calendar's own clients send (`…T23:59:59`); a full timestamp is
 unchanged.
 
-Written red first: on staging 0e40e3a6 the two Sunday cases fail.
+Written red first: on staging 0e40e3a6 the two last-day cases fail (the week was then
+restated Sunday to Saturday for PLAYERS-PROFILE-5, PAD-890, same assertions).
 
 Covered spec: players.profile rule 5 and the criterion "The picker offers the week's
-Sunday classes (B-192)".
+last-day classes (B-192)".
 """
 import json
 from datetime import date, datetime, timedelta
@@ -22,8 +24,8 @@ from flask_jwt_extended import create_access_token
 
 from padel_app.sql_db import db
 
-MONDAY = "2026-09-28"
-SUNDAY = "2026-10-04"
+WEEK_START = "2026-10-04"  # Sunday
+SATURDAY = "2026-10-10"  # the week's last day
 
 
 @pytest.fixture(autouse=True)
@@ -32,8 +34,8 @@ def _jwt_secret(app):
 
 
 def _setup(app):
-    """A coach with: a one-off class Sunday 10:00, a weekly Sunday series (its 4 Oct
-    occurrence is virtual), and a one-off class the next Monday at 00:00."""
+    """A coach with: a one-off class Saturday 10:00, a weekly Saturday series (its 10 Oct
+    occurrence is virtual), and a one-off class the next Sunday at 00:00."""
     from padel_app.models import User
     from padel_app.models.coaches import Coach
     from padel_app.models.clubs import Club
@@ -59,7 +61,7 @@ def _setup(app):
                 start_datetime=start,
                 end_datetime=start + timedelta(hours=1),
                 is_recurring=recurring,
-                recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": [0]}) if recurring else None,
+                recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": [6]}) if recurring else None,
                 recurrence_end=date(2026, 12, 31) if recurring else None,
                 type="academy",
                 max_players=4,
@@ -85,42 +87,42 @@ def _setup(app):
             db.session.flush()
             db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=inst.id))
 
-        one_off("B192 Sunday one-off", datetime(2026, 10, 4, 10, 0))
-        # A weekly Sunday series that began the Sunday before: 4 Oct is a virtual occurrence.
-        lesson("B192 Sunday series", datetime(2026, 9, 27, 11, 0), recurring=True)
-        one_off("B192 next Monday midnight", datetime(2026, 10, 5, 0, 0))
+        one_off("B192 Saturday one-off", datetime(2026, 10, 10, 10, 0))
+        # A weekly Saturday series that began the Saturday before: 10 Oct is a virtual occurrence.
+        lesson("B192 Saturday series", datetime(2026, 10, 3, 11, 0), recurring=True)
+        one_off("B192 next Sunday midnight", datetime(2026, 10, 11, 0, 0))
         db.session.commit()
         return {"Authorization": f"Bearer {create_access_token(identity=str(user.id))}"}
 
 
-def _titles_on(client, headers, to, day=SUNDAY):
-    res = client.get(f"/api/app/lesson_instances?from={MONDAY}&to={to}", headers=headers)
+def _titles_on(client, headers, to, day=SATURDAY):
+    res = client.get(f"/api/app/lesson_instances?from={WEEK_START}&to={to}", headers=headers)
     assert res.status_code == 200, res.get_data(as_text=True)
     return {e["title"] for e in res.get_json() if e.get("date") == day}
 
 
 @pytest.mark.criterion("PLAYERS-PROFILE-5")
-def test_a_one_off_class_on_the_weeks_sunday_is_listed(client, app):
+def test_a_one_off_class_on_the_weeks_last_day_is_listed(client, app):
     headers = _setup(app)
-    assert "B192 Sunday one-off" in _titles_on(client, headers, SUNDAY)
+    assert "B192 Saturday one-off" in _titles_on(client, headers, SATURDAY)
 
 
 @pytest.mark.criterion("PLAYERS-PROFILE-5")
-def test_a_recurring_classs_sunday_occurrence_is_listed(client, app):
+def test_a_recurring_classs_last_day_occurrence_is_listed(client, app):
     headers = _setup(app)
-    assert "B192 Sunday series" in _titles_on(client, headers, SUNDAY)
+    assert "B192 Saturday series" in _titles_on(client, headers, SATURDAY)
 
 
 @pytest.mark.criterion("PLAYERS-PROFILE-5")
 def test_the_inclusive_end_stops_at_the_end_of_that_day(client, app):
     headers = _setup(app)
-    res = client.get(f"/api/app/lesson_instances?from={MONDAY}&to={SUNDAY}", headers=headers)
+    res = client.get(f"/api/app/lesson_instances?from={WEEK_START}&to={SATURDAY}", headers=headers)
     titles = {e["title"] for e in res.get_json()}
-    assert "B192 next Monday midnight" not in titles
+    assert "B192 next Sunday midnight" not in titles
 
 
 @pytest.mark.criterion("PLAYERS-PROFILE-5")
 def test_a_full_timestamp_to_keeps_its_exact_meaning(client, app):
     headers = _setup(app)
-    # 08:00 on Sunday: the 10:00 and 11:00 classes are after it, so neither is listed.
-    assert _titles_on(client, headers, f"{SUNDAY}T08:00:00") == set()
+    # 08:00 on Saturday: the 10:00 and 11:00 classes are after it, so neither is listed.
+    assert _titles_on(client, headers, f"{SATURDAY}T08:00:00") == set()

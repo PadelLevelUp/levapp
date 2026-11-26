@@ -191,6 +191,22 @@ def test_username_uniqueness_still_exact_and_global(app, client):
     assert res.get_json()["available"] is False
 
 
+@pytest.mark.parametrize("typed", ["Johnd", "JOHND"])
+def test_username_check_is_case_insensitive(app, client, typed):
+    """players.duplicate-name-check rule 5 (PAD-799): `username` is taken in any case,
+    so a mixed-case value matches the stored lower-case one."""
+    caller_id, _ = _make_coach(app, f"coach_username_case_{typed.lower()}")
+    _make_user(app, name="John Doe", username="johnd")
+
+    res = client.post(
+        "/api/app/check_field_available",
+        json={"model": "user", "field": "username", "value": typed},
+        headers=_auth_header(app, caller_id),
+    )
+    assert res.status_code == 409
+    assert res.get_json()["available"] is False
+
+
 def test_email_uniqueness_still_exact_and_global(app, client):
     """PAD-7: email uniqueness check still returns 409 for an exact match."""
     caller_id, _ = _make_coach(app, "coach_email_check")

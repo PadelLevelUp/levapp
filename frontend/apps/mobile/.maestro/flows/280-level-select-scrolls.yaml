@@ -1,3 +1,4 @@
+# Proof on iOS/device for MOBILE-ANDROID-RUNTIME-7 (tag).
 # PAD-655 — a select whose options are taller than its list box scrolls (mobile.android-runtime
 # rule 9b; number self-assigned, unconfirmed). Reported on iOS: Edit student → Nível, the list
 # did not move, so only the first ~9 levels could be chosen.
