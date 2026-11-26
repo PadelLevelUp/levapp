@@ -194,7 +194,16 @@ def answer_attendance_request(instance, presence, action: str, now: datetime | N
         return {"action": "declined"}
     student = str(presence.player_id)
     returning = _is_regular(presence) and presence.status == "absent"
-    handle(instance, rq.RegularReturns(student) if returning else rq.ConfirmAttendance(student), now)
+    now = now or utcnow_naive()
+    effects = handle(instance, rq.RegularReturns(student) if returning else rq.ConfirmAttendance(student), now)
+    if not returning and not any(isinstance(e, fx.Answered) and e.student == student for e in effects):
+        # engine-store rule 13: a yes the engine already counts answers nothing; the store repairs a
+        # presence an earlier yes left unwritten, in its own unit.
+        from padel_app.services.engine_store import TableStore
+
+        store = TableStore()
+        with store.unit((str(instance.id),)):
+            store.repair_confirmed(str(instance.id), student, now)
     return {"action": "confirmed"}
 
 

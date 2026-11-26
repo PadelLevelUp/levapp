@@ -141,6 +141,16 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     level and is later given one: its no-level state reads at the new level, so nothing reopens or is asked
     again, while a change from one level to another does reopen and re-ask as before. A class with no level
     reads exactly as before. No stored row is rewritten by a migration.
+13. **An attendance request's answer reaches the presence (`notifications.reminders`, `event-detail` rule
+    24; as the old engine's reminder answer did).** When the store writes an `Answered` yes to an attendance
+    request, the student's going presence is written as coming: `confirmed`, `response` `confirmed` and
+    `responded_at` the answer's time, and one `presence_changed` live event is queued for the class's coach,
+    sent after the unit commits (none on a rollback). A yes the engine already
+    counts (rule 6: a yes `ReminderAttempt`) has no effect, so the app's answer route, when the engine returns
+    no `Answered` for a going student who has a yes `ReminderAttempt` and whose presence is not written as
+    coming, has the store write it as above, in its own unit, before the class starts: a presence an earlier
+    yes left unwritten is repaired by the student's next tap. Who the engine counts as confirmed (rule 6) and
+    who it asks again do not change.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -320,6 +330,26 @@ spots an open counting invitation offered with no level covers, then it counts t
 offer at the session's level.
 test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_the_card_and_the_admin_coverage_read_a_no_level_spot_type_at_the_sessions_level`
 
+#### NOTIFICATIONS-ENGINE-STORE-25: A yes to the attendance request confirms the presence and tells the coach (rule 13)
+Given a new-engine class with its regular going and unconfirmed, when the regular answers yes to the
+attendance request, then their presence is `confirmed` with `response` `confirmed` and `responded_at` the
+answer's time, their `ReminderAttempt` is answered yes, and one `presence_changed` for them reaches the
+class's coach after the commit.
+test: `backend/padel_app/tests/test_engine_reminder_yes_presence.py` › `test_a_yes_to_the_attendance_request_confirms_the_presence`
+
+#### NOTIFICATIONS-ENGINE-STORE-26: A repeat yes repairs a presence an earlier yes left unconfirmed (rule 13)
+Given a new-engine class whose regular has a yes `ReminderAttempt` and a going presence that is not
+confirmed (`response` `none`), when the regular answers yes again, then the engine returns no effect, and
+the presence is `confirmed` with `response` `confirmed`, and one `presence_changed` reaches the coach after
+the commit; a repeat yes once the class has started repairs nothing.
+test: `backend/padel_app/tests/test_engine_reminder_yes_presence.py` › `test_a_repeat_yes_repairs_an_unconfirmed_presence`
+
+#### NOTIFICATIONS-ENGINE-STORE-27: The student's in-app yes confirms the presence (rule 13)
+Given a new-engine class with its regular going and unconfirmed, when the regular posts yes to
+`/api/app/notify/respond_reminder` (the reminder bubble's and the class detail's confirm button), then the
+answer is `confirmed` and the presence is `confirmed` with `response` `confirmed`.
+test: `backend/padel_app/tests/test_engine_reminder_yes_presence.py` › `test_the_in_app_yes_confirms_the_presence`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -338,6 +368,8 @@ test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_the_car
    `pending`, `dismissed_groups`; `CoachAlert` and `AlertCleared` writes).
 8. (engine effective level, transition readers) STORE-24 — `services/engine_outbox.py` (`card`),
    `services/admin/engine_health.py` (`_open_spots`).
+9. (engine reminder yes, 2026-11-26) STORE-25 to STORE-27 — `services/engine_store.py` (`Answered`,
+   `repair_confirmed`), `services/engine_entry.py` (`answer_attendance_request`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined

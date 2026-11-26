@@ -144,6 +144,22 @@ def _going(p) -> bool:
     return p.status != "absent" or p.left_reason not in LEFT
 
 
+def _confirm_presence(presence, at: datetime) -> None:
+    """Engine-store rule 13: a yes to the attendance request writes the presence as coming, as the old
+    engine's reminder answer did, and queues one ``presence_changed`` for the coach, sent after the
+    commit (``publish_presence_changed`` waits for it; a rollback drops it)."""
+    from padel_app.services.presence_events import publish_presence_changed
+    from padel_app.services.presence_response import record_response
+
+    presence.confirmed = True
+    record_response(presence, "confirmed", when=at)
+    publish_presence_changed(presence.lesson_instance, presence.player_id)
+
+
+def _written_as_coming(presence) -> bool:
+    return bool(presence.confirmed) and presence.response == "confirmed"
+
+
 def _spend_standing_credit(iid: int, pid: int) -> None:
     """Engine-store rule 11 (waiting-list rules 15, 15a): the student is placed from a row a standing
     entry fanned out, so that entry spends one credit; the last one closes it and its class rows. Flushes
@@ -508,6 +524,27 @@ class TableStore:
             return False
         row.closed_at, row.closed_reason = at, "withdrawn"
         _refresh_bubbles(row, "withdrawn")
+        return True
+
+    @staticmethod
+    def repair_confirmed(session: str, student: str, at: datetime) -> bool:
+        """Engine-store rule 13: a yes the engine already counts (rule 6, a yes ``ReminderAttempt``) has no
+        effect, so a presence an earlier yes left unwritten is written as coming here, before the class
+        starts, for a going student. False when there is nothing to repair. Call it inside
+        ``unit((session,))``."""
+        from padel_app.models import ReminderAttempt
+        from padel_app.models.presences import Presence
+
+        presence = Presence.query.filter_by(lesson_instance_id=int(session), player_id=int(student)).first()
+        if presence is None or presence.status == "absent" or _written_as_coming(presence):
+            return False
+        start = presence.lesson_instance.start_datetime
+        if start is None or at >= wall_to_utc_naive(start):
+            return False
+        if ReminderAttempt.query.filter_by(lesson_instance_id=int(session), player_id=int(student),
+                                           response="yes").first() is None:
+            return False
+        _confirm_presence(presence, at)
         return True
 
     @staticmethod
@@ -912,6 +949,9 @@ class TableStore:
                 else:
                     db.session.add(ReminderAttempt(lesson_instance_id=iid, player_id=int(e.student), number=0,
                                                    response="yes", responded_at=e.at))
+                presence = self._presence(e)              # rule 13: the presence says coming, as the old path did
+                if presence is not None and presence.status != "absent":
+                    _confirm_presence(presence, e.at)
         elif isinstance(e, fx.Placed):
             self._guard_same_hour(e)
             if e.how not in ("regular", "regular_returns"):
