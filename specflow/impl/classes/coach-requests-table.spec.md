@@ -86,7 +86,9 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
    (`academy` first), then `id` descending — so a page boundary never repeats or skips a row. A missing
    or unknown `sort_by` or `sort_dir` uses the section's default (rule 6).
 6. **Default order (from the ticket).** Em aberto: `class_date` ascending — the request for the nearest
-   class first. Histórico: `requested_at` descending — the newest request first.
+   class first. Histórico: `requested_at` descending — the newest request first. Each tab keeps its own
+   order: changing the tab drops the sort the coach chose, so the new tab opens on its own default (the
+   clients, as they do with the status filter).
 7. **Filters, all ANDed, all optional.**
    - `kind=private|academy`;
    - `status=<s>[,<s>…]`: statuses of the requested section only (a status of the other section matches
@@ -126,14 +128,21 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
     aluno", en "Declined by the student"**. Every other (kind, status) maps to `coachStatus.<status>`
     unchanged. The status filter lists the same words.
 11. **Web: a table.** The coach's page shows two tabs, "Em aberto (n)" and "Histórico (n)" (`counts`),
-    Em aberto selected on arrival. The table's columns, in this order: Aula: dia · Aula: hora · Pedido:
-    dia · Pedido: hora · Aluno (`displayName`) · Tipo de aula (Academia / Privada) · Lado preferencial
-    (Esquerda / Direita / Ambos / —) · Estado, plus an actions column in Em aberto. Every column header
-    sorts (rule 5's key for that column); pressing the active header flips the direction. Filters sit
+    Em aberto selected on arrival. The table's columns, in this order: Aula (day and time, on two lines)
+    · Pedido (day and time, on two lines) · Aluno (`displayName`) · Tipo de aula (Academia / Privada) ·
+    Lado preferencial (Esquerda / Direita / Ambos / —) · Estado, plus an actions column in Em aberto: the
+    eight fields of the ticket, each still its own sort — the Aula header carries one control for the day
+    ("dia") and one for the time ("hora"), the Pedido header the same (both sort by `requested_at`), every
+    other header sorts by its own key; pressing the active control flips the direction. The table fits its
+    card with the sidebar open from 1024 px up, with no sideways scroll: the actions column shows
+    "Aceitar" and a "…" menu holding the other actions (Recusar, Propor outro horário; Rejeitar for an
+    academy row). Dates read in the app's short date format of the language (`formatShortDate`, as the
+    class-request wizards print them), times as HH:MM. Filters sit
     above the table: a student search box (rule 7 `search`, once the owner answers; until then a student
     picker sending `player_id`), kind, status (the section's statuses), side, a class date range, a class
     time range and a request date range, with one "Limpar filtros". Changing a sort or a filter returns
-    to page 1; changing the tab returns to page 1 and clears the status filter. A pager under the table
+    to page 1; changing the tab returns to page 1, clears the status filter and the chosen sort (rule 6).
+    A pager under the table
     shows the page, the page count and previous/next. Sort, filters, tab and page live in the URL query,
     so a reload or a shared link reopens the same view.
 12. **Mobile: its own screen, compact rows.** Pedidos de Aula leaves the Settings scroll view
@@ -142,7 +151,7 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
     `/settings?section=classRequests&proposeFor=<id>`, still lands on it (rule 16). It reads the same
     endpoint and shows the same tabs with counts, the same fields per row in a compact layout (class date
     and time, request date and time, student, kind badge, side, status words), and the same filters and
-    sort chosen in one "Filtrar/Ordenar" sheet; changing the tab clears the status filter. Pages load one
+    sort chosen in one "Filtrar/Ordenar" sheet; changing the tab clears the status filter and the chosen sort. Pages load one
     after another as the list scrolls to its end (`page` + 1 until `hasNext` is false), same page size.
 13. **Actions stay where they are.** An Em aberto row offers exactly today's actions for its kind and
     status (private `pending`: accept, decline, propose another time; academy `pending`: accept, reject,
@@ -163,8 +172,15 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
     `/settings?section=classRequests&proposeFor=<id>`, which still lands on the same screen). Today both
     shells find that request in the whole list they hold. The table instead reads that one request
     (`kind=private&id=<id>`, rule 7), whatever page or section it is on, and when it is `pending` opens
-    the propose form on it, prefilled with its slot, as today. A request that is not pending, or not
+    the propose form beside it — under its row, or its card — prefilled with its slot, as today (a request
+    that is not on the loaded page opens the form at the top of the list), and scrolls to it. A request that is not pending, or not
     the coach's, opens nothing. The `proposeFor` param is then removed from the route.
+17. **Web below 768 px: cards, not a table.** Under the `md` breakpoint the page shows no table: each
+    request is a card with the same fields (class day and time, request day and time, student, kind with
+    the class title, side, status words), the same actions and the same detail on a tap, under the same
+    tabs and the same pager. The filters sit in one collapsible "Filtrar/Ordenar" block that also holds a
+    sort select (key and direction), because the headers are gone; its date and time inputs fit the card.
+    Everything else — the endpoint, the params, the URL — is the table's.
 
 ### Not this spec
 - The student's requests list (Availability, web and iOS). It keeps `GET /app/class-requests` +
@@ -335,16 +351,16 @@ test: `backend/padel_app/tests/test_pad795_coach_requests_table.py` › `test_ol
 - **Then** every pair maps to `classRequests.coachStatus.<status>`, except a private `declined` with decidedBy `student`, which maps to `classRequests.coachStatus.declinedByStudent`; every key resolves in pt and en, and none falls back to the raw status
 test: `frontend/packages/config/src/class-request-status-key.test.ts` › `[CLASSES-COACH-REQUESTS-TABLE-11] every status maps to an existing coach-side key`
 
-#### CLASSES-COACH-REQUESTS-TABLE-12: The web table shows two tabs with counts and the eight columns in order (rules 11, 1)
+#### CLASSES-COACH-REQUESTS-TABLE-12: The web table shows two tabs with counts and the eight fields in order (rules 11, 1)
 - **Given** the endpoint answers an open page with one private row and academy rows of side `left` and `both`, and `counts {open: 3, history: 5}`
 - **When** the coach opens `/class-requests`
-- **Then** "Em aberto (3)" is selected and "Histórico (5)" is beside it, the header reads the eight columns of rule 11 in order plus actions, and each row's cells show its class day and time, request day and time in the club's time zone, `displayName`, kind, side (the app's existing words for `left` and `both`, "—" for the private row) and rule 10's words
+- **Then** "Em aberto (3)" is selected and "Histórico (5)" is beside it, the header reads the columns of rule 11 in order (the Aula and Pedido columns each with a day and a time control) plus actions, and each row's cells show its class day and time, request day and time in the club's time zone in the language's short date format, `displayName`, kind, side (the app's existing words for `left` and `both`, "—" for the private row) and rule 10's words
 test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-12] tabs with counts and the eight columns`
 
-#### CLASSES-COACH-REQUESTS-TABLE-13: Sorting, filtering and switching tabs on web send the params, go back to page 1, and a tab change drops the status filter (rules 5, 7, 11)
+#### CLASSES-COACH-REQUESTS-TABLE-13: Sorting, filtering and switching tabs on web send the params, go back to page 1, and a tab change drops the status filter and the sort (rules 5, 6, 7, 11)
 - **Given** the coach on Histórico page 3 with a status filter `accepted`
 - **When** they press "Aluno", press it again, set kind Privada and a class date range, switch to Em aberto, then press "Limpar filtros"
-- **Then** each step requests the endpoint with the matching `sort_by`/`sort_dir`/filter params and `page=1`; after the tab switch the request carries no `status`; the URL query carries the same state, and a reload of that URL requests the same page
+- **Then** each step requests the endpoint with the matching `sort_by`/`sort_dir`/filter params and `page=1`; after the tab switch the request carries no `status` and no `sort_by` (the tab's own default order applies); the URL query carries the same state, and a reload of that URL requests the same page
 test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-13] sort, filters and tab reset the page and live in the URL`
 
 #### CLASSES-COACH-REQUESTS-TABLE-14: The web pager walks the pages (rules 4, 11)
@@ -377,10 +393,10 @@ test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.test.t
 - **Then** a screen of its own opens (not a section inside the Settings scroll view), the two tabs show the same counts, and each compact row shows class date and time, request date and time, `displayName`, kind badge, side and rule 10's words
 test: `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-18] its own screen with compact rows carrying the table's fields`
 
-#### CLASSES-COACH-REQUESTS-TABLE-19: Mobile's "Filtrar/Ordenar" sheet sends the web's params, a tab change drops the status filter, and the list loads the next page at its end (rules 5, 7, 12)
+#### CLASSES-COACH-REQUESTS-TABLE-19: Mobile's "Filtrar/Ordenar" sheet sends the web's params, a tab change drops the status filter and the sort, and the list loads the next page at its end (rules 5, 6, 7, 12)
 - **Given** an answer with `hasNext: true`
 - **When** the coach scrolls to the end, then opens "Filtrar/Ordenar", picks sort by student descending, kind Academia, status Marcada and a student, applies, then switches tab
-- **Then** page 2 is requested and appended; after applying, page 1 is requested with the same `sort_by`/`sort_dir`/filter params the web sends for the same choices; after the tab switch page 1 is requested without `status`; no further page is requested once `hasNext` is false
+- **Then** page 2 is requested and appended; after applying, page 1 is requested with the same `sort_by`/`sort_dir`/filter params the web sends for the same choices; after the tab switch page 1 is requested without `status` and without `sort_by`; no further page is requested once `hasNext` is false
 test: `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-19] the sheet sends the web's params and pages load at the end`
 
 #### CLASSES-COACH-REQUESTS-TABLE-20: The student's list is untouched (Not this spec)
@@ -395,6 +411,12 @@ test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.join
 - **Then** the table reads `kind=private&id=<id>`, opens the propose form on Bruno's request prefilled with its date, start and end, and removes `proposeFor` from the route; on iOS both routes land on the Pedidos de Aula screen
 - **And** the same link for a request that is `countered`, decided, or another coach's opens no form
 test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-21] proposeFor opens the form on a request on any page`; `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-21] proposeFor from settings lands on the screen and opens the form`
+
+#### CLASSES-COACH-REQUESTS-TABLE-22: Below 768 px the web page shows cards with the same fields, actions, tabs, filters and pager (rule 17)
+- **Given** the endpoint answers an open page with a private row and an academy row of side `left`, and the browser is 390 px wide
+- **When** the coach opens `/class-requests`, opens "Filtrar/Ordenar", picks sort by student descending and kind Academia, and presses a card
+- **Then** no table is in the page; each request is a card showing its class day and time, request day and time, `displayName`, kind, side and rule 10's words, with Aceitar and the other actions of its kind; the request sent carries `sort_by=student`, `sort_dir=desc`, `kind=academy` and `page=1`; the card opens its detail; "Em aberto (n)", "Histórico (n)" and the pager are the table's
+test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.narrow.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-22] below 768 px cards carry the table's fields, actions, sort and filters`
 
 ### Performance
 A coach with thousands of requests reads one page in a bounded, constant number of statements
