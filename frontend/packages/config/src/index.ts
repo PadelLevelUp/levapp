@@ -23,6 +23,7 @@ export * from "./level-direction";
 export * from "./eligibility-tier";
 export * from "./class-request-slots";
 export * from "./availability";
+export * from "./blocker-covered";
 export * from "./academy-classes";
 export * from "./coach-notes";
 export * from "./approval-display";

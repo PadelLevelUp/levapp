@@ -44,6 +44,9 @@ export const ATTENDANCE_STATES = [
 
 export type AttendanceState = (typeof ATTENDANCE_STATES)[number];
 
+/** specflow/impl/constants.md: `presences.decline_source` for a decline made from an availability block. */
+export const DECLINE_SOURCE_AVAILABILITY_BLOCK = "availability_block";
+
 /** Who the label is spoken to: the student about themselves, or the coach about a student. */
 export type StateAudience = "student" | "coach";
 
@@ -64,6 +67,9 @@ export type AttendancePresenceLike = {
   confirmed?: boolean | null;
   cancelledByStudent?: boolean | null;
   cancelledAt?: string | null;
+  /** PAD-772: `availability_block` for a decline made from the block dialog, else null. */
+  declineSource?: string | null;
+  respondedAt?: string | null;
 };
 
 function isAttendanceState(value: unknown): value is AttendanceState {
@@ -160,6 +166,12 @@ export function cancellationDetail(
 ): { key: string; when: string } | null {
   if (!presence || audience !== "coach") return null;
   if (presence.validated === true) return null;
+  // PAD-772 (`attendance.confirm` rule 30): a decline made from an availability block says so, whatever
+  // `cancelledByStudent` says (it is false on a new-engine session). Only while the row is not_coming.
+  if (presence.declineSource === DECLINE_SOURCE_AVAILABILITY_BLOCK) {
+    if (attendanceStateOf(presence) !== "not_coming" || !presence.respondedAt) return null;
+    return { key: "calendar.detail.cancelledUnavailableAt", when: presence.respondedAt };
+  }
   if (presence.cancelledByStudent !== true) return null;
   if (!presence.cancelledAt) return null;
   return { key: "calendar.detail.cancelledByStudentAt", when: presence.cancelledAt };
