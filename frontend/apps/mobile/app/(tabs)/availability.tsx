@@ -69,7 +69,7 @@ export default function AvailabilityScreen() {
   const createBlocker = useCreateBlocker();
   const updateBlocker = useUpdateBlocker();
   const deleteBlocker = useDeleteBlocker();
-  // PAD-772 (calendar.student-blockers rule 21): the question after a save that covers classes.
+  // PAD-772 (calendar.student-blockers rule 21): the count line after a save that marked classes.
   const afterSave = useBlockerSaveFollowUp();
 
   const [sheetOpen, setSheetOpen] = React.useState(false);

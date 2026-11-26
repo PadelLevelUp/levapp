@@ -464,8 +464,9 @@ export default function EventDetailScreen() {
             {/* Actions */}
             {isEditing ? (
               <View className="gap-2">
-              {/* PAD-772 (calendar.student-blockers rule 26): a student's own blocker says what saving does. */}
-              {block?.type === "unavailable" ? (
+              {/* PAD-772 (calendar.student-blockers rule 26): a block the server marks classes for (the student's availability blocker,
+                  `blocksAutoInvitations`: the flag the server reads, whatever `type` an edit left it) says what saving does. */}
+              {block?.blocksAutoInvitations === true ? (
                 <Text className="text-sm text-muted-foreground" testID="blocker-covered-notice">
                   {t("availability.covered.notice")}
                 </Text>

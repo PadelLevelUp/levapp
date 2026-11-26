@@ -733,6 +733,22 @@ def _arm_now(func, args, job_id: str) -> bool:
     decides when a job is due (a pinned test clock would make the job look hours late, missed)."""
     if _scheduler is None:
         return False
+    from padel_app.tools.unit_of_work import active
+
+    if active():
+        # PAD-772b: inside a unit of work the caller's writes are not durable yet and the job reads with its
+        # own session, so it would find nothing and never retry (a vacancy's approval prompt was lost that
+        # way). The job is armed once the unit has really committed; a rollback drops it.
+        from padel_app.tools.after_commit import on_commit
+
+        on_commit(lambda: _add_one_shot(func, args, job_id))
+        return True
+    _add_one_shot(func, args, job_id)
+    return True
+
+
+def _add_one_shot(func, args, job_id: str) -> None:
+    """The scheduler job of ``_arm_now``: due at once, replacing a job armed under the same id."""
     from apscheduler.triggers.date import DateTrigger
 
     when = datetime.now(timezone.utc)
@@ -744,7 +760,6 @@ def _arm_now(func, args, job_id: str) -> bool:
         replace_existing=True,
         misfire_grace_time=300,
     )
-    return True
 
 
 def arm_invitations_now(instance_id: int, coach_id: int) -> bool:

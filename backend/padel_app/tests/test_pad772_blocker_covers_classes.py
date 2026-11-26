@@ -6,6 +6,7 @@ repeat decline that changes nothing (attendance.confirm rule 31).
 Fixed dates and a pinned clock: now = Tuesday 2026-12-01 10:00 (UTC = Lisbon in December).
 """
 import json
+import os
 from contextlib import ExitStack
 from datetime import date, datetime, timedelta
 from unittest import mock
@@ -508,6 +509,48 @@ def test_marks_decline_a_class_once_and_a_refusal_rolls_back_only_its_occurrence
     assert vacancies(app, late_start) == []
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-27")
+@pytest.mark.skipif(os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres", reason="forced race: needs two real connections (LEVAPP_TEST_DB=postgres)")
+def test_two_saves_at_once_mark_a_class_once(world, app, io):
+    """Two block saves over one class run at the same moment: each reads the covered set before either has
+    declined (held at a barrier), so both try the class; the row locks and the re-check make one of them
+    decline it and the other skip it."""
+    import threading
+
+    import padel_app.services.blocker_covered_service as covered
+
+    customised_coach(world, app)
+    weekly = world.weekly("ana", datetime(2026, 12, 2, 19, 0), days=[3], end=date(2026, 12, 2))
+    real, gate = covered.covered_for_blocks, threading.Barrier(2)
+
+    def held(user, blocks):
+        found = real(user, blocks)
+        try:
+            gate.wait(timeout=5)
+        except threading.BrokenBarrierError:
+            pass
+        return found
+
+    answers = []
+
+    def save(day):
+        res = world.call("post", BLOCKERS, body=world.block(day, "08:00", "23:00"))
+        answers.append((res.status_code, [c["originalId"] for c in res.get_json()["markedClasses"]]))
+
+    with mock.patch.object(covered, "covered_for_blocks", held):
+        threads = [threading.Thread(target=save, args=(day,)) for day in ("2026-12-02", "2026-12-02")]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+    assert not any(t.is_alive() for t in threads)
+    assert sorted(code for code, _ in answers) == [201, 201]
+    assert sorted(len(ids) for _, ids in answers) == [0, 1]  # one marked it, the other found it declined
+    wednesday = instance_of(app, weekly, "2026-12-02")
+    assert len([m for m in messages(app, sender_id=world.users["ana"]) if m[2].get("cancellation")]) == 1  # one coach notice
+    assert len(vacancies(app, wednesday)) == 1  # one vacancy
+
+
 # ── -29 ─────────────────────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-29")
@@ -538,6 +581,27 @@ def test_a_failing_mark_leaves_the_block_saved_and_the_other_marks_made(world, a
     assert any("LessonInstance" in r.getMessage() and str(two) in r.getMessage() and "2026-12-03" in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-29")
+def test_a_failure_reading_what_the_block_covers_leaves_the_save_an_ordinary_success(world, app, io, caplog):
+    customised_coach(world, app)
+    from padel_app.models import CalendarBlock
+    from padel_app.services import blocker_decline_service as svc
+
+    world.one_off("ana", datetime(2026, 12, 2, 18, 0), title="Um")
+    import padel_app.services.blocker_covered_service as covered
+
+    def explode(*a, **kw):
+        raise RuntimeError("calendar read failed")
+
+    with mock.patch.object(covered, "covered_for_blocks", explode), caplog.at_level("ERROR"):
+        res = own_block_res(world)
+    assert res.status_code == 201 and res.get_json()["markedClasses"] == [] and res.get_json()["coveredClasses"] == []
+    with app.app_context():
+        assert CalendarBlock.query.filter_by(id=res.get_json()["id"]).count() == 1  # saved once, nothing to retry
+    assert any("failed" in r.getMessage() for r in caplog.records)
+    assert svc.MAX_ENTRIES == 200
+
+
 # ── -21 ─────────────────────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-21")
@@ -548,7 +612,22 @@ def test_a_new_engine_session_is_marked_by_the_engine(world, app, io):
     with app.app_context():
         db.session.add(EngineSession(lesson_instance_id=soon, coach_id=world.coach, alerted=[]))
         db.session.commit()
-    res = own_block_res(world)  # the real engine
+    # The absence is durable before the engine's outbox goes out: a separate connection reads it when it is sent.
+    from sqlalchemy import text
+
+    from padel_app.services import engine_runner
+
+    real_send, at_send = engine_runner.send_outbox, []
+
+    def spy_send(*a, **kw):
+        with db.engine.connect() as other:
+            at_send.append(other.execute(text("select status from presences where lesson_instance_id = :i and player_id = :p"),
+                                         {"i": soon, "p": world.players["ana"]}).scalar())
+        return real_send(*a, **kw)
+
+    with mock.patch.object(engine_runner, "send_outbox", spy_send):
+        res = own_block_res(world)  # the real engine
+    assert at_send and set(at_send) == {"absent"}, at_send
     assert marked(res) == [("LessonInstance", soon, "2026-12-02")]
     p = presence_of(app, world.players["ana"], soon)
     assert p["status"] == "absent" and p["source"] == "availability_block" and p["responded_at"] == NOW
@@ -759,10 +838,10 @@ def test_a_second_decline_on_a_declined_row_is_a_no_op(world, app, io):
     ana_old, ana_new, bia = (presence_of(app, world.players["ana"], old), presence_of(app, world.players["ana"], new),
                              presence_of(app, world.players["bia"], plain))
     assert ana_old["source"] == "availability_block" and ana_new["source"] == "availability_block" and bia["status"] == "absent"
-    from padel_app.models import Message
+    from padel_app.models import EngineEffect, Message
 
     with app.app_context():
-        messages_before = Message.query.count()
+        messages_before, effects_before = Message.query.count(), EngineEffect.query.count()
     pushes_before = io["system_messages.send_push_notification"].call_count
     vacancies_before = {i: vacancies(app, i) for i in (old, new, plain)}
 
@@ -773,8 +852,30 @@ def test_a_second_decline_on_a_declined_row_is_a_no_op(world, app, io):
         assert presence_of(app, world.players[who], instance_id) == expected
     with app.app_context():
         assert Message.query.count() == messages_before
+        assert EngineEffect.query.count() == effects_before  # on the new engine no request was handled
     assert io["system_messages.send_push_notification"].call_count == pushes_before
     assert {i: vacancies(app, i) for i in (old, new, plain)} == vacancies_before
+
+    # A validated `missed` row is not "already declined": rule 29's ordinary decline still runs for it.
+    from padel_app.models import Presence
+
+    marked_by_coach = world.one_off("ana", datetime(2026, 12, 9, 19, 0), title="Marcada pelo treinador")
+    with app.app_context():
+        row = Presence.query.filter_by(lesson_instance_id=marked_by_coach, player_id=world.players["ana"]).one()
+        row.status, row.validated, row.confirmed = "absent", True, True
+        db.session.commit()
+        messages_before = Message.query.count()
+    res = world.call("post", "/api/app/notify/cancel_attendance", body={"lessonInstanceId": marked_by_coach})
+    assert res.status_code == 200 and "duplicate" not in res.get_json() and res.get_json()["action"] == "declined"
+    with app.app_context():
+        assert Message.query.count() > messages_before  # the ordinary path ran: the coach is told
+
+    # A decline that failed between the absence and its spot is not "done": the retry still frees the spot.
+    half = world.one_off("ana", datetime(2026, 12, 10, 19, 0), title="A meio", declined=True)  # absent, no vacancy
+    assert vacancies(app, half) == []
+    res = world.call("post", "/api/app/notify/cancel_attendance", body={"lessonInstanceId": half})
+    assert res.status_code == 200 and "duplicate" not in res.get_json()
+    assert any(v[0] == world.players["ana"] and v[1] == "open" for v in vacancies(app, half))
 
     # A class that has started still answers 409.
     started = world.one_off("ana", datetime(2026, 12, 1, 8, 0), title="Já começou", declined=True)

@@ -23,7 +23,7 @@ vi.mock("@/api/calendar", () => calendarApi);
 
 import { EventDetailSheet } from "./EventDetailSheet";
 
-const blocker = { id: 5, type: "unavailable", title: null, description: null, isRecurring: false, recurrenceRule: null, recurrenceEnd: null, date: "2026-12-02", startTime: "08:00", endTime: "09:00" };
+const blocker = { id: 5, type: "unavailable", title: null, description: null, isRecurring: false, recurrenceRule: null, recurrenceEnd: null, blocksAutoInvitations: true, date: "2026-12-02", startTime: "08:00", endTime: "09:00" };
 const wed = { model: "Lesson", originalId: 7, date: "2026-12-02", lessonInstanceId: 11, title: "Quarta", start: "2026-12-02T19:00:00", end: "2026-12-02T20:00:00" };
 const event = { id: "block-5-x", originalId: 5, type: "block", date: "2026-12-02", startTime: "08:00", endTime: "09:00", title: "Fora" } as never;
 
@@ -51,7 +51,7 @@ describe("a blocker edited from the calendar's block sheet (PAD-772)", () => {
   });
 
   it("[CALENDAR-STUDENT-BLOCKERS-28] a block that answers no marked classes (a coach's own) shows only the ordinary save", async () => {
-    await editAndSave({ ...blocker, type: "personal" }, {});
+    await editAndSave({ ...blocker, type: "personal", blocksAutoInvitations: false }, {});
     await waitFor(() => expect(toast).toHaveBeenCalledWith({ title: "calendar.eventDetail.eventUpdated" }));
     expect(toast).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("blocker-covered-dialog")).toBeNull();
@@ -79,7 +79,7 @@ describe("a blocker edited from the calendar's block sheet (PAD-772)", () => {
     expect(notice.compareDocumentPosition(screen.getByTestId("event-detail-save")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     first.unmount();
 
-    calendarApi.getCalendarBlock.mockResolvedValue({ ...blocker, type: "personal" });
+    calendarApi.getCalendarBlock.mockResolvedValue({ ...blocker, type: "personal", blocksAutoInvitations: false });
     render(
       <QueryClientProvider client={new QueryClient()}>
         <EventDetailSheet event={event} open onClose={vi.fn()} onSaved={vi.fn()} onDeleted={vi.fn()} />

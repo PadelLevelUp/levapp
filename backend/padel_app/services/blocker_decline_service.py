@@ -114,9 +114,45 @@ def _decline_one(user, player, entry):
     return "declined", instance.id
 
 
+def _entry_on_new_engine(entry):
+    """Is the entry's occurrence run by the new engine (an ``engine_sessions`` row, or, for an occurrence
+    not yet materialised, a series whose coach is on ``new``)?"""
+    from padel_app.models import EngineSession
+    from padel_app.services.engine_entry import _series_is_new_engine
+
+    if entry["model"] == "LessonInstance":
+        return db.session.get(EngineSession, entry["originalId"]) is not None
+    lesson = db.session.get(Lesson, entry["originalId"])
+    if lesson is None:
+        return False
+    existing = LessonInstance.query.filter_by(
+        lesson_id=lesson.id, original_lesson_occurence_date=date.fromisoformat(entry["date"])).first()
+    if existing is not None:
+        return db.session.get(EngineSession, existing.id) is not None
+    return _series_is_new_engine(lesson)
+
+
+def _run_new_engine_entry(user, player, entry):
+    """A new-engine entry runs outside the unit of work: the engine commits its own unit (the absence is
+    durable) and only then sends its outbox, as for the student's own No. The row locks the entry takes are
+    released by those commits; the re-check before the decline has already decided (rule 22)."""
+    try:
+        outcome, value = _decline_one(user, player, entry)
+    except BaseException:
+        db.session.rollback()
+        raise
+    if outcome == "declined":
+        db.session.commit()
+    else:
+        db.session.rollback()  # release the locks, change nothing
+    return outcome, value
+
+
 def _run_entry(user, player, entry):
     """One covered entry in its own unit of work and savepoint: ``("declined", instance_id)`` or
     ``("skipped", reason)``. Anything unexpected is raised after rolling back only this entry."""
+    if _entry_on_new_engine(entry):
+        return _run_new_engine_entry(user, player, entry)
     # One unit of work per entry: the decline path's saves flush, and the entry commits once at the end
     # (the row lock holds until then). Its own savepoint rolls back only this entry on a refusal.
     with unit_of_work():
@@ -142,11 +178,19 @@ def mark_saved(user, before, after):
     logged with its ``(model, originalId, date)`` and left, and never unsaves the block."""
     from padel_app.services.blocker_covered_service import covered_for_blocks, newly_covered
 
-    player = Player.query.filter_by(user_id=user.id).first()
-    if player is None or not after:
+    # The block is committed already: nothing here may fail the save (the client would retry and duplicate
+    # it). Reading what it covers is guarded like each occurrence's decline: a failure is logged and the save
+    # answers its ordinary success with no marked class.
+    try:
+        player = Player.query.filter_by(user_id=user.id).first()
+        if player is None or not after:
+            return []
+        covered = covered_for_blocks(user, after)
+        newly = newly_covered(covered, covered_for_blocks(user, before) if before else [])
+    except Exception:
+        db.session.rollback()
+        logging.getLogger(__name__).exception("PAD-772: reading the classes a saved block covers failed; the block stays saved")
         return []
-    covered = covered_for_blocks(user, after)
-    newly = newly_covered(covered, covered_for_blocks(user, before) if before else [])
     marked = []
     for item in newly:
         entry = {"model": item["model"], "originalId": item["originalId"], "date": item["date"]}
