@@ -67,9 +67,9 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "coach-request-kind-badge-academy-pending"
 
-# ── Accept it (newest first, so this request's row is the first pending academy row) ──
+# ── Accept this flow's own request: the button's id carries the join request's id ──
 - tapOn:
-    id: "class-join-list-accept"
+    id: "class-join-list-accept-${output.req.id}"
 - runFlow:
     when:
       visible:

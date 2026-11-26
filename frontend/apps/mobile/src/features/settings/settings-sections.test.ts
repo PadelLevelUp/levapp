@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -138,6 +140,17 @@ describe("Pedidos de Aula is a screen of its own (classes.coach-requests-table r
     }
     // The entry stays where it was, with the same test id (`settings-nav-classRequests`).
     expect(idsFor(true)).toContain("classRequests");
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-18] the screen wires the entry's press to the route, and the old link to a replace", () => {
+    // Source-reading: app/ screens mount hooks, and a test file under app/ would break Metro.
+    const screen = readFileSync(resolve(__dirname, "../../../app/settings.tsx"), "utf8");
+    expect(screen).toContain("testID={`settings-nav-${section.id}`}");
+    expect(screen).toMatch(/const route = settingsSectionRoute\(section\.id\);\s*if \(route\) router\.push\(route\);\s*else setOpenId\(section\.id\);/);
+    expect(screen).toMatch(/if \(landing\) router\.replace\(landing\);/);
+    const route = readFileSync(resolve(__dirname, "../../../app/class-requests.tsx"), "utf8");
+    expect(route).toContain('testID="screen-class-requests"');
+    expect(route).toContain("<CoachRequestsScreen proposeFor=");
   });
 
   it("[CLASSES-COACH-REQUESTS-TABLE-21] the chat's /settings?section=classRequests&proposeFor= link lands on the screen", () => {

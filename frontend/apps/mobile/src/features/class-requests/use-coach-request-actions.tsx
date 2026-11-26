@@ -120,10 +120,10 @@ export function useCoachRequestActions() {
     if (row.kind === "academy") {
       return (
         <View className="flex-row flex-wrap gap-2" testID={`coach-request-actions-academy-${row.id}`}>
-          <Button size="sm" disabled={disabled} onPress={() => academyAccept(row)} testID="class-join-list-accept">
+          <Button size="sm" disabled={disabled} onPress={() => academyAccept(row)} testID={`class-join-list-accept-${row.id}`}>
             <Text>{t("calendar.joinRequest.accept")}</Text>
           </Button>
-          <Button size="sm" variant="outline" disabled={disabled} onPress={() => academyReject(row)} testID="class-join-list-reject">
+          <Button size="sm" variant="outline" disabled={disabled} onPress={() => academyReject(row)} testID={`class-join-list-reject-${row.id}`}>
             <Text>{t("calendar.joinRequest.reject")}</Text>
           </Button>
         </View>

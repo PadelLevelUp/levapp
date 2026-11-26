@@ -10,13 +10,13 @@ import * as React from "react";
 import { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { coachRequestsQuery } from "@levelup/config";
 import { refreshAfterRequestChange } from "@levelup/hooks";
 import type { CoachRequestRow, CoachRequestsPage } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
-vi.mock("expo-router", () => ({ router: { push: vi.fn(), back: vi.fn() } }));
+const nav = vi.hoisted(() => ({ setParams: vi.fn() }));
+vi.mock("expo-router", () => ({ router: { push: vi.fn(), back: vi.fn(), setParams: nav.setParams } }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) => (opts ? `${key}:${JSON.stringify(opts)}` : key),
@@ -24,7 +24,17 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/features/calendar/join-request-side", () => ({ JoinRequestSide: () => null }));
+// The chip and its "Usar … no perfil": a Text carrying the side, and a marker when a suggestion is offered.
+vi.mock("@/features/calendar/join-request-side", async () => {
+  const { View, Text } = await import("react-native");
+  const C = (x: unknown) => x as React.ComponentType<Record<string, unknown>>;
+  return {
+    JoinRequestSide: (p: { request: { side: string; playerId: string; suggestedProfileSide: string | null } }) =>
+      React.createElement(C(View), { testID: `join-request-side-${p.request.playerId}` },
+        React.createElement(C(Text), null, `players.side${p.request.side[0].toUpperCase()}${p.request.side.slice(1)}`),
+        p.request.suggestedProfileSide ? React.createElement(C(Text), { testID: `join-request-use-side-${p.request.playerId}` }, "use") : null),
+  };
+});
 vi.mock("@/features/calendar/busy-same-hour-toast", () => ({ busySameHourToast: () => null, showBusySameHourToast: vi.fn() }));
 vi.mock("@/features/calendar/eligibility-confirm-dialog", async () => {
   const { View } = await import("react-native");
@@ -128,6 +138,7 @@ let client: QueryClient;
 beforeEach(() => {
   vi.clearAllMocks();
   coachApi.listCoachRequests.mockReset();
+  nav.setParams.mockReset();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
 });
 
@@ -203,7 +214,7 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     // The sheet: sort by student descending, kind Academia, status Marcada, a student; apply.
     await n.press("coach-requests-tab-history");
     await n.flush();
-    expect(lastQuery()).toEqual(coachRequestsQuery({ section: "history" }));
+    expect(lastQuery()).toEqual({ section: "history", page: 1 });
     await n.press("coach-requests-filter-open");
     await n.press("coach-requests-sheet-sort-student");
     await n.press("coach-requests-sheet-dir-desc");
@@ -213,14 +224,15 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     await n.press("coach-requests-sheet-student-bruno-id");
     await n.press("coach-requests-sheet-apply");
     await n.flush();
-    expect(lastQuery()).toEqual(
-      coachRequestsQuery({ section: "history", sortBy: "student", sortDir: "desc", kind: "academy", status: "accepted", playerId: "bruno-id" })
-    );
+    // The literal shape web sends for the same choices (its URL → the same builder), not the builder itself.
+    expect(lastQuery()).toEqual({
+      section: "history", page: 1, sortBy: "student", sortDir: "desc", kind: "academy", status: ["accepted"], playerId: "bruno-id",
+    });
 
     // A tab change drops the status filter and returns to page 1.
     await n.press("coach-requests-tab-open");
     await n.flush();
-    expect(lastQuery()).toEqual(coachRequestsQuery({ section: "open", sortBy: "student", sortDir: "desc", kind: "academy", playerId: "bruno-id" }));
+    expect(lastQuery()).toEqual({ section: "open", page: 1, sortBy: "student", sortDir: "desc", kind: "academy", playerId: "bruno-id" });
     expect(lastQuery().status).toBeUndefined();
   });
 
@@ -238,7 +250,7 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     expect(n.queryByTestId("coach-request-actions-private-2")).toBeNull();
     expect(n.queryByTestId("coach-request-actions-academy-100")).not.toBeNull();
 
-    await n.press("class-join-list-accept");
+    await n.press("class-join-list-accept-100");
     await n.flush();
     await n.press("eligibility-confirm-proceed");
     await n.flush();
@@ -248,6 +260,12 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     await n.press("class-request-accept");
     await n.flush();
     expect(requestsApi.acceptClassRequest).toHaveBeenCalledWith(1);
+    await n.press("class-request-decline");
+    await n.flush();
+    expect(requestsApi.declineClassRequest).toHaveBeenCalledWith(1);
+    await n.press("class-join-list-reject-100");
+    await n.flush();
+    expect(joinApi.rejectClassJoinRequest).toHaveBeenCalledWith(100);
 
     coachApi.listCoachRequests.mockResolvedValue(page([row({ id: 3, status: "accepted" }), academy({ id: 101, status: "rejected" })]));
     await n.press("coach-requests-tab-history");
@@ -255,6 +273,7 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     expect(n.queryByTestId("coach-request-actions-private-3")).toBeNull();
     expect(n.queryByTestId("coach-request-actions-academy-101")).toBeNull();
     expect(n.queryByTestId("class-request-accept")).toBeNull();
+    expect(n.queryByTestId("class-join-list-accept-101")).toBeNull();
   });
 
   it("[CLASSES-COACH-REQUESTS-TABLE-16] refreshes from page 1 on request events and keeps tab, sort and filters", async () => {
@@ -302,8 +321,8 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
 
     await n.press("coach-request-row-private-1");
     expect(text(n, "coach-request-detail-note")).toContain("Prefiro de manhã");
-    expect(text(n, "coach-request-detail-requested-at")).toContain("2026-10-07");
-    expect(text(n, "coach-request-detail-decided-at")).toContain("2026-10-06");
+    expect(text(n, "coach-request-detail-requested-at")).toContain("2026-10-07 00:30");
+    expect(text(n, "coach-request-detail-decided-at")).toContain("2026-10-06 10:00"); // 09:00 UTC, club time
     expect(text(n, "coach-request-detail-decided-by")).toContain("classRequests.table.detail.student");
 
     await n.press("coach-request-row-academy-100");
@@ -323,6 +342,8 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     expect(coachApi.listCoachRequests).toHaveBeenCalledWith(expect.objectContaining({ kind: "private", id: 7 }));
     expect(n.byTestId("class-request-proposal-date").props.value).toBe("2026-10-09");
     expect(n.byTestId("class-request-proposal-start").props.value).toBe("17:00");
+    expect(coachApi.listCoachRequests).toHaveBeenCalledWith({ kind: "private", id: 7 }); // no page, no section
+    expect(nav.setParams).toHaveBeenCalledWith({ proposeFor: undefined }); // the param is spent
   });
 
   it("[CLASSES-COACH-REQUESTS-TABLE-21] the same link for a request that is not pending, or not hers, opens no form", async () => {
@@ -330,6 +351,8 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
       coachApi.listCoachRequests.mockImplementation(async (q: { id?: number }) => (q.id ? page(items) : page([row({ id: 1 })])));
       const n = await open({ proposeFor: 7 });
       expect(n.queryByTestId("class-request-proposal-date")).toBeNull();
+      expect(nav.setParams).toHaveBeenCalledWith({ proposeFor: undefined });
+      nav.setParams.mockClear();
     }
   });
 
@@ -376,5 +399,39 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     expect(text(n, "coach-request-student-private-1")).toBe("Jorge chato");
     expect(text(n, "coach-request-student-academy-100")).toBe("Jorge chato");
     expect(JSON.stringify(n.root.toJSON())).not.toContain("Jorge Silva");
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-19] a page that lands after the coach changed tab is dropped", async () => {
+    let release!: (p: CoachRequestsPage) => void;
+    coachApi.listCoachRequests.mockImplementation((q: { section: string; page?: number }) =>
+      (q.page ?? 1) === 2
+        ? new Promise<CoachRequestsPage>((resolve) => { release = resolve; })
+        : Promise.resolve(
+            q.section === "open"
+              ? page([row({ id: 1 })], { pagination: { page: 1, perPage: 25, total: 30, pages: 2, hasNext: true, hasPrev: false }, counts: { open: 30, history: 1 } })
+              : page([row({ id: 9, status: "accepted" })], { counts: { open: 30, history: 1 } })
+          )
+    );
+    const n = await open();
+    await act(async () => { n.byTestId("coach-requests-list").props.onEndReached(); }); // page 2 of Em aberto, in flight
+    await n.press("coach-requests-tab-history");
+    await n.flush();
+    await act(async () => { release(page([row({ id: 2 })], { pagination: { page: 2, perPage: 25, total: 30, pages: 2, hasNext: false, hasPrev: true } })); });
+    await n.flush();
+    expect(n.queryByTestId("coach-request-student-private-2")).toBeNull(); // the old tab's page never joins the new list
+    expect(n.queryByTestId("coach-request-student-private-9")).not.toBeNull();
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-15] the side shows once, the chip only while the request is open, never in Histórico", async () => {
+    coachApi.listCoachRequests.mockResolvedValue(page([academy({ id: 100, status: "pending", side: "left", suggestedProfileSide: "left" })]));
+    const n = await open();
+    expect(n.queryByTestId("join-request-use-side-carla-id")).not.toBeNull();
+    expect(strings(n.root.toJSON()).filter((x) => x === "players.sideLeft")).toHaveLength(1);
+
+    coachApi.listCoachRequests.mockResolvedValue(page([academy({ id: 101, status: "accepted", side: "left", suggestedProfileSide: "left" })]));
+    await n.press("coach-requests-tab-history");
+    await n.flush();
+    expect(n.queryByTestId("join-request-use-side-carla-id")).toBeNull();
+    expect(text(n, "coach-request-side-academy-101")).toBe("players.sideLeft");
   });
 });

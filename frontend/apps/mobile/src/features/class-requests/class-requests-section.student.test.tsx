@@ -43,7 +43,12 @@ const base = {
   createdAt: "2026-10-06T12:00:00",
 };
 const PRIVATE = { ...base, id: 7, status: "pending", participants: [], recurrence: null };
-const ACADEMY = { ...base, id: 9, kind: "academy", status: "pending", classTitle: "Peak", lessonInstanceId: "5" };
+// Decided, and the oldest: it sits behind the Histórico toggle.
+const ACADEMY = { ...base, id: 9, kind: "academy", status: "accepted", createdAt: "2026-10-06T10:00:00", classTitle: "Peak", lessonInstanceId: "5" };
+const WAITING = {
+  kind: "waiting_list", id: 5, lessonInstanceId: 70, classTitle: "Quinta", date: "2026-10-08", startTime: "18:00", endTime: "19:00",
+  coachName: "Ana", status: "active", joinedAt: "2026-10-06T11:00:00", createdAt: "2026-10-06T11:00:00",
+};
 
 vi.mock("@levelup/api/src/resources/classRequests", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -56,7 +61,7 @@ vi.mock("@levelup/api/src/resources/classJoinRequests", async (importOriginal) =
 }));
 vi.mock("@levelup/api/src/resources/academyClasses", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  listClassWaitingList: async () => [],
+  listClassWaitingList: async () => [WAITING],
 }));
 
 import { ClassRequestsSection } from "./class-requests-section";
@@ -79,12 +84,24 @@ const screen = async () => {
 
 describe("the student's list on iOS (PAD-795 Not this spec)", () => {
   it("[CLASSES-COACH-REQUESTS-TABLE-20] the student's list keeps the old reads", async () => {
-    const out = await screen();
-    // Both kinds of row render from the two old endpoints, merged, with the coach named.
-    expect(out).toContain("class-request-row-pending");
-    expect(out).toContain("class-join-list-row-pending");
-    expect(out).toContain("classRequests.with|Ana");
-    expect(listCoachRequests).not.toHaveBeenCalled();
+    // A pending private request, a decided academy request and a waiting-list place.
+    const n = await renderNative(
+      <QueryClientProvider client={client}>
+        <ClassRequestsSection />
+      </QueryClientProvider>
+    );
+    await n.flush();
+    // Em aberto: the private request (12:00) then the place (11:00); the decided academy request is behind the toggle.
+    const order = (json: string) => ["class-request-row-pending", "class-waiting-list-row-active-70", "class-join-list-row-accepted"].map((id) => json.indexOf(id));
+    let [priv, waiting, academy] = order(JSON.stringify(n.root.toJSON()));
+    expect(priv).toBeGreaterThan(-1);
+    expect(waiting).toBeGreaterThan(priv);
+    expect(academy).toBe(-1);
+    await n.press("class-requests-history-toggle");
+    [priv, waiting, academy] = order(JSON.stringify(n.root.toJSON()));
+    expect(academy).toBeGreaterThan(waiting); // newest first: 12:00, 11:00, 10:00
+    expect(JSON.stringify(n.root.toJSON())).toContain("classRequests.with|Ana");
+    expect(listCoachRequests).not.toHaveBeenCalled(); // mocked where the coach's endpoint is defined
   });
 
   it("[PLAYERS-NICKNAME-8] the roster is never asked for and no nickname appears", async () => {

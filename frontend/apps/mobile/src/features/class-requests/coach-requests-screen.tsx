@@ -7,6 +7,7 @@
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { router } from "expo-router";
 import { FlatList, Pressable, View } from "react-native";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
@@ -64,6 +65,9 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
   // drops them: the list shows page 1 until it is scrolled again (rule 14).
   const [more, setMore] = React.useState<{ rows: CoachRequestRow[]; pagination: CoachRequestsPage["pagination"] } | null>(null);
   const loadingMore = React.useRef(false);
+  // The read page 1 belongs to: a page that lands after the view or the first page changed is stale.
+  const viewKey = React.useRef("");
+  viewKey.current = `${JSON.stringify(coachRequestsQuery(view, 1))}@${first.dataUpdatedAt}`;
   React.useEffect(() => setMore(null), [first.dataUpdatedAt, view]);
 
   const pagination = more?.pagination ?? first.data?.pagination;
@@ -74,8 +78,10 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
     if (loadingMore.current || first.isFetching || !pagination?.hasNext) return;
     loadingMore.current = true;
     const next = pagination.page + 1;
+    const started = viewKey.current;
     try {
       const res = await coachRequestsApi.listCoachRequests(coachRequestsQuery(view, next));
+      if (viewKey.current !== started) return; // S4: the coach moved on (tab, sort, filter, refresh)
       setMore((prev) => ({ rows: [...(prev?.rows ?? []), ...res.items], pagination: res.pagination }));
     } catch {
       // The next end-of-list tries again.
@@ -96,7 +102,9 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
         const found = res.items[0];
         if (live && found && found.kind === "private" && found.status === "pending") openRef.current(found);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      // Rule 16: the param is spent whether or not a form opened.
+      .finally(() => router.setParams({ proposeFor: undefined }));
     return () => {
       live = false;
     };
@@ -157,10 +165,18 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
               <Text testID={`coach-request-kind-${k}`}>{t(`classRequests.table.kind.${r.kind}`)}</Text>
             </Badge>
             {r.classTitle ? <Text className="text-sm text-muted-foreground">{r.classTitle}</Text> : null}
-            <Text className="text-sm text-muted-foreground" testID={`coach-request-side-${k}`}>{r.side ? t(r.side === "left" ? "players.sideLeft" : r.side === "right" ? "players.sideRight" : "players.sideBoth") : "—"}</Text>
+            {/* The side once: the chip (with "Usar … no perfil") while the request is open, else its word. */}
+            {r.side && r.status === "pending" ? (
+              <View testID={`coach-request-side-${k}`}>
+                <JoinRequestSide request={{ coachId: r.coachId, playerId: r.playerId, side: r.side, suggestedProfileSide: r.suggestedProfileSide }} />
+              </View>
+            ) : (
+              <Text className="text-sm text-muted-foreground" testID={`coach-request-side-${k}`}>
+                {r.side ? t(r.side === "left" ? "players.sideLeft" : r.side === "right" ? "players.sideRight" : "players.sideBoth") : "—"}
+              </Text>
+            )}
           </View>
         </Pressable>
-        {r.side ? <JoinRequestSide request={{ coachId: r.coachId, playerId: r.playerId, side: r.side, suggestedProfileSide: r.suggestedProfileSide }} /> : null}
         {actionsFor(r)}
         {expanded ? detail(r) : null}
       </View>

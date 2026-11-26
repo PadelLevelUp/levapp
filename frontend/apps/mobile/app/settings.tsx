@@ -166,8 +166,6 @@ function SettingsScreenBody() {
   });
   const isCoach = (me ?? user)?.roles?.includes("coach") ?? false;
 
-  // PAD-281: the chat bubble's "Propose another time" on a student's
-  // counter-proposal opens the coach's class-requests pane on that request.
   // PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" opens Perfil on the
   // email field (`section=profile&focus=email`).
   const params = useLocalSearchParams<{ section?: string; proposeFor?: string; focus?: string }>();
