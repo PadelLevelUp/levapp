@@ -260,14 +260,14 @@ Readings:
      `"waiting_list"` (no spot; the student is not on this occurrence's waiting list),
      `"on_waiting_list"` (no spot; already on it), or `null` (not offered). It is a hint for what
      to SHOW; the decision is taken at the tap (below). Additive: App Store builds that do not read
-     it keep the PAD-570 hint.
+     it keep the PAD-570 hint. On a new-engine session "a spot is free" is rule 32's.
    - **What each surface shows** — class detail, dashboard (hero, schedule rows, "Precisa de ti")
      and the reminder bubble in the chat, web and iOS: `rejoin` → the button **"Afinal vou"**
      (`attendance-come-back`); `waiting_list` → the line **"A tua vaga já foi ocupada"** and the
      button **"Juntar-me à lista de espera"** (`attendance-come-back-waiting-list`, the PAD-547 /
      PAD-577 join, `POST /class-waiting-list` for this occurrence); `on_waiting_list` → **"Estás na
-     lista de espera"**. The chat bubble has no class payload: after a recorded "no" on a class
-     that has not started it offers "Afinal vou" and renders the server's answer.
+     lista de espera"**. The chat bubble reads the same `comeBack`, served on the reminder message
+     to its student (rule 32), and renders the server's answer.
    - **The tap:** `POST respond_reminder` with `yes` (no reminder needs to have been sent). Under
      the rule-10 lock order — the student's own open vacancy, then the class — the server re-checks
      capacity (`effective_filled_spots` against `effective_max_players`) BEFORE recording anything.
@@ -357,6 +357,40 @@ Readings:
     marked the class (`calendar.student-blockers` rule 25) — can still send the tap. A validated row
     is not covered by this rule: rule 29's behaviour for it is unchanged. Clients treat `duplicate`
     like any decline answer; builds that do not read it see an ordinary decline.
+
+#### "Afinal vou" only while a place is free (owner, 26 Nov 2026)
+32. **"Afinal vou" is offered only while the class has a place the student could take; otherwise the
+    screen says plainly the place went (the owner, 26 Nov 2026: "Let's fix it. We should only show afinal
+    vou if there's still places left."; `notifications.engine-answers` rule 16,
+    `notifications.engine-store` rules 14-15).**
+    - **One predicate, the tap's.** On a new-engine session `comeBack` is `"rejoin"` only when the engine
+      would place the student now (`notifications.engine-answers` rule 16: room in the class and on a side
+      they play, a place offered by an open invitation counting as free; a student who is not a regular
+      and is placed elsewhere at the same hour never gets `rejoin`), for a regular and for anyone else alike.
+      Otherwise the not_coming student gets `"waiting_list"` or `"on_waiting_list"` as rule 28 says. On an
+      old-engine session `comeBack` is unchanged (rule 28's class-wide count, `_retake_spot`'s check).
+      Today `student_come_back` counts the whole class only, so a regular whose side is full, and on the
+      new engine any student who is not a regular, are offered a button whose tap answers `spot_filled`.
+    - **Every surface, web and iOS:** the class detail (web `ClassDetailSheet`, iOS `app/class/[id].tsx`),
+      the dashboard's hero and schedule rows (web `ComeBackSlot`, iOS `blocks.tsx` `ComeBackSlot`) and the
+      reminder bubble in the chat (web `MessageBubble`, iOS `message-bubble.tsx`) show "Afinal vou"
+      (`attendance-come-back`, `bubble-come-back`, `dashboard-come-back`) only for `rejoin`. For
+      `waiting_list` they show the plain line `calendar.detail.spotTaken` — PT "A tua vaga já foi
+      ocupada", EN "Your spot has been taken" (existing keys; no new copy) — and the waiting-list button;
+      for `on_waiting_list`, `calendar.detail.onWaitingList`.
+    - **The bubble's fact.** The reminder message (`notification_reminder`) serialized for its student
+      carries `comeBack` for its occurrence (`serialize_message`, `viewer_id` the student), the same value
+      the class payload serves; `null` for any other viewer, any other message type, or when the student
+      has not recorded a no. The bubble no longer offers "Afinal vou" from a recorded no alone. It refreshes
+      as the thread does (a reload, `message_edited`); a stale bubble is covered by the tap's answer.
+    - **The tap stays the judge.** `respond_reminder` `yes` decides at the lock (rule 28's tap; on the new
+      engine `notifications.engine-store` rule 15): a place that went between the screen and the tap
+      answers `{"action": "spot_filled"}`, records nothing, and the screen moves to the `waiting_list` line
+      (`comeBackFromAnswer`). App Store builds that do not read the bubble's `comeBack` keep showing the
+      bubble's button after a recorded no; their tap gets this same honest answer and the line they
+      already render. No client may call a `spot_filled` an error.
+    - **Regulars unchanged:** a regular's return on the new engine is `RegularReturns` as today; only the
+      `comeBack` they are served now follows their side.
 
 ### Acceptance Criteria
 
@@ -673,7 +707,47 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **And** a validated `missed` row still follows rule 29 (the ordinary decline runs and the coach is told, no `duplicate`), an old-engine row that is absent with no vacancy yet (a decline that failed half way) is retried and its spot freed, and a class that has started still answers 409
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_second_decline_on_a_declined_row_is_a_no_op`
 
+#### ATTENDANCE-CONFIRM-45: On the new engine `comeBack` offers "Afinal vou" only when the engine would place the student (rule 32)
+- **Given** a new-engine class of 4 (two a side) with three going (two right, one left): a left-only regular
+  who said No, a left-only student placed for that class only who cancelled, a right-only student placed for
+  that class only who cancelled, and a fourth left-only student who cancelled and is now placed in another
+  class at the same hour
+- **When** each one's class payload, dashboard row and reminder message are serialized for them
+- **Then** the two left-only students get `comeBack` `rejoin`, the right-only student gets `waiting_list`
+  (the class has a place, their side has none), and the student placed elsewhere at the same hour gets
+  `waiting_list`; the dashboard row and the reminder message carry the same value as the class payload
+- **And** when a left place is offered to someone by an open invitation it still reads `rejoin`; once a left
+  student is placed, the left-only students read `waiting_list` (`on_waiting_list` when on the list)
+- **And** an old-engine class's `comeBack` is unchanged (class-wide count), and a coach viewer or another
+  message type gets `null`
+test: `backend/padel_app/tests/test_engine_afinal_vou_free_place.py` › `test_come_back_offers_rejoin_only_when_the_engine_would_place_the_student`
+
+#### ATTENDANCE-CONFIRM-46: Every surface hides "Afinal vou" without a place and says the place went, on web and iOS (rule 32)
+- **Given** a student whose state is `not_coming` on a class that has not started
+- **When** the class detail, the dashboard slot and the reminder chat bubble render with `comeBack` `rejoin`,
+  `waiting_list`, `on_waiting_list` and `null`, on web and on iOS
+- **Then** only `rejoin` shows "Afinal vou"; `waiting_list` shows "A tua vaga já foi ocupada" /
+  "Your spot has been taken" (`calendar.detail.spotTaken`) with the waiting-list button; `on_waiting_list`
+  shows `calendar.detail.onWaitingList`; `null` shows none of them
+- **And** a reminder bubble after a recorded no with no `comeBack` from the server (an older server) keeps
+  today's button; with `comeBack` `waiting_list` it shows the line and no button
+- **And** a tap answered `spot_filled` moves the surface to the `waiting_list` line, as information, never an error
+test: `frontend/apps/web/src/components/messages/MessageBubble.comeBack.test.tsx` › `[ATTENDANCE-CONFIRM-46] the bubble offers "Afinal vou" only for rejoin` (+ `frontend/apps/mobile/src/features/messages/components/message-bubble.comeBack.test.tsx` › same name; `frontend/apps/web/src/components/calendar/ClassDetailSheet.comeBack.test.tsx`, `frontend/apps/web/src/components/dashboard/coach/ComeBackSlot.test.tsx`, `frontend/apps/mobile/src/features/dashboard/ComeBackSlot.test.tsx` › `[ATTENDANCE-CONFIRM-46] …`)
+
+#### ATTENDANCE-CONFIRM-47: A student who cancelled one class comes back from the class detail while a place is free (rule 32; end to end)
+- **Given** a new-engine class with a free place on Rui's side, Rui placed for that class only and then cancelled
+- **When** Rui opens the class detail on web, sees "Afinal vou" and taps it; then another student who
+  cancelled opens the class (now full on that side)
+- **Then** Rui's row reads `coming` and the coach's participant list moves him to "Vão"; the second student
+  sees "A tua vaga já foi ocupada" and the waiting-list button and no "Afinal vou"
+test: `frontend/apps/web/e2e/attendance/engine-afinal-vou-free-place.spec.ts` › `[ATTENDANCE-CONFIRM-47] a student who cancelled comes back while a place is free`
+
 ### Open questions
+- **The reminder bubble's `comeBack` (rule 32; 26 Nov 2026) — decision (spec agent; the owner can reverse
+  it):** served on the reminder message to its student rather than fetched by the bubble, so web and iOS
+  read one field with no extra request; the cost is a free-place read per reminder message that records a
+  no, on the thread's load. A bubble does not refresh when a place opens or closes elsewhere; the tap's
+  answer is the guard. iOS ships in the same change (`frontend/CLAUDE.md`, web and iOS ship together).
 - A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,
   owner away, PAD-913, 2026-11-12; the owner can reverse it): late. The owner's D4 has the engine mark
   every absence on time or late by the cutoff, and today's "a reminder decline is never late" rested on

@@ -147,6 +147,38 @@ Stated as observable records; storage is the engine package's (PAD-902).
     (`calendar.event-detail` ND1). The invitation is then like any other: answered by
     rules 1–4 on the engine route, counted by the planner, one type's budget (`notifications.engine-planning`
     rule 4).
+16. **"Afinal vou": a student who left the session takes a free place back (the owner, 26 Nov 2026:
+    "Let's fix it. We should only show afinal vou if there's still places left."; `attendance.confirm`
+    rules 28 and 32, `notifications.engine-store` rules 14-15).** Two requests, one predicate:
+    - **Who may return.** A regular who said No (`RegularReturns`, in the snapshot's `absent`, as today),
+      and a student who is **not** a regular and left this session by a cancellation or a No to the
+      attendance request (`left_reason` `cancel`; the new request `Returns(student)`, the snapshot
+      carrying the students who left that way). A student who was never placed in the session (an
+      invitation answered No, a sorry) has nothing to return to: no effect. A student going gets no effect.
+    - **A free place the student could take** is, at the moment of the request: room in the class
+      (`class_empty > 0`) **and** room on a side the student plays (`open_sides(snapshot)` ∩ their
+      sides: a regular's roster sides, anyone else's playable sides), spots counted as
+      `notifications.engine-planning` rule 4 counts them. **An open invitation does not hold a place**
+      (the engine counts going students only): a place currently offered to someone by an open
+      invitation is free for the returning student, as on the old path (`_retake_spot` compared the
+      holding presences with the capacity and never read invitations). The coach's `fill_never_held`
+      setting (`notifications.engine-settings` rule 11) is not read: a return takes back a place the
+      student held; it is not a fill (as `RegularReturns` today).
+    - **Same hour.** A student who is not a regular and is placed in another session at the same hour
+      is refused, nothing placed, nothing sent (rule 10). A regular keeps today's behaviour.
+    - **With a free place:** `Placed(student, side, how)`, `how` `regular_returns` for a regular (as
+      today) and the new `returns` for anyone else; the side is the one open side when exactly one of
+      the student's sides is open to them, else none (flexible, as `RegularReturns` today);
+      `Absence(student, "none")`; the student leaves the session's waiting lists (`WaitingListLeft`, as
+      `_placed`); rule 10 closes their other open invitations at the same hour. The placement is the
+      student's answer: they count as confirmed (`notifications.engine-store` rules 6, 14, 15) and are
+      **not asked again** for the session.
+    - **Without one:** a regular gets the sorry `Message` (as today); anyone else gets no effect. Either
+      way nothing is placed, and the app answers `spot_filled` (`notifications.engine-store` rule 15).
+    - **Open invitations for that place stay open** (`notifications.engine-planning` rule 10, D4: no fill
+      withdraws an invitation). The invitee's later Yes finds no room and gets rule 4's sorry with the
+      waiting-list offer. The relayed request to retire them "as the old path did" contradicts D4 and is
+      **not** built here (see Open questions).
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -380,6 +412,27 @@ side keeps it for a `CoachAdded` with no firm side; a student who is not going g
 `CoachSetsSide(student, "R")` on a going student placed left gives a firm right `SideAssigned` and no message.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_coachs_add_places_the_student_on_a_side`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-35: A student who cancelled takes a free place on their side back; with none, nothing (rule 16)
+- **Given** a session of 4 (two a side) with Rui, a left-only student who is not a regular, placed left by
+  an invitation and then cancelled (`left_reason` `cancel`), one left and two right going, Rui on the
+  session's waiting list and holding an open invitation to another session at the same hour, and an open
+  invitation to Bia offering the left place
+- **When** the engine handles `Returns(Rui)`
+- **Then** it emits `Placed(Rui, L, "returns")` and `Absence(Rui, "none")`, Rui leaves the waiting list,
+  his other same-hour invitation is closed, and Bia's invitation is still open; Bia's Yes then gets the sorry
+- **And** when instead the left side is full and a right place is free, `Returns(Rui)` emits nothing; a
+  {left, right} student in Rui's place is placed with no side
+- **And** a student who answered an invitation No and was never placed, a student going, and Rui placed
+  in another session at the same hour each get no effect
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_student_who_cancelled_takes_a_free_place_on_their_side_back`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-36: A regular's return is unchanged (rule 16)
+- **Given** a session whose left-only regular said No, with a left place free, and again with the left side full
+- **When** the engine handles `RegularReturns` for them
+- **Then** with the place it emits `Placed(regular, L, "regular_returns")` and `Absence(regular, "none")` as
+  before; with the side full it emits the sorry `Message` only; an open invitation for that place stays open
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_regulars_return_is_unchanged`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -405,8 +458,28 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 8. (Owner decisions, PAD-915) ANSWERS-5, ANSWERS-7, ANSWERS-12, ANSWERS-22 again, ANSWERS-24, ANSWERS-25 — `invitation_engine/answers.py` (no other-side offer, no re-offer, the overlap).
 - (PAD-808) ANSWERS-32 — `invitation_engine/answers.py` (`coach_added_side`, `coach_sets_side`), `engine.py`,
   `requests.py` (`CoachAdded`'s side and firmness, `CoachSetsSide`), `effects.py` (`SideAssigned.firm`).
+- ("Afinal vou" while a place is free, 2026-11-26) ANSWERS-35, ANSWERS-36 — `invitation_engine/requests.py`
+  (`Returns`), `invitation_engine/snapshot.py` (students who left by a cancellation; `PlacedHow` `returns`),
+  `invitation_engine/answers.py` (`_returns` beside `_regular_returns`; one free-place predicate, also read
+  by the app's `comeBack`), `invitation_engine/planner.py` and `messages.py` (`returns` read wherever
+  `regular_returns` is: `ASKED`, `freed_spots`); then `notifications.engine-store` wave 12.
 
 ### Open questions
+- **Retiring the open invitation for the place a returning student takes (rule 16; 26 Nov 2026) — for
+  the owner; contradicts a recorded owner ruling.** The orchestrator's spelling of the owner's decision
+  says a non-regular's return retires "any open invitation for that seat … as the old path did"
+  (`_retake_spot` closed the student's own vacancy through `_close_vacancy`, expiring its live
+  invitations as `spot_filled`, and marked its pending approval prompt stale). The new engine never
+  revokes an invitation at a fill (`notifications.engine-planning` rule 10, D4, owner ruling 2026-11-11;
+  its one exception is the same hour). Not resolved here: rule 16 is written D4's way (the invitation
+  stays open; its Yes gets sorry), which is how a regular's return behaves today. Option I would pick:
+  keep D4. The other option needs a second D4 exception and a withdrawn-bubble state for it.
+- **A non-regular placed elsewhere at the same hour (rule 16) — decision (spec agent, 26 Nov 2026; the
+  owner can reverse it):** refused and answered `spot_filled`, because rule 10 refuses every second
+  placement and `spot_filled` is the one refusal App Store builds render as information; `comeBack`
+  does not offer the button then (`attendance.confirm` rule 32).
+- **`fill_never_held` off and a return (rule 16) — decision (spec agent, 26 Nov 2026; the owner can
+  reverse it):** not read, as for a regular's return today: the student takes back a place they held.
 - The re-offer (Q6; the coordinator's ruling (1) of 2026-11-11) — **reversed by the owner**
   (2026-11-12): no re-offer after sorry ("we can't keep bothering people … that's exactly why we created
   the waiting list", Codex decision 1) and no other-side offer on a Yes ("sorry" with the waiting-list
