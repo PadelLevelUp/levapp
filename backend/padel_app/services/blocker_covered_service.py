@@ -1,7 +1,7 @@
 """PAD-772 (calendar.student-blockers rules 19-20): the classes a student's availability block covers.
 
-Saving a block answers the student's own classes it overlaps, so web and iOS can ask whether to mark
-them "Não vai". This module only READS: nothing here writes a presence, an instance or a message.
+Saving a block marks the student's own classes it overlaps "Não vai" (``blocker_decline_service``).
+This module only READS: nothing here writes a presence, an instance or a message.
 
 A covered occurrence is one on the student's own calendar (what ``GET /api/app/calendar`` builds for
 a student, so a recurring class's occurrence with no instance row yet counts, and so does a one-off
@@ -14,32 +14,37 @@ from datetime import date, datetime, time, timedelta, timezone
 from types import SimpleNamespace
 
 from padel_app.tools.calendar_tools import ensure_utc, expand_occurrences
+from padel_app.utils.dates import utc_to_wall_naive
 
-# specflow/impl/calendar/constants.md: how far ahead, counted from the block's first occurrence, a block is asked about.
+# specflow/impl/calendar/constants.md: how far ahead, counted from the later of today and the row's first occurrence, a block marks.
 BLOCKER_COVERED_HORIZON_DAYS = 92
 
 
-def snapshot(block):
+def snapshot(block, *, horizon_first=None):
     """The values of a block that decide what it covers, detached from the row, so the covered set
-    from BEFORE an edit can be computed after the edit has been written."""
+    from BEFORE an edit can be computed after the edit has been written. ``horizon_first`` is the first
+    occurrence date of the row a split row came from (rule 19): the horizon counts from it, not from
+    the split row's own start."""
     return SimpleNamespace(
         start_datetime=block.start_datetime, end_datetime=block.end_datetime,
         recurrence_rule=block.recurrence_rule, recurrence_end=block.recurrence_end,
+        horizon_first=horizon_first or block.start_datetime.date(),
     )
 
 
 def _occurrences(block, now_utc):
-    """The block's occurrences that can still matter: from a day before now to its horizon
-    (the earlier of its recurrence end and its first occurrence's date + the horizon)."""
+    """The block's occurrences that can still matter: from a day before now to its horizon (the earlier of its
+    recurrence end and the later of the club's today and the row's first occurrence's date, + the horizon)."""
     first = block.start_datetime.date()
-    last = first + timedelta(days=BLOCKER_COVERED_HORIZON_DAYS)
+    anchor = max(getattr(block, "horizon_first", None) or first, utc_to_wall_naive(now_utc.replace(tzinfo=None)).date())
+    last = anchor + timedelta(days=BLOCKER_COVERED_HORIZON_DAYS)
     end = block.recurrence_end
     if isinstance(end, datetime):
         end = end.date()
     if block.recurrence_rule and end is not None:
         last = min(last, end)
     if not block.recurrence_rule:
-        last = first
+        last = first  # a one-off is its own day, whatever the horizon
     range_start = max(ensure_utc(block.start_datetime), now_utc - timedelta(days=1))
     range_end = datetime.combine(last + timedelta(days=1), time.min, tzinfo=timezone.utc)
     duration = block.end_datetime - block.start_datetime

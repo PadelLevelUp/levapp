@@ -4448,6 +4448,20 @@ def _clear_decline_source(player_id, lesson_instance_id, answered: dict) -> None
         presence.save()
 
 
+def _decline_already_done(instance: LessonInstance, presence: Presence) -> bool:
+    """Rule 31: the row is ``not_coming`` and unvalidated AND the decline's other half has happened, so a
+    repeat has nothing left to do. A decline that failed between the absence and its spot (the old engine's
+    vacancy, the new engine's ``Left``) is not done and stays retryable through the ordinary path."""
+    if presence.validated or presence.attendance_state != "not_coming":
+        return False
+    if _on_new_engine(instance):
+        from padel_app.services.engine_store import LEFT
+
+        return presence.left_reason in LEFT
+    return Vacancy.query.filter_by(
+        lesson_instance_id=instance.id, original_player_id=presence.player_id).first() is not None
+
+
 def cancel_attendance(
     acting_user_id: int,
     *,
@@ -4509,6 +4523,9 @@ def cancel_attendance(
     ).first()
     if presence is None:
         abort(403, description="You are not enrolled in this class.")
+    if _decline_already_done(instance, presence):
+        # attendance.confirm rule 31 (PAD-772): a second "Não vou" changes nothing, on both engines.
+        return {"action": "declined", "proactive": False, "duplicate": True}
     if _on_new_engine(instance):
         # PAD-918 (swap plan §3.1): the new engine records the absence and plans the spot.
         from padel_app.services.engine_entry import student_not_going

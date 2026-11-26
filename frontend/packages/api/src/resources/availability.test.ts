@@ -18,23 +18,19 @@ function installSingleton(data: unknown = {}) {
 
 beforeEach(() => vi.clearAllMocks());
 
-describe("the covered-classes calls (PAD-772, calendar.student-blockers rules 19, 22)", () => {
-  it("[CALENDAR-STUDENT-BLOCKERS-23] a block save keeps the answer's coveredClasses; the mark and the schedule read go to their routes", async () => {
-    const covered = [{ model: "Lesson", originalId: 7, date: "2026-12-02", title: "Quarta", start: "a", end: "b" }];
-    installSingleton({ id: 1, coveredClasses: covered });
+describe("a block save answers the classes it marked (PAD-772, calendar.student-blockers rule 21)", () => {
+  it("[CALENDAR-STUDENT-BLOCKERS-23] a block save keeps the answer's markedClasses; the question's two calls are gone from the client", async () => {
+    const marked = [{ model: "Lesson", originalId: 7, date: "2026-12-02", lessonInstanceId: 11, title: "Quarta", start: "a", end: "b" }];
+    const seen = installSingleton({ id: 1, markedClasses: marked, coveredClasses: [] });
     const saved = await availabilityApi.createBlocker({ date: "2026-12-02", startTime: "08:00", endTime: "09:00", isRecurring: false });
-    expect(saved.coveredClasses).toEqual(covered);
+    expect(saved.markedClasses).toEqual(marked);
+    expect(seen[0].url).toBe("/app/availability_blockers");
 
-    let seen = installSingleton({ declined: [], skipped: [] });
-    await availabilityApi.declineCoveredClasses({ occurrences: [{ model: "Lesson", originalId: 7, date: "2026-12-02" }] });
-    expect(seen[0].method?.toUpperCase()).toBe("POST");
-    expect(seen[0].url).toBe("/app/availability_blockers/decline_covered");
-    expect(JSON.parse(seen[0].data)).toEqual({ occurrences: [{ model: "Lesson", originalId: 7, date: "2026-12-02" }] });
+    installSingleton({ id: 1, markedClasses: [] });
+    expect((await availabilityApi.updateBlocker(1, { date: "2026-12-02", startTime: "08:00", endTime: "09:00", isRecurring: false })).markedClasses).toEqual([]);
 
-    seen = installSingleton({ coveredClasses: covered });
-    const read = await availabilityApi.readScheduleCoveredClasses("sched/1", { title: null, blockers: [] });
-    expect(seen[0].method?.toUpperCase()).toBe("POST");
-    expect(seen[0].url).toBe("/app/availability_schedules/sched%2F1/covered_classes");
-    expect(read).toEqual(covered);
+    // The server keeps decline_covered and the schedule read for older builds; this client never calls them.
+    expect(Object.keys(availabilityApi)).not.toContain("declineCoveredClasses");
+    expect(Object.keys(availabilityApi)).not.toContain("readScheduleCoveredClasses");
   });
 });

@@ -144,6 +144,11 @@ export function BlockerSheet({ open, editing, saving, onSave, onClose }: Props) 
             </p>
           )}
 
+          {/* PAD-772 (calendar.student-blockers rule 26): nothing is asked, so the form says what saving does. */}
+          <p className="text-sm text-muted-foreground" data-testid="blocker-covered-notice">
+            {t("availability.covered.notice")}
+          </p>
+
           <SheetFooter className="gap-2">
             <Button variant="outline" onClick={onClose} disabled={saving} data-testid="blocker-cancel">
               {t("common.cancel")}

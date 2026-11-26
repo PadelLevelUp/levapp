@@ -258,6 +258,7 @@ def reschedule_block_service(block_id, user_id, data):
       occDate, newDate, newStartTime, newEndTime, scope ('single'|'future')
     """
     block = CalendarBlock.query.filter_by(id=block_id, user_id=user_id).first_or_404()
+    known = {row_id for (row_id,) in CalendarBlock.query.with_entities(CalendarBlock.id).filter_by(user_id=user_id)}
 
     occ_date = _date.fromisoformat(data['occDate'])
     new_start_dt = _datetime.strptime(f"{data['newDate']}T{data['newStartTime']}", "%Y-%m-%dT%H:%M")
@@ -270,7 +271,7 @@ def reschedule_block_service(block_id, user_id, data):
         block.start_datetime = new_start_dt
         block.end_datetime = new_end_dt
         block.save()
-        return
+        return [block]
 
     _refuse_if_live_hold(block)
 
@@ -294,6 +295,12 @@ def reschedule_block_service(block_id, user_id, data):
                      start_datetime=new_start_dt, end_datetime=new_end_dt,
                      is_recurring=False, recurrence_rule=None, recurrence_end=None)
         _split_block(block, occ_date)
+
+    # The rows the move left behind, for the student's marking step (calendar.student-blockers rule 19):
+    # the block if it still exists, and every row it cloned or split off.
+    rows = [row for row in [CalendarBlock.query.get(block_id)] if row is not None]
+    rows += CalendarBlock.query.filter(CalendarBlock.user_id == user_id, ~CalendarBlock.id.in_(known | {block_id})).all()
+    return rows
 
 
 def remove_block_service(block_id, user_id, occ_date_str, scope):

@@ -240,6 +240,11 @@ export function BlockerSheet({ open, initial, saving = false, error, onSubmit, o
           ) : null}
           {error ? <Text className="text-sm text-destructive">{error}</Text> : null}
 
+          {/* PAD-772 (calendar.student-blockers rule 26): nothing is asked, so the form says what saving does. */}
+          <Text className="text-sm text-muted-foreground" testID="blocker-covered-notice">
+            {t("availability.covered.notice")}
+          </Text>
+
           <View className="gap-2">
             <Button
               testID="blocker-save"

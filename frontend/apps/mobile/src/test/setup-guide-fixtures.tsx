@@ -101,8 +101,6 @@ export const api = {
   }),
   listBlockers: vi.fn(async (): Promise<unknown[]> => []),
   putSchedule: vi.fn(async (): Promise<unknown[]> => []),
-  readScheduleCoveredClasses: vi.fn(async (): Promise<unknown[]> => []),
-  declineCoveredClasses: vi.fn(async (): Promise<unknown> => ({ declined: [], skipped: [] })),
   deleteSchedule: vi.fn(async () => undefined),
   getDashboard: vi.fn(async (): Promise<unknown> => dashboardPayload()),
   sendProfileReminder: vi.fn(async () => ({ ok: true as const })),
@@ -164,8 +162,6 @@ export async function resetGuideFixtures() {
   });
   api.listBlockers.mockImplementation(async () => []);
   api.putSchedule.mockImplementation(async () => []);
-  api.readScheduleCoveredClasses.mockImplementation(async () => []);
-  api.declineCoveredClasses.mockImplementation(async () => ({ declined: [], skipped: [] }));
   api.getDashboard.mockImplementation(async () => dashboardPayload());
   api.sendProfileReminder.mockImplementation(async () => ({ ok: true as const }));
   refreshUser.mockClear();

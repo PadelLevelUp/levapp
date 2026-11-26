@@ -306,6 +306,10 @@ export function ScheduleEditor({
           )}
 
           <div className="flex flex-col gap-2 pb-2">
+            {/* PAD-772 (calendar.student-blockers rule 26) */}
+            <p className="text-sm text-muted-foreground" data-testid="schedule-covered-notice">
+              {t("availability.covered.notice")}
+            </p>
             <Button disabled={!canSave(s) || saving} data-testid="schedule-save" onClick={() => onSave(s)}>
               {editing ? t("setupGuide.editor.saveEdit") : t("setupGuide.editor.saveNew")}
             </Button>

@@ -462,6 +462,10 @@ export function ScheduleEditor({
         ) : null}
 
         <View className="gap-2">
+          {/* PAD-772 (calendar.student-blockers rule 26) */}
+          <Text className="text-sm text-muted-foreground" testID="schedule-covered-notice">
+            {t("availability.covered.notice")}
+          </Text>
           <Button disabled={!canSave(s) || Boolean(saving)} testID="schedule-save" onPress={() => onSave(s)}>
             <Text>{editing ? t("setupGuide.editor.saveEdit") : t("setupGuide.editor.saveNew")}</Text>
           </Button>
