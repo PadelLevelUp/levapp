@@ -336,8 +336,9 @@ Readings:
       word "Não vai" (rule 25), on the coach's row only; the student's own row never shows it. It is
       the ticket's "Não vai · indisponível" in rule 25's shape.
     "Afinal vou" (rule 28) applies as to any `not_coming`. Clients read `declineSource` only on a
-    `not_coming`, unvalidated row, so a value left after coming back is never shown; the server's
-    clearing of it then is a best effort.
+    `not_coming`, unvalidated row, so a value left after coming back is never shown; the server
+    also clears it, as `calendar.student-blockers` rule 23 says: "Afinal vou" on both engines, and the new engine's
+    reminder answer and ordinary decline.
 
 ### Acceptance Criteria
 

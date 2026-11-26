@@ -174,9 +174,13 @@ blocked days they already had classes on stayed in those classes, and the coach 
     failing never stops the others: each entry runs in its own savepoint, and a refusal from the
     decline path (its `abort` 409 for a started class or 403 for no enrolment, `notification_service.py`
     `cancel_attendance`) is caught and reported under `skipped`, rolling back only that entry. Each
-    entry locks the student's presence row before its re-check, so a repeated or parallel yes for the
-    same class declines it once: the second finds it `not_coming`, skips it as `already_answered`,
-    and the coach is notified once.
+    entry locks the class's instance row and then the student's presence row (the engine's store locks
+    the instance first, so a tick at the same moment cannot deadlock with it) before its re-check, so
+    a repeated or parallel yes for the same class declines it once: the second finds it `not_coming`,
+    skips it as `already_answered`, and the coach is notified once. A row the coach already marked
+    (`validated`) is `already_answered` too. One call asks about at most
+    `const:BLOCKER_DECLINE_MAX_ENTRIES` classes (each entry that fails the re-check costs a few
+    queries to name its reason): a longer list is refused with 400 before anything is read or written.
 23. **What a mark made this way adds to an ordinary decline.** The decline path gains one source,
     `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`, passed only by rule 22:
     - **No message to the student**, meaning no message whose sender is the coach (the coach's
@@ -187,9 +191,11 @@ blocked days they already had classes on stayed in those classes, and the coach 
     - **The presence records why:** `presences.decline_source` is set to the constant, and
       `respondedAt` is the instant of the mark on both engines. The serialized presence carries it as
       `declineSource` (null for any other decline). Clients read `declineSource` only while the row
-      is `not_coming` and not validated; the server clears it when the presence comes back
-      ("Afinal vou", `attendance.confirm` rule 28) as a best effort, and no reader depends on that
-      clearing.
+      is `not_coming` and not validated. The server clears it when a later answer replaces the
+      mark: "Afinal vou" (`attendance.confirm` rule 28) when it brings them back, on both engines, and
+      on the new engine a reminder's answer too; and the new engine's ordinary decline writes the field
+      itself (null), so a student who was marked, came back and later said a plain "Não vai" is never
+      shown as unavailable. (The old engine's ordinary decline only follows a "Afinal vou", which cleared it.)
     - **The coach, on an old-engine session,** gets the per-cancellation notice every cancellation
       gets there (`attendance.confirm` rule 8, `_notify_coach_of_cancellation`: one message per
       occurrence, a push only when late), with `msg_metadata.availabilityBlock: true` beside the
@@ -321,7 +327,7 @@ test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_a_s
 #### CALENDAR-STUDENT-BLOCKERS-17: A saved block answers exactly the student's own covered classes (rule 19)
 - **Given** a student on a weekly class (Wednesdays 19:00–20:00, no instance rows yet), a one-off class on Tuesday 18:00, a materialised Wednesday they already declined, a Wednesday class whose start has passed, another student's class in the same window, and the clock pinned
 - **When** the student creates a recurring block Monday–Thursday 08:00–23:00 for three weeks, and separately a one-off block 20:00–21:00 that touches the Wednesday class only at its end instant
-- **Then** `coveredClasses` lists the not-yet-started Wednesday occurrences (virtual ones included) and the Tuesday one-off, each with `model`, `originalId`, `date`, `title`, `start`, `end`, ordered by start, and omits the declined, started and other student's classes
+- **Then** `coveredClasses` lists the not-yet-started Wednesday occurrences (virtual ones included) and the Tuesday one-off, each with `model`, `originalId`, `date`, `title`, `start`, `end`, ordered by start, and omits the declined, started and other student's classes and a class the coach already marked (`validated`, whatever its status)
 - **And** the one-off block touching only at 20:00 covers nothing (half-open, same predicate as `blocked_user_ids_for_window`)
 - **And** for a recurring block with no end, a class is listed only when the block occurrence it overlaps starts on or before the block's first occurrence date + `const:BLOCKER_COVERED_HORIZON_DAYS` days, while a block starting six weeks ahead with the sheet's default end is listed whole, a class late on its last day included
 - **And** no presence changed, no vacancy opened and no message was created by the save
@@ -348,7 +354,8 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **Then** only the covered Wednesday is declined; the others are under `skipped` with `not_covered`, `not_enrolled`, `started` and `already_answered`, and nothing was written for them (no instance materialised, no presence changed, no message)
 - **And** the coach gets 403
 - **And** a listed virtual occurrence whose materialised instance holds no presence for the student is skipped as `not_enrolled`, the other entries still declined
-test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_the_mark_rechecks_each_entry_and_skips_what_fails`
+- **And** a list of more than `const:BLOCKER_DECLINE_MAX_ENTRIES` entries is refused with 400 and the limit itself is accepted
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_the_mark_rechecks_each_entry_and_skips_what_fails` (+1 more)
 
 #### CALENDAR-STUDENT-BLOCKERS-27: A repeated or parallel yes declines a class once, and one refusal rolls back only its entry (rule 22)
 - **Given** a student's covered Wednesday class, and a second entry whose class starts between the re-check and the decline (the decline path's 409)
@@ -360,7 +367,7 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 #### CALENDAR-STUDENT-BLOCKERS-21: On a new-engine session the mark is the engine's own "not going" (rule 22)
 - **Given** a covered occurrence of a session the new engine runs (`engine_for(instance) == "new"`)
 - **When** the student marks it through `decline_covered`
-- **Then** `engine_entry.student_not_going` handled it (the engine records the absence and plans the spot), `declineSource` is set and `respondedAt` is the mark's instant
+- **Then** `engine_entry.student_not_going` handled it, run for real (the engine records the absence and plans the spot): one absence, `declineSource` is set and `respondedAt` is the mark's instant, and a second yes for it is skipped as `already_answered`
 - **And** no message whose sender is the coach is created, and no coach chat notice exists either (as for any No on the new engine); the serialized presence carries `declineSource` for the coach's detail line
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_new_engine_session_is_marked_by_the_engine`
 
@@ -369,8 +376,9 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **When** the student deletes the block, and the class's reminder pass then runs
 - **Then** the presence stays `not_coming` with its `declineSource`, no vacancy closes, and the pass sends the student nothing
 - **And** "Afinal vou" (`respond_reminder` with `yes`) with a free spot brings them back to `coming`, and the coach's row then shows no unavailability detail
+- **And** on a new-engine session "Afinal vou" clears `declineSource` too, and an ordinary decline after a mark writes none: the row is `not_coming` with no reason
 - Today the pass already skips a declined presence: the decline writes `confirmed` and `status` (`notification_service.py:4051-4053`), and `_reminder_recipients` skips both (`answered_for_reminders`, 3230-3233; `reminder_skips`, 3269; 3317).
-test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_marked_class_is_not_reminded_and_survives_the_block_delete`
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_marked_class_is_not_reminded_and_survives_the_block_delete` (+1 more)
 
 #### CALENDAR-STUDENT-BLOCKERS-23: What the dialog does with a save's answer is one shared decision (rule 21)
 - **Given** a save answer with no `coveredClasses` key (an old server), with an empty list, and with two classes
