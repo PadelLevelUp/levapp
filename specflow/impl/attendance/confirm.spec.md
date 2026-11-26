@@ -1,6 +1,6 @@
 ---
 id: attendance.confirm
-status: implemented
+status: implementing
 depends_on: [attendance.presence]
 serves: [P-ATTENDANCE-2]
 governed_by: []
@@ -311,6 +311,26 @@ Readings:
    records the student's answer and overwrites the mark with `absent`; refusing it instead is a
    PAD-567-adjacent decision not taken here.
 
+#### A decline made from an availability block (PAD-772; owner, 26 Nov 2026: "ask them when they save")
+30. **The student's yes in the block dialog is an ordinary decline with a source.** When a student
+    who saved an availability block answers yes to the covered-classes question
+    (`calendar.student-blockers` rules 19–23), each class is declined through this spec's own path —
+    rules 5, 10–15 and 18 hold unchanged (the spot, the timing, proactive or late by the server's
+    clock), and on a new-engine session the engine's "not going" runs as for any No. Three things
+    differ, and only for that source (`const:DECLINE_SOURCE_AVAILABILITY_BLOCK`):
+    - the student-facing acknowledgement of rule 8 (the `reminder_declined` template) is **not**
+      sent: the student answered in the app and the app confirms it;
+    - rule 8's coach notice carries `msg_metadata.availabilityBlock: true` and says the student
+      marked themselves unavailable, never the block's title or times;
+    - the presence carries `declineSource`, and the coach's row shows the reason in rule 23's detail
+      line: while the row is not validated, `cancellationDetail` in `@levelup/config` answers
+      `calendar.detail.cancelledUnavailableAt` — "Cancelado pelo aluno · indisponível · <quando>",
+      the time from `respondedAt` — instead of `calendar.detail.cancelledByStudentAt`. It stays a
+      detail line under the one state word "Não vai" (rule 25), on the coach's row only; the
+      student's own row never shows it. It is the ticket's "Não vai · indisponível" in rule 25's
+      shape.
+    "Afinal vou" (rule 28) applies as to any `not_coming`, and coming back clears `declineSource`.
+
 ### Acceptance Criteria
 
 #### ATTENDANCE-CONFIRM-1: Player confirms attendance
@@ -603,6 +623,20 @@ test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `r
 - **And** it is not offered once the student's `attendanceState` is `not_coming`, once the class has started, on a cancelled class, to a coach, or to someone who is not in the class
 - **And** a row the coach validated absent (`missed`) is not hidden by its state: it belongs to a class that has already run, so the started-class gate hides the action
 test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` › `stays available after the proactive window closes` (+3 more)
+
+#### ATTENDANCE-CONFIRM-42: The coach's row names an unavailability decline as a detail, never a second state (rule 30)
+- **Given** three presences that are `not_coming` and not validated: one declined from a block (`declineSource` = `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`, `respondedAt` set), one ordinary student decline (`cancelledByStudent`), and the first again once the coach validated it
+- **When** `cancellationDetail` is asked for the coach's row and for the student's own row, and the web and iOS participant rows render the first
+- **Then** the coach's row gets `calendar.detail.cancelledUnavailableAt` with `respondedAt` for the first, `calendar.detail.cancelledByStudentAt` for the second, and nothing for the validated one; the student's row gets nothing
+- **And** each rendered row shows exactly one state word ("Não vai") with the detail line beneath it, on web and on iOS
+test: `frontend/packages/config/src/attendance-state.test.ts` › `[ATTENDANCE-CONFIRM-42] an unavailability decline is a detail line on the coach's row only` (+ `frontend/apps/web/src/components/calendar/AttendanceRow.test.tsx` and `frontend/apps/mobile/src/features/calendar/ParticipantRow.unavailable.test.tsx` › same name)
+
+#### ATTENDANCE-CONFIRM-43: A decline from a block sends the student nothing and marks the coach's notice; every other decline is unchanged (rule 30)
+- **Given** two students in one old-engine class and the coach's `reminder_declined` template customised
+- **When** one declines it through `decline_covered` and the other through `cancel_attendance`
+- **Then** the first gets no message and the coach's notice for them carries `availabilityBlock: true`; the second gets the `reminder_declined` acknowledgement and a notice without the marker, as before
+- **And** the serialized presences carry `declineSource` = the constant and null respectively
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_only_a_block_decline_drops_the_student_acknowledgement`
 
 ### Open questions
 - A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,
