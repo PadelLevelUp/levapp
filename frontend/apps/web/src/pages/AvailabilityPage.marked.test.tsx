@@ -48,7 +48,7 @@ async function saveABlock() {
   fireEvent.click(screen.getByTestId("blocker-save"));
   return invalidated;
 }
-const keys = (spy: ReturnType<typeof vi.spyOn>) => spy.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
+const keys = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
 
 describe("a block save says how many classes it marked (PAD-772)", () => {
   it("[CALENDAR-STUDENT-BLOCKERS-24] a save over classes says how many were marked and asks nothing", async () => {

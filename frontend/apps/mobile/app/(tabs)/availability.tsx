@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { BlockerSheet } from "@/features/availability/BlockerSheet";
-import { useBlockerCoveredFollowUp } from "@/features/availability/blocker-covered-dialog";
+import { useBlockerSaveFollowUp } from "@/features/availability/use-blocker-save-follow-up";
 import {
   useCreateBlocker,
   useDeleteBlocker,
@@ -70,7 +70,7 @@ export default function AvailabilityScreen() {
   const updateBlocker = useUpdateBlocker();
   const deleteBlocker = useDeleteBlocker();
   // PAD-772 (calendar.student-blockers rule 21): the question after a save that covers classes.
-  const covered = useBlockerCoveredFollowUp();
+  const afterSave = useBlockerSaveFollowUp();
 
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<AvailabilityBlocker | null>(
@@ -102,7 +102,7 @@ export default function AvailabilityScreen() {
 
   const handleSubmit = async (payload: BlockerDraftInput) => {
     setSaveError(null);
-    let answer: { coveredClasses?: unknown };
+    let answer: { markedClasses?: unknown };
     try {
       answer = editing
         ? await updateBlocker.mutateAsync({ id: editing.id, data: payload })
@@ -112,8 +112,8 @@ export default function AvailabilityScreen() {
       setSaveError(t("availability.couldNotSaveMessage"));
       return;
     }
-    // The block is saved and listed; nothing from here on says it was not.
-    await covered.follow(answer);
+    // The block is saved and listed; the server marked the classes it covers, and nothing from here on says it was not.
+    afterSave(answer);
   };
 
   const handleDelete = async () => {
@@ -224,7 +224,6 @@ export default function AvailabilityScreen() {
 
   return (
     <Screen testID="screen-availability">
-      {covered.dialog}
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"

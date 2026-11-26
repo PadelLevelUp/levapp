@@ -39,7 +39,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
-import { useBlockerCoveredFollowUp } from "@/features/availability/blocker-covered-dialog";
+import { useBlockerSaveFollowUp } from "@/features/availability/use-blocker-save-follow-up";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import {
   BLOCK_TYPES,
@@ -106,7 +106,7 @@ export default function EventDetailScreen() {
   );
   const editEvent = useEditEvent();
   // PAD-772 (calendar.student-blockers rules 19-21): the question after a student's blocker save that covers classes.
-  const covered = useBlockerCoveredFollowUp();
+  const afterSave = useBlockerSaveFollowUp();
   const removeEvent = useRemoveEvent();
 
   const [isEditing, setIsEditing] = React.useState(false);
@@ -164,12 +164,12 @@ export default function EventDetailScreen() {
       toast.error(t("calendar.addEvent.missingFieldsTitle"), t("calendar.addEvent.missingFieldsDescription", { fields: missing }));
       return;
     }
-    let updated: { coveredClasses?: unknown };
+    let updated: { markedClasses?: unknown };
     try {
       updated = (await editEvent.mutateAsync({
         blockId: originalId,
         data: draftToPayload(draft),
-      })) as { coveredClasses?: unknown };
+      })) as { markedClasses?: unknown };
       setIsEditing(false);
       setDraft(null);
       toast.success(t("calendar.eventDetail.eventUpdated"));
@@ -177,8 +177,8 @@ export default function EventDetailScreen() {
       toast.error(t("calendar.eventDetail.failedUpdateEvent"));
       return;
     }
-    // PAD-772 (calendar.student-blockers rules 19-21): a student's own blocker asks after the save.
-    await covered.follow(updated);
+    // PAD-772 (calendar.student-blockers rules 19-21): a student's own blocker says how many classes it marked.
+    afterSave(updated);
   };
 
   const handleDelete = () => {
@@ -210,7 +210,6 @@ export default function EventDetailScreen() {
 
   return (
     <Screen edges={["top"]} testID="event-detail">
-      {covered.dialog}
       <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
         <Pressable
           testID="event-detail-back"
@@ -464,6 +463,13 @@ export default function EventDetailScreen() {
 
             {/* Actions */}
             {isEditing ? (
+              <View className="gap-2">
+              {/* PAD-772 (calendar.student-blockers rule 26): a student's own blocker says what saving does. */}
+              {block?.type === "unavailable" ? (
+                <Text className="text-sm text-muted-foreground" testID="blocker-covered-notice">
+                  {t("availability.covered.notice")}
+                </Text>
+              ) : null}
               <View className="flex-row gap-3">
                 <Button
                   testID="event-detail-cancel"
@@ -491,6 +497,7 @@ export default function EventDetailScreen() {
                       : t("calendar.eventDetail.save")}
                   </Text>
                 </Button>
+              </View>
               </View>
             ) : (
               <Button

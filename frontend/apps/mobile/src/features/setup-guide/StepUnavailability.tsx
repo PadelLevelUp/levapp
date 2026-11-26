@@ -34,7 +34,6 @@ import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import * as availabilityApi from "@levelup/api/src/resources/availability";
-import { useBlockerCoveredFollowUp } from "@/features/availability/blocker-covered-dialog";
 import { ScheduleEditor } from "@/features/availability/ScheduleEditor";
 import { LeaveButton } from "./steps";
 import type { SetupGuide } from "./useSetupGuide";
@@ -50,8 +49,6 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
   const { t } = useTranslation();
   const blockers = useAvailabilityBlockers();
   const save = useSaveSchedule();
-  // PAD-772 (calendar.student-blockers rules 19, 21): the question after a schedule save that covers classes.
-  const covered = useBlockerCoveredFollowUp();
   const remove = useDeleteSchedule();
   const today = clubTodayISO();
   const saved = React.useMemo(() => savedSchedules(blockers.data ?? [])[0] ?? null, [blockers.data]);
@@ -63,19 +60,10 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
   const end = saved ? scheduleEnd(saved.rows) : null;
 
   /**
-   * One schedule save. The classes it would newly cover are read first (the PUT answers a bare list); a
-   * failed read saves without asking. The question follows the PUT and is answered before the caller moves on.
+   * One schedule save (calendar.student-blockers rules 19, 21, 26): only the PUT. The server marks the classes
+   * the rows newly cover; the hook re-reads the calendar and dashboard after every save, and nothing is asked.
    */
-  const saveSchedule = async (scheduleId: string, data: availabilityApi.ScheduleInput) => {
-    let coveredClasses: unknown[] = [];
-    try {
-      coveredClasses = await availabilityApi.readScheduleCoveredClasses(scheduleId, data);
-    } catch {
-      // No warning, like the failed conflict check: the schedule still saves.
-    }
-    await save.mutateAsync({ scheduleId, data });
-    await covered.follow({ coveredClasses });
-  };
+  const saveSchedule = (scheduleId: string, data: availabilityApi.ScheduleInput) => save.mutateAsync({ scheduleId, data });
 
   const write = async (scheduleId: string, schedule: Schedule, endDate: string) => {
     setFailed(false);
@@ -157,7 +145,6 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
 
   return (
     <View className="gap-4" testID="setup-unavailability">
-      {covered.dialog}
       <Text className="font-display text-2xl">{t("setupGuide.unavailability.title")}</Text>
       <Text className="text-sm text-muted-foreground">{t("setupGuide.unavailability.body")}</Text>
 
@@ -261,6 +248,10 @@ export function StepUnavailability({ guide, onDone, onLeave }: { guide: SetupGui
           {t("setupGuide.unavailability.failed")}
         </Text>
       ) : null}
+      {/* PAD-772 (calendar.student-blockers rule 26): nothing is asked, so the step says what saving does. */}
+      <Text className="text-sm text-muted-foreground" testID="blocker-covered-notice">
+        {t("availability.covered.notice")}
+      </Text>
       <Button disabled={!selected || save.isPending} onPress={() => void saveAndContinue()} testID="setup-unavailability-save">
         <Text>{t("setupGuide.unavailability.save")}</Text>
       </Button>

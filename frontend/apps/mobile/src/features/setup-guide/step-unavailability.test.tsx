@@ -29,19 +29,6 @@ vi.mock("@levelup/api/src/resources/availability", async (orig) => {
   return {
     ...(await orig<object>()),
     listBlockers: f.api.listBlockers, putSchedule: f.api.putSchedule, deleteSchedule: f.api.deleteSchedule,
-    readScheduleCoveredClasses: f.api.readScheduleCoveredClasses, declineCoveredClasses: f.api.declineCoveredClasses,
-  };
-});
-// The dialog primitives as plain views: shown while `open`, the buttons press their handlers.
-vi.mock("@/components/ui/alert-dialog", async () => {
-  const { Pressable, View } = await import("react-native");
-  const box = (p: { children?: unknown; testID?: string }) => createElement(View, { testID: p.testID }, p.children as never);
-  const button = (p: { children?: unknown; testID?: string; onPress?: () => void }) =>
-    createElement(Pressable, { testID: p.testID, onPress: p.onPress }, p.children as never);
-  return {
-    AlertDialog: (p: { open: boolean; children?: unknown }) => (p.open ? createElement(View, null, p.children as never) : null),
-    AlertDialogContent: box, AlertDialogHeader: box, AlertDialogFooter: box, AlertDialogTitle: box, AlertDialogDescription: box,
-    AlertDialogCancel: button, AlertDialogAction: button,
   };
 });
 vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -152,47 +139,24 @@ describe("step 3, unavailability (iOS)", () => {
     expect(bodyB.blockers.map((b) => b.endDate)).toEqual(["2027-02-19"]);
   });
 
-  const covered = { model: "Lesson", originalId: 7, date: "2026-11-25", title: "Quarta", start: "2026-11-25T19:00:00", end: "2026-11-25T20:00:00" };
-
-  it("[CALENDAR-STUDENT-BLOCKERS-26] a schedule over a class asks before moving on", async () => {
-    api.readScheduleCoveredClasses.mockResolvedValue([covered]);
+  it("[CALENDAR-STUDENT-BLOCKERS-26] a schedule over a class saves and moves on without asking", async () => {
     const n = await openStep3();
+    const invalidated = vi.spyOn(n.client, "invalidateQueries");
     await n.press("setup-preset-work_weekdays");
     await n.press("setup-unavailability-save");
     await settle(n);
-    // The read came first and named the id the PUT then used; the guide waits for the answer.
-    expect(api.readScheduleCoveredClasses).toHaveBeenCalledTimes(1);
-    expect(api.putSchedule).toHaveBeenCalledTimes(1);
-    expect(api.readScheduleCoveredClasses.mock.invocationCallOrder[0]).toBeLessThan(api.putSchedule.mock.invocationCallOrder[0]);
-    expect((api.readScheduleCoveredClasses.mock.calls[0] as unknown[])[0]).toBe((api.putSchedule.mock.calls[0] as unknown[])[0]);
-    expect(n.queryByTestId("blocker-covered-dialog")).not.toBeNull();
-    expect(nav.replace).not.toHaveBeenCalledWith("/setup-guide?step=coach_link");
-    await n.press("blocker-covered-keep");
-    await settle(n);
-    expect(nav.replace).toHaveBeenLastCalledWith("/setup-guide?step=coach_link");
-    expect(api.declineCoveredClasses).not.toHaveBeenCalled();
-  });
-
-  it("[CALENDAR-STUDENT-BLOCKERS-26] yes marks the listed class and the guide moves on after it", async () => {
-    api.readScheduleCoveredClasses.mockResolvedValue([covered]);
-    const n = await openStep3();
-    await n.press("setup-preset-work_weekdays");
-    await n.press("setup-unavailability-save");
-    await settle(n);
-    await n.press("blocker-covered-decline");
-    await settle(n);
-    expect(api.declineCoveredClasses).toHaveBeenCalledWith({ occurrences: [{ model: "Lesson", originalId: 7, date: "2026-11-25" }] });
-    expect(nav.replace).toHaveBeenLastCalledWith("/setup-guide?step=coach_link");
-  });
-
-  it("[CALENDAR-STUDENT-BLOCKERS-26] a failed read saves the schedule and moves on without asking", async () => {
-    api.readScheduleCoveredClasses.mockRejectedValue(new Error("network"));
-    const n = await openStep3();
-    await n.press("setup-preset-work_weekdays");
-    await n.press("setup-unavailability-save");
-    await settle(n);
+    // Only the PUT is made, no dialog appears, and the guide moved on once it succeeded.
     expect(api.putSchedule).toHaveBeenCalledTimes(1);
     expect(n.queryByTestId("blocker-covered-dialog")).toBeNull();
     expect(nav.replace).toHaveBeenLastCalledWith("/setup-guide?step=coach_link");
+    // The server marked the classes the rows cover; the calendar, class screens and dashboard are read again.
+    const keys = invalidated.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
+    expect(keys).toEqual(expect.arrayContaining([JSON.stringify(["calendar-events"]), JSON.stringify(["dashboard"])]));
+  });
+
+  it("[CALENDAR-STUDENT-BLOCKERS-32] the schedule step says classes in the period are marked", async () => {
+    const n = await openStep3();
+    expect(textOf(n.byTestId("blocker-covered-notice"))).toContain("availability.covered.notice");
+    expect(api.putSchedule).not.toHaveBeenCalled();
   });
 });
