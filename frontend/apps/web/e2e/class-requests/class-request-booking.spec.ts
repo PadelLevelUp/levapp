@@ -78,6 +78,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     // pending or accepted row in the shared database made this test fail
     // whenever an earlier spec in its shard had booked a class of its own.
     const ownRow = `[data-testid="class-request-row"][data-request-id="${requestId}"]`;
+    const coachRow = `[data-testid="coach-request-row"][data-kind="private"][data-request-id="${requestId}"]`;
     const row = page.locator(ownRow);
     await expect(row).toHaveAttribute("data-status", "pending", { timeout: 15_000 });
     await expect(row).toContainText(start);
@@ -97,11 +98,13 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     try {
       await loginAsCoach(coachPage);
       await coachPage.goto("/class-requests");
-      const inbox = coachPage.locator(ownRow);
+      // PAD-795: the coach's page is the requests table (Em aberto first); a decided request moves to Histórico.
+      const inbox = coachPage.locator(coachRow);
       await expect(inbox).toHaveAttribute("data-status", "pending", { timeout: 15_000 });
       await expect(inbox).toContainText(STUDENT_NAME);
       await inbox.getByTestId("class-request-accept").click();
-      await expect(inbox).toHaveAttribute("data-status", "accepted", { timeout: 15_000 });
+      await coachPage.getByTestId("coach-requests-tab-history").click();
+      await expect(coachPage.locator(coachRow)).toHaveAttribute("data-status", "accepted", { timeout: 15_000 });
     } finally {
       await coachCtx.close();
     }

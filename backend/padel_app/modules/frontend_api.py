@@ -1152,6 +1152,19 @@ def coach_players_paginated():
     return jsonify(result)
 
 
+@bp.get("/coach-requests")
+@jwt_required()
+def coach_requests():
+    """classes.coach-requests-table (PAD-795): the coach's private and academy requests, one page."""
+    from padel_app.services import coach_request_service
+
+    coach = require_coach()
+    try:
+        return jsonify(coach_request_service.list_for_coach(coach, request.args))
+    except coach_request_service.InvalidFilter as exc:
+        return jsonify({"code": "invalid_filter", "field": exc.field}), 400
+
+
 @bp.get("/coach_levels")
 @jwt_required()
 def get_coach_levels():
@@ -2431,7 +2444,7 @@ def create_class_join_request():
     data = request.get_json() or {}
     row, created = create_join_request_service(
         player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note"),
-        side=data.get("side"),
+        side=data.get("side"), private_confirmed=data.get("privateConfirmed"),  # PAD-929 (rule 22)
     )
     return jsonify(serialize_join_request(row)), (201 if created else 200)
 
@@ -2440,14 +2453,25 @@ def create_class_join_request():
 @bp.get("/academy-classes")
 @jwt_required()
 def list_academy_classes_route():
-    from padel_app.services.academy_class_service import list_academy_classes
+    from padel_app.services.academy_class_service import LESSON_LIST_TYPES, list_academy_classes
 
     player = current_player()
     if player is None or current_coach() is not None:
         abort(403, "Only a student can list a coach's academy classes")
     if not request.args.get("coachId"):
         abort(400, "coachId is required")
-    return jsonify(list_academy_classes(player, request.args.get("coachId")))
+    # PAD-929 (rule 9): exactly one of the types, checked before the roster. With no `type`, a
+    # client that declares `private-confirm` gets academy classes only; an older app has no private
+    # list, so it keeps both types in this one, as before PAD-929 (rule 2).
+    from padel_app.utils.client_capabilities import PRIVATE_CONFIRM, client_declares
+
+    if "type" in request.args:
+        lesson_type = request.args["type"]
+        if lesson_type not in LESSON_LIST_TYPES:
+            abort(400, f"type must be one of {', '.join(LESSON_LIST_TYPES)}")
+    else:
+        lesson_type = LESSON_LIST_TYPES[0] if client_declares(PRIVATE_CONFIRM) else None
+    return jsonify(list_academy_classes(player, request.args.get("coachId"), lesson_type=lesson_type))
 
 
 @bp.post("/class-waiting-list")
@@ -2460,7 +2484,8 @@ def join_class_waiting_list_route():
         abort(403, "Only a student can join a waiting list")
     data = request.get_json() or {}
     entry, created = join_class_waiting_list_service(
-        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side")
+        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side"),
+        private_confirmed=data.get("privateConfirmed"),  # PAD-929 (join-requests rule 22)
     )
     return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True,
                     "side": entry.side}), (201 if created else 200)  # PAD-672: the side stored
@@ -3040,11 +3065,14 @@ def check_field_available():
     The frontend decides whether a 409 blocks submission (unique fields) or is a
     soft warning (duplicate fields).
 
-    Scoping (name warn-check): the caller must pass a ``scope`` (or ``coach``)
-    field carrying the requesting coach's id. Only players in that coach's
-    ``Association_CoachPlayer`` roster are considered. If no scope is supplied we
-    deliberately skip the warn (return ``available: true``) rather than fall back
-    to a global match, which would resurface the cross-club false positive.
+    Scoping (name warn-check): the roster checked is the CALLER's own, taken from
+    the JWT (PAD-92); only players in that coach's ``Association_CoachPlayer``
+    roster are considered. A ``scope`` (or ``coach``) field in the body is optional
+    and only an assertion: when present it must name the caller's coach id. A
+    missing ``scope`` does not skip the warning. A caller with no coach (a student)
+    has no roster, so the warn is skipped (``available: true``) rather than
+    falling back to a global match, which would resurface the cross-club false
+    positive.
     """
     data = request.get_json() or {}
     model_key = (data.get("model") or "").strip().lower()

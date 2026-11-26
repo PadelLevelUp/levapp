@@ -100,10 +100,18 @@ describe("manual invite below the bar", () => {
     expect(api.sendManualNotifications.mock.calls[0][3].sort()).toEqual(["7", "8"]);
   });
 
-  it("sends at once when nobody fails, and when the check itself fails", async () => {
+  it("[ELIGIBILITY-ENFORCEMENT-18] sends at once when nobody fails", async () => {
     api.checkEligibility.mockResolvedValue({ ineligible: [] });
     await openAndSelect(["Rui Fine"]);
     await waitFor(() => expect(api.sendManualNotifications).toHaveBeenCalledWith("LessonInstance", "5", "2026-06-11", ["8"]));
+    expect(screen.queryByTestId("eligibility-confirm")).toBeNull();
+  });
+
+  it("[ELIGIBILITY-ENFORCEMENT-18] sends all the same when the check itself fails", async () => {
+    api.checkEligibility.mockRejectedValue(new Error("network"));
+    await openAndSelect(["Rui Fine"]);
+    await waitFor(() => expect(api.sendManualNotifications).toHaveBeenCalledWith("LessonInstance", "5", "2026-06-11", ["8"]));
+    expect(api.checkEligibility).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("eligibility-confirm")).toBeNull();
   });
 });

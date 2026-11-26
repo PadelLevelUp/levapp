@@ -1,8 +1,8 @@
 /**
- * classes.class-requests (PAD-104) — mirrors web's ClassRequestsSection:
- * student opens the "Marcar aula" wizard (PAD-357, app/class-request-wizard.tsx) and manages their own
- * requests (withdraw, or answer a proposal: accept / decline / propose another
- * time — rule 10, PAD-281); coach accepts / declines / proposes another time.
+ * classes.class-requests (PAD-104) — mirrors web's ClassRequestsSection, the student's list: opens
+ * the "Marcar aula" wizard (PAD-357, app/class-request-wizard.tsx) and manages their own requests
+ * (withdraw, or answer a proposal: accept / decline / propose another time — rule 10, PAD-281).
+ * The coach's side is its own screen (coach-requests-screen.tsx, classes.coach-requests-table).
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -17,16 +17,13 @@ import {
   clubTodayISO,
   lightTheme,
   mergeClassRequestRows,
-  proposalAfterStartChange,
-  requestMinutes,
   slotOptions,
   splitClassRequestRows,
   type MergedClassRequestRow,
 } from "@levelup/config";
-import { queryKeys, refreshAfterRequestChange, useCoachDisplayName } from "@levelup/hooks";
-import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
+import { queryKeys, refreshAfterRequestChange } from "@levelup/hooks";
+import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
-import { JoinRequestSide } from "@/features/calendar/join-request-side";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import * as academyClassesApi from "@levelup/api/src/resources/academyClasses";
 import { Badge } from "@/components/ui/badge";
@@ -36,11 +33,8 @@ import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, type Option } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
-import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
-import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
 import { cn } from "@/lib/utils";
-import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 
 const OPEN = new Set(["pending", "countered"]);
 
@@ -58,17 +52,13 @@ function statusVariant(status: string): "default" | "secondary" | "outline" | "d
 }
 
 export function ClassRequestsSection({
-  role,
   proposeFor,
 }: {
-  role: "student" | "coach";
   /** Rule 10: open the "propose another time" picker on this request (from the chat bubble). */
   proposeFor?: number | null;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  // PAD-660: a coach sees the nickname they gave the student; the student side stays off the roster.
-  const displayName = useCoachDisplayName({ enabled: role === "coach" });
   const requests = useQuery({ queryKey: queryKeys.classRequests, queryFn: classRequestsApi.listClassRequests });
   // classes.join-requests rule 17 (PAD-460): academy requests, shown beside the
   // private ones above, merged newest first (`@levelup/config`, shared with web).
@@ -77,7 +67,6 @@ export function ClassRequestsSection({
   const waitingList = useQuery({
     queryKey: queryKeys.classWaitingList,
     queryFn: academyClassesApi.listClassWaitingList,
-    enabled: role === "student",
   });
   const [confirmLeaveId, setConfirmLeaveId] = React.useState<number | null>(null);
   const [leavingId, setLeavingId] = React.useState<number | null>(null);
@@ -85,24 +74,18 @@ export function ClassRequestsSection({
   // decision made from this list must not leave it stale) and, rule 19 (PAD-488), the calendar.
   const invalidate = () => void refreshAfterRequestChange(queryClient);
 
-  const [proposingId, setProposingId] = React.useState<number | null>(null);
-  const [proposal, setProposal] = React.useState({ date: "", startTime: "10:00", endTime: "11:00" });
   const [counteringId, setCounteringId] = React.useState<number | null>(null);
-  // From the chat bubble's "Propose another time": the student's picker on a
-  // countered request, the coach's form on a pending one.
+  // From the chat bubble's "Propose another time": the student's picker on a countered request
+  // (the coach's form is the requests screen's, classes.coach-requests-table rule 16).
   React.useEffect(() => {
     if (proposeFor == null || !requests.data) return;
     const row = requests.data.find((r) => r.id === proposeFor);
-    if (row && role === "student" && row.status === "countered") setCounteringId(proposeFor);
-    if (row && role === "coach" && row.status === "pending") {
-      setProposingId(proposeFor);
-      setProposal({ date: row.date, startTime: row.startTime, endTime: row.endTime });
-    }
-  }, [proposeFor, role, requests.data]);
+    if (row && row.status === "countered") setCounteringId(proposeFor);
+  }, [proposeFor, requests.data]);
 
   const refusalText = (err: unknown, fallback: string) => {
     // B-729 (rule 4a): a same-hour refusal names each clash, the coach's words or the student's.
-    const lines = classRequestRefusalLines(err, role, i18n.language);
+    const lines = classRequestRefusalLines(err, "student", i18n.language);
     if (lines) return lines.map((line) => t(line.key, line.params)).join("\n");
     const refusal = classRequestsApi.classRequestRefusal(err);
     return refusal ? t(`classRequests.refusal.${refusal.code}`) : fallback;
@@ -112,69 +95,14 @@ export function ClassRequestsSection({
     mutationFn: ({ fn }: { fn: () => Promise<unknown>; okKey: string }) => fn(),
     onSuccess: (_data, vars) => {
       toast.success(t(vars.okKey));
-      setProposingId(null);
       setCounteringId(null);
     },
     onError: (err) => toast.error(refusalText(err, t("classRequests.decideFailed"))),
     onSettled: () => invalidate(),
   });
 
-  // Rule 17: the academy row's decision mirrors class/[id].tsx's
-  // handleDecideJoinRequest/handleWithdrawJoinRequest exactly, so refusals and
-  // toasts read the same from the list as from the class detail screen.
+  // Rule 17: the student withdraws her own pending academy request, as the class detail does.
   const [busyJoinId, setBusyJoinId] = React.useState<number | null>(null);
-  const [pendingAcademyAccept, setPendingAcademyAccept] = React.useState<{
-    /** The parked row: confirming replays the accept, which resolves the name itself (PAD-683). */
-    row: ClassJoinRequestListRow;
-    ineligible: EligibilityCheckEntry[];
-    /** PAD-808 (rule 7a): the side asked for, when no spot of it is open any more. */
-    sideGone: "left" | "right" | null;
-  } | null>(null);
-
-  const handleAcademyAccept = async (row: ClassJoinRequestListRow, confirm = false) => {
-    setBusyJoinId(row.id);
-    try {
-      await classJoinRequestsApi.acceptClassJoinRequest(row.id, confirm);
-      toast.success(t("calendar.joinRequest.acceptedToast", { name: displayName(row.playerId, row.playerName) }));
-    } catch (err) {
-      // PAD-920 (classes.instance-enrollment rule 15): accepting is an add, refused at an hour
-      // the student is already going elsewhere; say who and where, never the generic line.
-      const busy = busySameHourToast(err, i18n.language);
-      if (busy) {
-        showBusySameHourToast(busy, t, toast.error);
-        return;
-      }
-      const refusal = classJoinRequestsApi.joinRequestRefusal(err);
-      if (refusal?.code === "ineligible") {
-        setBusyJoinId(null);
-        setPendingAcademyAccept({ row, ineligible: refusal.ineligible ?? [], sideGone: classJoinRequestsApi.sideGoneOf(refusal) });
-        return;
-      }
-      toast.error(
-        refusal?.code === "spot_filled"
-          ? t("calendar.joinRequest.spotFilledToast")
-          : refusal?.code === "class_closed"
-            ? t("calendar.joinRequest.classClosedToast")
-            : t("calendar.joinRequest.decideFailed")
-      );
-    } finally {
-      setBusyJoinId(null);
-      invalidate();
-    }
-  };
-
-  const handleAcademyReject = async (row: ClassJoinRequestListRow) => {
-    setBusyJoinId(row.id);
-    try {
-      await classJoinRequestsApi.rejectClassJoinRequest(row.id);
-      toast.success(t("calendar.joinRequest.rejectedToast", { name: displayName(row.playerId, row.playerName) }));
-    } catch {
-      toast.error(t("calendar.joinRequest.decideFailed"));
-    } finally {
-      setBusyJoinId(null);
-      invalidate();
-    }
-  };
 
   const handleAcademyWithdraw = async (row: ClassJoinRequestListRow) => {
     setBusyJoinId(row.id);
@@ -197,8 +125,8 @@ export function ClassRequestsSection({
   const [showClosed, setShowClosed] = React.useState(false);
 
   const renderRow = (r: ClassRequest) => {
-    const who = role === "student" ? t("classRequests.with", { name: r.coachName }) : t("classRequests.from", { name: displayName(r.playerId, r.playerName) });
-    const statusKey = role === "student" ? `classRequests.status.${r.status}` : `classRequests.coachStatus.${r.status}`;
+    const who = t("classRequests.with", { name: r.coachName });
+    const statusKey = `classRequests.status.${r.status}`;
     const busy = act.isPending;
     return (
       <View key={r.id} className="gap-2 rounded-lg border border-border bg-card p-3" testID={`class-request-row-${r.status}`}>
@@ -209,15 +137,13 @@ export function ClassRequestsSection({
             </Text>
             <Text className="text-sm text-muted-foreground">{who}</Text>
             {r.note ? <Text className="text-sm italic text-muted-foreground">“{r.note}”</Text> : null}
-            {/* PAD-672 (join-requests rule 20): the side asked for + "Usar … no perfil". */}
-            {role === "coach" ? <JoinRequestSide request={r} /> : null}
           </View>
           <Badge variant={statusVariant(r.status)}>
             <Text>{t(statusKey)}</Text>
           </Badge>
         </View>
 
-        {role === "student" && r.status === "countered" ? (
+        {r.status === "countered" ? (
           <View className="flex-row flex-wrap gap-2">
             <Button size="sm" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.answerClassRequestProposal(r.id, true), okKey: "classRequests.accepted" })} testID="class-request-accept-proposal">
               <Text>{t("classRequests.acceptProposal")}</Text>
@@ -230,59 +156,19 @@ export function ClassRequestsSection({
             </Button>
           </View>
         ) : null}
-        {role === "student" && r.status === "countered" && counteringId === r.id ? (
+        {r.status === "countered" && counteringId === r.id ? (
           <CounterProposalPicker
             request={r}
             busy={busy}
             onSend={(s) => act.mutate({ fn: () => classRequestsApi.counterProposeClassRequest(r.id, s), okKey: "classRequests.counterProposed" })}
           />
         ) : null}
-        {role === "student" && OPEN.has(r.status) ? (
+        {OPEN.has(r.status) ? (
           <Button size="sm" variant="ghost" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.withdrawClassRequest(r.id), okKey: "classRequests.withdrawn" })} testID="class-request-withdraw">
             <Text>{t("classRequests.withdraw")}</Text>
           </Button>
         ) : null}
 
-        {role === "coach" && r.status === "pending" ? (
-          <View className="gap-2">
-            <View className="flex-row flex-wrap gap-2">
-              <Button size="sm" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.acceptClassRequest(r.id), okKey: "classRequests.accepted" })} testID="class-request-accept">
-                <Text>{t("classRequests.accept")}</Text>
-              </Button>
-              <Button size="sm" variant="outline" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.declineClassRequest(r.id), okKey: "classRequests.declined" })} testID="class-request-decline">
-                <Text>{t("classRequests.decline")}</Text>
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onPress={() => {
-                  setProposingId(proposingId === r.id ? null : r.id);
-                  setProposal({ date: r.date, startTime: r.startTime, endTime: r.endTime });
-                }}
-                testID="class-request-propose"
-              >
-                <Text>{t("classRequests.propose")}</Text>
-              </Button>
-            </View>
-            {proposingId === r.id ? (
-              <View className="gap-2 rounded-md bg-muted/40 p-2">
-                <DatePickerInput testID="class-request-proposal-date" label={t("classRequests.date")} value={proposal.date} onChange={(v) => setProposal((p) => ({ ...p, date: v }))} />
-                <View className="flex-row gap-2">
-                  <View className="flex-1">
-                    <TimePickerInput testID="class-request-proposal-start" label={t("availability.startTime")} value={proposal.startTime} onChange={(v) => setProposal((p) => ({ ...p, ...proposalAfterStartChange(p, v, requestMinutes(r)) }))} />
-                  </View>
-                  <View className="flex-1">
-                    <TimePickerInput testID="class-request-proposal-end" label={t("availability.endTime")} value={proposal.endTime} onChange={(v) => setProposal((p) => ({ ...p, endTime: v }))} />
-                  </View>
-                </View>
-                <Button size="sm" disabled={busy || !proposal.date} onPress={() => act.mutate({ fn: () => classRequestsApi.proposeClassRequest(r.id, proposal), okKey: "classRequests.proposed" })} testID="class-request-propose-send">
-                  <Text>{t("classRequests.proposeSend")}</Text>
-                </Button>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
       </View>
     );
   };
@@ -291,7 +177,7 @@ export function ClassRequestsSection({
   // time, and the student (coach) or nothing extra (student). No "propose
   // another time"; it exists only for private requests (rule 17, last bullet).
   const renderAcademyRow = (r: ClassJoinRequestListRow) => {
-    const statusKey = role === "student" ? `classRequests.status.${r.status}` : `classRequests.coachStatus.${r.status}`;
+    const statusKey = `classRequests.status.${r.status}`;
     const busy = busyJoinId === r.id;
     return (
       <View key={`academy-${r.id}`} className="gap-2 rounded-lg border border-border bg-card p-3" testID={`class-join-list-row-${r.status}`}>
@@ -306,7 +192,6 @@ export function ClassRequestsSection({
             <Text className="text-sm text-muted-foreground">
               {r.date} · {r.startTime}–{r.endTime}
             </Text>
-            {role === "coach" ? <Text className="text-sm text-muted-foreground">{displayName(r.playerId, r.playerName)}</Text> : null}
             {r.note ? <Text className="text-sm italic text-muted-foreground">“{r.note}”</Text> : null}
           </View>
           <Badge variant={statusVariant(r.status)}>
@@ -314,17 +199,7 @@ export function ClassRequestsSection({
           </Badge>
         </View>
 
-        {role === "coach" && r.status === "pending" ? (
-          <View className="flex-row flex-wrap gap-2">
-            <Button size="sm" disabled={busy} onPress={() => handleAcademyAccept(r)} testID="class-join-list-accept">
-              <Text>{t("calendar.joinRequest.accept")}</Text>
-            </Button>
-            <Button size="sm" variant="outline" disabled={busy} onPress={() => handleAcademyReject(r)} testID="class-join-list-reject">
-              <Text>{t("calendar.joinRequest.reject")}</Text>
-            </Button>
-          </View>
-        ) : null}
-        {role === "student" && r.status === "pending" ? (
+        {r.status === "pending" ? (
           <Button size="sm" variant="ghost" disabled={busy} onPress={() => handleAcademyWithdraw(r)} testID="class-join-list-withdraw">
             <Text>{t("classRequests.withdraw")}</Text>
           </Button>
@@ -402,7 +277,7 @@ export function ClassRequestsSection({
   const renderMergedRow = (row: MergedClassRequestRow) =>
     row.kind === "waiting_list" ? renderWaitingRow(row) : row.kind === "academy" ? renderAcademyRow(row) : renderRow(row);
 
-  const loading = requests.isPending || joinRequests.isPending || (role === "student" && waitingList.isPending);
+  const loading = requests.isPending || joinRequests.isPending || waitingList.isPending;
   const loadFailed = requests.isError || joinRequests.isError;
 
   return (
@@ -411,14 +286,12 @@ export function ClassRequestsSection({
         <CardContent className="gap-4 p-4">
           <View className="flex-row items-start justify-between gap-3">
             <View className="min-w-0 flex-1">
-              <Text className="text-base font-semibold">{t(role === "student" ? "classRequests.title" : "classRequests.coachTitle")}</Text>
-              <Text className="text-xs text-muted-foreground">{t(role === "student" ? "classRequests.cardIntro" : "classRequests.coachIntro")}</Text>
+              <Text className="text-base font-semibold">{t("classRequests.title")}</Text>
+              <Text className="text-xs text-muted-foreground">{t("classRequests.cardIntro")}</Text>
             </View>
-            {role === "student" ? (
-              <Button size="sm" onPress={() => router.push("/class-request-wizard")} testID="class-request-book">
-                <Text>{t("classRequests.book")}</Text>
-              </Button>
-            ) : null}
+            <Button size="sm" onPress={() => router.push("/class-request-wizard")} testID="class-request-book">
+              <Text>{t("classRequests.book")}</Text>
+            </Button>
           </View>
 
           {loading ? (
@@ -446,22 +319,6 @@ export function ClassRequestsSection({
         </CardContent>
       </Card>
 
-      {/* Rule 7: accepting an academy row is a manual add — same warning as the class detail screen. */}
-      <EligibilityConfirmDialog
-        open={pendingAcademyAccept !== null}
-        ineligible={pendingAcademyAccept?.ineligible ?? []}
-        sideGone={
-          pendingAcademyAccept?.sideGone
-            ? { side: pendingAcademyAccept.sideGone, name: displayName(pendingAcademyAccept.row.playerId, pendingAcademyAccept.row.playerName) }
-            : null
-        }
-        onCancel={() => setPendingAcademyAccept(null)}
-        onConfirm={() => {
-          const parked = pendingAcademyAccept;
-          setPendingAcademyAccept(null);
-          if (parked) void handleAcademyAccept(parked.row, true);
-        }}
-      />
     </>
   );
 }

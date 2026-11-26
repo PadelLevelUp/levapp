@@ -295,10 +295,13 @@ def card(row) -> dict:
     session = str(row.lesson_instance_id)
     store = TableStore()
     payload = row.payload or {}
-    queues = tuple((SpotType(*spot), tuple(ids)) for spot, ids in payload.get("queues") or ())
+    snapshot = store.snapshot(session)
+    # Engine-store rule 12: a spot type queued with no level (before the effective level) is the session's.
+    queues = tuple((SpotType(side, snapshot.level if level is None else level), tuple(ids))
+                   for (side, level), ids in payload.get("queues") or ())
     return {"engine": "new", "requestId": payload.get("request"), "lessonInstanceId": int(session),
             "group": group(settings_for(session), payload.get("tier")), "state": "pending", "responded": False,
-            "spotTypes": queues_wire(store.coach_of(session), queues, store.snapshot(session))}
+            "spotTypes": queues_wire(store.coach_of(session), queues, snapshot)}
 
 
 #: The request's message (semi-auto-approval N4, message-templates rule 6; proposed, after the owner's own

@@ -55,12 +55,15 @@ export * from "./quiet-hours";
 export * from "./class-picker";
 export * from "./unread-badge";
 export * from "./class-request-list";
+export * from "./class-request-status-key";
+export * from "./coach-requests-view";
 export * from "./join-request-message";
 export * from "./message-day";
 export * from "./recurrence-end";
 export * from "./email-prompt";
 export * from "./class-time";
 export * from "./class-when";
+export * from "./class-when-header";
 export * from "./standing-end";
 
 /**
@@ -111,3 +114,5 @@ export * from "./pending-age";
 export * from "./roster-filter";
 export * from "./player-card";
 export * from "./class-type-chip";
+export * from "./private-lesson-warning";
+export * from "./class-request-invitees";

@@ -53,8 +53,7 @@ web app has no launch overlay (auth.login rule 8).
   `first-screen-ready`, and the median `overlay-gone` is earlier than on the control, which sits at
   ≈ 3.3 s
 - **And** `auth-restored` on the fix is no later than `fonts-ready` + the network round trip
-- Code to follow: tighten `frontend/apps/mobile/src/lib/launch-overlay.test.ts`, which allows a
-  grace of up to 500 ms, to assert the 300 ms of rule 2.
+test: `frontend/apps/mobile/src/lib/launch-overlay.test.ts` › `[MOBILE-LAUNCH-2] the grace is 300 ms: a slow network, not the animation, is what the user waits for`
 
 #### MOBILE-LAUNCH-3: The session is restored once per launch, however many callers ask (rule 1)
 - **Given** a stored token and two callers that ask for the session at the same moment

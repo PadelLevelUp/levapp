@@ -25,7 +25,9 @@ Coaches view their player roster with search, sorting, filtering, and pagination
    finds "João"), with one rule on the server (`player_service.name_matches_query`, applied after
    the coach scope and the other filters, before pagination) and in the apps' local pickers
    (`@levelup/config` `nameMatchesQuery`). A blank query matches everyone; a query with text but
-   no searchable characters ("%", "_") matches nobody, so a wildcard never lists the roster.
+   no searchable characters ("%", "_") matches nobody, so a wildcard never lists the roster. "%" and "_"
+   are not matched as characters: like any punctuation they are dropped from the query and from the
+   name before comparing, so `100% real` finds "Ana 100%_ Real" as `100 real` (PAD-887).
 4. Sort options: name-asc, name-desc, level-asc, level-desc. **`level-desc` is "Level High→Low": the
    coach's ladder strongest first** (`levels.coach-levels` rules 3 and 10: lower `display_order` is
    stronger; unordered levels are the weakest; `id` breaks ties); `level-asc` is the reverse. Players
@@ -164,7 +166,6 @@ test: `backend/padel_app/tests/test_pad521_level_order.py` › `test_an_unordere
 - **Then** each returns nobody
 - **And** `100% real` and `_ ana` each return that one player, and the type-ahead finds "sousa pedro" in any word order
 test: `backend/padel_app/tests/test_pad516_any_order_search.py` › `test_a_query_with_no_searchable_characters_matches_nobody` (+2 more)
-- Code to follow: add a second name holding the searched letters to the roster fixture of `test_wildcards_stay_literal_in_every_word` in `test_pad516_any_order_search.py`, so it fails when `%` or `_` act as wildcards.
 
 #### PLAYERS-LIST-12: The roster on screen survives a failed or a late answer (rule 12)
 - **Given** the web Players page showing two students

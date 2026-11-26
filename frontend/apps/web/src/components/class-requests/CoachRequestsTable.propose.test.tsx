@@ -8,65 +8,61 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ClassRequest } from "@levelup/types";
+import type { CoachRequestRow } from "@levelup/types";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 
+vi.mock("@levelup/api/src/resources/players", async (orig) => ({
+  ...(await orig<typeof import("@levelup/api/src/resources/players")>()),
+  getCoachPlayers: vi.fn().mockResolvedValue([]),
+}));
+const coachApi = vi.hoisted(() => ({ listCoachRequests: vi.fn() }));
+vi.mock("@/api/coachRequests", () => coachApi);
 const requestsApi = vi.hoisted(() => ({
-  listClassRequests: vi.fn(),
-  listClassRequestCoaches: vi.fn(),
-  getFreeBlocks: vi.fn(),
   acceptClassRequest: vi.fn(),
   declineClassRequest: vi.fn(),
   proposeClassRequest: vi.fn(),
-  answerClassRequestProposal: vi.fn(),
-  counterProposeClassRequest: vi.fn(),
-  withdrawClassRequest: vi.fn(),
   classRequestRefusal: () => null,
 }));
 vi.mock("@/api/classRequests", () => requestsApi);
 
 const joinRequestsApi = vi.hoisted(() => ({
-  listClassJoinRequests: vi.fn(),
   acceptClassJoinRequest: vi.fn(),
   rejectClassJoinRequest: vi.fn(),
-  withdrawClassJoinRequest: vi.fn(),
-  createClassJoinRequest: vi.fn(),
   joinRequestRefusal: () => null,
+  sideGoneOf: () => null,
 }));
 vi.mock("@/api/classJoinRequests", () => joinRequestsApi);
 
-import { ClassRequestsSection } from "./ClassRequestsSection";
+import { CoachRequestsTable } from "./CoachRequestsTable";
 
-const PENDING: ClassRequest = {
-  id: 7,
-  playerId: "bruno-id",
-  playerName: "Bruno",
-  coachId: "ana-id",
-  coachName: "Ana",
-  date: "2026-10-07",
-  startTime: "10:00",
-  endTime: "11:00",
-  note: null,
-  status: "pending",
-  decidedBy: null,
-  decidedAt: null,
-  lessonId: null,
-  createdAt: "2026-10-06T12:00:00",
-  participants: [],
-  recurrence: null,
-};
+
+function coachRow(overrides: Partial<CoachRequestRow>): CoachRequestRow {
+  return {
+    kind: "private", id: 1, playerId: "bruno-id", playerName: "Bruno", nickname: null, nicknameAsName: false,
+    displayName: "Bruno", coachId: "ana-id", date: "2026-10-07", startTime: "10:00", endTime: "11:00", classTitle: null,
+    recurrence: null, createdAt: "2026-10-06T12:00:00+00:00", decidedAt: null, decidedBy: null, note: null,
+    status: "pending", side: null, participants: [], lessonId: null, lessonInstanceId: null, suggestedProfileSide: null,
+    ...overrides,
+  };
+}
+const asPage = (items: CoachRequestRow[]) => ({
+  items,
+  pagination: { page: 1, perPage: 25, total: items.length, pages: 1, hasNext: false, hasPrev: false },
+  counts: { open: items.length, history: 0 },
+});
+
+const PENDING = coachRow({ id: 7 });
 
 async function openProposalForm() {
-  requestsApi.listClassRequests.mockResolvedValue([PENDING]);
-  joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
+  coachApi.listCoachRequests.mockResolvedValue(asPage([PENDING]));
   requestsApi.proposeClassRequest.mockResolvedValue({});
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <ClassRequestsSection role="coach" />
+        <CoachRequestsTable />
       </QueryClientProvider>
     </MemoryRouter>
   );
@@ -88,6 +84,7 @@ beforeAll(() => {
 afterEach(() => {
   Object.values(requestsApi).forEach((fn) => typeof fn === "function" && "mockReset" in fn && fn.mockReset());
   Object.values(joinRequestsApi).forEach((fn) => typeof fn === "function" && "mockReset" in fn && fn.mockReset());
+  coachApi.listCoachRequests.mockReset();
 });
 
 describe("propose another time keeps the length (PAD-491, rule 20)", () => {

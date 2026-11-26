@@ -18,6 +18,7 @@ import type { ClassJoinRequest, PlayerSide } from "@levelup/types";
 import {
   SIDE_CHOICE_ORDER,
   canSendSide,
+  joinRefusalOf,
   openSideWordKeys,
   preselectedSide,
   sideFullOf,
@@ -35,6 +36,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { joinClassWaitingList } from "@/api/academyClasses";
 import { createClassJoinRequest } from "@/api/classJoinRequests";
 import { cn } from "@/lib/utils";
+import { PrivateLessonWarningDialog } from "./PrivateLessonWarningDialog";
 
 export interface ClassSideChoiceProps {
   open: boolean;
@@ -54,6 +56,14 @@ export interface ClassSideChoiceProps {
    * the join sends `sides`. Null or absent: today's absolute choice.
    */
   relativeChoice?: WaitingListSideOption[] | null;
+  /**
+   * PAD-929 (classes.join-requests rule 22): the class is a private lesson this student is asked
+   * about (`needsPrivateLessonWarning`). The warning comes first; NÃO closes with nothing sent, SIM
+   * opens this sheet, and the join carries `privateConfirmed: true`.
+   */
+  privateWarning?: boolean;
+  /** The server answered `private_unconfirmed` (a stale class): the caller reads the class again. */
+  onPrivateUnconfirmed?: () => void;
 }
 
 const OTHER_SIDE: Record<"left" | "right", PlayerSide> = { left: "right", right: "left" };
@@ -75,6 +85,8 @@ export function ClassSideChoice({
   onWaitingListJoined,
   onFailed,
   relativeChoice,
+  privateWarning = false,
+  onPrivateUnconfirmed,
 }: ClassSideChoiceProps) {
   const { t } = useTranslation();
   const [relChosen, setRelChosen] = useState<WaitingListSides | null>(null);
@@ -82,6 +94,9 @@ export function ClassSideChoice({
   const [chosen, setChosen] = useState<PlayerSide | null>(preselectedSide(profileSide));
   const [full, setFull] = useState<SideFull | null>(null);
   const [busy, setBusy] = useState(false);
+  // PAD-929: whether the warning is still to be answered, and whether SIM was said.
+  const [warn, setWarn] = useState(privateWarning);
+  const [confirmed, setConfirmed] = useState(false);
 
   // Each opening starts from the profile side again; a choice does not outlive the sheet.
   useEffect(() => {
@@ -90,8 +105,20 @@ export function ClassSideChoice({
       setRelChosen(null);
       setFull(null);
       setBusy(false);
+      setWarn(privateWarning);
+      setConfirmed(false);
     }
-  }, [open, profileSide]);
+  }, [open, profileSide, privateWarning]);
+
+  // R15: `private_unconfirmed` means the class is private after all; ask again, after a re-read.
+  const unconfirmed = (err: unknown) => {
+    if (joinRefusalOf(err)?.code !== "private_unconfirmed") return false;
+    setWarn(true);
+    setConfirmed(false);
+    onPrivateUnconfirmed?.();
+    return true;
+  };
+  const confirm = confirmed ? ([true] as const) : ([] as const);
 
   const waiting = mode === "waiting";
   const habitual = preselectedSide(profileSide);
@@ -99,10 +126,11 @@ export function ClassSideChoice({
   const sendRequest = async (side: PlayerSide) => {
     setBusy(true);
     try {
-      const request = await createClassJoinRequest(event, note, side);
+      const request = await createClassJoinRequest(event, note, side, ...confirm);
       onRequestSent?.(request, side);
       onOpenChange(false);
     } catch (err) {
+      if (unconfirmed(err)) return;
       const refusal = sideFullOf(err);
       if (refusal) setFull(refusal);
       else {
@@ -117,10 +145,12 @@ export function ClassSideChoice({
   const joinList = async (side: PlayerSide) => {
     setBusy(true);
     try {
-      await joinClassWaitingList(event, side);
+      // The absolute-side join has no `sides`: the confirmation is the fourth argument, sent only when said.
+      await (confirmed ? joinClassWaitingList(event, side, undefined, true) : joinClassWaitingList(event, side));
       onWaitingListJoined?.(side);
       onOpenChange(false);
     } catch (err) {
+      if (unconfirmed(err)) return;
       onFailed?.(err, "waiting");
       onOpenChange(false);
     } finally {
@@ -131,10 +161,11 @@ export function ClassSideChoice({
   const joinListRelative = async (choice: WaitingListSides) => {
     setBusy(true);
     try {
-      await joinClassWaitingList(event, undefined, choice);
+      await joinClassWaitingList(event, undefined, choice, ...confirm);
       onWaitingListJoined?.(absoluteOf(choice, profileSide));
       onOpenChange(false);
     } catch (err) {
+      if (unconfirmed(err)) return;
       onFailed?.(err, "waiting");
       onOpenChange(false);
     } finally {
@@ -145,8 +176,16 @@ export function ClassSideChoice({
   const word = (side: PlayerSide) => t(sideWordKey(side));
   const relative = waiting && relativeChoice ? relativeChoice : null;
 
+  const asking = warn && !confirmed;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <PrivateLessonWarningDialog
+      open={open && asking}
+      onCancel={() => onOpenChange(false)}
+      onConfirm={() => setConfirmed(true)}
+    />
+    <Dialog open={open && !asking} onOpenChange={onOpenChange}>
       <DialogContent data-testid="class-side-choice" data-mode={mode} data-stage={full ? "full" : "pick"}>
         {full ? (
           <>
@@ -307,5 +346,6 @@ export function ClassSideChoice({
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

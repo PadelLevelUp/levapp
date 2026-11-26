@@ -1,6 +1,6 @@
 /**
  * classes.class-requests rule 4a (B-729): an accept refused `409 busy_same_hour` shows the clash lines from
- * @levelup/config classRequestRefusalLines (the coach's line for the coach, the student's for the student),
+ * @levelup/config classRequestRefusalLines (the student's line here; the coach's is pinned in CoachRequestsTable.busySameHour.test.tsx),
  * never `classRequests.refusal.busy_same_hour`, which no locale has. The words themselves are pinned in
  * the helper's own test (CLASSES-CLASS-REQUESTS-40); here `t` returns the key, so the key is what shows.
  */
@@ -59,12 +59,12 @@ const REQUEST: ClassRequest = {
   lessonId: null, createdAt: "2026-11-15T12:00:00", participants: [], recurrence: null,
 };
 
-function renderAs(role: "coach" | "student") {
+function renderStudent() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <ClassRequestsSection role={role} />
+        <ClassRequestsSection />
       </QueryClientProvider>
     </MemoryRouter>
   );
@@ -72,20 +72,11 @@ function renderAs(role: "coach" | "student") {
 
 const description = () => (toast.mock.calls.at(-1)?.[0] as { description?: unknown })?.description;
 
-describe("a refused accept names the clash (classes.class-requests rule 4a, B-729)", () => {
-  it("[CLASSES-CLASS-REQUESTS-41] shows the clash line when the accept is refused busy_same_hour", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([REQUEST]);
-    requestsApi.acceptClassRequest.mockRejectedValue(refused);
-    renderAs("coach");
-    fireEvent.click(await screen.findByTestId("class-request-accept"));
-    await waitFor(() => expect(toast).toHaveBeenCalled());
-    expect(String(description())).toContain("calendar.busySameHour.line");
-    expect(String(description())).not.toContain("classRequests.refusal.busy_same_hour");
-
-    toast.mockClear();
+describe("a refused answer names the clash on the student's list (classes.class-requests rule 4a, B-729)", () => {
+  it("[CLASSES-CLASS-REQUESTS-41] shows the student's clash line when answering a proposal is refused busy_same_hour", async () => {
     requestsApi.listClassRequests.mockResolvedValue([{ ...REQUEST, id: 8, status: "countered" }]);
     requestsApi.answerClassRequestProposal.mockRejectedValue(refused);
-    renderAs("student");
+    renderStudent();
     fireEvent.click(await screen.findByTestId("class-request-accept-proposal"));
     await waitFor(() => expect(toast).toHaveBeenCalled());
     expect(String(description())).toContain("classRequests.busySameHour.studentLine");

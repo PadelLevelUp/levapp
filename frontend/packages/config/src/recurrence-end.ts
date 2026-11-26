@@ -35,10 +35,10 @@ const addDays = (date: string, n: number): string => {
  * The date of the `count`-th occurrence on `weekdays` (1 = Monday … 7 = Sunday),
  * counting from `startDate` INCLUSIVE — N counts classes, not weeks: Tue+Thu
  * from a Tuesday, 4 classes is two weeks, not four. `null` when there is
- * nothing to count: no weekday chosen, or `count < 1`.
+ * nothing to count: no weekday chosen, `count < 1`, or no valid start date (a cleared field).
  */
 export function endDateAfterClasses(startDate: string, weekdays: number[], count: number): string | null {
-  if (weekdays.length === 0 || count < 1) return null;
+  if (weekdays.length === 0 || count < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null;
   const wanted = new Set(weekdays);
   // At least one weekday is chosen, so an occurrence lands at least once a
   // week: count weeks plus a margin is always enough days to search.

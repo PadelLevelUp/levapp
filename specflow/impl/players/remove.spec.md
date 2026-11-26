@@ -113,7 +113,7 @@ deletes them. A coach may delete only a placeholder: a record that never activat
 - **When** the coach POSTs `/api/app/remove_player` with `action: "purge"`
 - **Then** the answer is 400 with `code` `INVALID_ACTION` and the student is still on the roster
 test: `backend/padel_app/tests/test_pad274_deletes.py` › `test_an_unknown_action_is_refused`
-- Code to follow: `test_an_unknown_action_is_refused` and the client helper's test assert the `INVALID_ACTION` code, not only the 400.
+test: `frontend/packages/api/src/resources/removal.test.ts` › `[PLAYERS-REMOVE-9] names the refusal code of a refused removal and nothing else`
 
 #### PLAYERS-REMOVE-10: Cancelling a pending player's invite deletes the placeholder (rule 9) [depends on Q5]
 - **Given** coach Ana's placeholder, created by the test itself (not the shared seed "Ghost Player", which `delete-player.spec.ts` deletes)

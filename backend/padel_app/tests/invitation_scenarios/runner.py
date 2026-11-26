@@ -47,7 +47,7 @@ BASE_SETTINGS: dict[str, Any] = {
         {"level": 0, "side": "other"},
     ],
 }
-BASE_CLASS = {"level": 3, "capacity": 16, "start": "2026-11-03 10:30", "created_at": None}
+BASE_CLASS = {"level": 3, "capacity": 16, "start": "2026-11-03 10:30", "created_at": None, "level_inherited": False}
 MAIN = "A"  # id of the scenario's own class in records and adapter calls
 
 
@@ -107,6 +107,7 @@ class ClassSpec:
     capacity: int
     start: datetime            # local
     created_at: datetime | None = None
+    level_inherited: bool = False      # the occurrence has no level of its own: its lesson's default holds
 
 
 @dataclass
@@ -145,6 +146,7 @@ def load_scenario(path: Path) -> Scenario:
         MAIN: ClassSpec(
             MAIN, cls_data["level"], cls_data["capacity"], parse_local(cls_data["start"]),
             parse_local(cls_data["created_at"]) if cls_data.get("created_at") else None,
+            bool(cls_data["level_inherited"]),
         )
     }
     people: dict[str, Person] = {}

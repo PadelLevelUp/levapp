@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Minus, Plus, X } from "lucide-react";
 import {
   CLASS_REQUEST_DURATIONS,
@@ -17,17 +17,28 @@ import {
   stepEndCount,
   clubTodayISO,
   endDateAfterClasses,
+  duplicateInvitees,
   firstFreeDay,
   formatShortDate,
+  availabilityReadKey,
+  lessonMinutes,
   occurrenceDates,
+  joinRefusalKey,
+  joinRefusalOf,
+  needsPrivateLessonWarning,
+  waitingListSideChoice,
+  academyClassAction,
+  readsPrivateLessons,
   slotStarts,
   weeklyIntersection,
   type Window,
 } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
-import { requestAvailabilityApi } from "@levelup/api";
+import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
 import { classRequestRefusal, createClassRequest } from "@/api/classRequests";
+import { ClassSideChoice } from "@/components/calendar/ClassSideChoice";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +91,9 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   // ── Slot ──
   const [duration, setDuration] = useState<number>(60);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+  // PAD-929 (rule 13b): the read the current answer belongs to. A failed read, one still on its way,
+  // or an answer for an earlier choice is not "no free time" and never offers the private lessons.
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<Window | null>(null);
   const [note, setNote] = useState("");
@@ -87,7 +101,10 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
 
   const invitees = usernames.slice(0, people - 1).map((u) => u.trim()).filter(Boolean);
   const inviteesKey = invitees.join(",");
-  const allInviteesOk = invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true);
+  // Rule 12: a name repeated on a later field is refused here, as the server refuses it.
+  const repeated = duplicateInvitees(usernames.slice(0, people - 1));
+  const allInviteesOk =
+    invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true) && !repeated.some(Boolean);
 
   // Keep one username field per invitee.
   useEffect(() => {
@@ -96,7 +113,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
 
   // Rule 12: each username checked against this coach's roster (debounced).
   useEffect(() => {
-    const pending = invitees.filter((u) => !checks[u]);
+    // A repeated name is checked once (the server answers its first spelling).
+    const pending = invitees.filter((u, i, all) => !checks[u] && all.findIndex((x) => x.toLowerCase() === u.toLowerCase()) === i);
     if (pending.length === 0) return;
     const timer = setTimeout(() => {
       requestAvailabilityApi.getRequestParticipants(coachId, pending)
@@ -134,6 +152,12 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coachId, recurring, inviteesKey, allInviteesOk]);
 
+  // Rule 13: a picked time is for the length it was picked at; a new length starts the pick over,
+  // so the request never posts the old end.
+  useEffect(() => {
+    setSlot(null);
+  }, [duration]);
+
   // Rule 13: everyone's free windows for the chosen day or recurrence range.
   useEffect(() => {
     setSlot(null);
@@ -153,7 +177,11 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     let active = true;
     setLoadingSlots(true);
     requestAvailabilityApi.getCoachAvailability({ coachId, from, to, participants: invitees })
-      .then((res) => active && setAvailability(res))
+      .then((res) => {
+        if (!active) return;
+        setAvailability(res);
+        setAnsweredFor(availabilityReadKey({ coachId, from, to, participants: invitees }));
+      })
       .catch(() => active && setAvailability(null))
       .finally(() => active && setLoadingSlots(false));
     return () => {
@@ -168,6 +196,30 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     return slotStarts(availability.freeWindows[date] ?? [], duration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availability, duration, date, recurring, weekdays.join(","), startDate, effectiveEndDate]);
+
+  const slotsState = !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
+
+  // PAD-929 (classes.class-requests rule 13b): no free time offers the coach's visible private
+  // lessons (classes.academy-class-booking rule 12); each row's one action goes through the
+  // private-lesson warning, then the side choice (classes.join-requests rule 22).
+  const answered =
+    answeredFor !== null &&
+    answeredFor ===
+      availabilityReadKey({
+        coachId,
+        from: recurrence ? startDate : date,
+        to: recurrence ? effectiveEndDate : date,
+        participants: invitees,
+      });
+  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
+  const privateLessons = useQuery({
+    queryKey: ["academy-classes", coachId, "private"],
+    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
+    enabled: showPrivateLessons,
+  });
+  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
+  const [lessonSideFor, setLessonSideFor] = useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
+  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
 
   const send = async () => {
     if (!slot) return;
@@ -228,8 +280,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
             </p>
             {usernames.map((u, i) => {
               const check = checks[u.trim()];
-              const code = checkCode(check);
-              const state = !u.trim() ? "empty" : !check ? "checking" : code ?? "ok";
+              const code = repeated[i] ? "DUPLICATE_INVITEE" : checkCode(check);
+              const state = !u.trim() ? "empty" : repeated[i] ? "DUPLICATE_INVITEE" : !check ? "checking" : code ?? "ok";
               return (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -431,11 +483,64 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           </p>
         )}
 
-        <div data-testid="wizard-slots" data-state={!allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty"}>
+        <div data-testid="wizard-slots" data-state={slotsState}>
           {loadingSlots ? (
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           ) : !allInviteesOk || !recurrenceValid ? null : starts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}</p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}</p>
+              {lessons.length > 0 && (
+                <div className="space-y-2" data-testid="wizard-private-lessons">
+                  <p className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</p>
+                  {lessons.map((c) => {
+                    const action = academyClassAction(c);
+                    return (
+                    <div
+                      key={c.id}
+                      data-testid={`wizard-private-lesson-row-${c.state}`}
+                      data-class-id={c.id}
+                      className={cn("flex items-center justify-between gap-2 rounded-lg border p-3", c.state === "full" && "border-destructive/60 bg-destructive/5")}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {formatShortDate(c.date, i18n.language)} · {c.startTime}–{c.endTime}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("classRequests.minutes", { count: lessonMinutes(c) })}
+                          {c.club?.name ? ` · ${c.club.name}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
+                          {c.state === "full" ? t("classRequests.academy.full") : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
+                        </Badge>
+                        {action === "requested" && (
+                          <p className="text-sm" data-testid="wizard-private-lesson-status" data-status="requested">
+                            {t("classRequests.academy.requested")}
+                          </p>
+                        )}
+                        {action === "on_waitlist" && (
+                          <p className="text-sm" data-testid="wizard-private-lesson-status" data-status="on_waiting_list">
+                            {t("classRequests.academy.onWaitlist")}
+                          </p>
+                        )}
+                        {action === "request" && (
+                          <Button size="sm" data-testid="wizard-private-lesson-request" onClick={() => setLessonSideFor({ c, mode: "request" })}>
+                            {t("classRequests.academy.request")}
+                          </Button>
+                        )}
+                        {action === "join_waitlist" && (
+                          <Button size="sm" variant="destructive" data-testid="wizard-private-lesson-waitlist" onClick={() => setLessonSideFor({ c, mode: "waiting" })}>
+                            {t("classRequests.academy.joinWaitlist")}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {starts.map((s) => (
@@ -469,6 +574,34 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("classRequests.send")}
         </Button>
       </div>
+
+      {lessonSideFor && (
+        <ClassSideChoice
+          open
+          onOpenChange={(o) => {
+            if (!o) setLessonSideFor(null);
+          }}
+          mode={lessonSideFor.mode}
+          event={lessonSideFor.c}
+          profileSide={lessonSideFor.c.profileSide ?? privateLessons.data?.profileSide ?? null}
+          relativeChoice={waitingListSideChoice(lessonSideFor.c)}
+          privateWarning={needsPrivateLessonWarning(lessonSideFor.c, lessonSideFor.mode === "waiting" ? "waitlist" : "request")}
+          onPrivateUnconfirmed={refreshLessons}
+          onRequestSent={() => {
+            toast({ title: t("classRequests.academy.requestSent") });
+            refreshLessons();
+          }}
+          onWaitingListJoined={() => {
+            toast({ title: t("classRequests.academy.joinedWaitlist") });
+            refreshLessons();
+          }}
+          onFailed={(err) => {
+            const code = joinRefusalOf(err)?.code;
+            toast({ title: code ? t(joinRefusalKey(code)) : t("classRequests.academy.failed"), variant: code ? "default" : "destructive" });
+            refreshLessons();
+          }}
+        />
+      )}
     </div>
   );
 }

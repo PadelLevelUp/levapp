@@ -305,7 +305,6 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 - **When** the picker asks for the Sunday-to-Saturday week `from=2026-10-04&to=2026-10-10`
 - **Then** both Saturday classes are listed, and a class on Sunday 11 Oct at 00:00 is not
 - **And** `to=2026-10-10T08:00:00` still ends at 08:00 (`test_b192_week_picker_includes_sunday.py`)
-- Code to follow: restate `test_b192_week_picker_includes_sunday.py` with the Sunday-to-Saturday week bounds above.
 
 #### PLAYERS-PROFILE-6: A long week scrolls inside the picker (PAD-439, B-202)
 - **Given** a 1280×460 browser window and a week whose classes overflow the picker's list

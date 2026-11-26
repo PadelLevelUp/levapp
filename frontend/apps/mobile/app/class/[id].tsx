@@ -42,6 +42,7 @@ import {
   joinRefusalOf,
   isEngineApproval,
   classTypeChipKey,
+  needsPrivateLessonWarning,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -108,6 +109,7 @@ import {
   hasClassStarted,
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
+import { ClassWhenHeader } from "@/features/calendar/ClassWhenHeader";
 import { ClassCapacityBar } from "@/features/calendar/ClassCapacityBar";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { classCourtsQuery } from "@/features/calendar/class-courts";
@@ -1313,8 +1315,18 @@ export default function ClassDetailScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerClassName="gap-4 p-4 pb-10">
-          {/* Info cards: Date, Time, Capacity, Level (2×2, mirrors web's grid) */}
-          <View className="gap-3">
+          {/* Info cards: Date, Time, Capacity, Level (2×2, mirrors web's grid) while editing; while reading
+              (calendar.event-detail rule 28, UI idea 6) one header block, then the capacity line. */}
+          <ClassWhenHeader
+            editing={isEditing}
+            date={active?.date || event.date}
+            startTime={startTime}
+            endTime={endTime}
+            levelCode={levels?.find((level) => level.id === active?.levelId)?.code}
+            clubName={active?.clubName}
+            courtName={active?.courtName}
+          >
+            {isEditing ? (
             <View className="flex-row gap-3">
               <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
                 <View className="flex-row items-center gap-1.5">
@@ -1403,8 +1415,13 @@ export default function ClassDetailScreen() {
                 )}
               </View>
             </View>
-            <View className="flex-row gap-3">
-              <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
+            ) : null}
+            <View className={isEditing ? "flex-row gap-3" : undefined}>
+              <View
+                testID="class-detail-capacity"
+                className={isEditing ? "flex-1 gap-2 rounded-lg border border-border bg-card p-3" : "gap-1"}
+              >
+                {isEditing ? (
                 <View className="flex-row items-center gap-1.5">
                   <Ionicons
                     name="people-outline"
@@ -1415,6 +1432,7 @@ export default function ClassDetailScreen() {
                     {t("calendar.detail.capacity")}
                   </Text>
                 </View>
+                ) : null}
                 {isEditing && draft ? (
                   <View className="flex-row items-center gap-2">
                     <Pressable
@@ -1451,7 +1469,11 @@ export default function ClassDetailScreen() {
                   </View>
                 ) : (
                   <>
-                    <Text className="text-sm font-medium">
+                    <Text
+                      className="text-sm font-medium"
+                      accessibilityLabel={t("calendar.detail.capacity")}
+                      accessibilityValue={{ text: maxPlayers ? `${filled}/${maxPlayers}` : "—" }}
+                    >
                       {maxPlayers ? `${filled}/${maxPlayers}` : "—"}
                     </Text>
                     {/* PAD-920 (ND2): the open spots and "N pendentes", as on web. */}
@@ -1473,6 +1495,7 @@ export default function ClassDetailScreen() {
                   </>
                 )}
               </View>
+              {isEditing ? (
               <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
                 <Text className="text-xs text-muted-foreground">
                   {t("calendar.detail.level")}
@@ -1514,9 +1537,11 @@ export default function ClassDetailScreen() {
                   <Text className="text-sm font-medium">{levelLabel}</Text>
                 )}
               </View>
+              ) : null}
             </View>
 
             {/* Club · Court (clubs.courts rule 7, PAD-194) */}
+            {isEditing ? (
             <View className="gap-2 rounded-lg border border-border bg-card p-3" testID="class-detail-place">
               <Text className="text-xs text-muted-foreground">{t("calendar.detail.club")}</Text>
               {isEditing && draft && clubCourts && clubCourts.length > 0 ? (
@@ -1541,7 +1566,8 @@ export default function ClassDetailScreen() {
                 </Text>
               )}
             </View>
-          </View>
+            ) : null}
+          </ClassWhenHeader>
 
           {isRecurring && !isEditing ? (
             <View className="flex-row items-center gap-1.5">
@@ -2552,6 +2578,12 @@ export default function ClassDetailScreen() {
           onRequestSent={(request) => void handleSideRequestSent(request)}
           onWaitingListJoined={handleSideWaitingJoined}
           onFailed={(err, mode) => void handleSideFailed(err, mode)}
+          // PAD-929 (rule 22): a private lesson asks before the side; a stale answer re-reads it.
+          privateWarning={needsPrivateLessonWarning(
+            { classType: active?.classType ?? event.classType, studentRelation: event.studentRelation },
+            sideSheet === "waiting" ? "waitlist" : "request",
+          )}
+          onPrivateUnconfirmed={() => void refreshInstance()}
         />
       ) : null}
 

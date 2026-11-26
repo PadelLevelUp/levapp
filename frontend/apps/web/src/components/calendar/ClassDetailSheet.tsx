@@ -32,6 +32,7 @@ import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
+import { ClassWhenHeader } from "./ClassWhenHeader";
 import { ClassCapacityBar } from "./ClassCapacityBar";
 import { ClassPlanningSection } from "./ClassPlanningSection";
 
@@ -48,7 +49,7 @@ import type {
 } from "@/types";
 
 
-import { assignedSideOf, blockedNames, classBarRefusal, classTypeChipKey, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
+import { assignedSideOf, blockedNames, classBarRefusal, classTypeChipKey, classEvaluationsAction, diffParticipants, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, joinRequestStatusKey, needsPrivateLessonWarning, shouldReportSent, sideLongKeyOf, sideWordKey, splitBlockedByCause } from "@levelup/config";
 import { useCancelReason, useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import type { CancelReason } from "@levelup/api/src/resources/classes";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
@@ -1348,7 +1349,23 @@ export function ClassDetailSheet({
 
         <div className="mt-6 space-y-6">
           {/* 2×2 Info Blocks */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* calendar.event-detail rule 28 (UI idea 6): reading is one header block, editing the five boxes. */}
+          <ClassWhenHeader
+            editing={isEditing}
+            date={active.date}
+            startTime={active.startTime}
+            endTime={active.endTime}
+            until={
+              active.recurrenceEnd && !active.parentClassId
+                ? t("calendar.detail.untilDate", { date: format(parseISODate(active.recurrenceEnd), "d MMM", { locale: dateFnsLocale(i18n.language) }) })
+                : null
+            }
+            levelCode={levels.find((l) => l.id === active.levelId)?.code}
+            clubName={active.clubName}
+            courtName={active.courtName}
+          >
+            {isEditing && (
+            <>
             {/* Date */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -1437,9 +1454,12 @@ export function ClassDetailSheet({
               )}
             </div>
 
+            </>
+            )}
+
             {/* Capacity */}
-            <div data-testid="class-detail-capacity" className="rounded-lg border bg-muted/30 p-3 space-y-1">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
+            <div data-testid="class-detail-capacity" className={isEditing ? "rounded-lg border bg-muted/30 p-3 space-y-1" : undefined}>
+              <div className={isEditing ? "flex items-center gap-1.5 text-muted-foreground" : "sr-only"}>
                 <Users className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{t("calendar.detail.capacity")}</span>
               </div>
@@ -1513,6 +1533,8 @@ export function ClassDetailSheet({
               )}
             </div>
 
+            {isEditing && (
+            <>
             {/* Level */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -1574,7 +1596,9 @@ export function ClassDetailSheet({
                 </p>
               )}
             </div>
-          </div>
+            </>
+            )}
+          </ClassWhenHeader>
 
           {/* Auto notifications */}
           {/* PAD-793 (classes.create rule 6b): shown whatever the coach's engine state. */}
@@ -2585,6 +2609,12 @@ export function ClassDetailSheet({
           onRequestSent={(request) => void handleSideRequestSent(request)}
           onWaitingListJoined={handleSideWaitingJoined}
           onFailed={(err, mode) => void handleSideFailed(err, mode)}
+          // PAD-929 (rule 22): a private lesson asks before the side; a stale answer re-reads it.
+          privateWarning={needsPrivateLessonWarning(
+            { classType: active?.classType ?? event.classType, studentRelation: event.studentRelation },
+            sideSheet === "waiting" ? "waitlist" : "request",
+          )}
+          onPrivateUnconfirmed={() => void refreshInstance()}
         />
       )}
       <AlertDialog open={inviteeToDelete !== null} onOpenChange={(open) => { if (!open) setInviteeToDelete(null); }}>

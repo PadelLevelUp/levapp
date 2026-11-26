@@ -259,7 +259,9 @@ class TodayAdapter:
         db.session.flush()
         inst = LessonInstance(lesson_id=lesson.id, start_datetime=spec.start,
                               end_datetime=spec.start + timedelta(hours=1), max_players=spec.capacity,
-                              status="scheduled", notifications_enabled=True, level_id=self.level_ids[spec.level])
+                              status="scheduled", notifications_enabled=True,
+                              # level_inherited: no level of its own, as a recurring occurrence (engine-store STORE-22)
+                              level_id=None if spec.level_inherited else self.level_ids[spec.level])
         db.session.add(inst)
         db.session.flush()
         db.session.add(Association_CoachLessonInstance(coach_id=self.coach_id, lesson_instance_id=inst.id))

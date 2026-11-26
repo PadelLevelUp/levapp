@@ -1,0 +1,47 @@
+id: P47
+title: an inherited class level keeps the level groups
+source: {section: "engine-store STORE-22 (the engine's class level is the occurrence's effective level)", lines: [1, 1]}
+what_it_tests: an occurrence with no level of its own takes its lesson's level, so the level groups stay in order
+tags: [eligibility, groups]
+derived_from: [S26, D3]
+corrections: []
+notes: >
+  The class's occurrence has no level of its own (level_inherited: its lesson's default level 3 holds), as
+  every recurring occurrence in the app. Groups: the two waiting lists, then same side at the class level
+  (group 3), then same side one level above (group 4). R1 says No, freeing one right spot. The class level is
+  3, so the level-3 right-siders are invited in group 3 and the level-2 ones are not asked with them. Before
+  the fix the engine read the occurrence's own NULL level as "no level": every level group admitted
+  everyone, and the level-2 cohort (listed first) was invited in group 3.
+  Only the seeded adapters (today, app, new with INVITATION_STORE=db) leave the occurrence's own level NULL;
+  the memory store of `new` takes the class level directly, so there it checks nothing about inheritance.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: +1, side: same}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30, level_inherited: true}
+
+roster:
+  regulars:
+    - {id: R1, side: R}
+    - {id: R2, side: R}
+    - {id: R3, side: R}
+    - {id: R4, side: R}
+    - {id: G1, side: L}
+    - {id: G2, side: L}
+    - {id: G3, side: L}
+    - {id: G4, side: L}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-02 10:00
+    events: [{regular_no: R1}]
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 3}]
+final:
+  roster: {L: 4, R: 3}

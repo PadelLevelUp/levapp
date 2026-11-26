@@ -15,6 +15,7 @@ const LIVE_KEYS = [
   queryKeys.classRequests,
   queryKeys.classJoinRequests,
   queryKeys.classWaitingList,
+  queryKeys.coachRequests({ section: "open" }),
   queryKeys.pendingValidationBadge,
   queryKeys.dashboard({ from: "2026-10-12", to: "2026-10-18" }),
   ["calendar-events", "2026-10-12", "2026-10-18"],

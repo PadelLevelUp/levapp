@@ -192,7 +192,7 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
 - **Then** each shows "Jorge chato" and never "Jorge Silva"
 - **And** each shows Ana Pinto under her own name
 test: `frontend/apps/web/src/pages/AbsencesPage.nickname.test.tsx` › `prints the nickname for one student and the real name for another` (+15 more)
-- Code to follow: add one Maestro flow that shows a nickname on an iOS coach screen.
+test: `frontend/apps/mobile/.maestro/flows/281-coach-nickname.yaml` (tag `PLAYERS-NICKNAME-10`)
 
 #### PLAYERS-NICKNAME-11: A student's own view keeps the real name and never asks for a roster (rules 4, 8)
 - **Given** a student looking at their own attendance row, class row and class requests

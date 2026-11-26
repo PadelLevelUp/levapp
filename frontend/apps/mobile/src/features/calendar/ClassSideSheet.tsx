@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   SIDE_CHOICE_ORDER,
   canSendSide,
+  joinRefusalOf,
   lightTheme,
   openSideWordKeys,
   preselectedSide,
@@ -22,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ui/text";
+import { PrivateLessonWarningDialog } from "./private-lesson-warning-dialog";
 import { SideSheetButton, type SideSheetButtonKind } from "./side-sheet-button";
 import { SIDE_SHEET_PADDING, sideSheetPaddingBottom } from "./side-sheet-layout";
 
@@ -53,6 +55,14 @@ interface ClassSideSheetProps {
   onRequestSent?: (request: ClassJoinRequest, side: PlayerSide) => void;
   onWaitingListJoined?: (side: PlayerSide) => void;
   onFailed?: (error: unknown, mode: "request" | "waiting") => void;
+  /**
+   * PAD-929 (`classes.join-requests` rule 22): the class is a private lesson this student is asked
+   * about (`needsPrivateLessonWarning`). The warning comes first; NÃO closes with nothing sent, SIM
+   * opens this sheet, and the join carries `privateConfirmed: true`.
+   */
+  privateWarning?: boolean;
+  /** The server answered `private_unconfirmed` (a stale class): the caller reads the class again. */
+  onPrivateUnconfirmed?: () => void;
 }
 
 /** The absolute side a relative waiting-list choice stands for, for the screen's "waiting on …" line. */
@@ -75,6 +85,8 @@ export function ClassSideSheet({
   onRequestSent,
   onWaitingListJoined,
   onFailed,
+  privateWarning = false,
+  onPrivateUnconfirmed,
 }: ClassSideSheetProps) {
   const { t } = useTranslation();
   // PAD-817 (rule 9c): on Android the sheet's action row clears the navigation bar.
@@ -85,6 +97,9 @@ export function ClassSideSheet({
   // PAD-920 (notifications.config rule 20): the relative waiting-list choice, kept apart from the
   // absolute side (both vocabularies have a "both").
   const [relative, setRelative] = React.useState<WaitingListSides | null>(null);
+  // PAD-929: whether the warning is still to be answered, and whether SIM was said.
+  const [warn, setWarn] = React.useState(privateWarning);
+  const [confirmed, setConfirmed] = React.useState(false);
 
   // Each opening starts from the profile side again.
   React.useEffect(() => {
@@ -93,8 +108,21 @@ export function ClassSideSheet({
       setRelative(null);
       setFull(null);
       setBusy(false);
+      setWarn(privateWarning);
+      setConfirmed(false);
     }
-  }, [open, profileSide]);
+  }, [open, profileSide, privateWarning]);
+
+  // R15: `private_unconfirmed` means the class is private after all; ask again, after a re-read.
+  const unconfirmed = (err: unknown) => {
+    if (joinRefusalOf(err)?.code !== "private_unconfirmed") return false;
+    setWarn(true);
+    setConfirmed(false);
+    onPrivateUnconfirmed?.();
+    return true;
+  };
+  const confirm = confirmed ? ([true] as const) : ([] as const);
+  const asking = warn && !confirmed;
 
   const waiting = mode === "waiting";
   // PAD-920 (notifications.config rule 20): a new-engine class whose coach turned the side choice on
@@ -108,10 +136,11 @@ export function ClassSideSheet({
   const sendRequest = async (side: PlayerSide) => {
     setBusy(true);
     try {
-      const request = await classJoinRequestsApi.createClassJoinRequest(event, note, side);
+      const request = await classJoinRequestsApi.createClassJoinRequest(event, note, side, ...confirm);
       onRequestSent?.(request, side);
       onClose();
     } catch (err) {
+      if (unconfirmed(err)) return;
       const refusal = sideFullOf(err);
       if (refusal) setFull(refusal);
       else {
@@ -126,10 +155,12 @@ export function ClassSideSheet({
   const joinList = async (side: PlayerSide) => {
     setBusy(true);
     try {
-      await joinClassWaitingList(event, side);
+      // The absolute-side join has no `sides`: the confirmation is the fourth argument, sent only when said.
+      await (confirmed ? joinClassWaitingList(event, side, undefined, true) : joinClassWaitingList(event, side));
       onWaitingListJoined?.(side);
       onClose();
     } catch (err) {
+      if (unconfirmed(err)) return;
       onFailed?.(err, "waiting");
       onClose();
     } finally {
@@ -140,10 +171,11 @@ export function ClassSideSheet({
   const joinListRelative = async (choice: WaitingListSides) => {
     setBusy(true);
     try {
-      await joinClassWaitingList(event, undefined, waitingListJoinSides(choice).sides);
+      await joinClassWaitingList(event, undefined, waitingListJoinSides(choice).sides, ...confirm);
       onWaitingListJoined?.(sideOfRelative(choice, profileSide));
       onClose();
     } catch (err) {
+      if (unconfirmed(err)) return;
       onFailed?.(err, "waiting");
       onClose();
     } finally {
@@ -182,7 +214,9 @@ export function ClassSideSheet({
   );
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+    <>
+    <PrivateLessonWarningDialog open={open && asking} onCancel={onClose} onConfirm={() => setConfirmed(true)} />
+    <Modal visible={open && !asking} transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: "flex-end" }}>
         <Pressable
           accessibilityRole="button"
@@ -348,5 +382,6 @@ export function ClassSideSheet({
         </View>
       </View>
     </Modal>
+    </>
   );
 }
