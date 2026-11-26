@@ -24,7 +24,7 @@ main button below it. UI idea 8; owner's yes to the sketch, 2026-11-25 ("yes 1, 
    club's name under it, as in the sketch; today's title and description follow as text. The coach's name is display text, not a heading (rule 4). On web the signed-in
    preview's club logo stands beside them; signed out shows no logo. Both names are public by `players.join-token` rule 4. Signed out gains only the club's name; no state of
    the two invitation pages shows a name, club or logo it does not show today, before or after sign-in.
-4. **Nothing else changes.** Order, steps, copy, ids, accessible names, errors, redirects, focus, and each state's one primary action, full width
+4. **Nothing else changes.** Order, steps, copy (but for rule 7), ids, accessible names, errors, redirects, focus, and each state's one primary action, full width
    and at least 44px high; a state whose only action is outlined today keeps it so. The title stays a heading at
    the level it has today, on each shell, and is the page's first heading.
 5. **Invalid and loading** stay as they are.
@@ -32,11 +32,15 @@ main button below it. UI idea 8; owner's yes to the sketch, 2026-11-25 ("yes 1, 
    theme the band is told from the page by a hairline (`sidebar-border`). A long name or title wraps, broken if need be; at 320px nothing scrolls sideways.
    On iOS every screen scrolls, the keyboard never covers the field being typed in, larger text wraps, and the player page's
    sign-in link sits in the flow under the form, not over it.
+7. **Tu, not você.** On the coach invitation (`/invite/coach/:token`, `CoachInvitePage`, `CoachInviteScreen`) and the player invitation
+   (`/invite/player/:token`, `PlayerInvitePage`, `PlayerInviteScreen`), web and iOS, the Portuguese text addresses the reader as *tu*,
+   never *você*: pronouns, possessives and verb forms ("Aceita", "o teu perfil"). Only the strings these two pages show; the words
+   otherwise stay as they are. The other pages and any string they share are not in this rule.
 
 ### Not this spec
 - Telling an invited player or coach who invited them before sign-in (see Open questions).
 - The 44px of text links, and the differences between web and iOS in which action is primary when a coach opens a player's link.
-- The wording of any page.
+- The wording of any page, but the *tu* form of rule 7 on the two invitation pages.
 
 ### Today
 - Web `pages/JoinCoachPage.tsx` draws a lockup and a card (its `shell`), each state with a round icon; `CoachInvitePage.tsx` and `PlayerInvitePage.tsx` draw
@@ -77,15 +81,20 @@ test: `frontend/apps/web/e2e/auth/invite-welcome.spec.ts` › `the band fits a p
 - **Then** the primary action can be scrolled to and tapped, the field being typed in is visible, and the sign-in link is under the form
 test: `frontend/apps/mobile/.maestro/flows/331-invite-welcome.yaml` › `331-invite-welcome`
 
+#### AUTH-INVITE-WELCOME-6: The two invitation pages say tu (rule 7)
+- **Given** the Portuguese keys the coach invitation and the player invitation show, on web and iOS
+- **Then** none holds a *você* form (você, o seu, a sua, os seus, as suas, or a verb in the third person addressed to the reader)
+test: `frontend/apps/web/src/pages/inviteWelcome.test.tsx` › `the invitation pages say tu` (+ iOS: `frontend/apps/mobile/src/features/auth/invite-welcome.test.tsx`)
+
 ### Waves
 1. 1, 3, 4 — web, and the key-set test.
 2. 2, 5 — iOS, with a look on the simulator. Web and iOS are one PR.
+3. 6 — the *tu* strings, web and iOS.
 
 ### Open questions
 - **Who invited you.** The sketch said "A Ana convidou-te" over the club. The join page follows it with the names alone (rule 3), in no new
-  words. The two invitation pages do not know who invited, and showing the coach's name there would be new public information. Options:
-  leave it out (built so); send the coach's name and club in the player-invitation preview (a privacy decision and an amendment of
-  `players.invite-completion`). Asked 2026-11-25, for the owner.
+  words. The two invitation pages do not know who invited, and showing the coach's name there would be new public information.
+  Asked 2026-11-25. Answered by the owner, 2026-11-26: **no, as built.** Closed.
 - **Page grey, navy and white** make three surfaces, one more than the design system's two. The band is the sketch the owner approved; the exception is recorded here.
-- **Wording, found while reading:** the join page says *tu* ("Estás na base de alunos…") and the two invite pages say *você* ("Complete o seu perfil",
-  "Foi convidado"). The product's rule is *tu*. Not changed here (rule 3). For the owner.
+- **Wording, found while reading:** the join page says *tu* ("Estás na base de alunos…") and the two invite pages said *você* ("Complete o seu perfil",
+  "Foi convidado"). The product's rule is *tu*. Answered by the owner, 2026-11-26: **yes, the two invite pages use tu** (rule 7). Closed.
