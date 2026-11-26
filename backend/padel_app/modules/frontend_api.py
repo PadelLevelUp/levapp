@@ -1977,6 +1977,18 @@ def _covered_before(user, block_id):
     return covered_for_blocks(user, [block_snapshot(row)]) if row is not None else []
 
 
+@bp.post("/availability_blockers/decline_covered")
+@jwt_required()
+def decline_covered_classes():
+    """PAD-772 (calendar.student-blockers rule 22): the student's yes marks the listed occurrences "Não vai",
+    each re-checked against their stored blockers; the ones that fail are skipped with a reason."""
+    from padel_app.services.blocker_decline_service import decline_covered
+
+    user = _require_student()
+    data = request.get_json(silent=True) or {}
+    return jsonify(decline_covered(user, data.get("occurrences")))
+
+
 @bp.post("/availability_blockers")
 @jwt_required()
 def create_availability_blocker():

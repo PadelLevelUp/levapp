@@ -231,8 +231,13 @@ def _notify_coach_of_cancellation(
     is_late: bool,
     is_proactive: bool = False,
     locale: str = "en",
+    availability_block: bool = False,
 ) -> "object | None":
     """Create a single COACH-facing notification when a student cancels.
+
+    ``availability_block`` (PAD-772, calendar.student-blockers rule 23): the student marked the class
+    from the dialog after saving an availability block. The text says so (never the block's title or
+    times), the late marker stays, and ``msg_metadata.availabilityBlock`` is true.
 
     Unlike ``_send_system_message`` (which pushes to the *player*), this reuses the
     same coach↔player direct conversation but sends the message *from the student*
@@ -265,7 +270,14 @@ def _notify_coach_of_cancellation(
     # to tell at a glance that this student spoke up EARLY — before they were
     # even asked to confirm — because that is exactly the behaviour the feature
     # is meant to encourage, and it reads very differently from a late drop-out.
-    if is_proactive:
+    if availability_block:
+        if is_pt:
+            marker = " (ATRASADO)" if is_late else ""
+            text = f"{player_name} marcou-se indisponível e não vai{marker} a {class_title}{when}."
+        else:
+            marker = " (LATE)" if is_late else ""
+            text = f"{player_name} marked themselves unavailable and will not attend{marker} {class_title}{when}."
+    elif is_proactive:
         if is_pt:
             text = (
                 f"{player_name} avisou com antecedência que não vai comparecer "
@@ -297,6 +309,7 @@ def _notify_coach_of_cancellation(
             # heads-up differently from a plain or late cancellation.
             "proactiveDecline": bool(is_proactive),
             "lessonInstanceId": instance.id,
+            **({"availabilityBlock": True} if availability_block else {}),
         },
     )
     msg.create()
@@ -306,7 +319,7 @@ def _notify_coach_of_cancellation(
         message_recipient_ids(msg),
     )
 
-    if is_proactive:
+    if is_proactive and not availability_block:
         push_title = "Aviso antecipado" if is_pt else "Advance notice"
     elif is_pt:
         push_title = "Cancelamento tardio" if is_late else "Cancelamento"

@@ -5,7 +5,9 @@
 Fixed dates and a pinned clock: now = Tuesday 2026-12-01 10:00 (UTC = Lisbon in December).
 """
 import json
+from contextlib import ExitStack
 from datetime import date, datetime, timedelta
+from unittest import mock
 
 import pytest
 from flask_jwt_extended import create_access_token
@@ -276,3 +278,267 @@ def test_a_calendar_block_edit_of_a_blocker_answers_covered_classes(world, app):
         personal_id = personal.id
     res = world.call("put", f"/api/app/calendar_block/{personal_id}", who="coach", body={**world.block("2026-12-02", "08:00", "21:00"), "type": "personal"})
     assert res.status_code == 200 and "coveredClasses" not in res.get_json()
+
+
+# ── wave 3: the mark ────────────────────────────────────────────────────────────────────────────────
+
+IO = [
+    "padel_app.services.notification_service.publish",
+    "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",
+    "padel_app.services.system_messages.send_push_notification",
+    "padel_app.utils.expo_push.send_expo_push_to_user",
+]
+MARK = "/api/app/availability_blockers/decline_covered"
+
+
+@pytest.fixture
+def io():
+    """No Redis, no push: the coach's push is the one `system_messages.send_push_notification`."""
+    with ExitStack() as stack:
+        mocks = {name.rsplit(".", 2)[-2] + "." + name.rsplit(".", 1)[-1]: stack.enter_context(mock.patch(name)) for name in IO}
+        yield mocks
+
+
+def entry(model, original_id, day):
+    return {"model": model, "originalId": original_id, "date": day}
+
+
+def messages(app, **filters):
+    from padel_app.models import Message
+
+    with app.app_context():
+        return [(m.sender_id, m.text, dict(m.msg_metadata or {})) for m in Message.query.filter_by(**filters).order_by(Message.id).all()]
+
+
+def presence_of(app, who_player_id, instance_id):
+    from padel_app.models import Presence
+
+    with app.app_context():
+        p = Presence.query.filter_by(player_id=who_player_id, lesson_instance_id=instance_id).first()
+        return None if p is None else {"status": p.status, "source": p.decline_source, "responded_at": p.responded_at, "response": p.response}
+
+
+def vacancies(app, instance_id):
+    from padel_app.models import Vacancy
+
+    with app.app_context():
+        return [(v.original_player_id, v.status, v.invite_not_before) for v in Vacancy.query.filter_by(lesson_instance_id=instance_id).all()]
+
+
+def instance_of(app, lesson_id, day):
+    from padel_app.models import LessonInstance
+
+    with app.app_context():
+        row = LessonInstance.query.filter_by(lesson_id=lesson_id, original_lesson_occurence_date=date.fromisoformat(day)).first()
+        return None if row is None else row.id
+
+
+def own_block(world):
+    """The student's Mon-Thu 08:00-23:00 block, made through the route (stored, so the server re-checks it)."""
+    res = world.call("post", "/api/app/availability_blockers", body=world.block("2026-12-01", "08:00", "23:00", days=[1, 2, 3, 4], until="2026-12-21"))
+    assert res.status_code == 201
+    return res.get_json()["id"]
+
+
+def customised_coach(world, app):
+    """The coach on the OLD engine (a fresh config starts on the new one) with a customised acknowledgement."""
+    from padel_app.services.notification_service import get_or_create_config
+
+    with app.app_context():
+        config = get_or_create_config(world.coach)
+        config.engine_version, config.engine_switched_at = "old", None
+        config.message_templates = {"reminder_declined": "Vale, então não conto contigo amanhã"}
+        db.session.commit()
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-19")
+def test_yes_declines_through_the_ordinary_path_without_a_student_message(world, app, io):
+    customised_coach(world, app)
+    weekly = world.weekly("ana", datetime(2026, 12, 2, 19, 0), days=[3], end=date(2026, 12, 23))  # virtual, eight days ahead: before the reminder
+    soon = world.one_off("ana", datetime(2026, 12, 2, 9, 0), title="Cedo")  # 23 h ahead: inside the 24 h deadline
+    own_block(world)
+
+    res = world.call("post", MARK, body={"occurrences": [entry("Lesson", weekly, "2026-12-09"), entry("LessonInstance", soon, "2026-12-02")]})
+    assert res.status_code == 200, res.get_data(as_text=True)[:300]
+    body = res.get_json()
+    assert body["skipped"] == []
+    assert [(d["model"], d["originalId"], d["date"]) for d in body["declined"]] == [("Lesson", weekly, "2026-12-09"), ("LessonInstance", soon, "2026-12-02")]
+    wednesday = instance_of(app, weekly, "2026-12-09")  # materialised by the mark
+    assert wednesday is not None and body["declined"][0]["lessonInstanceId"] == wednesday and body["declined"][1]["lessonInstanceId"] == soon
+
+    for instance_id in (wednesday, soon):
+        p = presence_of(app, world.players["ana"], instance_id)
+        assert p["status"] == "absent" and p["source"] == "availability_block" and p["responded_at"] == NOW
+        assert any(v[0] == world.players["ana"] and v[1] == "open" for v in vacancies(app, instance_id)), (instance_id, vacancies(app, instance_id))
+    assert presence_of(app, world.players["ana"], wednesday)["response"] == "proactive_decline"
+    assert presence_of(app, world.players["ana"], soon)["response"] == "cancelled"
+    # The Wednesday spot is held to the invitation start, as any decline there is.
+    assert any(v[2] is not None for v in vacancies(app, wednesday))
+
+    # No message from the coach (no reminder_declined); one notice per class from the student, with the marker.
+    assert [m for m in messages(app, sender_id=world.coach_user)] == []
+    notices = [m for m in messages(app, sender_id=world.users["ana"]) if m[2].get("cancellation")]
+    assert len(notices) == 2
+    by_instance = {m[2]["lessonInstanceId"]: m for m in notices}
+    assert by_instance[wednesday][2]["availabilityBlock"] is True and by_instance[wednesday][2]["proactiveDecline"] is True
+    assert by_instance[soon][2]["availabilityBlock"] is True and by_instance[soon][2]["lateCancellation"] is True
+    assert "unavailable" in by_instance[wednesday][1].lower() or "indispon" in by_instance[wednesday][1].lower()
+    assert "LATE" in by_instance[soon][1] or "ATRASADO" in by_instance[soon][1]
+    assert "LATE" not in by_instance[wednesday][1] and "ATRASADO" not in by_instance[wednesday][1]
+    assert "Fora" not in by_instance[wednesday][1] and "08:00" not in by_instance[wednesday][1]  # the block's title and times never appear
+    assert io["system_messages.send_push_notification"].call_count == 1  # only the late one pushes the coach
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-20")
+def test_the_mark_rechecks_each_entry_and_skips_what_fails(world, app, io):
+    customised_coach(world, app)
+    weekly = world.weekly("ana", datetime(2026, 12, 2, 19, 0), days=[3], end=date(2026, 12, 23))
+    friday = world.one_off("ana", datetime(2026, 12, 4, 18, 0), title="Sexta")  # the block is Mon-Thu
+    bia = world.one_off("bia", datetime(2026, 12, 2, 18, 0), title="Da Bia")
+    started = world.one_off("ana", datetime(2026, 12, 1, 8, 30), title="Já começou")
+    done = world.one_off("ana", datetime(2026, 12, 3, 18, 0), title="Já respondida", declined=True)
+    own_block(world)
+    before = presences(app)
+
+    res = world.call("post", MARK, body={"occurrences": [
+        entry("Lesson", weekly, "2026-12-02"), entry("LessonInstance", friday, "2026-12-04"), entry("LessonInstance", bia, "2026-12-02"),
+        entry("LessonInstance", started, "2026-12-01"), entry("LessonInstance", done, "2026-12-03"),
+    ]})
+    assert res.status_code == 200
+    body = res.get_json()
+    assert [d["originalId"] for d in body["declined"]] == [weekly]
+    assert {(s["originalId"], s["reason"]) for s in body["skipped"]} == {
+        (friday, "not_covered"), (bia, "not_enrolled"), (started, "started"), (done, "already_answered")}
+    # Nothing was written for the skipped ones: no presence changed, no instance materialised for a series they are not in.
+    changed = [p for p in presences(app) if p not in before]
+    assert len(changed) == 1  # the Wednesday's, now absent
+    assert [m for m in messages(app, sender_id=world.users["ana"]) if m[2].get("cancellation")].__len__() == 1
+
+    # A coach gets 403.
+    assert world.call("post", MARK, who="coach", body={"occurrences": []}).status_code == 403
+
+    # A virtual occurrence whose materialised instance holds no presence for the student: skipped, the rest still declined.
+    other = world.weekly("ana", datetime(2026, 12, 9, 20, 0), days=[3], end=date(2026, 12, 9), title="Sem presença")
+    world.materialised(other, "bia", date(2026, 12, 9))  # the instance exists, holding Bia's presence only
+    again = world.call("post", MARK, body={"occurrences": [entry("Lesson", other, "2026-12-09")]})
+    assert again.get_json()["declined"] == [] and again.get_json()["skipped"][0]["reason"] == "not_enrolled"
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-27")
+def test_a_repeated_yes_declines_once_and_a_refusal_rolls_back_only_its_entry(world, app, io):
+    customised_coach(world, app)
+    from flask import abort
+
+    weekly = world.weekly("ana", datetime(2026, 12, 2, 19, 0), days=[3], end=date(2026, 12, 23))
+    late_start = world.one_off("ana", datetime(2026, 12, 3, 12, 0), title="Começa já")
+    own_block(world)
+    first = world.call("post", MARK, body={"occurrences": [entry("Lesson", weekly, "2026-12-02")]})
+    again = world.call("post", MARK, body={"occurrences": [entry("Lesson", weekly, "2026-12-02")]})
+    assert [d["originalId"] for d in first.get_json()["declined"]] == [weekly]
+    assert again.get_json()["declined"] == [] and again.get_json()["skipped"][0]["reason"] == "already_answered"
+    wednesday = instance_of(app, weekly, "2026-12-02")
+    assert len([m for m in messages(app, sender_id=world.users["ana"]) if m[2].get("cancellation")]) == 1
+    assert len(vacancies(app, wednesday)) == 1
+
+    # An entry whose class starts between the re-check and the decline: the decline path's 409 is its own skip.
+    from padel_app.services import blocker_decline_service as svc
+
+    real = svc.cancel_attendance
+
+    def refuse_one(user_id, **kw):
+        if kw.get("lesson_instance_id") == late_start:
+            abort(409, description="Class has already started")
+        return real(user_id, **kw)
+
+    other = world.weekly("ana", datetime(2026, 12, 9, 19, 0), days=[3], end=date(2026, 12, 9), title="Outra")
+    with mock.patch.object(svc, "cancel_attendance", refuse_one):
+        res = world.call("post", MARK, body={"occurrences": [entry("LessonInstance", late_start, "2026-12-03"), entry("Lesson", other, "2026-12-09")]})
+    body = res.get_json()
+    assert [d["originalId"] for d in body["declined"]] == [other]
+    assert [(s["originalId"], s["reason"]) for s in body["skipped"]] == [(late_start, "started")]
+    assert presence_of(app, world.players["ana"], late_start)["status"] is None  # nothing of it was written
+    assert vacancies(app, late_start) == []
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-21")
+def test_a_new_engine_session_is_marked_by_the_engine(world, app, io):
+    from padel_app.models import EngineSession, Presence
+
+    soon = world.one_off("ana", datetime(2026, 12, 2, 19, 0), title="Nova")
+    with app.app_context():
+        db.session.add(EngineSession(lesson_instance_id=soon, coach_id=world.coach, alerted=[]))
+        db.session.commit()
+    own_block(world)
+    seen = []
+
+    def engine_no(instance, presence, now=None):
+        seen.append((instance.id, presence.player_id))
+        presence.status, presence.justification, presence.confirmed = "absent", None, True
+        presence.save()
+        return {"action": "declined", "proactive": False}
+
+    with mock.patch("padel_app.services.engine_entry.student_not_going", engine_no):
+        res = world.call("post", MARK, body={"occurrences": [entry("LessonInstance", soon, "2026-12-02")]})
+    assert [d["originalId"] for d in res.get_json()["declined"]] == [soon]
+    assert seen == [(soon, world.players["ana"])]  # the engine's own "not going"
+    p = presence_of(app, world.players["ana"], soon)
+    assert p["source"] == "availability_block" and p["responded_at"] == NOW
+    assert messages(app, sender_id=world.coach_user) == []  # nothing from the coach
+    assert [m for m in messages(app, sender_id=world.users["ana"]) if m[2].get("cancellation")] == []  # and no coach notice on the new engine
+    with app.app_context():
+        from padel_app.serializers.presence import serialize_presence
+
+        assert serialize_presence(Presence.query.filter_by(lesson_instance_id=soon).first())["declineSource"] == "availability_block"
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-22")
+def test_a_marked_class_is_not_reminded_and_survives_the_block_delete(world, app, io):
+    customised_coach(world, app)
+    from padel_app.models import LessonInstance
+    from padel_app.services.notification_service import _reminder_recipients, get_or_create_config, respond_to_reminder
+
+    soon = world.one_off("ana", datetime(2026, 12, 2, 19, 0), title="Marcada")
+    block_id = own_block(world)
+    marked = world.call("post", MARK, body={"occurrences": [entry("LessonInstance", soon, "2026-12-02")]})
+    assert [d["originalId"] for d in marked.get_json()["declined"]] == [soon]
+    assert world.call("delete", f"/api/app/availability_blockers/{block_id}", body={}).status_code == 204
+
+    p = presence_of(app, world.players["ana"], soon)
+    assert p["status"] == "absent" and p["source"] == "availability_block"  # deleting the block undoes nothing
+    assert any(v[1] == "open" for v in vacancies(app, soon))
+    with app.app_context():
+        instance = db.session.get(LessonInstance, soon)
+        due, _blocked = _reminder_recipients(instance, get_or_create_config(world.coach), world.coach_user, NOW + timedelta(hours=6), scheduled=True)
+        assert [pres.player_id for pres, _count in due if pres.player_id == world.players["ana"]] == []
+
+        # "Afinal vou" with a free spot brings them back; the coach's row then carries no unavailability reason.
+        assert respond_to_reminder(soon, "yes", world.users["ana"], now=NOW)["action"] == "confirmed"
+    back = presence_of(app, world.players["ana"], soon)
+    assert back["status"] is None and back["source"] is None
+
+
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-43")
+def test_only_a_block_decline_drops_the_student_acknowledgement(world, app, io):
+    from padel_app.models import Presence
+
+    customised_coach(world, app)
+    soon = world.one_off("ana", datetime(2026, 12, 2, 19, 0), title="Duas")
+    with app.app_context():
+        db.session.add(Presence(lesson_instance_id=soon, player_id=world.players["bia"]))
+        db.session.commit()
+    own_block(world)
+    world.call("post", MARK, body={"occurrences": [entry("LessonInstance", soon, "2026-12-02")]})
+    plain = world.call("post", "/api/app/notify/cancel_attendance", who="bia", body={"lessonInstanceId": soon})
+    assert plain.status_code == 200
+
+    assert messages(app, sender_id=world.coach_user) != []  # Bia's acknowledgement, from the coach
+    acknowledgements = [m for m in messages(app, sender_id=world.coach_user)]
+    assert len(acknowledgements) == 1 and "Vale, então" in acknowledgements[0][1]
+    ana_thread = [m for m in messages(app, sender_id=world.users["ana"]) if m[2].get("cancellation")]
+    bia_thread = [m for m in messages(app, sender_id=world.users["bia"]) if m[2].get("cancellation")]
+    assert ana_thread[0][2]["availabilityBlock"] is True and ana_thread[0][2]["lessonInstanceId"] == soon
+    assert "proactiveDecline" in ana_thread[0][2] and "lateCancellation" in ana_thread[0][2]
+    assert "availabilityBlock" not in bia_thread[0][2]
+    assert presence_of(app, world.players["ana"], soon)["source"] == "availability_block"
+    assert presence_of(app, world.players["bia"], soon)["source"] is None

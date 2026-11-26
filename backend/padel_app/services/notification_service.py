@@ -4038,6 +4038,7 @@ def _free_spot_for_declining_player(
     *,
     locale: str | None = None,
     now: datetime | None = None,
+    acknowledge: bool = True,
 ) -> None:
     """Revert a player to "not attending" and free their spot.
 
@@ -4054,7 +4055,9 @@ def _free_spot_for_declining_player(
         from padel_app.services.presence_events import publish_presence_changed
         publish_presence_changed(instance, presence.player_id)  # PAD-659 (event-detail rule 24)
         presence.save()
-    if coach_user_id:
+    # PAD-772 (attendance.confirm rule 30): a decline made from an availability block sends the student
+    # no acknowledgement: they answered in the app and the app confirms it.
+    if coach_user_id and acknowledge:
         _send_system_message(
             coach_user_id,
             acting_user_id,
@@ -4295,6 +4298,7 @@ def _retake_spot(
     presence.justification = None
     presence.validated = False  # the coach's "Não vai" mark is cleared (rule 29)
     presence.confirmed = True
+    presence.decline_source = None  # PAD-772 rule 23: the reason goes with the decline (best effort)
     record_response(presence, "confirmed", when=now)
     retired = []
     if own is not None and own.status == "open":
@@ -4441,6 +4445,7 @@ def cancel_attendance(
     original_id=None,
     date=None,
     now: datetime | None = None,
+    source: str | None = None,
 ) -> dict:
     """Cancel a previously-confirmed attendance for the acting player.
 
@@ -4457,6 +4462,11 @@ def cancel_attendance(
     (``proactive_decline_window_is_open``) and reports which kind it was in the
     ``proactive`` key of the response. A stale client therefore cannot mislabel
     a decline, and there is exactly one place where enrolment is authorized.
+
+    PAD-772 (attendance.confirm rule 30): ``source`` is ``DECLINE_SOURCE_AVAILABILITY_BLOCK`` only when
+    the student's yes to the block dialog asks for it (``blocker_decline_service``). The decline is
+    otherwise the same; the student gets no acknowledgement, the coach's notice says the student marked
+    themselves unavailable, and the presence records the source.
     """
     from flask import abort
     from padel_app.models import Coach, Player
@@ -4492,7 +4502,14 @@ def cancel_attendance(
         # PAD-918 (swap plan §3.1): the new engine records the absence and plans the spot.
         from padel_app.services.engine_entry import student_not_going
 
-        return student_not_going(instance, presence, _now)
+        result = student_not_going(instance, presence, _now)
+        if source:
+            # The engine wrote the absence; the source and the mark's instant are ours (rule 23).
+            presence = Presence.query.filter_by(player_id=player.id, lesson_instance_id=lesson_instance_id).first()
+            presence.decline_source = source
+            presence.responded_at = _now
+            presence.save()
+        return result
 
     from padel_app.services.lesson_service import primary_coach
 
@@ -4537,6 +4554,7 @@ def cancel_attendance(
         # PAD-271 M5: stored as the answer; lateness is derived on read from
         # responded_at against the same deadline (presence_late_cancellation).
         record_response(presence, "proactive_decline" if is_proactive else "cancelled", when=_now)
+        presence.decline_source = source
 
     # PAD-44: notify the COACH of the cancellation exactly once, flagging late
     # cancellations. This is emitted HERE (not in the shared
@@ -4552,6 +4570,7 @@ def cancel_attendance(
             is_late=is_late,
             is_proactive=is_proactive,
             locale=locale,
+            availability_block=bool(source),
         )
 
     # Mark the most recent reminder message as responded ("no") so the UI reflects
@@ -4580,6 +4599,7 @@ def cancel_attendance(
         templates,
         locale=locale,
         now=now,
+        acknowledge=not source,
     )
     # PAD-73: the caller is told which kind of decline this was so the UI can
     # confirm it accurately without re-deriving the cutoff client-side.
