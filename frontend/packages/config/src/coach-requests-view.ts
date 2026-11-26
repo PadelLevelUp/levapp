@@ -42,9 +42,12 @@ export function coachRequestsActiveSort(view: Pick<CoachRequestsView, "section" 
   return view.sortBy ? { by: view.sortBy, dir: view.sortDir ?? ("asc" as const) } : COACH_REQUESTS_DEFAULT_SORT[view.section];
 }
 
-/** Rule 11, 12: changing the tab drops the status filter (the sections share no status). */
+/**
+ * Rules 6, 11, 12: changing the tab drops the status filter (the sections share no status) and the
+ * sort the coach chose, so the new tab opens on its own default order.
+ */
 export function switchCoachRequestsSection(view: CoachRequestsView, section: CoachRequestsSection): CoachRequestsView {
-  const { status: _status, ...rest } = view;
+  const { status: _status, sortBy: _sortBy, sortDir: _sortDir, ...rest } = view;
   return { ...rest, section };
 }
 

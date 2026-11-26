@@ -37,10 +37,13 @@ describe("the coach's requests view (PAD-795)", () => {
     expect(coachRequestsActiveSort({ section: "open", sortBy: "side" })).toEqual({ by: "side", dir: "asc" });
   });
 
-  it("[CLASSES-COACH-REQUESTS-TABLE-13] a tab change drops the status filter and keeps the rest", () => {
+  it("[CLASSES-COACH-REQUESTS-TABLE-13] a tab change drops the status filter and the sort, and keeps the other filters", () => {
     expect(COACH_REQUESTS_SECTION_STATUSES.open).toEqual(["pending", "countered"]);
     expect(COACH_REQUESTS_SECTION_STATUSES.history).toEqual(["accepted", "declined", "rejected", "withdrawn", "superseded"]);
     const next = switchCoachRequestsSection({ section: "history", status: "accepted", kind: "private", sortBy: "student" }, "open");
-    expect(next).toEqual({ section: "open", kind: "private", sortBy: "student" });
+    expect(next).toEqual({ section: "open", kind: "private" });
+    // The new tab opens on its own default order (rule 6).
+    expect(coachRequestsActiveSort(next)).toEqual({ by: "class_date", dir: "asc" });
+    expect(coachRequestsQuery(next)).toEqual({ section: "open", page: 1, kind: "private" });
   });
 });

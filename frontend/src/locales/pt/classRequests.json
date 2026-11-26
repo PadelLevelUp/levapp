@@ -146,7 +146,11 @@
         "kind": "Tipo de aula",
         "side": "Lado preferencial",
         "status": "Estado",
-        "actions": "Ações"
+        "actions": "Ações",
+        "class": "Aula",
+        "requested": "Pedido",
+        "day": "dia",
+        "time": "hora"
       },
       "kind": {
         "academy": "Academia",
@@ -190,7 +194,8 @@
         "asc": "Crescente",
         "desc": "Decrescente",
         "apply": "Aplicar"
-      }
+      },
+      "moreActions": "Mais ações"
     }
   }
 }

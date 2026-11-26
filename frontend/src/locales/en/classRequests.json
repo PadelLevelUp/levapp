@@ -146,7 +146,11 @@
         "kind": "Class type",
         "side": "Preferred side",
         "status": "Status",
-        "actions": "Actions"
+        "actions": "Actions",
+        "class": "Class",
+        "requested": "Request",
+        "day": "day",
+        "time": "time"
       },
       "kind": {
         "academy": "Academy",
@@ -190,7 +194,8 @@
         "asc": "Ascending",
         "desc": "Descending",
         "apply": "Apply"
-      }
+      },
+      "moreActions": "More actions"
     }
   }
 }

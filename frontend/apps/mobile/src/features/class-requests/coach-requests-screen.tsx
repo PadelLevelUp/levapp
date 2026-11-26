@@ -15,6 +15,7 @@ import {
   clubTimeOfInstant,
   coachRequestStatusKey,
   coachRequestsQuery,
+  formatShortDate,
   switchCoachRequestsSection,
   type CoachRequestsView,
 } from "@levelup/config";
@@ -26,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { JoinRequestSide } from "@/features/calendar/join-request-side";
+import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
 import { CoachRequestsSheet } from "./coach-requests-sheet";
 import { useCoachRequestActions } from "./use-coach-request-actions";
@@ -39,12 +41,14 @@ function statusVariant(status: string): "default" | "secondary" | "outline" | "d
 
 const keyOf = (r: Pick<CoachRequestRow, "kind" | "id">) => `${r.kind}-${r.id}`;
 
-function when(iso: string | null): string {
-  return iso ? `${clubDateOfInstant(iso)} ${clubTimeOfInstant(iso)}` : "—";
+/** A request instant in the club's zone: the language's short date, then HH:MM. */
+function when(iso: string | null, tag: string): string {
+  return iso ? `${formatShortDate(clubDateOfInstant(iso), tag)} ${clubTimeOfInstant(iso)}` : "—";
 }
 
 export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the propose form on this request (from the chat bubble). */ proposeFor?: number | null }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const tag = nativeLocaleTag(i18n?.language);
   const [view, setView] = React.useState<CoachRequestsView>({ section: "open" });
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [openKey, setOpenKey] = React.useState<string | null>(null);
@@ -125,14 +129,14 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
     return (
       <View className="gap-1 rounded-md bg-muted/40 p-2" testID="coach-request-detail">
         <Text className="text-sm italic" testID="coach-request-detail-note">{r.note ? `“${r.note}”` : t("classRequests.table.detail.none")}</Text>
-        <Text className="text-sm" testID="coach-request-detail-requested-at">{t("classRequests.table.detail.requestedAt", { when: when(r.createdAt) })}</Text>
-        <Text className="text-sm" testID="coach-request-detail-decided-at">{t("classRequests.table.detail.decidedAt", { when: when(r.decidedAt) })}</Text>
+        <Text className="text-sm" testID="coach-request-detail-requested-at">{t("classRequests.table.detail.requestedAt", { when: when(r.createdAt, tag) })}</Text>
+        <Text className="text-sm" testID="coach-request-detail-decided-at">{t("classRequests.table.detail.decidedAt", { when: when(r.decidedAt, tag) })}</Text>
         <Text className="text-sm" testID="coach-request-detail-decided-by">{t("classRequests.table.detail.decidedBy", { who })}</Text>
         {r.recurrence ? (
           <Text className="text-sm" testID="coach-request-detail-recurrence">
             {t("classRequests.table.detail.recurrence", {
               days: r.recurrence.weekdays.map((d) => t(`classRequestWizard.weekdays.${d}`)).join(", "),
-              end: r.recurrence.endDate,
+              end: formatShortDate(r.recurrence.endDate, tag),
             })}
           </Text>
         ) : null}
@@ -150,10 +154,10 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
             <View className="min-w-0 flex-1 gap-0.5">
               <Text className="font-medium" testID={`coach-request-student-${k}`}>{r.displayName}</Text>
               <Text className="text-sm" testID={`coach-request-class-${k}`}>
-                {r.date ?? "—"} · {r.startTime ? `${r.startTime}–${r.endTime ?? ""}` : "—"}
+                {r.date ? formatShortDate(r.date, tag) : "—"} · {r.startTime ? `${r.startTime}–${r.endTime ?? ""}` : "—"}
               </Text>
               <Text className="text-xs text-muted-foreground" testID={`coach-request-requested-${k}`}>
-                {when(r.createdAt)}
+                {when(r.createdAt, tag)}
               </Text>
             </View>
             <Badge variant={statusVariant(r.status)}>

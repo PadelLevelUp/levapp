@@ -171,9 +171,9 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
 
     const field = (id: string, name: string) => text(n, `coach-request-${name}-${id}`);
     // 23:30 UTC on 6 Oct is 00:30 on 7 Oct in the club's time zone (summer time).
-    expect(field("private-1", "class")).toContain("2026-10-07");
+    expect(field("private-1", "class")).toContain("07/10/2026");
     expect(field("private-1", "class")).toContain("09:00");
-    expect(field("private-1", "requested")).toContain("2026-10-07");
+    expect(field("private-1", "requested")).toContain("07/10/2026");
     expect(field("private-1", "requested")).toContain("00:30");
     expect(field("private-1", "student")).toContain("Bruno Alves");
     expect(field("private-1", "kind")).toContain("classRequests.table.kind.private");
@@ -232,7 +232,8 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     // A tab change drops the status filter and returns to page 1.
     await n.press("coach-requests-tab-open");
     await n.flush();
-    expect(lastQuery()).toEqual({ section: "open", page: 1, sortBy: "student", sortDir: "desc", kind: "academy", playerId: "bruno-id" });
+    // The tab's own default order applies: the chosen sort is dropped with the status (rule 6).
+    expect(lastQuery()).toEqual({ section: "open", page: 1, kind: "academy", playerId: "bruno-id" });
     expect(lastQuery().status).toBeUndefined();
   });
 
@@ -321,8 +322,8 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
 
     await n.press("coach-request-row-private-1");
     expect(text(n, "coach-request-detail-note")).toContain("Prefiro de manhã");
-    expect(text(n, "coach-request-detail-requested-at")).toContain("2026-10-07 00:30");
-    expect(text(n, "coach-request-detail-decided-at")).toContain("2026-10-06 10:00"); // 09:00 UTC, club time
+    expect(text(n, "coach-request-detail-requested-at")).toContain("07/10/2026 00:30");
+    expect(text(n, "coach-request-detail-decided-at")).toContain("06/10/2026 10:00"); // 09:00 UTC, club time
     expect(text(n, "coach-request-detail-decided-by")).toContain("classRequests.table.detail.student");
 
     await n.press("coach-request-row-academy-100");
@@ -330,7 +331,7 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
 
     await n.press("coach-request-row-private-2");
     const recurrence = text(n, "coach-request-detail-recurrence");
-    expect(recurrence).toContain("2026-12-15");
+    expect(recurrence).toContain("15/12/2026");
     expect(recurrence).toContain("classRequestWizard.weekdays.2");
     expect(recurrence).toContain("classRequestWizard.weekdays.4");
   });

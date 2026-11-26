@@ -115,47 +115,81 @@ export function useCoachRequestActions() {
     }
   };
 
-  /** The buttons of one row; nothing for a row that is not `pending` (countered awaits the student). */
-  const actionsFor = (row: CoachRequestRow): ReactNode => {
+  /**
+   * The actions of one row; nothing for a row that is not `pending` (countered awaits the student).
+   * `menu` (the table): Aceitar and a "…" menu holding the rest, so the column stays narrow;
+   * `inline` (the cards): every button in the open.
+   */
+  const actionsFor = (row: CoachRequestRow, layout: "menu" | "inline" = "menu"): ReactNode => {
     if (row.status !== "pending") return null;
     const disabled = busy === keyOf(row);
-    if (row.kind === "academy") {
+    const academy = row.kind === "academy";
+    const accept = academy ? (
+      <Button size="sm" disabled={disabled} onClick={() => academyAccept(row)} data-testid="class-join-list-accept">
+        {t("calendar.joinRequest.accept")}
+      </Button>
+    ) : (
+      <Button size="sm" disabled={disabled} onClick={() => act(row, () => acceptClassRequest(row.id), "classRequests.accepted")} data-testid="class-request-accept">
+        {t("classRequests.accept")}
+      </Button>
+    );
+    const others = academy
+      ? [{ id: "class-join-list-reject", label: t("calendar.joinRequest.reject"), run: () => academyReject(row) }]
+      : [
+          { id: "class-request-decline", label: t("classRequests.decline"), run: () => act(row, () => declineClassRequest(row.id), "classRequests.declined") },
+          {
+            id: "class-request-propose",
+            label: t("classRequests.propose"),
+            run: () => (proposing && keyOf(proposing) === keyOf(row) ? setProposing(null) : openProposal(row)),
+          },
+        ];
+    if (layout === "inline") {
       return (
-        <div className="flex gap-2">
-          <Button size="sm" disabled={disabled} onClick={() => academyAccept(row)} data-testid="class-join-list-accept">
-            {t("calendar.joinRequest.accept")}
-          </Button>
-          <Button size="sm" variant="outline" disabled={disabled} onClick={() => academyReject(row)} data-testid="class-join-list-reject">
-            {t("calendar.joinRequest.reject")}
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          {accept}
+          {others.map((o) => (
+            <Button key={o.id} size="sm" variant="outline" disabled={disabled} onClick={o.run} data-testid={o.id}>
+              {o.label}
+            </Button>
+          ))}
         </div>
       );
     }
     return (
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={disabled} onClick={() => act(row, () => acceptClassRequest(row.id), "classRequests.accepted")} data-testid="class-request-accept">
-          {t("classRequests.accept")}
-        </Button>
-        <Button size="sm" variant="outline" disabled={disabled} onClick={() => act(row, () => declineClassRequest(row.id), "classRequests.declined")} data-testid="class-request-decline">
-          {t("classRequests.decline")}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={disabled}
-          onClick={() => (proposing && keyOf(proposing) === keyOf(row) ? setProposing(null) : openProposal(row))}
-          data-testid="class-request-propose"
-        >
-          {t("classRequests.propose")}
-        </Button>
+      <div className="flex items-center gap-1" data-testid="coach-request-actions">
+        {accept}
+        <details className="relative" data-testid="coach-request-more">
+          <summary
+            className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md border text-lg leading-none hover:bg-muted [&::-webkit-details-marker]:hidden"
+            aria-label={t("classRequests.table.moreActions")}
+            data-testid="coach-request-more-toggle"
+          >
+            …
+          </summary>
+          <div className="absolute right-0 z-20 mt-1 flex w-52 flex-col rounded-md border bg-popover p-1 shadow-md">
+            {others.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                disabled={disabled}
+                className="rounded px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
+                onClick={(e) => {
+                  (e.currentTarget.closest("details") as HTMLDetailsElement | null)?.removeAttribute("open");
+                  o.run();
+                }}
+                data-testid={o.id}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </details>
       </div>
     );
   };
 
-  /** The propose form and the below-the-bar confirmation, rendered once, above the table. */
-  const panel: ReactNode = (
-    <>
-      {proposing && (
+  /** The propose form (rule 16): the table puts it under the row it is for. */
+  const form: ReactNode = proposing ? (
         <div
           ref={formRef}
           className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end rounded-md bg-muted/40 p-2"
@@ -195,8 +229,10 @@ export function useCoachRequestActions() {
             {t("classRequests.proposeSend")}
           </Button>
         </div>
-      )}
-      {/* Rule 7: accepting an academy row is a manual add — same warning as the class sheet. */}
+  ) : null;
+
+  /** Rule 7: accepting an academy row is a manual add — same warning as the class sheet. */
+  const dialog: ReactNode = (
       <EligibilityConfirmDialog
         open={parked !== null}
         ineligible={parked?.ineligible ?? []}
@@ -208,8 +244,7 @@ export function useCoachRequestActions() {
           if (row) void academyAccept(row, true);
         }}
       />
-    </>
   );
 
-  return { actionsFor, panel, openProposal };
+  return { actionsFor, form, dialog, proposing, openProposal };
 }

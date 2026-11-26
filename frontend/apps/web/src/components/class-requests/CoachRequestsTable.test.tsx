@@ -145,10 +145,10 @@ describe("the coach's requests table (PAD-795)", () => {
 
     const rows = screen.getAllByTestId("coach-request-row");
     const cell = (r: HTMLElement, name: string) => within(r).getByTestId(`coach-request-cell-${name}`).textContent;
-    expect(cell(rows[0], "class-day")).toBe("2026-10-07");
+    expect(cell(rows[0], "class-day")).toBe("07/10/2026"); // the language's short date (pt)
     expect(cell(rows[0], "class-time")).toBe("09:00–10:00");
     // 23:30 UTC on 6 Oct is 00:30 on 7 Oct in the club's time zone (summer time).
-    expect(cell(rows[0], "requested-day")).toBe("2026-10-07");
+    expect(cell(rows[0], "requested-day")).toBe("07/10/2026");
     expect(cell(rows[0], "requested-time")).toBe("00:30");
     expect(cell(rows[0], "student")).toBe("Bruno Alves");
     expect(cell(rows[0], "kind")).toContain("classRequests.table.kind.private");
@@ -208,7 +208,9 @@ describe("the coach's requests table (PAD-795)", () => {
     fireEvent.click(screen.getByTestId("coach-requests-tab-open"));
     await waitFor(() => expect(lastQuery()).toMatchObject({ section: "open", page: 1, kind: "private" }));
     expect(lastQuery().status).toBeUndefined();
+    expect(lastQuery().sortBy).toBeUndefined(); // the tab's own default order (rule 6)
     expect(where()).not.toContain("status=");
+    expect(where()).not.toContain("sort_by");
     expect(where()).not.toContain("page=");
 
     await awayFromPageOne();
@@ -335,8 +337,8 @@ describe("the coach's requests table (PAD-795)", () => {
     let detail = await screen.findByTestId("coach-request-detail");
     expect(detail.getAttribute("data-request-id")).toBe("1");
     expect(within(detail).getByTestId("coach-request-detail-note").textContent).toContain("Prefiro de manhã");
-    expect(within(detail).getByTestId("coach-request-detail-requested-at").textContent).toContain("2026-10-07 00:30");
-    expect(within(detail).getByTestId("coach-request-detail-decided-at").textContent).toContain("2026-10-06 10:00"); // 09:00 UTC, club time
+    expect(within(detail).getByTestId("coach-request-detail-requested-at").textContent).toContain("07/10/2026 00:30");
+    expect(within(detail).getByTestId("coach-request-detail-decided-at").textContent).toContain("06/10/2026 10:00"); // 09:00 UTC, club time
     expect(within(detail).getByTestId("coach-request-detail-decided-by").textContent).toContain("classRequests.table.detail.student");
 
     fireEvent.click(rows[1]);
@@ -347,7 +349,7 @@ describe("the coach's requests table (PAD-795)", () => {
     fireEvent.click(rows[2]);
     detail = await screen.findByTestId("coach-request-detail");
     const recurrence = within(detail).getByTestId("coach-request-detail-recurrence").textContent ?? "";
-    expect(recurrence).toContain("2026-12-15");
+    expect(recurrence).toContain("15/12/2026");
     expect(recurrence).toContain("classRequestWizard.weekdays.2");
     expect(recurrence).toContain("classRequestWizard.weekdays.4");
     // Nothing in it is editable.
@@ -399,5 +401,28 @@ describe("the coach's requests table (PAD-795)", () => {
     const r = await screen.findByTestId("coach-request-row");
     expect(within(r).queryByTestId("class-join-request-use-side")).toBeNull();
     expect(within(r).getByTestId("coach-request-cell-side").textContent).toBe("players.sideLeft");
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-21] the propose form opens under its own row, and above the list only when the row is not loaded", async () => {
+    coachApi.listCoachRequests.mockResolvedValue(page([row({ id: 1 }), row({ id: 2, playerId: "carla-id", displayName: "Carla Dias" })]));
+    renderTable();
+    const rows = await screen.findAllByTestId("coach-request-row");
+    fireEvent.click(within(rows[1]).getByTestId("class-request-propose"));
+    const form = await screen.findByTestId("class-request-proposal-form");
+    // The form is the next table row after the row it is for, not the top of the card.
+    expect(form.closest("tr")).toBe(rows[1].nextElementSibling);
+    expect(form.getAttribute("data-request-id")).toBe("2");
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-12] the actions are Accept and a menu holding the rest", async () => {
+    coachApi.listCoachRequests.mockResolvedValue(page([row({ id: 1 }), academy({ id: 100 })]));
+    renderTable();
+    const [priv, acad] = await screen.findAllByTestId("coach-request-row");
+    for (const r of [priv, acad]) expect(within(r).getByTestId("coach-request-more-toggle").getAttribute("aria-label")).toBe("classRequests.table.moreActions");
+    const menu = (r: HTMLElement) => within(within(r).getByTestId("coach-request-more")).queryAllByRole("button").map((b) => b.getAttribute("data-testid"));
+    expect(menu(priv)).toEqual(["class-request-decline", "class-request-propose"]);
+    expect(menu(acad)).toEqual(["class-join-list-reject"]);
+    // Accept is outside the menu.
+    expect(within(within(priv).getByTestId("coach-request-more")).queryByTestId("class-request-accept")).toBeNull();
   });
 });
