@@ -11,6 +11,7 @@ skips it as ``already_answered`` (the lock holds until the first entry's commit)
 """
 from datetime import date, datetime, time, timedelta
 
+from flask import abort
 from werkzeug.exceptions import HTTPException
 
 from padel_app.models import Association_PlayerLesson, LessonInstance, Player, Presence
@@ -22,6 +23,7 @@ from padel_app.sql_db import db
 from padel_app.tools.unit_of_work import unit_of_work
 from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 
+MAX_ENTRIES = 200  # calendar.student-blockers rule 22: one call asks about at most this many classes
 REASONS = ("not_covered", "not_enrolled", "started", "already_answered")
 
 
@@ -54,7 +56,7 @@ def _diagnose(player, entry, now_wall):
             return "not_enrolled"
         if instance.start_datetime is not None and now_wall >= instance.start_datetime:
             return "started"
-        if presence.attendance_state not in ("planned", "coming"):
+        if presence.validated or presence.attendance_state not in ("planned", "coming"):
             return "already_answered"
         return "not_covered"
     lesson = db.session.get(Lesson, entry["originalId"])
@@ -70,7 +72,7 @@ def _diagnose(player, entry, now_wall):
         presence = Presence.query.filter_by(player_id=player.id, lesson_instance_id=existing.id).first()
         if presence is None:
             return "not_enrolled"
-        if presence.attendance_state not in ("planned", "coming"):
+        if presence.validated or presence.attendance_state not in ("planned", "coming"):
             return "already_answered"
     return "not_covered"
 
@@ -87,14 +89,16 @@ def _decline_one(user, player, entry):
         instance = db.session.get(LessonInstance, entry["originalId"])
     if instance is None:
         return "skipped", "not_enrolled"
-    # The row lock: a parallel yes for this class waits here until this entry has committed.
+    # The row locks, instance first (the engine's store locks the instance row, so a tick at the same moment
+    # takes them in the same order); a parallel yes for this class waits here until this entry has committed.
+    LessonInstance.query.filter_by(id=instance.id).with_for_update().populate_existing().first()
     presence = (
         Presence.query.filter_by(player_id=player.id, lesson_instance_id=instance.id)
         .with_for_update().populate_existing().first()
     )
     if presence is None:
         return "skipped", "not_enrolled"
-    if presence.attendance_state not in ("planned", "coming"):
+    if presence.validated or presence.attendance_state not in ("planned", "coming"):
         return "skipped", "already_answered"
     try:
         cancel_attendance(user.id, lesson_instance_id=instance.id, source=DECLINE_SOURCE_AVAILABILITY_BLOCK)
@@ -105,6 +109,8 @@ def _decline_one(user, player, entry):
 
 def decline_covered(user, occurrences):
     """Rule 22: ``{declined: [...], skipped: [...]}`` for the entries a student said yes to."""
+    if isinstance(occurrences, list) and len(occurrences) > MAX_ENTRIES:
+        abort(400, description=f"At most {MAX_ENTRIES} classes in one call.")
     player = Player.query.filter_by(user_id=user.id).first()
     stored = [b for b in _stored_blockers(user.id)]
     covered = {_key(c) for c in covered_for_blocks(user, stored)} if stored else set()

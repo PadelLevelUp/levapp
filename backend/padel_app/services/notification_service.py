@@ -3904,7 +3904,9 @@ def respond_to_reminder(
         # PAD-918 (swap plan §3.1): the attendance request's answer is the new engine's.
         from padel_app.services.engine_entry import answer_attendance_request
 
-        return answer_attendance_request(instance, presence, action, _now)
+        answered = answer_attendance_request(instance, presence, action, _now)
+        _clear_decline_source(player.id, lesson_instance_id, answered)  # PAD-772 rule 23: the reminder's answer is never a block decline
+        return answered
 
     from padel_app.services.lesson_service import primary_coach
 
@@ -4437,6 +4439,15 @@ def _resolve_occurrence_for_student(player, model, original_id, date):
     return get_or_materialize_instance(lesson, occ_date)
 
 
+def _clear_decline_source(player_id, lesson_instance_id, answered: dict) -> None:
+    """Drop the block-decline reason after the new engine answered a reminder (attendance.confirm rule 23);
+    a yes the engine did not honour leaves the student absent, and the reason with it."""
+    presence = Presence.query.filter_by(player_id=player_id, lesson_instance_id=lesson_instance_id).first()
+    if presence is not None and presence.decline_source is not None and (answered["action"] != "confirmed" or presence.status != "absent"):
+        presence.decline_source = None
+        presence.save()
+
+
 def cancel_attendance(
     acting_user_id: int,
     *,
@@ -4503,12 +4514,13 @@ def cancel_attendance(
         from padel_app.services.engine_entry import student_not_going
 
         result = student_not_going(instance, presence, _now)
+        # The engine wrote the absence; the source (none included: a plain decline drops an earlier block's)
+        # and the mark's instant are ours (rule 23).
+        presence = Presence.query.filter_by(player_id=player.id, lesson_instance_id=lesson_instance_id).first()
+        presence.decline_source = source
         if source:
-            # The engine wrote the absence; the source and the mark's instant are ours (rule 23).
-            presence = Presence.query.filter_by(player_id=player.id, lesson_instance_id=lesson_instance_id).first()
-            presence.decline_source = source
             presence.responded_at = _now
-            presence.save()
+        presence.save()
         return result
 
     from padel_app.services.lesson_service import primary_coach

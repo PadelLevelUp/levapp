@@ -85,7 +85,7 @@ def covered_for_blocks(user, blocks):
     instance_ids = [e["originalId"] for e in events if e["model"] == "LessonInstance"]
     instances = {i.id: i for i in LessonInstance.query.filter(LessonInstance.id.in_(instance_ids)).all()} if instance_ids else {}
     states = (
-        {p.lesson_instance_id: p.attendance_state
+        {p.lesson_instance_id: p.attendance_state if not p.validated else "validated"  # a coach-marked row is not ours to answer
          for p in Presence.query.filter(Presence.player_id == player.id, Presence.lesson_instance_id.in_(instance_ids)).all()}
         if instance_ids else {}
     )

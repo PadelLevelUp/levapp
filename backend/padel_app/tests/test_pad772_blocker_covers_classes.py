@@ -161,6 +161,13 @@ def test_create_answers_the_covered_occurrences_and_marks_nothing(world, app):
     world.materialised(weekly, "ana", date(2026, 12, 9), declined=True)  # already declined
     world.one_off("ana", datetime(2026, 12, 1, 8, 0), title="Já começou")  # 08:00 today, now is 10:00
     world.one_off("bia", datetime(2026, 12, 2, 18, 0), title="Da Bia")
+    validated = world.one_off("ana", datetime(2026, 12, 3, 18, 0), title="Validada")  # the coach validated it: status stays NULL
+    with app.app_context():
+        from padel_app.models import Presence
+
+        row = Presence.query.filter_by(lesson_instance_id=validated).one()
+        row.validated = True
+        db.session.commit()
     before = presences(app)
     with app.app_context():
         instances_before, messages_before = LessonInstance.query.count(), Message.query.count()
@@ -470,20 +477,15 @@ def test_a_new_engine_session_is_marked_by_the_engine(world, app, io):
         db.session.add(EngineSession(lesson_instance_id=soon, coach_id=world.coach, alerted=[]))
         db.session.commit()
     own_block(world)
-    seen = []
-
-    def engine_no(instance, presence, now=None):
-        seen.append((instance.id, presence.player_id))
-        presence.status, presence.justification, presence.confirmed = "absent", None, True
-        presence.save()
-        return {"action": "declined", "proactive": False}
-
-    with mock.patch("padel_app.services.engine_entry.student_not_going", engine_no):
-        res = world.call("post", MARK, body={"occurrences": [entry("LessonInstance", soon, "2026-12-02")]})
+    res = world.call("post", MARK, body={"occurrences": [entry("LessonInstance", soon, "2026-12-02")]})  # the real engine
     assert [d["originalId"] for d in res.get_json()["declined"]] == [soon]
-    assert seen == [(soon, world.players["ana"])]  # the engine's own "not going"
     p = presence_of(app, world.players["ana"], soon)
-    assert p["source"] == "availability_block" and p["responded_at"] == NOW
+    assert p["status"] == "absent" and p["source"] == "availability_block" and p["responded_at"] == NOW
+    with app.app_context():
+        assert Presence.query.filter_by(lesson_instance_id=soon, player_id=world.players["ana"]).count() == 1  # one absence
+    again = world.call("post", MARK, body={"occurrences": [entry("LessonInstance", soon, "2026-12-02")]})
+    assert again.get_json()["declined"] == []
+    assert [(s["originalId"], s["reason"]) for s in again.get_json()["skipped"]] == [(soon, "already_answered")]
     assert messages(app, sender_id=world.coach_user) == []  # nothing from the coach
     assert [m for m in messages(app, sender_id=world.users["ana"]) if m[2].get("cancellation")] == []  # and no coach notice on the new engine
     with app.app_context():
@@ -516,6 +518,50 @@ def test_a_marked_class_is_not_reminded_and_survives_the_block_delete(world, app
         assert respond_to_reminder(soon, "yes", world.users["ana"], now=NOW)["action"] == "confirmed"
     back = presence_of(app, world.players["ana"], soon)
     assert back["status"] is None and back["source"] is None
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-22")
+def test_on_the_new_engine_the_block_reason_goes_with_the_answer_that_follows(world, app, io):
+    from padel_app.models import EngineSession, Presence
+    from padel_app.services.notification_service import respond_to_reminder
+
+    regular = world.one_off("ana", datetime(2026, 12, 2, 19, 0), title="Regular")
+    placed = world.one_off("ana", datetime(2026, 12, 3, 19, 0), title="Colocada")
+    with app.app_context():
+        for instance in (regular, placed):
+            db.session.add(EngineSession(lesson_instance_id=instance, coach_id=world.coach, alerted=[]))
+        Presence.query.filter_by(lesson_instance_id=regular).one().enrolment_source = "roster"  # the engine brings a regular back
+        db.session.commit()
+    own_block(world)
+    marked = world.call("post", MARK, body={"occurrences": [entry("LessonInstance", regular, "2026-12-02")]})
+    assert len(marked.get_json()["declined"]) == 1
+    assert presence_of(app, world.players["ana"], regular)["source"] == "availability_block"
+
+    # "Afinal vou" on the new engine clears it with the absence.
+    with app.app_context():
+        assert respond_to_reminder(regular, "yes", world.users["ana"], now=NOW)["action"] == "confirmed"
+    back = presence_of(app, world.players["ana"], regular)
+    assert back["status"] is None and back["source"] is None
+
+    # A later ordinary "Não vai" writes no reason, whatever the row carried: it is not "indisponível".
+    with app.app_context():
+        row = Presence.query.filter_by(lesson_instance_id=placed).one()
+        row.decline_source = "availability_block"  # a reason left by an earlier block decline
+        db.session.commit()
+    assert world.call("post", "/api/app/notify/cancel_attendance", body={"lessonInstanceId": placed}).status_code == 200
+    again = presence_of(app, world.players["ana"], placed)
+    assert again["status"] == "absent" and again["source"] is None
+
+
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-20")
+def test_one_mark_call_asks_about_at_most_two_hundred_classes(world, app, io):
+    from padel_app.services.blocker_decline_service import MAX_ENTRIES
+
+    assert MAX_ENTRIES == 200
+    own_block(world)
+    crowd = [entry("Lesson", 1, (date(2026, 12, 2) + timedelta(days=i)).isoformat()) for i in range(MAX_ENTRIES + 1)]
+    assert world.call("post", MARK, body={"occurrences": crowd}).status_code == 400
+    assert world.call("post", MARK, body={"occurrences": crowd[:MAX_ENTRIES]}).status_code == 200  # the limit itself passes
 
 
 @pytest.mark.criterion("ATTENDANCE-CONFIRM-43")
