@@ -350,19 +350,15 @@ export function ClassRequestsSection() {
               </CardTitle>
               <CardDescription>{t("classRequests.cardIntro")}</CardDescription>
             </div>
-            {(
-              <Button onClick={() => setBooking(true)} className="gap-2 w-full sm:w-auto sm:shrink-0" data-testid="class-request-book">
-                <CalendarPlus className="w-4 h-4" />
-                {t("classRequests.book")}
-              </Button>
-            )}
+            <Button onClick={() => setBooking(true)} className="gap-2 w-full sm:w-auto sm:shrink-0" data-testid="class-request-book">
+              <CalendarPlus className="w-4 h-4" />
+              {t("classRequests.book")}
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* PAD-357: "Marcar aula" opens the wizard (coach → kind → private / academy). */}
-          {(
-            <ClassRequestWizard open={booking} onClose={() => setBooking(false)} onDone={refresh} />
-          )}
+          <ClassRequestWizard open={booking} onClose={() => setBooking(false)} onDone={refresh} />
 
           {loading ? (
             <p className="text-sm text-muted-foreground">…</p>

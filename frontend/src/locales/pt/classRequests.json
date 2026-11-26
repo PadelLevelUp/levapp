@@ -174,7 +174,6 @@
       },
       "empty": "Sem pedidos nesta vista.",
       "detail": {
-        "note": "Nota do aluno",
         "requestedAt": "Pedido em {{when}}",
         "decidedAt": "Decidido em {{when}}",
         "decidedBy": "Decidido por: {{who}}",

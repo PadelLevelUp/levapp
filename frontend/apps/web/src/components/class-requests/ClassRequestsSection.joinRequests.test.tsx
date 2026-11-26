@@ -43,8 +43,14 @@ const joinRequestsApi = vi.hoisted(() => ({
     r?.reasons?.includes("side") ? r.requestedSide : null,
 }));
 vi.mock("@/api/classJoinRequests", () => joinRequestsApi);
+// The coach's endpoint, mocked where it is defined: whichever path the section reads it by, a call lands here.
 const coachApi = vi.hoisted(() => ({ listCoachRequests: vi.fn() }));
-vi.mock("@/api/coachRequests", () => coachApi);
+vi.mock("@levelup/api/src/resources/coachRequests", async (orig) => ({
+  ...(await orig<typeof import("@levelup/api/src/resources/coachRequests")>()),
+  listCoachRequests: coachApi.listCoachRequests,
+}));
+const academyApi = vi.hoisted(() => ({ listClassWaitingList: vi.fn(), leaveClassWaitingList: vi.fn() }));
+vi.mock("@/api/academyClasses", () => academyApi);
 
 import { ClassRequestsSection } from "./ClassRequestsSection";
 
@@ -102,6 +108,8 @@ function renderSection() {
 }
 
 afterEach(() => {
+  coachApi.listCoachRequests.mockReset();
+  Object.values(academyApi).forEach((fn) => fn.mockReset());
   Object.values(requestsApi).forEach((fn) => typeof fn === "function" && "mockReset" in fn && fn.mockReset());
   Object.values(joinRequestsApi).forEach((fn) => typeof fn === "function" && "mockReset" in fn && fn.mockReset());
 });
@@ -121,16 +129,31 @@ describe("the student's list shows and lets her withdraw her own academy request
 
 describe("the student's list is untouched by the coach's table (classes.coach-requests-table, PAD-795)", () => {
   it("[CLASSES-COACH-REQUESTS-TABLE-20] the student's list keeps the old reads", async () => {
-    requestsApi.listClassRequests.mockResolvedValue([privateRow({ id: 1 })]);
-    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100, status: "accepted" })]);
+    // A pending private request, a decided academy request and a waiting-list place (newest first).
+    requestsApi.listClassRequests.mockResolvedValue([privateRow({ id: 1, createdAt: "2026-10-06T12:00:00" })]);
+    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100, status: "accepted", createdAt: "2026-10-06T10:00:00" })]);
+    academyApi.listClassWaitingList.mockResolvedValue([
+      { kind: "waiting_list", id: 5, lessonInstanceId: 70, classTitle: "Quinta", date: "2026-10-08", startTime: "18:00", endTime: "19:00",
+        coachName: "Ana", status: "active", joinedAt: "2026-10-06T11:00:00", createdAt: "2026-10-06T11:00:00" },
+    ]);
 
     renderSection();
 
-    const rows = await screen.findAllByTestId(/^(class-request-row|class-join-list-row)$/);
-    expect(rows.map((el) => el.getAttribute("data-request-id"))).toEqual(["1", "100"]);
-    expect(screen.getByTestId("class-requests-history-toggle")).toBeTruthy();
+    const all = await screen.findAllByTestId(/^(class-request-row|class-join-list-row|class-waiting-list-row)$/);
+    // Merged newest first: the private request (12:00), the waiting-list place (11:00), the academy request (10:00).
+    expect(all.map((el) => `${el.getAttribute("data-testid")}:${el.getAttribute("data-request-id") ?? el.getAttribute("data-instance-id")}`)).toEqual([
+      "class-request-row:1",
+      "class-waiting-list-row:70",
+      "class-join-list-row:100",
+    ]);
+    // Em aberto holds the pending and the active place; the decided academy request is behind "Histórico".
+    const history = screen.getByTestId("class-requests-history-toggle").closest("details")!;
+    expect(history.contains(all[2])).toBe(true);
+    expect(history.contains(all[0])).toBe(false);
+    expect(history.contains(all[1])).toBe(false);
     expect(requestsApi.listClassRequests).toHaveBeenCalled();
     expect(joinRequestsApi.listClassJoinRequests).toHaveBeenCalled();
+    expect(academyApi.listClassWaitingList).toHaveBeenCalled();
     expect(coachApi.listCoachRequests).not.toHaveBeenCalled();
   });
 });

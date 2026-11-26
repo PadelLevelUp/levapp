@@ -20,6 +20,7 @@ import {
   coachRequestStatusKey,
   coachRequestsActiveSort,
   coachRequestsQuery,
+  switchCoachRequestsSection,
   type CoachRequestsView,
 } from "@levelup/config";
 import type { CoachRequestRow, CoachRequestsQuery, CoachRequestsSection, CoachRequestsSortKey } from "@levelup/types";
@@ -120,7 +121,8 @@ export function CoachRequestsTable() {
   const switchTab = (next: CoachRequestsSection) => {
     if (next === section) return;
     // A tab change returns to page 1 and drops the status filter: the two sections share no status.
-    update({ tab: next === "history" ? "history" : null, status: null });
+    const nextView = switchCoachRequestsSection(view, next);
+    update({ tab: nextView.section === "history" ? "history" : null, status: nextView.status ?? null });
   };
 
   // Rule 16: "Propose another time" from the chat reads that one request, whatever page it is on.
@@ -161,8 +163,14 @@ export function CoachRequestsTable() {
   const pagination = data?.pagination;
   const hasFilters = FILTER_PARAMS.some((key) => params.get(key));
 
+  // The chip and "Usar … no perfil" belong to a request still to be decided (rule 13); a decided row only names the side.
+  const sideWord = (side: NonNullable<CoachRequestRow["side"]>) => t(side === "left" ? "players.sideLeft" : side === "right" ? "players.sideRight" : "players.sideBoth");
   const sideCell = (r: CoachRequestRow) =>
-    r.side ? <JoinRequestSide request={{ coachId: r.coachId, playerId: r.playerId, side: r.side, suggestedProfileSide: r.suggestedProfileSide }} /> : "—";
+    !r.side ? "—" : r.status === "pending" ? (
+      <JoinRequestSide request={{ coachId: r.coachId, playerId: r.playerId, side: r.side, suggestedProfileSide: r.suggestedProfileSide }} />
+    ) : (
+      sideWord(r.side)
+    );
 
   const detail = (r: CoachRequestRow) => {
     const when = (iso: string | null) => {

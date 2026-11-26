@@ -174,7 +174,6 @@
       },
       "empty": "No requests in this view.",
       "detail": {
-        "note": "Student's note",
         "requestedAt": "Requested on {{when}}",
         "decidedAt": "Decided on {{when}}",
         "decidedBy": "Decided by: {{who}}",

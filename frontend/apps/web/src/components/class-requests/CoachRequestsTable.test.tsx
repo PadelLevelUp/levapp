@@ -167,33 +167,55 @@ describe("the coach's requests table (PAD-795)", () => {
   });
 
   it("[CLASSES-COACH-REQUESTS-TABLE-13] sort, filters and tab reset the page and live in the URL", async () => {
-    coachApi.listCoachRequests.mockResolvedValue(page([row({ id: 1, status: "accepted" })], { counts: { open: 2, history: 9 } }));
+    coachApi.listCoachRequests.mockImplementation(async (q: { page?: number }) => {
+      const p = q.page ?? 1;
+      return page([row({ id: 1, status: "accepted" })], {
+        pagination: { page: p, perPage: 25, total: 75, pages: 3, hasNext: p < 3, hasPrev: p > 1 },
+        counts: { open: 2, history: 9 },
+      });
+    });
     renderTable("/class-requests?tab=history&page=3&status=accepted");
 
     await screen.findByTestId("coach-request-row");
     expect(lastQuery()).toMatchObject({ section: "history", page: 3, status: ["accepted"] });
+    // Every step below starts away from page 1, so "back to page 1" is the step's own doing.
+    const awayFromPageOne = async () => {
+      if (screen.getByTestId("coach-requests-pager-position").textContent!.startsWith("1")) {
+        fireEvent.click(screen.getByTestId("coach-requests-pager-next"));
+        await waitFor(() => expect(lastQuery().page).toBe(2));
+      }
+    };
 
     fireEvent.click(screen.getByTestId("coach-requests-col-student"));
     await waitFor(() => expect(lastQuery()).toMatchObject({ sortBy: "student", sortDir: "asc", page: 1, status: ["accepted"] }));
+    await awayFromPageOne();
     fireEvent.click(screen.getByTestId("coach-requests-col-student"));
     await waitFor(() => expect(lastQuery()).toMatchObject({ sortBy: "student", sortDir: "desc", page: 1 }));
 
+    await awayFromPageOne();
     fireEvent.change(screen.getByTestId("coach-requests-filter-kind"), { target: { value: "private" } });
     await waitFor(() => expect(lastQuery()).toMatchObject({ kind: "private", page: 1 }));
+    await awayFromPageOne();
     fireEvent.change(screen.getByTestId("coach-requests-filter-class-from"), { target: { value: "2026-10-01" } });
     await waitFor(() => expect(lastQuery()).toMatchObject({ classFrom: "2026-10-01", kind: "private", page: 1 }));
     expect(where()).toContain("kind=private");
     expect(where()).toContain("class_from=2026-10-01");
     expect(where()).toContain("sort_by=student");
+    expect(where()).not.toContain("page=");
 
+    await awayFromPageOne();
+    expect(where()).toContain("page=2");
     fireEvent.click(screen.getByTestId("coach-requests-tab-open"));
     await waitFor(() => expect(lastQuery()).toMatchObject({ section: "open", page: 1, kind: "private" }));
     expect(lastQuery().status).toBeUndefined();
     expect(where()).not.toContain("status=");
+    expect(where()).not.toContain("page=");
 
+    await awayFromPageOne();
     fireEvent.click(screen.getByTestId("coach-requests-clear"));
     await waitFor(() => expect(lastQuery().kind).toBeUndefined());
     expect(lastQuery().classFrom).toBeUndefined();
+    expect(lastQuery().page).toBe(1);
     expect(where()).not.toContain("kind=");
   });
 
@@ -252,6 +274,9 @@ describe("the coach's requests table (PAD-795)", () => {
     expect(within(acad).getByTestId("class-join-list-accept")).toBeTruthy();
     expect(within(acad).getByTestId("class-join-list-reject")).toBeTruthy();
 
+    joinApi.rejectClassJoinRequest.mockResolvedValue({});
+    fireEvent.click(within(acad).getByTestId("class-join-list-reject"));
+    await waitFor(() => expect(joinApi.rejectClassJoinRequest).toHaveBeenCalledWith(100));
     fireEvent.click(within(acad).getByTestId("class-join-list-accept"));
     fireEvent.click(await screen.findByTestId("eligibility-confirm-proceed"));
     await waitFor(() => expect(joinApi.acceptClassJoinRequest).toHaveBeenLastCalledWith(100, true));
@@ -310,8 +335,8 @@ describe("the coach's requests table (PAD-795)", () => {
     let detail = await screen.findByTestId("coach-request-detail");
     expect(detail.getAttribute("data-request-id")).toBe("1");
     expect(within(detail).getByTestId("coach-request-detail-note").textContent).toContain("Prefiro de manhã");
-    expect(within(detail).getByTestId("coach-request-detail-requested-at").textContent).toContain("2026-10-07");
-    expect(within(detail).getByTestId("coach-request-detail-decided-at").textContent).toContain("2026-10-06");
+    expect(within(detail).getByTestId("coach-request-detail-requested-at").textContent).toContain("2026-10-07 00:30");
+    expect(within(detail).getByTestId("coach-request-detail-decided-at").textContent).toContain("2026-10-06 10:00"); // 09:00 UTC, club time
     expect(within(detail).getByTestId("coach-request-detail-decided-by").textContent).toContain("classRequests.table.detail.student");
 
     fireEvent.click(rows[1]);
@@ -337,7 +362,7 @@ describe("the coach's requests table (PAD-795)", () => {
     renderTable("/class-requests?proposeFor=7");
 
     const form = await screen.findByTestId("class-request-proposal-form");
-    expect(coachApi.listCoachRequests).toHaveBeenCalledWith(expect.objectContaining({ kind: "private", id: 7 }));
+    expect(coachApi.listCoachRequests).toHaveBeenCalledWith({ kind: "private", id: 7 }); // no page, no section
     expect((within(form).getByDisplayValue("2026-10-09") as HTMLInputElement).type).toBe("date");
     await waitFor(() => expect(where()).not.toContain("proposeFor"));
   });
@@ -362,5 +387,17 @@ describe("the coach's requests table (PAD-795)", () => {
     await waitFor(() =>
       expect(requestsApi.proposeClassRequest).toHaveBeenCalledWith(1, { date: "2026-10-07", startTime: "09:00", endTime: "10:00" })
     );
+  });
+
+  it("[CLASSES-COACH-REQUESTS-TABLE-15] \"use this side in the profile\" is offered while a request is open, never in Histórico", async () => {
+    coachApi.listCoachRequests.mockResolvedValue(page([academy({ id: 100, status: "pending", side: "left", suggestedProfileSide: "left" })]));
+    renderTable();
+    await screen.findByTestId("class-join-request-use-side");
+    cleanup();
+    coachApi.listCoachRequests.mockResolvedValue(page([academy({ id: 101, status: "accepted", side: "left", suggestedProfileSide: "left" })]));
+    renderTable("/class-requests?tab=history");
+    const r = await screen.findByTestId("coach-request-row");
+    expect(within(r).queryByTestId("class-join-request-use-side")).toBeNull();
+    expect(within(r).getByTestId("coach-request-cell-side").textContent).toBe("players.sideLeft");
   });
 });

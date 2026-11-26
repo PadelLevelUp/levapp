@@ -211,5 +211,5 @@ export function useCoachRequestActions() {
     </>
   );
 
-  return { actionsFor, panel, openProposal, busyKey: busy };
+  return { actionsFor, panel, openProposal };
 }

@@ -155,8 +155,13 @@ describe("the open statuses (classes.coach-requests-table rule 3, PAD-795)", () 
     // specflow/impl/classes/constants.md: PRIVATE_REQUEST_OPEN_STATUSES, JOIN_REQUEST_OPEN_STATUSES.
     expect([...PRIVATE_REQUEST_OPEN_STATUSES]).toEqual(["pending", "countered"]);
     expect([...JOIN_REQUEST_OPEN_STATUSES]).toEqual(["pending"]);
+    // Every (kind, status) pair of rule 2 goes through the helper the lists split by.
     for (const status of ["pending", "countered", "accepted", "declined", "withdrawn"] as const) {
-      expect(isOpenClassRequestRow(privateRow({ status }))).toBe(PRIVATE_REQUEST_OPEN_STATUSES.includes(status));
+      expect(isOpenClassRequestRow(privateRow({ status })), `private ${status}`).toBe(PRIVATE_REQUEST_OPEN_STATUSES.includes(status));
+    }
+    for (const status of ["pending", "accepted", "rejected", "withdrawn", "superseded"] as const) {
+      expect(isOpenClassRequestRow(academyRow({ status })), `academy ${status}`).toBe(JOIN_REQUEST_OPEN_STATUSES.includes(status));
+      expect(isOpenClassRequestRow(academyRow({ status })), `academy ${status}`).toBe(status === "pending");
     }
   });
 });
