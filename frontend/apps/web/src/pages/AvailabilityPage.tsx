@@ -3,7 +3,7 @@ import { CalendarOff, Repeat, Trash2, Pencil, CalendarX } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ClassRequestsSection } from "@/components/class-requests/ClassRequestsSection";
 import { BlockerSheet } from "@/components/availability/BlockerSheet";
-import { useBlockerCoveredFollowUp } from "@/components/availability/BlockerCoveredDialog";
+import { useBlockerSaveFollowUp } from "@/components/availability/useBlockerSaveFollowUp";
 import {
   Card,
   CardContent,
@@ -37,8 +37,8 @@ import {
 export default function AvailabilityPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
-  // PAD-772 (calendar.student-blockers rule 21): the question after a save that covers classes.
-  const covered = useBlockerCoveredFollowUp();
+  // PAD-772 (calendar.student-blockers rule 21): the count line after a save that marked classes.
+  const afterSave = useBlockerSaveFollowUp();
 
   const describeBlocker = (b: AvailabilityBlocker): string => {
     const time = `${b.startTime ?? ""}–${b.endTime ?? ""}`;
@@ -96,7 +96,7 @@ export default function AvailabilityPage() {
 
   // The sheet validates and builds the payload (rule 16); this only persists it.
   const handleSave = async (payload: BlockerInput) => {
-    let answer: { coveredClasses?: unknown };
+    let answer: { markedClasses?: unknown };
     try {
       setSaving(true);
       if (editing) {
@@ -119,9 +119,9 @@ export default function AvailabilityPage() {
     } finally {
       setSaving(false);
     }
-    // The block is saved and listed; what follows is asked outside the save's try, so a failure
-    // there never says it was not saved (and a failure of the question itself is not worth a second toast).
-    await covered.follow(answer).catch(() => undefined);
+    // The block is saved and listed; what follows is said outside the save's try, so a failure
+    // there never says it was not saved.
+    afterSave(answer);
   };
 
   const handleDelete = async (id: number) => {
@@ -140,7 +140,6 @@ export default function AvailabilityPage() {
 
   return (
     <AppLayout>
-      {covered.dialog}
       <div className="p-4 md:p-6 space-y-6 max-w-3xl" data-testid="availability-page">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold flex items-center gap-2">
