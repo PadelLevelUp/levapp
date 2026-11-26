@@ -32,7 +32,9 @@ point that composes them (PAD-358).
    room:
    - the class is an **academy** class (`Lesson.type == "academy"`). A private class is never listed
      in this step, visible or not (PAD-929); the coach's visible private lessons are listed only by
-     rule 12;
+     rule 12. **Older apps keep their list:** a client that does not declare `private-confirm`
+     (`classes.join-requests` rule 22) and sends no `type` has no rule 12 list, so its read keeps
+     the classes of both types that pass the other conditions, as before PAD-929 (rule 9);
    - the student is on the coach's roster (otherwise the whole read is refused);
    - open spots are visible for the class (`effective_open_spots_visible`, the coach's toggle
      cascaded per `eligibility.open-spot-visibility` rule 3). With the toggle off the step is empty
@@ -82,9 +84,12 @@ point that composes them (PAD-358).
    `private-confirm`) gate only the refusals they add.
 9. **Wire contract (PAD-358).**
    - `GET /api/app/academy-classes?coachId=<coach id>[&type=academy|private]` — absent, `type` is the
-     first of `const:LESSON_LIST_TYPES` (`academy`); present, it must be exactly one of them, so an
-     empty or differently-cased value is `400`, and that `400` comes before the roster `403`. The rows
-     are of that type only (rules 2, 12; PAD-929); `openSpotsVisible` keeps its meaning, the coach's
+     first of `const:LESSON_LIST_TYPES` (`academy`) for a client that declares `private-confirm`, and
+     no type filter at all for a client that does not (an App Store build from before PAD-929, or the
+     capability switched off: it gets academy and private rows together, as it always did); present,
+     it must be exactly one of them, so an empty or differently-cased value is `400`, and that `400`
+     comes before the roster `403`. With a `type`, sent or defaulted, the rows are of that type only
+     (rules 2, 12; PAD-929); `openSpotsVisible` keeps its meaning, the coach's
      standard toggle, which the private list does not use (rule 3a of
      `eligibility.open-spot-visibility` decides a private lesson). Student only; `403` when the student is not
      on that coach's roster, `400` without `coachId`. → `200 {from: "YYYY-MM-DD", to: "YYYY-MM-DD",
@@ -284,9 +289,9 @@ test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.wait
 
 #### CLASSES-ACADEMY-CLASS-BOOKING-20: The academy step lists academy classes only, whatever a private class's setting (rule 2)
 - **Given** coach Ana with an academy class and a private lesson, both with visible spots, a private lesson left hidden, and Bruno eligible for all
-- **When** Bruno reads `GET /academy-classes?coachId=ana`
+- **When** Bruno reads `GET /academy-classes?coachId=ana` from a client that declares `private-confirm`
 - **Then** only the academy class is listed
-- **And** with `type=academy` the answer is the same; with any value outside `const:LESSON_LIST_TYPES`, an empty `type` or `Private`, it is `400`, also for a student off Ana's roster
+- **And** with `type=academy` the answer is the same, declared or not; with any value outside `const:LESSON_LIST_TYPES`, an empty `type` or `Private`, it is `400`, also for a student off Ana's roster
 test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_the_academy_step_lists_academy_classes_only`
 
 #### CLASSES-ACADEMY-CLASS-BOOKING-21: The private read lists the visible private lessons the student may join, under the same checks (rule 12)
@@ -295,6 +300,13 @@ test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_the_aca
 - **Then** only the two visible ones he passes the bar for and is not in are listed, `open` and `full`, each with `classType: "private"`
 - **And** a student off Ana's roster is `403`, and the read creates no row
 test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_the_private_read_lists_only_visible_private_lessons_the_student_may_join`
+
+#### CLASSES-ACADEMY-CLASS-BOOKING-22: An older app, which declares no `private-confirm`, keeps private lessons in its academy step (rules 2, 9)
+- **Given** coach Ana with an academy class, a visible private lesson and a private lesson left hidden, and Bruno eligible for all
+- **When** Bruno reads `GET /academy-classes?coachId=ana` with no `type`, from a client that declares no capability, and then from one that declares `private-confirm` while that capability is switched off
+- **Then** both reads list the academy class and the visible private lesson, and never the hidden one
+- **And** his join request for that private lesson from the undeclaring client is created without `privateConfirmed`
+test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_an_older_app_keeps_private_lessons_in_its_academy_step`
 
 ### Notes
 - **[PAD-358, 2026-09-17]** Coordinator decisions: "eligible" is the PAD-352 open-spot eligibility
