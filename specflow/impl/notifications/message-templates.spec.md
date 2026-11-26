@@ -123,8 +123,10 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     10:00`: a recurring enrolment must not be dated. The weekday follows rule 6 (Babel, the
     coach's locale); with no start the phrase is empty, and with a start whose weekday Babel
     cannot name it is ` no dia 10/04 às 18:00` / ` on 10/04 at 18:00`. The
-    coach-editable templates are untouched: `{date}` stays opt-in there (rule 14), and the
-    built-in defaults still read weekday-only unless the owner decides otherwise.
+    coach-editable templates are untouched: `{date}` stays opt-in there (rule 14). Since PAD-815
+    (rule 27, owner 26 Nov 2026) the Portuguese built-in `invite` names the day with `{day} {date}`
+    and the other Portuguese built-ins of rule 27 with `{day}`; the English built-ins still read
+    weekday-only.
     **Weekday-first form (PAD-678; numbering unconfirmed).** One notice puts the weekday before the
     date: the student's "Está marcado!" on an accepted join request (`classes.join-requests`
     rule 19). The same formatter writes it: pt ` na sexta-feira, 16/10, às 09:00` (`no` for
@@ -149,7 +151,9 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     | later, or past | dia 23/02 | 23/02 |
     The four choices (name, no preposition, week boundary, send time) were the coordinator's, from
     the ticket's "to validate" table, and were relayed to the owner as information (2026-10-08).
-    No built-in default uses `{day}`; it is opt-in like rule 14's.
+    No English built-in default uses `{day}`; since PAD-815 (rule 27) the Portuguese built-ins of
+    `invite`, `confirm`, `reminder`, `reminder_followup`, `reminder_declined` and
+    `waiting_list_invite` do, and every path that sends them fills it (rule 3a).
 19. **The editor explains templates and previews them (PAD-549; numbering unconfirmed).** The web
     settings editor opens with how a template is built (free text plus fields replaced when the
     message is sent) and a table of every field with what it means and an example, and shows a live
@@ -163,7 +167,8 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     `invite`, `reminder`, `reminder_followup`, `waiting_list_invite`, `class_cancelled`, and the
     new-engine `waiting_list_added` and `side_moved` (new-engine section N1) name the class by its
     day and time only. Each new text is the old one with the level phrase gone, as rule 7 already
-    rendered it for a class with no level. `{level}` stays a supported placeholder (rules 3, 3a)
+    rendered it for a class with no level; PAD-815 (rule 27) has since replaced ten Portuguese
+    texts, none with `{level}`. `{level}` stays a supported placeholder (rules 3, 3a)
     and stays in the web editor's list: a coach who writes it into their own text still gets the
     level rendered. Stored texts are never rewritten (rule 10), so a coach whose saved templates
     hold an old default keeps it, `{level}` included.
@@ -247,6 +252,30 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     forte" / "Heavy rain" from `template_preview_examples`, and only for this key (the editor sends the
     key): a `{reason}` typed into another template previews as it is sent, its sentence gone. iOS has no editor (Notes).
 
+27. **The approved Portuguese texts are the built-ins (PAD-815; owner, 26 Nov 2026: "815 approve as
+    they are", then "code, leave").** The reference coach's texts become the Portuguese built-in
+    defaults (`DEFAULT_MESSAGE_TEMPLATES_PT`) for ten keys, byte for byte ("Toop!" is intended):
+
+    | Key | pt built-in |
+    |---|---|
+    | `invite` | `Olá {name}, abriu uma vaga {day} {date} às {time}. Queres vir?` |
+    | `confirm` | `Toop! Contamos contigo. Até {day}! 🎾` |
+    | `decline` | `Tranquilo, fica para a próxima!` |
+    | `reminder` | `Olá {name}, só para lembrar que tens aula {day} às {time}. Contamos contigo?` |
+    | `reminder_followup` | `Consegues vir {day}?` |
+    | `reminder_confirmed` | `Confirmado!` |
+    | `reminder_declined` | `Vale, então não conto contigo {day}.` |
+    | `waiting_list_offer` | `Esta vaga foi preenchida, mas podemos pôr-te na lista de espera e avisar-te se abrir outra. Queres?` |
+    | `waiting_list_invite` | `Olá {name}, estás na lista de espera da aula de {day} às {time}{side} e abriu uma vaga. Consegues vir?` |
+    | `added_to_class` | `Olá {name}, adicionei-te a {class}{when}. Obrigado! 🎾` |
+
+    The other Portuguese keys and every English key are unchanged ("leave": an English coach keeps
+    the English built-ins). The change is in code only: a coach with no stored text for a key, new
+    or existing, reads the new built-in; no migration and no read-time mapping of the old texts
+    (unlike rule 26), so a stored text, a copy of an old default included, is used as saved and
+    nothing stored is rewritten (rules 10, 20). Every path that sends these keys renders them with
+    rule 3a's values, which always carry `{day}` and `{date}`.
+
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-1: A placeholder works in any template (rule 3a, PAD-670)
@@ -279,7 +308,7 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-5: Declining a reminder with a blank template still sends the default confirmation
 - **Given** a coach whose `message_templates` has `reminder_declined` saved as an empty string (or whitespace only), and an enrolled player with a pending reminder for an upcoming class
 - **When** the player responds "no" (not coming)
-- **Then** the automatic confirmation message sent back to the player is the built-in default for the coach's locale (e.g. pt → "Entendido, obrigado por avisares!")
+- **Then** the automatic confirmation message sent back to the player is the built-in default for the coach's locale (e.g. pt, for a class tomorrow → "Vale, então não conto contigo amanhã.")
 - **And** no message with empty or whitespace-only text is ever created
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-6: Blank templates fall back for every message type
@@ -326,7 +355,7 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-13: Adding a student to a whole series stays undated (rule 17)
 - **Given** a `pt` coach whose `added_to_class` template is the default, and a weekly series "Segunda 10h" starting Monday 2027-04-12 10:00
 - **When** the coach adds Carla to the series
-- **Then** the message reads "Olá Carla, adicionei-te a Segunda 10h na segunda-feira às 10:00. Até já! 🎾" — no `dd/mm`
+- **Then** the message reads "Olá Carla, adicionei-te a Segunda 10h na segunda-feira às 10:00. Obrigado! 🎾" — no `dd/mm`
 - **And** when the coach adds her to the single occurrence of 2027-04-19 instead, it reads "… adicionei-te a Segunda 10h no dia 19/04 (segunda-feira) às 10:00. …"
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-14: A spot going to someone else sends no "spot filled" message (rule 15, PAD-501)
@@ -377,7 +406,7 @@ test: `backend/padel_app/tests/test_pad830_no_level_in_defaults.py` › `test_no
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-28: A saved text identical to an old default follows the new default; any other text is kept (rule 20, PAD-830)
 - **Given** coaches whose stored `message_templates` hold, for a key, the full text of the default that carried `{level}` before PAD-830: one in Portuguese, one in English; one whose text differs from it by a single character; one with a text of their own
 - **When** the PAD-830 data migration upgrades
-- **Then** each exact match, per key and per locale, is replaced by that key's new default in that locale
+- **Then** each exact match, per key and per locale, is replaced by that key's PAD-830 default in that locale (for Portuguese `invite`, `reminder`, `reminder_followup` and `waiting_list_invite` the built-in has since become PAD-815's text, rule 27; the migration's text is not rewritten again)
 - **And** the near-miss and the text of their own are left exactly as saved, and so are the keys the coach never saved
 - **And** running the upgrade again changes nothing, and the downgrade puts the old text back where the stored text is the new default
 test: `backend/padel_app/tests/test_pad830_template_migration.py` › `test_exact_old_defaults_follow_the_new_default`
@@ -479,6 +508,13 @@ test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.ts
 - **Then** the first message is the default text without its reason sentence, and the second "Aula cancelada: Chuva"
 test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_text_left_empty_falls_back_to_the_default`
 
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-37: The approved Portuguese texts are the built-ins; a stored text is not rewritten (rule 27, PAD-815)
+- **Given** the built-in templates, and a `pt` coach whose stored `message_templates` hold the earlier `reminder` built-in ("Olá {name}, lembrete: tens a aula esta {weekday} às {time}. Vens?") and nothing for `reminder_declined`
+- **When** the defaults and that coach's templates are read
+- **Then** the ten Portuguese built-ins of rule 27 equal the approved texts byte for byte, and the other Portuguese keys and every English key are as before
+- **And** the coach's `reminder` reads as stored, `reminder_declined` resolves to the new built-in, and the stored JSON is unchanged
+test: `backend/padel_app/tests/test_pad815_approved_pt_texts.py` › `test_the_approved_pt_texts_are_the_built_ins_and_a_stored_text_is_kept`
+
 ### Today (PAD-836)
 - Placeholder values: `backend/padel_app/services/message_text.py` `template_variables` (the one set, rule 3a)
   plus `class_placeholders` (`{type}`, `{date}`, `{court}`, `{day}`). No duration or club value exists.
@@ -547,6 +583,15 @@ test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_a_text_le
 - PAD-430 is web-only in the client: iOS has no message-template editor (the templates are edited on
   the web settings page only), so there is no iOS surface to port. The rendering is server-side and
   reaches iOS recipients unchanged.
+
+- **PAD-815 texts: decided, not open (owner, 26 Nov 2026: "815 approve as they are", "code, leave").**
+  Rule 27 ships the approved Portuguese texts as built-ins with no migration and no rule-26-style
+  read-time mapping of the ten old texts: a coach who saved in the web editor holds stored copies and
+  keeps them (rules 10, 20). A read-only prod read at 17:31Z on 26 Nov 2026 found no coach holding a
+  stored copy of any old default: coaches 4 and 6 have no stored texts and get the new built-ins,
+  coach 8's own texts are kept, and coach 3 is English. Known reading, approved as is: `{day}` in
+  "aula de {day}" and "Até {day}!" reads "na próxima …" for a next-week class (rule 18), and
+  `invite`'s "{day} {date}" repeats the date for a class past next week ("dia 23/02 23/02").
 
 ### Open questions
 - Templates for the engine's new kinds (sorry, added, side moved, the coach alert) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it):

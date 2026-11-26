@@ -38,7 +38,7 @@ _SAVED_EN = {
 
 def _render(template):
     from padel_app.services.message_text import _format_template
-    return _format_template(template, name="Ana", level="", weekday="quarta-feira", time="10:00")
+    return _format_template(template, name="Ana", level="", weekday="quarta-feira", time="10:00", day="amanhã")
 
 
 @pytest.mark.parametrize("key", _LEVEL_TEMPLATES)
@@ -54,7 +54,7 @@ def test_pt_defaults_drop_the_level_phrase_whole(key):
 def test_pt_reminder_exact_text():
     from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES_PT
     assert _render(DEFAULT_MESSAGE_TEMPLATES_PT["reminder"]) == \
-        "Olá Ana, lembrete: tens a aula esta quarta-feira às 10:00. Vens?"
+        "Olá Ana, só para lembrar que tens aula amanhã às 10:00. Contamos contigo?"  # PAD-815 (rule 27)
     assert _render(DEFAULT_MESSAGE_TEMPLATES_PT["class_cancelled"]) == \
         "Olá Ana, a tua aula de quarta-feira às 10:00 foi cancelada. Pedimos desculpa pelo incómodo!"
 
@@ -122,4 +122,4 @@ def test_reminder_for_a_level_less_class_reads_whole_end_to_end(app):
         msg = Message.query.filter_by(message_type="notification_reminder").first()
         assert msg is not None
         assert "aula de esta" not in msg.text and "  " not in msg.text, msg.text
-        assert "tens a aula esta" in msg.text, msg.text
+        assert "só para lembrar que tens aula " in msg.text and "{" not in msg.text, msg.text  # PAD-815 (rule 27)
