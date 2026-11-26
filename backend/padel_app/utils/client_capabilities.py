@@ -79,6 +79,10 @@ JOIN_SIDE = "join-side"
 # (400 side_required); one that does not (builds before the dialog) is taken as before, its side the
 # profile side. Retire like the others.
 WAITING_LIST_SIDE = "waiting-list-side"
+# PAD-929 (classes.join-requests rule 22): the client shows the private-lesson warning, so its private
+# join or waiting-list join must carry `privateConfirmed: true` (409 private_unconfirmed otherwise); one
+# that does not (App Store builds up to 35) is taken as before. Retire like the others.
+PRIVATE_CONFIRM = "private-confirm"
 
 
 # PAD-680 (notifications.notification-sound rule 5): the build has the "Notification sound" switch
@@ -105,6 +109,7 @@ CAPABILITIES = {
     ADULT_ROSTER_CONFIRMATION: "compat",
     JOIN_SIDE: "compat",
     WAITING_LIST_SIDE: "compat",
+    PRIVATE_CONFIRM: "compat",
 }
 
 # Rule 5: the kill-switches, read through a per-worker cache of at most 30 seconds.

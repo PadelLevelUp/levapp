@@ -379,19 +379,42 @@ def test_both_open_vacancies_on_one_class_keep_both_spots(app, client, world):
         assert sorted([v.original_player_id for v in opened], key=lambda x: x or 0) == [None, world["st_player"]]
 
 
-def test_push_subscription_and_device_token_collisions_keep_the_students(app, world):
-    from padel_app.models import DeviceToken, PushSubscription
+def test_device_token_collisions_keep_the_students(app, world):
+    from padel_app.models import DeviceToken
 
     with app.app_context():
         for uid in (world["ph_user"], world["st_user"]):
-            db.session.add(PushSubscription(user_id=uid, subscription_json=f'{{"u": {uid}}}'))
             db.session.add(DeviceToken(user_id=uid, token="same-device", platform="ios"))
         db.session.commit()
     _merge_now(app, world)
     with app.app_context():
-        assert PushSubscription.query.count() == 1
-        assert PushSubscription.query.one().subscription_json == f'{{"u": {world["st_user"]}}}'
         assert DeviceToken.query.filter_by(user_id=world["st_user"], token="same-device").count() == 1
+
+
+@pytest.mark.criterion("PLAYERS-CLAIM-34")
+@pytest.mark.parametrize("placeholder_days, student_days, kept", [
+    ([2], [1], {"ph-2", "st-1"}),
+    # Seven between them: the five most recently updated stay, whichever account they came from.
+    ([1, 3, 9], [2, 4, 5, 8], {"ph-1", "st-2", "ph-3", "st-4", "st-5"}),
+])
+def test_push_subscriptions_of_both_accounts_are_kept_up_to_the_cap(app, world, placeholder_days, student_days, kept):
+    from datetime import timedelta
+
+    from padel_app.models import PushSubscription
+    from padel_app.utils.dates import utcnow_naive
+
+    with app.app_context():
+        for who, days in (("ph", placeholder_days), ("st", student_days)):
+            for d in days:
+                db.session.add(PushSubscription(
+                    user_id=world[f"{who}_user"], subscription_json=f'{{"endpoint": "{who}-{d}"}}',
+                    updated_at=utcnow_naive() - timedelta(days=d)))
+        db.session.commit()
+    _merge_now(app, world)
+    with app.app_context():
+        rows = PushSubscription.query.all()
+        assert {r.user_id for r in rows} == {world["st_user"]}
+        assert {r.endpoint for r in rows} == kept and len(rows) == len(kept)
 
 
 def test_every_unique_key_the_merge_touches_is_accounted_for(app):

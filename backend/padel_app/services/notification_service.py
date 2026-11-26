@@ -78,6 +78,7 @@ from padel_app.utils.push_notifications import send_push_notification
 from padel_app.services.message_text import (  # noqa: F401
     class_placeholders,
     _CLASS_TYPE_WORDS,
+    _drop_reason_sentences,
     _EMPTY_COURT_CONNECTORS,
     _EMPTY_PLACEHOLDER_CONNECTORS,
     _format_class_when,
@@ -90,8 +91,11 @@ from padel_app.services.message_text import (  # noqa: F401
     _LEADING_PUNCTUATION,
     _PLACE_KEYS,
     _PT_WEEKDAYS,
+    _put_reason,
+    _REASON_SLOT,
     render_template_preview,
     _resolve_locale,
+    _SENTENCE_END,
     _side_phrase,
     _SIDE_PHRASES,
     template_preview_examples,
@@ -100,6 +104,9 @@ from padel_app.services.message_text import (  # noqa: F401
 )
 from padel_app.services.system_messages import (  # noqa: F401
     _BLOCKABLE_MESSAGE_TYPES,
+    _cancellation_text,
+    _cancellation_voice,
+    cancellation_preview,
     collect_cancellation_recipients,
     _get_or_create_direct_conversation,
     _notify_coach_of_cancellation,
@@ -1065,7 +1072,12 @@ def _attendance_stats(player_id: int, coach_id: int) -> tuple[float, float]:
     return _attendance_stats_for([player_id], coach_id)[player_id]
 
 
-def _attendance_counts_for(player_ids, coach_id: int) -> dict[int, tuple[int, int, int]]:
+def _no_instances(instance_ids) -> bool:
+    """An empty id collection; a SQL selection (``coach_instance_ids_select``) is never known empty."""
+    return isinstance(instance_ids, (set, frozenset, list, tuple)) and not instance_ids
+
+
+def _attendance_counts_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[int, tuple[int, int, int]]:
     """``{player_id: (total, present, justified_absences)}`` over THIS coach's
     occurrences only (`classes.coach-assignment` rule 4, `eligibility.rules` rule 3),
     in one query. PAD-382 (B-143): these readers used to count the student's rows with
@@ -1076,8 +1088,9 @@ def _attendance_counts_for(player_ids, coach_id: int) -> dict[int, tuple[int, in
 
     ids = [int(pid) for pid in player_ids]
     counts: dict[int, tuple[int, int, int]] = {pid: (0, 0, 0) for pid in ids}
-    instance_ids = _coach_instances(coach_id) if ids else set()
-    if not ids or not instance_ids:
+    if instance_ids is None:
+        instance_ids = _coach_instances(coach_id) if ids else set()
+    if not ids or _no_instances(instance_ids):
         return counts
     totals: dict[int, list[int]] = {}
     rows = (
@@ -1139,7 +1152,7 @@ def makeups_balance_for(player_ids, coach_id: int, *, instance_ids=None) -> dict
     if instance_ids is None:
         instance_ids = _coach_instances(coach_id)
     taken: set[tuple[int, int]] = set()
-    if instance_ids:
+    if not _no_instances(instance_ids):
         for pid, n in (
             db.session.query(Presence.player_id, func.count(Presence.id))
             .filter(Presence.player_id.in_(ids), Presence.lesson_instance_id.in_(instance_ids),
@@ -1231,7 +1244,7 @@ def _unjustified_absence_counts_for(player_ids, coach_id: int, *, instance_ids=N
         return counts
     if instance_ids is None:
         instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
-    if not instance_ids:
+    if _no_instances(instance_ids):
         return counts
     for pid, n in (
         db.session.query(Presence.player_id, func.count(Presence.id))
@@ -3222,6 +3235,42 @@ def answered_for_reminders(presence, first_reminder, *, new_engine: bool = False
     return placed is None or placed > first_reminder
 
 
+#: The coach's attendance mark as the cause a reminder send names (class-reminders-manual rule 6): absent
+#: is "not coming"; any other mark (present) is "already confirmed".
+MARK_CAUSE = {"absent": "not_coming"}
+
+
+def reminder_skips(instance):
+    """Who a reminder send leaves out before anything else, for both engines' sends (the app's pass,
+    ``_reminder_recipients``, and the coach's ask on a new-engine class, class-reminders-manual rule 6):
+    ``(blocked, marks)``.
+
+    ``blocked``: player id -> ``{"playerId", "name", "cause", ["reason"]}`` for the students unavailable for
+    the slot (PAD-107, ``cause`` ``unavailable``) or who blocked ALL notifications (PAD-112, ``preference``,
+    with their reason). A student hit by both carries the PAD-112 entry, because that reason is the
+    student's own coach-visible words; an availability blocker's details stay private. Only the "all"
+    preference level counts: blocking just invitations leaves reminders alone.
+
+    ``marks``: player id -> ``already_confirmed`` or ``not_coming`` for the students the coach marked present
+    or absent (justified or not; PAD-546, reminders rule 23). ``status`` is the coach's record only
+    (attendance.presence rule 7), read at send time, so a mark cleared brings the reminder back.
+    """
+    from padel_app.services.student_availability_service import (
+        blocked_players_for_instance,
+    )
+    from padel_app.services.student_notification_preferences import (
+        preference_blocked_players,
+    )
+
+    presences = list(instance.presences)
+    blocked = {entry["playerId"]: entry for entry in blocked_players_for_instance(instance)}
+    for entry in preference_blocked_players([p.player_id for p in presences], kind="all"):
+        blocked[entry["playerId"]] = entry
+    marks = {p.player_id: MARK_CAUSE.get(p.status, "already_confirmed")
+             for p in presences if p.status is not None}
+    return blocked, marks
+
+
 def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None,
                          answered_pairs=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
@@ -3241,21 +3290,8 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
     students are reported so the coach knows the count is deliberately short.
     """
     from padel_app.services import reminder_attempt_service as attempts
-    from padel_app.services.student_availability_service import (
-        blocked_players_for_instance,
-    )
-    from padel_app.services.student_notification_preferences import (
-        preference_blocked_players,
-    )
 
-    _blocked_by_id = {
-        entry["playerId"]: entry
-        for entry in blocked_players_for_instance(instance)
-    }
-    for entry in preference_blocked_players(
-        [p.player_id for p in instance.presences], kind="all",
-    ):
-        _blocked_by_id[entry["playerId"]] = entry
+    _blocked_by_id, marks = reminder_skips(instance)
     blocked = list(_blocked_by_id.values())
     blocked_ids = set(_blocked_by_id)
     reminder_count = config.get_reminder_count()
@@ -3285,7 +3321,7 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         # PAD-546 (rule 23): the coach already marked them present or absent (justified or not).
         # `status` is the coach's record only (attendance.presence rule 7); read at send time, on
         # every pass, so a mark cleared before the next pass brings the reminder back.
-        if existing_presence.status is not None:
+        if player_id in marks:
             continue
 
         # Count reminders already sent to THIS player for THIS instance —

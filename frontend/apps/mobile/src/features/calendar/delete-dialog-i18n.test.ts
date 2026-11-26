@@ -22,7 +22,8 @@ import { describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-const CLASS_SCREEN = resolve(here, "../../../app/class/[id].tsx");
+// PAD-840: the dialog moved out of `app/class/[id].tsx` into its own file.
+const CLASS_SCREEN = resolve(here, "class-delete-dialog.tsx");
 const LOCALE_DIR = resolve(here, "../../../../../src/locales");
 
 function usedDeleteDialogKeys(): string[] {

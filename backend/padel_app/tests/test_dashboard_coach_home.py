@@ -146,17 +146,35 @@ def test_hero_is_omitted_entirely_when_nothing_is_scheduled(app):
         assert build_next_class_block(coach_id=coach_id, now=datetime(2026, 8, 4, 10, 0)) is None
 
 
+def _seed_reply(app, *, coach_user_id, now):
+    """An unread message from one of the coach's students, so the queue has a reply item."""
+    from padel_app.sql_db import db
+    from padel_app.models import Message, User
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
+
+    with app.app_context():
+        student = User.query.filter_by(username="ch_p0").one()
+        conv = _get_or_create_direct_conversation(coach_user_id, student.id)
+        db.session.add(
+            Message(text="Olá treinador", sender_id=student.id, conversation_id=conv.id,
+                    message_type="text", sent_at=now - timedelta(minutes=5))
+        )
+        db.session.commit()
+
+
+@pytest.mark.criterion("DASHBOARD-BLOCKS-38")
 def test_queue_orders_empty_seats_then_replies_then_validation(app):
     from padel_app.helpers.dashboard.coach_home import build_needs_you_block
 
     now = datetime(2026, 8, 4, 10, 0)
     coach_id, user_id, _ = _seed(app, now=now)
+    _seed_reply(app, coach_user_id=user_id, now=now)
 
     with app.app_context():
         block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
 
     kinds = [item["kind"] for item in block["data"]["items"]]
-    assert kinds == ["empty_seats", "validation"]
+    assert kinds == ["empty_seats", "reply", "validation"]
     assert block["data"]["count"] == len(block["data"]["items"])
 
     seats = block["data"]["items"][0]
@@ -168,7 +186,7 @@ def test_queue_orders_empty_seats_then_replies_then_validation(app):
     # past class ended on Sunday 2 Aug — the PREVIOUS week of Tuesday 4 Aug —
     # and the current week is clean, so the card falls back to last week and
     # sends the coach there.
-    validation = block["data"]["items"][1]
+    validation = block["data"]["items"][2]
     assert validation["count"] == 1
     assert validation["weekOffset"] == -1
     assert validation["href"] == "/presences?validate=1&week=-1"  # PAD-283: validate view open
@@ -224,6 +242,32 @@ def _add_past_class_with_unvalidated_presence(app, *, coach_id, ended_at, title)
         db.session.flush()
         db.session.add(
             Presence(lesson_instance_id=inst.id, player_id=player_id, status="present", validated=False)
+        )
+        db.session.commit()
+
+
+def _add_upcoming_class(app, *, coach_id, start, title):
+    from padel_app.sql_db import db
+    from padel_app.models import Association_CoachLesson, LessonInstance
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.Association_CoachClub import Association_CoachClub
+
+    with app.app_context():
+        club_id = (
+            db.session.query(Association_CoachClub.club_id)
+            .filter(Association_CoachClub.coach_id == coach_id)
+            .first()[0]
+        )
+        end = start + timedelta(hours=1)
+        lesson = Lesson(title=title, start_datetime=start, end_datetime=end, is_recurring=False,
+                        type="academy", max_players=4, status="active", club_id=club_id)
+        db.session.add(lesson)
+        db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=coach_id, lesson_id=lesson.id))
+        db.session.add(
+            LessonInstance(lesson_id=lesson.id, start_datetime=start, end_datetime=end, max_players=4,
+                           status="scheduled", notifications_enabled=True,
+                           original_lesson_occurence_date=start.date())
         )
         db.session.commit()
 
@@ -322,6 +366,35 @@ def test_validation_item_is_the_count_endpoints_number(app):
     assert (start, end) == (datetime(2026, 7, 26), datetime(2026, 8, 1, 23, 59, 59))
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-3")
+def test_validation_item_is_the_count_endpoints_number_for_a_backlog_over_several_weeks(app):
+    """attendance.validation rule 18/23: with classes waiting in two different weeks the card shows the
+    whole backlog, the number the count endpoint's ``pendingTotal`` reads, while the week it opens
+    holds only part of it."""
+    from padel_app.helpers.dashboard.coach_home import build_needs_you_block, week_bounds
+    from padel_app.services.presence_overview_service import (
+        count_pending_validation,
+        count_pending_validation_total,
+    )
+
+    now = datetime(2026, 8, 4, 10, 0)
+    coach_id, user_id, _ = _seed(app, now=now)  # one pending class in the week of 26 Jul
+    _add_past_class_with_unvalidated_presence(
+        app, coach_id=coach_id, ended_at=datetime(2026, 7, 14, 19, 0), title="Three weeks ago"
+    )
+
+    with app.app_context():
+        block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
+        validation = next(i for i in block["data"]["items"] if i["kind"] == "validation")
+        start, end = week_bounds(now, validation["weekOffset"])
+        in_its_week = count_pending_validation(coach_id=coach_id, range_start=start, range_end=end, now=now)
+        total = count_pending_validation_total(coach_id=coach_id, now=now)
+
+    assert validation["weekOffset"] == -1
+    assert in_its_week == 1  # the week it opens holds one class ...
+    assert validation["count"] == total == 2  # ... the card shows the whole backlog
+
+
 def test_queue_reaches_zero(app):
     """A coach with nothing outstanding gets an empty list, not a placeholder."""
     from padel_app.helpers.dashboard.coach_home import build_needs_you_block
@@ -356,6 +429,26 @@ def test_schedule_reports_total_beyond_the_rows_it_ships(app):
     assert [i["title"] for i in data["items"]] == ["B1 Class", "A2 Class"]
     assert data["items"][0]["dayOfMonth"] == 4
     assert (data["items"][1]["filled"], data["items"][1]["capacity"]) == (4, 4)
+
+
+@pytest.mark.criterion("DASHBOARD-BLOCKS-40")
+def test_schedule_total_exceeds_the_rows_when_more_classes_are_coming(app):
+    from padel_app.helpers.dashboard.coach_home import SCHEDULE_ROWS, build_schedule_block
+
+    now = datetime(2026, 8, 4, 10, 0)
+    coach_id, _, _ = _seed(app, now=now)  # two coming classes
+    extra = SCHEDULE_ROWS + 1
+    for n in range(extra):
+        _add_upcoming_class(app, coach_id=coach_id, start=now + timedelta(days=2, hours=n), title=f"Extra {n}")
+
+    with app.app_context():
+        block = build_schedule_block(coach_id=coach_id, now=now)
+
+    data = block["data"]
+    assert data["totalCount"] == 2 + extra
+    assert len(data["items"]) == SCHEDULE_ROWS
+    assert data["totalCount"] > len(data["items"])
+    assert [i["title"] for i in data["items"]][:2] == ["B1 Class", "A2 Class"]
 
 
 def test_week_pulse_carries_denominators_and_counts_active_players(app):

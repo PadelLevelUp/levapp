@@ -35,7 +35,10 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    and the class's) is its position on the session's coach's ladder, 1 the strongest and consecutive,
    counted as the app's `ladder_index` counts it, whatever the stored `display_order` values; a level
    that is not on that coach's ladder (another coach's level) reaches the engine as none: for a student
-   that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
+   that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). The class's
+   level is the occurrence's effective level: its own when set, else its lesson's default level
+   (`LessonInstance.effective_level_id`, `classes.edit` rule 4), at adoption and in every snapshot; an
+   occurrence that inherits its level is never handed to the engine as a class with no level. A student's `subscription_status` is their
    account's `User.status`. Each session's end is its start plus its lesson's duration, and the
    sessions a student is going to of the same coach are handed with their intervals, for
    `notifications.engine-tiers` rule 3's overlap. A presence is **going** unless the student left: a
@@ -60,6 +63,14 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    transaction (`notifications.engine-planning` rule 1). A session that raises is rolled back and
    skipped, and the tick goes on with the rest (`notifications.invitations` rule 21's new reading); the
    failure is recorded as `admin.engine-health` rule 12 says. The outbox is sent after the sessions.
+   Each run logs one line at INFO when it ends: its duration in milliseconds, each pass's duration, and
+   how many occurrences it materialised and adopted, sessions it listed, effects it applied and outbox
+   rows it sent, so a run that outgrows const:ENGINE_RUN_EVERY shows in the log.
+   A listed session with nothing due costs one snapshot per run (a step that applied no effect leaves the
+   session as it was, so the next step reads the same snapshot), and what a snapshot reads does not grow
+   with the coach's past classes or with other coaches' classes: the coach's occurrences are asked about
+   inside the queries that count a student's history, never fetched as a list, and the overlap and
+   elsewhere reads ask only about the occurrences they found.
 
 8. **Invitation messages and alerts stay current** (`notifications.invitations` NB1a;
    `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
@@ -118,6 +129,18 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     engine as `CoachAdded`, which writes no `Placed`, so that credit is spent once. Waiting-list rule 15b
     (the last credit withdraws the student's other open offers) is not done on the new engine; see Open
     questions.
+12. **State stored before the class had its level keeps its meaning (engine effective level, 2026-11-25;
+    lead's decision).** A session adopted while the store still handed the engine an inherited class as
+    having no level (before rule 4's effective level) holds spot types stored with no level: its coach
+    alerts (`alerted`), its pending approval requests' queues (`pending`) and its dismissed groups' spot
+    counts (`dismissed_groups`). The store reads such a stored spot type as the session's current level, so
+    a deploy of rule 4 raises no alert again, reopens no dismissed group and asks for no approval again on
+    that account; an alert cleared or raised again replaces the one stored with no level. The same reading
+    holds outside the snapshot: an approval request's card built from its queued outbox row, and the admin
+    engine-health's coverage of open spots by stored invitation offers. It also holds for a class that had no
+    level and is later given one: its no-level state reads at the new level, so nothing reopens or is asked
+    again, while a change from one level to another does reopen and re-ask as before. A class with no level
+    reads exactly as before. No stored row is rewritten by a migration.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -259,6 +282,44 @@ row, then `credits_used` grows and the entry stays open; and when the coach acce
 student holding a standing row with two credits, then exactly one credit is spent.
 test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_entry_no_limit_and_a_coachs_accept_spend_as_rule_11_says`
 
+#### NOTIFICATIONS-ENGINE-STORE-20: Each run logs its duration and counts (rule 7)
+Given a switched coach with one listed session, when `engine_tick` runs, then one INFO line is logged
+with the run's total milliseconds, each pass's milliseconds, and the materialised, adopted, sessions,
+effects and sent counts.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_each_run_logs_its_duration_and_counts`
+
+#### NOTIFICATIONS-ENGINE-STORE-21: A session with nothing due reads a bounded amount, whatever the history (rule 7)
+Given switched coaches with listed sessions and nothing due, when the sessions' tick runs with 4 weeks of
+past classes (with presences), and again after 26 more weeks of them and another coach's classes with 30
+weeks of history, then each session is snapshotted once, takes at most 40
+statements, and both runs issue the same statements, load the same ORM rows and bind the same largest
+parameter list.
+test: `backend/padel_app/tests/test_engine_tick_load.py` › `test_a_session_with_nothing_due_reads_a_bounded_amount_whatever_the_history`
+
+#### NOTIFICATIONS-ENGINE-STORE-22: An occurrence with no level of its own takes its lesson's default level (rule 4)
+Given a coach with level-based groups (the class's level first, one level away second) and an occurrence whose own
+`level_id` is NULL and whose lesson's default level is set, when the coach is switched (adoption) and the store
+builds the session's snapshots, then the level adoption hands `add_session` and the level of every snapshot are the
+lesson's default level's ladder position (not none), and a student one level away from it is invited in the second
+group, after the same-level students, not with them.
+test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_an_inherited_level_reaches_the_engine_at_adoption_and_in_every_snapshot` (+ `test_an_inherited_level_keeps_the_level_groups_in_order`, `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P47-an-inherited-class-level-keeps-the-level-groups]`)
+
+#### NOTIFICATIONS-ENGINE-STORE-23: Spot types stored with no level read as the session's level (rule 12)
+Given an adopted session whose occurrence inherits its class's level, holding a coach alert, a dismissed group's
+spot counts and a pending approval request's queues all stored with no level and otherwise current, when the
+store builds its snapshot and the engine decides, then it raises no `CoachAlert` and no `AlertCleared`, emits no
+`GroupReopened` and no new `ApprovalRequest`; and when the alert is raised again for a new count, the entry
+stored with no level is replaced, not kept beside it.
+test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_state_stored_with_no_level_reads_as_the_sessions_level`
+
+#### NOTIFICATIONS-ENGINE-STORE-24: An approval card and the admin coverage read a stored no-level spot type as the session's level (rule 12)
+Given an adopted session whose occurrence inherits its class's level, when an approval request's outbox row
+queued with spot types of no level is turned into its card, then the card is the one the same queues at the
+session's level give (each type's open count and level label); and when admin engine-health counts the open
+spots an open counting invitation offered with no level covers, then it counts them as it does for the same
+offer at the session's level.
+test: `backend/padel_app/tests/test_engine_effective_level.py` › `test_the_card_and_the_admin_coverage_read_a_no_level_spot_type_at_the_sessions_level`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -268,6 +329,15 @@ test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_e
    engine-answers ANSWERS-32.
 4. (switch keeps lists, 2026-11-19) STORE-15 to STORE-17 — `services/engine_switch.py` (`_adopt`) and
    `services/engine_store.py` (`add_session`); STORE-18, STORE-19 — `services/engine_store.py` (`Placed`).
+5. (engine tick load, 2026-11-25) STORE-20 — `services/engine_runner.py` (`run_tick`'s log line); STORE-21 —
+   `invitation_engine/engine.py` (`tick`), `services/engine_store.py` (`_students`, `_overlapping_going`,
+   `_elsewhere`), `services/lesson_service.py` (`coach_instance_ids`, `coach_instance_ids_select`).
+6. (engine effective level, 2026-11-25) STORE-22 — `services/engine_store.py` (`snapshot`) and
+   `services/engine_switch.py` (`_adopt`).
+7. (engine effective level, transition) STORE-23 — `services/engine_store.py` (`snapshot`'s reading of `alerted`,
+   `pending`, `dismissed_groups`; `CoachAlert` and `AlertCleared` writes).
+8. (engine effective level, transition readers) STORE-24 — `services/engine_outbox.py` (`card`),
+   `services/admin/engine_health.py` (`_open_spots`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
@@ -279,3 +349,11 @@ test: `backend/padel_app/tests/test_switch_keeps_lists.py` › `test_automatic_e
   student's other open engine invitations paid by that entry be withdrawn? The engine never revokes (D4),
   and a withdrawal needs its own bubble state and copy. Until then a second Yes from that entry places the
   student without a credit.
+- The run's log line (rule 7, STORE-20; prod slowness, 25 Nov 2026) — decision (hotfix agent, owner's
+  order, nobody reachable to review; the owner can reverse it): a log line only, not exposed on admin
+  engine-health, because APScheduler logs no run lines and the log is the cheapest place to read it.
+- The sessions' tick's cost (rule 7, STORE-21; prod 25 Nov 2026: about 110 statements and three snapshots
+  per listed session, full reads of the coach's history per snapshot) — decision (hotfix agent, owner's
+  order relayed by the coordinator to widen the fix, nobody reachable to review; the owner can reverse
+  it): reuse the snapshot when a step applied nothing, and scope the history reads in SQL. This touches
+  `Engine.tick` (`notifications.engine-planning`'s run) without changing what it decides.

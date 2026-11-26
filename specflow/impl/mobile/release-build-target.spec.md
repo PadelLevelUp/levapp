@@ -175,14 +175,14 @@ It also makes the target visible inside the app.
 - **And** a staging bundle checked as `staging` passes
 test: `frontend/apps/mobile/src/lib/release-bundle-check.test.ts` › `refuses an unknown target` (+3 more)
 
-#### MOBILE-RELEASE-BUILD-TARGET-11: The phone app declares the capabilities its screens rely on (rule 4; `calendar.view` rule 22, `clubs.coach-invitation` rule 9, `auth.register` rule 19, `classes.join-requests` rule 20)
+#### MOBILE-RELEASE-BUILD-TARGET-11: The phone app declares the capabilities its screens rely on (rule 4; `calendar.view` rule 22, `clubs.coach-invitation` rule 9, `auth.register` rule 19, `classes.join-requests` rules 20 and 22)
 - **Given** the phone app's API client set-up
 - **When** its capability list is read
 - **Then** it declares `open-spots`, `evaluations`, `student-relations`, `coach-invite-email`, `terms-acceptance` and `join-side`
-- **And** it declares all thirteen tokens: `open-spots`, `evaluations`,
+- **And** it declares all fourteen tokens: `open-spots`, `evaluations`,
   `class-type-defaults`, `coach-invite-email`, `terms-acceptance`, `country-on-completion`,
   `terms-on-completion`, `adult-roster-confirmation`, `student-relations`, `full-classes`,
-  `join-side`, `notification-sound` and `waiting-list-side`
+  `join-side`, `notification-sound`, `waiting-list-side` and `private-confirm`
 test: `frontend/apps/mobile/src/lib/api-capabilities.test.ts` › `found the initApi call and its known options before judging it (R-032)` (+6 more)
 
 #### MOBILE-RELEASE-BUILD-TARGET-12: A release without a usable prebuilt cache is refused before anything changes (rule 3c)

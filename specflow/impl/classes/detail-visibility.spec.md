@@ -23,7 +23,8 @@ coach-only information about other players.
    `presences`, and the full `invitations` (notification) log. Unchanged from prior behavior.
 3. **Student view** (requesting user is a player, not a coach): the payload includes the class's
    shared, non-sensitive fields (name, coach id, level, date/time, status, notes, planned
-   exercises) plus ONLY the student's own data:
+   exercises, and **(PO M-7512)** its filled-spots count `participantCount`: one number, no names or
+   ids, the same value the calendar event carries to that student) plus ONLY the student's own data:
    - `participants` MUST NOT contain other students. It is empty, or contains only the requesting
      student's own player entry.
    - `presences` MUST contain only the requesting student's own presence row (their status /
@@ -53,6 +54,11 @@ coach-only information about other players.
    The role check alone (rules 2–4) never suffices: an id-keyed read by a coach of another club
    used to return every participant with email and phone. 404 for an unknown id still comes
    before 403 for a known one, matching the PAD-92 write guards.
+
+6. **The class type shows beside the title (PAD-925).** The class detail, for the coach and the
+   student alike, shows a chip beside the class name: "Particular" for a private class,
+   "Academia" for an academy one (`classType` on the calendar event and the class payload). A class
+   with no known type shows no chip. Both shells read the key from one shared helper.
 
 ### Acceptance Criteria
 
@@ -92,5 +98,14 @@ coach-only information about other players.
 - **And** `GET /api/app/lesson_instance/<id>/presences` with no token answers 401
 test: `backend/padel_app/tests/test_pad257_class_read_scope.py` › `test_unknown_instance_is_404_before_any_scoping` (+1 more)
 
+#### CLASSES-DETAIL-VISIBILITY-6: The class detail shows a Particular or Academia chip beside the title (PAD-925, rule 6)
+- **Given** a private class, an academy class and a class with no known type
+- **When** the coach, and then an enrolled student, open each class's detail on web and on the phone
+- **Then** the private class shows "Particular", the academy class shows "Academia", and the third shows no chip
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.classType.test.tsx`, `frontend/apps/mobile/src/features/calendar/class-type-chip-render.test.ts`, `frontend/packages/config/src/class-type-chip.test.ts`
+
 ### Notes
 - Source: ticket PAD-36 (privacy leak — student sees restricted class info).
+
+### Open questions
+- **Assumption, pending the owner (PO M-7512):** "another student's participation" (promise P-CLASSES-4) means identity: who is in the class, who attended, who was invited. The filled-spots number is not that, and the calendar card already shows it to the same student (`calendar.view` rule 8). If the owner says a count is covered, `participantCount` is removed from the student payload and the sheet goes back to the student's own row; this is reverted.

@@ -51,15 +51,18 @@
     "startDate": "Start date",
     "endDate": "End date",
     "endMode": {
-      "date": "Ends on",
-      "count": "Ends after"
+      "date": "Until a date",
+      "count": "No. of classes"
     },
+    "countDecrease": "One class fewer",
+    "countIncrease": "One class more",
     "classesUnit": "classes",
     "countHint": "Counts classes, not weeks.",
     "lastClass": "Last class: {{date}}",
     "recurrenceInvalid": "Choose at least one weekday, and an end date on or after the start date.",
     "defaultHoursNote": "Working hours not set: {{start}}–{{end}}.",
     "noWeeklySlots": "No time is free on every one of those days.",
+    "privateLessonsTitle": "This coach's upcoming private classes",
     "refusal": {
       "USERNAME_NOT_FOUND": "One of the usernames can't be added.",
       "SELF_INVITE": "You can't invite yourself.",

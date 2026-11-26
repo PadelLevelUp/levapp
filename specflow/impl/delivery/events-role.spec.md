@@ -86,7 +86,6 @@ live fallback (architecture review, 2026-10-22).
 - **When** `/api/app/events` is requested with `EVENTS_SPLIT=on`, and without it
 - **Then** 410 `{"error": "EVENTS_MOVED"}`, and 401 (served as before)
 - **And** `/api/app/events/` with a trailing slash is 410 the same way, and on `ROLE=events` it is served, never `NOT_ON_EVENTS`
-- Code to follow: `test_a_trailing_slash_does_not_slip_past_the_guard_or_the_410` (`test_pad697_events_role.py`) asserts the events role's status too, not only that the error is not `NOT_ON_EVENTS`.
 
 #### DELIVERY-EVENTS-ROLE-3: The events role is never ready on the memory broker (rule 4)
 - **Given** `ROLE=events` and `SSE_BROKER=memory`

@@ -2,7 +2,7 @@
 #
 # Mirrors: packages/config recurrence-end.test.ts (the arithmetic) and the web
 # PrivateClassStep.endMode.test.tsx (the choice). Built on flow 86's weekly wizard walk: the
-# student picks tomorrow's weekday, then "Termina ao fim de 3 aulas", sees the last-class line,
+# student picks tomorrow's weekday, then "N.º de aulas" stepped to 3, sees the last-class line,
 # sends, and the API reads the request back. Its endDate must be the 3rd occurrence of that
 # weekday from the request's own startDate, recomputed here independently of the app's code.
 # Setup and teardown withdraw any open request of e2e-student's (flow 86's pattern).
@@ -60,11 +60,9 @@ appId: com.padellevelup.app
     timeout: 20000
 - tapOn:
     id: "request-end-mode-count"
+# PAD-926: the count is a stepper that starts at 4; one minus press makes it 3.
 - tapOn:
-    id: "request-end-count"
-- eraseText: 3
-- inputText: "3"
-- pressKey: Enter
+    id: "request-end-count-dec"
 - assertVisible:
     id: "request-end-count-last-date"
 

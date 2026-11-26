@@ -9,7 +9,6 @@ import {
   playerFormSchema,
   classFormSchema,
   exerciseFormSchema,
-  availabilityBlockerSchema,
 } from "./index";
 
 const firstIssue = (result: { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } }) =>
@@ -60,8 +59,8 @@ describe("registerSchema", () => {
     name: "John Doe",
     username: "johndoe",
     email: "john@example.com",
-    password: "secret1",
-    repeatPassword: "secret1",
+    password: "secret12",
+    repeatPassword: "secret12",
   };
 
   it("parses valid input (phone optional)", () => {
@@ -96,12 +95,32 @@ describe("registerSchema", () => {
   });
 });
 
+describe("a new password needs 8 characters (owner decision 2026-11-10; sign-in keeps 6)", () => {
+  const seven = { password: "secret1", repeatPassword: "secret1" };
+  const cases = [
+    ["registerSchema", registerSchema, { name: "John Doe", username: "johndoe", email: "john@example.com" }],
+    ["coachInviteAcceptSchema", coachInviteAcceptSchema, { name: "Coach Ana", username: "coachana" }],
+    ["playerInviteAcceptSchema", playerInviteAcceptSchema, { username: "player1" }],
+  ] as const;
+
+  it.each(cases)("%s refuses a password of seven on the password field", (_name, schema, rest) => {
+    const result = schema.safeParse({ ...rest, ...seven });
+    expect(result.success).toBe(false);
+    expect(firstIssue(result).path).toEqual(["password"]);
+    expect(firstIssue(result).message).toBe("Password must have at least 8 characters");
+  });
+
+  it("the sign-in schema still takes a password of seven", () => {
+    expect(passwordSchema.safeParse("secret1").success).toBe(true);
+  });
+});
+
 describe("coachInviteAcceptSchema", () => {
   const valid = {
     name: "Coach Ana",
     username: "coachana",
-    password: "secret1",
-    repeatPassword: "secret1",
+    password: "secret12",
+    repeatPassword: "secret12",
   };
 
   it("parses valid input", () => {
@@ -133,8 +152,8 @@ describe("coachInviteAcceptSchema", () => {
 describe("playerInviteAcceptSchema", () => {
   const valid = {
     username: "player1",
-    password: "secret1",
-    repeatPassword: "secret1",
+    password: "secret12",
+    repeatPassword: "secret12",
   };
 
   it("parses valid input (no name field required)", () => {
@@ -259,38 +278,5 @@ describe("exerciseFormSchema", () => {
     expect(exerciseFormSchema.safeParse({ ...valid, difficulty: 0 }).success).toBe(false);
     expect(exerciseFormSchema.safeParse({ ...valid, difficulty: 6 }).success).toBe(false);
     expect(exerciseFormSchema.safeParse({ ...valid, difficulty: 2.5 }).success).toBe(false);
-  });
-});
-
-describe("availabilityBlockerSchema", () => {
-  const valid = {
-    date: "2026-07-06",
-    startTime: "09:00",
-    endTime: "10:00",
-    isRecurring: false,
-  };
-
-  it("parses valid input (title/endDate optional and nullable)", () => {
-    expect(availabilityBlockerSchema.safeParse(valid).success).toBe(true);
-    expect(
-      availabilityBlockerSchema.safeParse({
-        ...valid,
-        title: null,
-        endDate: null,
-      }).success
-    ).toBe(true);
-  });
-
-  it("rejects an empty date", () => {
-    const result = availabilityBlockerSchema.safeParse({ ...valid, date: "" });
-    expect(result.success).toBe(false);
-    expect(firstIssue(result).message).toBe("Date required");
-  });
-
-  it("requires startTime and endTime to be present", () => {
-    const { startTime: _s, ...noStart } = valid;
-    const { endTime: _e, ...noEnd } = valid;
-    expect(availabilityBlockerSchema.safeParse(noStart).success).toBe(false);
-    expect(availabilityBlockerSchema.safeParse(noEnd).success).toBe(false);
   });
 });

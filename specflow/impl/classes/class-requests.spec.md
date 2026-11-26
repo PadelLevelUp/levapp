@@ -1,6 +1,6 @@
 ---
 id: classes.class-requests
-status: implemented
+status: implementing
 depends_on: [classes.create, calendar.view, calendar.blocks, messaging.messages]
 serves: [P-CLASSES-3]
 governed_by: []
@@ -168,6 +168,26 @@ held on the coach's calendar while the request is open.
     future occurrence gets its Presence only when it materialises (#338 review F1). Durations
     offered are `CLASS_REQUEST_DURATIONS` (60, 90, 120 min), default 60. The coach's own
     free-blocks endpoint (rule 1) reads the same windows.
+13b. **No free time offers the coach's visible private lessons (PAD-929 C).** When the private
+    step's availability read **succeeded** and left no start time (the slot list's `empty` state, not
+    `loading` or `waiting`), single or weekly, and the request has **no invitees**, the step reads
+    `classes.academy-class-booking` rule 12's list for that coach (`type=private`). A request with
+    invitees never reads it: joining an existing lesson would drop the group.
+    - If it has rows, it shows them under today's message, each with its day, time, length and club
+      and its state (open or full). Each row's one action, request (open) or join the waiting list
+      (full), goes through `classes.join-requests` rule 22; the rule 5 optional note is not offered.
+    - A row's action follows `academyClassAction` (`classes.academy-class-booking` rule 7), as the
+      academy step's rows do: only a **pending** request turns the row's request action into the
+      status text `classRequests.academy.requested`; a rejected, withdrawn or superseded request
+      leaves the action in place, and a row the student is on the waiting list of shows
+      `classRequests.academy.onWaitlist` instead of the action, in the test id `wizard-private-lesson-status`.
+    - With no rows, the step shows today's message alone.
+    - A failed availability read, and a failed or refused `type=private` read, never show the list.
+      What the step shows instead for a failed availability read is PAD-927's; for a failed list read
+      it is today's message alone.
+    - Web and iOS, the same test ids: `wizard-private-lessons` (the list), `wizard-private-lesson-row-open`
+      / `-full` (the state in the id, as `classes.academy-class-booking` rule 10),
+      `wizard-private-lesson-request` / `-waitlist` (the actions).
 14. **A weekly request is one request (PAD-357).** `recurrence = {weekdays, startDate, endDate}`
     with `startDate ≤ endDate`, at least one weekday, `date` = the first occurrence; the hold
     (rule 3) is one recurring CalendarBlock covering every occurrence; a proposal or
@@ -180,8 +200,9 @@ held on the coach's calendar while the request is open.
     PAD-330's enrolment notice (`notifications.reminders` rule 18 keeps them asked). Invitees
     never accept or decline anything.
 14a. **The student chooses how a weekly request ends (PAD-428).** The wizard (web and iOS) asks for
-    the start date, then one of two endings, as a calendar app does: **"Termina no dia [data]"** (on a
-    date) or **"Termina ao fim de [N] aulas"** (after N classes, 1–52).
+    the start date, then one of two endings, chosen on a segmented control that shows one field at a
+    time (PAD-926): **"Até uma data"** (on a date, a date field) or **"N.º de aulas"** (after N
+    classes, 1–52, a stepper).
     - N counts CLASSES, not weeks: on Tuesdays and Thursdays, 4 classes is two weeks. The label says
       "aulas" / "classes".
     - "After N" is turned into `endDate` on the client, as the date of the Nth occurrence on the
@@ -190,8 +211,8 @@ held on the coach's calendar while the request is open.
     - The request on the wire is unchanged (`recurrence {weekdays, startDate, endDate}`), so the
       backend, rules 14–17 and older builds are untouched.
     - Changing the weekdays or the start date recomputes the end while "after N" is chosen.
-    - The count field can be empty while the student retypes it ("4" → "" → "3" gives 3, not 13).
-      An empty or invalid entry leaves the last valid count in force, and leaving the field puts it back.
+    - The count is a stepper, not a text field: minus and plus move it by one class, the minus stops
+      at 1 and the plus at 52, and each is disabled at its end. The count is never empty or invalid.
     - The coach's own class creation keeps its current fields; the same pattern there is PAD-463.
     - "After N" is only how the student PICKS `endDate`; the request stores a date, not a count.
       So when a proposal re-anchors a weekly series (rule 16: `startDate` moves, `endDate` stays),
@@ -532,12 +553,12 @@ test: `backend/padel_app/tests/test_pad256_request_slots.py` › `test_the_modul
 - **And** a proposal from before slots were stored stays answerable while the request is `countered`; while the request is loading, or on a message that carries none, nothing is added
 test: `frontend/packages/config/src/class-request-message.test.ts` › `shows the coach their own proposal as waiting` (+8 more)
 
-#### CLASSES-CLASS-REQUESTS-36: The class count can be retyped: empty while typing, and back to the last valid count on leaving (rule 14a)
-- **Given** the wizard on "after N classes" with a weekday chosen
-- **When** the student clears the field and types 3
-- **Then** the field reads empty, then 3, and the last date follows the count
-- **And** leaving the field empty puts the last valid count back
-test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx` › `clearing the field and typing 3 gives 3, not 13` (+1 more)
+#### CLASSES-CLASS-REQUESTS-36: The class count is a stepper that stops at 1 and at 52, and the last date follows it (rule 14a)
+- **Given** the wizard on "N.º de aulas" with a weekday chosen
+- **When** the student presses minus or plus, or presses either end past its limit
+- **Then** the count moves by one class, never below 1 or above 52, with the button disabled at that end
+- **And** the last date follows the count, and a count of 6 is sent as the date of the sixth class
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx` › `steps by one class and the last date follows the count` (+3 more), `frontend/apps/mobile/src/features/class-requests/wizard/EndModeControls.test.tsx` › `the stepper steps by one and stops at 1 and at the largest count` (+1 more), `frontend/packages/config/src/recurrence-end.test.ts` › `stepEndCount`
 
 #### CLASSES-CLASS-REQUESTS-37: A request is refused as `slot_taken` when an invitee or a later occurrence is not free (rules 7, 13, 15)
 - **Given** an invitee whose own calendar is blocked on Tuesday 18:00 to 19:00
@@ -579,3 +600,51 @@ test: `frontend/apps/mobile/src/features/class-requests/class-request-refusal-wi
 - **When** the coach accepts
 - **Then** the declaring client gets `409` `busy_same_hour` and the other `409` `slot_taken`, each with the same `message` and the same one clash naming Ana and the other class
 
+
+#### CLASSES-CLASS-REQUESTS-44: The selected end mode is visibly different from the track, on web and iOS (rule 14a)
+- **Given** the wizard on a weekly request, with "Até uma data" and "N.º de aulas" side by side
+- **When** either is selected
+- **Then** the selected segment has the primary fill with its readable foreground, and the other keeps the muted track with muted text, so the choice can be seen without a shadow (iOS draws none)
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx`, `frontend/apps/mobile/src/features/class-requests/wizard/EndModeControls.test.tsx`
+
+#### CLASSES-CLASS-REQUESTS-45: With no free time and no invitees, the private step lists the coach's visible private lessons, or only today's message when none (rule 13b)
+- **Given** an availability answer that leaves no start time, and a `type=private` read that returns one open and one full private lesson
+- **When** the student, with no invitees, opens the private step (single, then weekly)
+- **Then** the empty message shows, and under it the two lessons with day, time, length, club and state (`wizard-private-lesson-row-open`, `-full`)
+- **And** when the read returns no lesson, or fails, only the empty message shows
+- **And** the step never reads `type=private` while there are start times, while the read is loading or waiting, when the availability read failed, or when the request has invitees
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-CLASS-REQUESTS-45] no free time lists the coach's visible private lessons`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-CLASS-REQUESTS-45] no free time lists the coach's visible private lessons`
+
+#### CLASSES-CLASS-REQUESTS-46: A private-lesson row offers the request again after a withdrawn request, and shows the status while one is pending or the student is on the waiting list (rule 13b)
+- **Given** the private step lists four open private lessons, whose `myJoinRequest` is pending, withdrawn, rejected and none, and a full one the student is on the waiting list of
+- **When** the list renders
+- **Then** the pending row shows `classRequests.academy.requested` and no request action
+- **And** the withdrawn, rejected and no-request rows show the request action
+- **And** the waiting-list row shows `classRequests.academy.onWaitlist` and no waiting-list action
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-CLASS-REQUESTS-46] a row's action follows the student's request`
+
+#### CLASSES-CLASS-REQUESTS-54: Changing the length after picking a time clears the pick, so the request never posts the old end (rule 13)
+- **Given** the private step with a free window and a start time picked at 60 minutes
+- **When** the student changes the length to 90 minutes
+- **Then** no start time is picked any more, the offered times are those that fit 90 minutes, and Send stays off
+- **When** they pick 10:00 again and send
+- **Then** the request posts `startTime` 10:00 and `endTime` 11:30
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-54] a length change clears the picked time`, `frontend/apps/mobile/src/features/class-requests/wizard/private-duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-54] a length change clears the picked time`
+
+#### CLASSES-CLASS-REQUESTS-55: A weekly start date left empty waits instead of failing (rule 14a)
+- **Given** the weekly private step, in either ending
+- **When** the student clears the start date
+- **Then** the step does not fail: it shows the waiting state, reads no availability and lists no start time
+- **And** no occurrence date and no last date is worked out from an empty or malformed start (`occurrenceDates` is empty, `endDateAfterClasses` is null)
+- **When** a start date is entered again
+- **Then** the availability is read again for it
+test: `frontend/packages/config/src/recurrence-end.test.ts` › `[CLASSES-CLASS-REQUESTS-55] an empty or malformed start date has no occurrences and no last date`, `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-55] a cleared weekly start date waits`, `frontend/apps/mobile/src/features/class-requests/wizard/private-duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-55] a cleared weekly start date waits`
+
+#### CLASSES-CLASS-REQUESTS-56: The same username twice is refused on the field, as the server refuses it (rule 12)
+- **Given** the private step for 3 people, and a first field holding a rostered student's username
+- **When** the second field holds the same username, in any letter case or with spaces around it
+- **Then** the second field reads `DUPLICATE_INVITEE` ("Este jogador já está na lista.") and the step stays waiting, though the name itself is on the roster
+- **And** the username is checked once, not twice
+- **When** the second field is changed to a different rostered student
+- **Then** both fields read ok
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-56] a repeated username is refused on the field`, `frontend/apps/mobile/src/features/class-requests/wizard/private-duration.test.tsx` › `[CLASSES-CLASS-REQUESTS-56] a repeated username is refused on the field`

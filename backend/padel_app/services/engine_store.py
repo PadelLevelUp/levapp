@@ -92,6 +92,12 @@ def _sides(app_side: str | None) -> frozenset[str]:
     return frozenset({SIDE_FROM_APP[app_side]}) if app_side in SIDE_FROM_APP else frozenset({"L", "R"})
 
 
+def _same_type(stored, spot_type: SpotType) -> bool:
+    """A stored alert ``[side, level, spots]`` is of ``spot_type``; one stored with no level is of the session's
+    level whatever it is (rule 12), so raising or clearing it replaces the one stored before the fix."""
+    return stored[0] == spot_type.side and stored[1] in (spot_type.level, None)
+
+
 def _encode(value):
     if isinstance(value, datetime):
         return value.isoformat()
@@ -174,10 +180,11 @@ def _overlapping_going(coach_id: int, iid: int, start: datetime, end: datetime, 
     from padel_app.models.presences import Presence
     from padel_app.services.lesson_service import coach_instance_ids
 
-    own = set(coach_instance_ids(coach_id)) - {iid}
     candidates = LessonInstance.query.filter(
         LessonInstance.id != iid, LessonInstance.status != "canceled",
         LessonInstance.start_datetime < end, LessonInstance.start_datetime >= start - timedelta(days=1)).all()
+    # Only the candidates are asked about (CONFIG-85): never the coach's whole history.
+    own = coach_instance_ids(coach_id, among=[o.id for o in candidates]) - {iid}
     overlapping = [o.id for o in candidates
                    if (o.id in own and _end_of(o) > start) or o.start_datetime == start]
     if not overlapping:
@@ -381,10 +388,15 @@ class TableStore:
         elsewhere = self._elsewhere(others, coach_id)
 
         attempts: dict[str, list[datetime]] = {}
+        counted: dict[str, int] = {}
         confirmed = set()
         for a in ReminderAttempt.query.filter_by(lesson_instance_id=iid).order_by(ReminderAttempt.sent_at).all():
             if a.sent_at is not None:
                 attempts.setdefault(str(a.player_id), []).append(a.sent_at)
+                # Engine-timeline rule 2's cap counts as reminders rule 19 does: a voided attempt
+                # (superseded AND expired, reminder_attempt_service._counted) is not counted.
+                if not (a.superseded and a.expired):
+                    counted[str(a.player_id)] = counted.get(str(a.player_id), 0) + 1
             if a.response == "yes":
                 confirmed.add(str(a.player_id))
         # Engine-store rule 6 (reminders rule 22, PAD-489): a student the system recorded as coming,
@@ -398,26 +410,34 @@ class TableStore:
         missing = [int(s) for s in named if s not in students]
         if missing:                                        # a regular or a waiting student off the coach's roster
             students.update(self._students(coach_id, [], {}, extra=missing))
+        level = self._level(ladder_index_map(coach_id), inst.effective_level_id)
+
+        def spot(side, at_level=None) -> SpotType:
+            # Engine-store rule 12: a spot type stored with no level (before rule 4's effective level)
+            # reads as the session's level, so the fix reopens, re-alerts and re-asks nothing.
+            return SpotType(side, level if at_level is None else at_level)
+
         return SessionSnapshot(
-            id=session, level=self._level(ladder_index_map(coach_id), inst.level_id), capacity=inst.effective_max_players, start=start,
+            id=session, level=level, capacity=inst.effective_max_players, start=start,
             end=end,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
             coach_removed=coach_removed,
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
             confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
-            alerted={SpotType(side, level): spots for side, level, spots in (es.alerted or [])},
+            alerted={spot(side, lv): spots for side, lv, spots in (es.alerted or [])},
             approval=Approval(
                 approved_groups=frozenset(es.approved_groups or ()), removed=frozenset(es.removed or ()),
                 pending=tuple(PendingRequest(p["tier"], p["request"],
-                                             tuple((SpotType(*spot), tuple(ids)) for spot, ids in p["queues"]))
+                                             tuple((spot(*st), tuple(ids)) for st, ids in p["queues"]))
                               for p in es.pending or ()),
-                dismissed_groups=tuple((tier, tuple((SpotType(*spot), n) for spot, n in spots))
+                dismissed_groups=tuple((tier, tuple((spot(*st), n) for st, n in spots))
                                        for tier, spots in es.dismissed_groups or ())),
             students={s: students[s] for s in named if s in students},
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
             attendance_requested={s: tuple(v) for s, v in attempts.items()},
+            attendance_asks=counted,
             blocked=frozenset(blocked),
             postponed=self._capped_today(coach_id, gates.daily_cap, {st.id for st in pool}),
         )
@@ -665,6 +685,7 @@ class TableStore:
         from padel_app.models import User
         from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
         from padel_app.models.players import Player
+        from padel_app.services.lesson_service import coach_instance_ids_select
         from padel_app.services.notification_service import (
             _attendance_counts_for,
             _unjustified_absence_counts_for,
@@ -681,10 +702,12 @@ class TableStore:
         ids = sorted(set(by_player) | set(extra))
         if not ids:
             return {}
-        counts = _attendance_counts_for(ids, coach_id)
+        # The coach's occurrences, as SQL inside each count (CONFIG-85): never fetched as a list.
+        scope = coach_instance_ids_select(coach_id)
+        counts = _attendance_counts_for(ids, coach_id, instance_ids=scope)
         ladder = ladder_index_map(coach_id)
-        owed = makeups_owed_for(ids, coach_id)
-        unjustified = _unjustified_absence_counts_for(ids, coach_id)
+        owed = makeups_owed_for(ids, coach_id, instance_ids=scope)
+        unjustified = _unjustified_absence_counts_for(ids, coach_id, instance_ids=scope)
         out = {}
         for pid in ids:
             lk = by_player.get(pid)
@@ -716,7 +739,7 @@ class TableStore:
         # another coach's only at the same start (the engine reads same_coach, snapshot.same_time).
         from padel_app.services.lesson_service import coach_instance_ids
 
-        own = set(coach_instance_ids(coach_id))
+        own = coach_instance_ids(coach_id, among={r.lesson_instance_id for r in rows})
         going: dict[int, tuple[Placement, ...]] = {}
         for iid in {r.lesson_instance_id for r in rows}:
             going[iid] = tuple(self._placement(p) for p in Presence.query.filter_by(lesson_instance_id=iid).all()
@@ -827,11 +850,11 @@ class TableStore:
             self._approval(db.session.get(EngineSession, iid), e)
         elif isinstance(e, fx.AlertCleared):                       # engine-planning rule 11 (PLANNING-40)
             es = db.session.get(EngineSession, iid)
-            es.alerted = [a for a in (es.alerted or []) if (a[0], a[1]) != (e.spot_type.side, e.spot_type.level)]
+            es.alerted = [a for a in (es.alerted or []) if not _same_type(a, e.spot_type)]
         elif isinstance(e, fx.CoachAlert):
             if e.spot_type is not None:                           # one alert per session and type (rule 11)
                 es = db.session.get(EngineSession, iid)
-                kept = [a for a in (es.alerted or []) if (a[0], a[1]) != (e.spot_type.side, e.spot_type.level)]
+                kept = [a for a in (es.alerted or []) if not _same_type(a, e.spot_type)]
                 es.alerted = kept + [[e.spot_type.side, e.spot_type.level, e.spots]]
         elif isinstance(e, fx.Invited):
             if self._invitation_row(e) is not None:

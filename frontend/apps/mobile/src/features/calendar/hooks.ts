@@ -13,6 +13,8 @@ import type {
   EngineRespondBody,
   PresenceStatus,
 } from "@levelup/types";
+import type { CancelReason } from "@levelup/api/src/resources/classes";
+import { queryKeys } from "@levelup/hooks";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -141,16 +143,23 @@ export function useRemoveEvent() {
 }
 
 export function useRemoveClass() {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateClassData();
   return useMutation({
     mutationFn: ({
       event,
       scope,
+      cancel,
     }: {
       event: CalendarEvent;
       scope: "single" | "future";
-    }) => classesApi.removeClass(event, scope),
-    onSuccess: invalidate,
+      cancel?: CancelReason;
+    }) => classesApi.removeClass(event, scope, cancel),
+    onSuccess: () => {
+      invalidate();
+      // classes.delete rule 14 (PAD-840): the class's list of cancellations just grew.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classCancellations() });
+    },
   });
 }
 

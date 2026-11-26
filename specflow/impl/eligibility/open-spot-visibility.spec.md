@@ -1,6 +1,6 @@
 ---
 id: eligibility.open-spot-visibility
-status: implemented
+status: implementing
 depends_on: [eligibility.cascade, calendar.view]
 serves: [P-ELIGIBILITY-3]
 governed_by: []
@@ -35,8 +35,13 @@ separate browse screen. A coach controls whether their open spots are advertised
     default is read-time resolution from `Lesson.type`: no row is written, so private lessons that
     already exist get it too, and an explicit lesson or instance value is kept (coordinator,
     2026-09-25, option a). Everything gated on `effective_open_spots_visible` follows: calendar
-    discovery, the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2) and join
-    requests (`classes.join-requests`).
+    discovery and join requests (`classes.join-requests`). **Where a visible private class is found
+    (PAD-929):** by browsing, a student who is not in it finds it only in their calendar (rules 1, 1a) and in the
+    private-request wizard's no-free-time list (`classes.academy-class-booking` rule 12). It is never
+    found in the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2). A student
+    enrolled in it sees it as their own class whatever the setting (`calendar.view`). Invitations
+    (`calendar.view` rule 22, PAD-609) and the coach's standing list are not browsing and are
+    outside this rule.
 3. **Visibility is a coach toggle that cascades exactly like eligibility** — coach standard,
    overridable per recurring group and per single class, most specific wins, tiers do not merge
    (`eligibility.cascade` rules 1–3). Coach-facing label: "make empty spots for future classes
@@ -53,7 +58,6 @@ separate browse screen. A coach controls whether their open spots are advertised
 7. Classes that have started or start right now (judged on the club's clock, PAD-256) and classes with
    status `canceled` or `completed` are never shown as open spots. A spot is offered only while a
    join request for it can still be made (`class_join_request_service.py` refuses from the start, `<=`).
-   - Code to follow: the open-spot loader in `calendar_helpers.py` drops a class whose start is `<=` now, not only `<`, with one test for a class starting exactly now.
 8. A student's own availability blocker (`calendar.student-blockers`) suppresses *solicitations*, not
    *discovery*: a blocked window still shows open spots. The student initiates here, so the
    protection the blocker exists to give is not at stake.
@@ -214,6 +218,19 @@ test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_single_cla
 - **And** the web shell's requests declare `open-spots` and `evaluations`
 test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_route_appends_open_spots_for_students_only` (+5 more)
 - Code to follow: `test_calendar_route_appends_open_spots_for_a_student_and_never_for_a_coach` sends `X-LevApp-Capabilities: open-spots` on the coach's request too, so the role check is what hides the spots.
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-17: A class starting right now is no longer offered (rule 7)
+- **Given** a visible class with room at 10:00 Lisbon time, and a rostered student at its level who is not enrolled
+- **When** the student's open spots are loaded at exactly 10:00 Lisbon time
+- **Then** the class is not offered
+- **And** one minute earlier it is
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-18: A private lesson is found by other students only in the two places, and only when visible (rule 3a)
+- **Given** Ana's private lesson with Carla enrolled and one spot left, and Bruno eligible
+- **When** the lesson is visible, and again when it is hidden (the default)
+- **Then** visible: Bruno's calendar (`open-spots` declared) has it as an open spot; hidden: it does not (the two lists are CLASSES-ACADEMY-CLASS-BOOKING-20 and -21)
+- **And** Carla's calendar shows it as her own class in both cases
+test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_a_private_lesson_is_found_only_in_the_calendar_and_the_private_list`
 
 ### Notes
 - **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:

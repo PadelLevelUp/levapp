@@ -1,8 +1,9 @@
 """The engine's front door: ``tick`` for the passage of time, ``handle`` for anything that happens.
 
 It owns the order of work and nothing else. Every decision is made by a rule module
-(``timeline``, ``messages``, ``planner``, ``answers``) from a fresh snapshot; the effects go to
-the store at once, so the next module sees them, and are returned to the caller.
+(``timeline``, ``messages``, ``planner``, ``answers``) from a snapshot that holds every effect applied
+before it (taken again after a step that applied any); the effects go to the store at once, so the next
+module sees them, and are returned to the caller.
 
 ``now`` is always passed in, as naive UTC; the engine never reads the wall clock.
 """
@@ -23,6 +24,7 @@ from padel_app.invitation_engine.requests import (
     CoachExcludes,
     CoachSetsSide,
     CoachInvites,
+    CoachRequestsAttendance,
     CreateSession,
     Request,
     UpdateSettings,
@@ -58,9 +60,19 @@ class Engine:
             try:
                 with self.store.unit((session,)):
                     settings = self.settings_for(session)
-                    done += self._commit(timeline.due(self.store.snapshot(session), settings, now))
-                    done += self._commit(messages.due(self.store.snapshot(session), settings, now))
-                    done += self._plan(session, now, settings)
+                    # A step that applied nothing left the session as it was, so the next step reads the
+                    # same snapshot instead of building it again (engine-store rule 7, STORE-21: a session
+                    # with nothing due costs one snapshot per run, not three).
+                    snapshot = self.store.snapshot(session)
+                    applied = self._commit(timeline.due(snapshot, settings, now))
+                    if applied:
+                        snapshot = self.store.snapshot(session)
+                    done += applied
+                    applied = self._commit(messages.due(snapshot, settings, now))
+                    if applied:
+                        snapshot = self.store.snapshot(session)
+                    done += applied
+                    done += self._commit(planner.decide(snapshot, settings, now).effects)
             except UnitConflict:            # rolled back: nothing of this session happened; next run
                 continue
             out += done
@@ -94,6 +106,8 @@ class Engine:
             return self._queue_answer(session, request, now)
         if isinstance(request, CoachInvites):
             return self._coach_invites(session, request, now)
+        if isinstance(request, CoachRequestsAttendance):
+            return self._coach_asks(session, request, now)
         if not isinstance(request, (CoachAdded, CoachSetsSide, CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
         # A student's request locks the student first (two of theirs never run at once, answers rule 10).
@@ -136,6 +150,13 @@ class Engine:
             settings = self.settings_for(session)
             out = self._commit(planner.coach_invites(self.store.snapshot(session), settings, request.students, now))
             return out + self._plan(session, now, settings)
+
+    def _coach_asks(self, session: str, request: CoachRequestsAttendance, now: datetime) -> list[Effect]:
+        """The coach's "send reminders" (engine-timeline rule 8), under the session's lock and with no
+        re-plan: it sends no invitation and changes no place."""
+        with self.store.unit((session,)):
+            settings = self.settings_for(session)
+            return self._commit(messages.coach_ask(self.store.snapshot(session), settings, now, request.skipped))
 
     def _queue_answer(self, session: str, request: Request, now: datetime) -> list[Effect]:
         """The coach's answer to semi-automatic mode (engine-planning rule 14), then a re-plan, which

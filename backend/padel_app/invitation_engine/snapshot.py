@@ -11,6 +11,7 @@ Sides are ``"L"`` and ``"R"``; a student holds a non-empty subset of them (D18).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cached_property
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -182,11 +183,27 @@ class SessionSnapshot:
     # Per student, naive UTC: when each attendance request went out (engine-timeline rule 2), so
     # ``messages.due`` sends each one once.
     attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
+    # Per student: how many of those asks count toward ``attendance_request.max`` (engine-timeline rule 2's
+    # cap, counted as notifications.reminders rule 19 does: a voided attempt, superseded AND expired, is
+    # not counted). ``None``: every request counts (a store that never voids one).
+    attendance_asks: dict[str, int] | None = None
     approval: Approval = field(default_factory=Approval)      # semi-automatic mode (engine-planning rule 14)
     end: datetime | None = None                       # Lisbon wall-clock: start plus the lesson's length
 
     def placement(self, student: str) -> Placement | None:
         return next((p for p in self.going if p.student == student), None)
+
+    @cached_property
+    def pool_ids(self) -> frozenset[str]:
+        """The pool's student ids, built once per snapshot (engine-planning rule 15): membership is a
+        lookup, never a scan of the pool per student, tier and spot type."""
+        return frozenset(st.id for st in self.pool)
+
+    def asks(self, student: str) -> int:
+        """How many attendance requests to ``student`` count toward the cap (engine-timeline rule 2)."""
+        if self.attendance_asks is not None:
+            return self.attendance_asks.get(student, 0)
+        return len(self.attendance_requested.get(student, ()))
 
     def invitation(self, student: str) -> Invitation | None:
         """The student's latest invitation (a waiting-list re-invitation follows an earlier one)."""

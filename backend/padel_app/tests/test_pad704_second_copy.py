@@ -90,9 +90,13 @@ def test_copies_is_one_or_two(csb):
 
 def test_dry_run_prints_the_second_copy(csb):
     live(csb, "padelapp", 5000)
-    r, _ = run(csb, "--copies", "2", "--dry-run")
+    r, calls = run(csb, "--copies", "2", "--dry-run")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "dry-run: docker run -d --name padelapp_b -p 127.0.0.1:5000:80" in r.stderr
+    mutating = ("docker run", "docker stop", "docker rm", "docker rename", "docker start")
+    assert not any(c.startswith(mutating) for c in calls), calls
+    assert not any(c.startswith("reload ") for c in calls), "no nginx reload"
+    assert containers(csb) == {"padelapp": "5000"}
 
 
 def test_staging_runs_one_copy_until_the_memory_budget_and_prod_none():

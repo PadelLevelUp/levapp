@@ -187,7 +187,7 @@ def test_toggle_off_still_honours_an_explicit_end_date(app):
         )
 
         assert lesson.recurs_until_season_end is False
-        assert lesson.recurrence_end is not None
+        assert lesson.recurrence_end == date(2026, 12, 31)
 
 
 # ---------------------------------------------------------------------------

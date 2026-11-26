@@ -8,25 +8,37 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Minus, Plus, X } from "lucide-react";
 import {
   CLASS_REQUEST_DURATIONS,
   FIRST_FREE_DAY_HORIZON_DAYS,
   MAX_REQUEST_CLASSES,
+  stepEndCount,
   clubTodayISO,
   endDateAfterClasses,
+  duplicateInvitees,
   firstFreeDay,
   formatShortDate,
+  availabilityReadKey,
+  lessonMinutes,
   occurrenceDates,
+  joinRefusalKey,
+  joinRefusalOf,
+  needsPrivateLessonWarning,
+  waitingListSideChoice,
+  academyClassAction,
+  readsPrivateLessons,
   slotStarts,
   weeklyIntersection,
   type Window,
 } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
-import { requestAvailabilityApi } from "@levelup/api";
+import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
 import { classRequestRefusal, createClassRequest } from "@/api/classRequests";
+import { ClassSideChoice } from "@/components/calendar/ClassSideChoice";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,13 +87,13 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   const [endDate, setEndDate] = useState(addDaysIso(today, 28));
   const [endMode, setEndMode] = useState<EndMode>("date");
   const [endCount, setEndCount] = useState(DEFAULT_END_COUNT);
-  // The field's own text: it may be empty while the student retypes it ("4" -> "" -> "3"),
-  // which the numeric count cannot be. Blur puts back the last valid count.
-  const [endCountText, setEndCountText] = useState(String(DEFAULT_END_COUNT));
 
   // ── Slot ──
   const [duration, setDuration] = useState<number>(60);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+  // PAD-929 (rule 13b): the read the current answer belongs to. A failed read, one still on its way,
+  // or an answer for an earlier choice is not "no free time" and never offers the private lessons.
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<Window | null>(null);
   const [note, setNote] = useState("");
@@ -89,7 +101,10 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
 
   const invitees = usernames.slice(0, people - 1).map((u) => u.trim()).filter(Boolean);
   const inviteesKey = invitees.join(",");
-  const allInviteesOk = invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true);
+  // Rule 12: a name repeated on a later field is refused here, as the server refuses it.
+  const repeated = duplicateInvitees(usernames.slice(0, people - 1));
+  const allInviteesOk =
+    invitees.length === people - 1 && invitees.every((u) => checks[u]?.ok === true) && !repeated.some(Boolean);
 
   // Keep one username field per invitee.
   useEffect(() => {
@@ -98,7 +113,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
 
   // Rule 12: each username checked against this coach's roster (debounced).
   useEffect(() => {
-    const pending = invitees.filter((u) => !checks[u]);
+    // A repeated name is checked once (the server answers its first spelling).
+    const pending = invitees.filter((u, i, all) => !checks[u] && all.findIndex((x) => x.toLowerCase() === u.toLowerCase()) === i);
     if (pending.length === 0) return;
     const timer = setTimeout(() => {
       requestAvailabilityApi.getRequestParticipants(coachId, pending)
@@ -136,6 +152,12 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coachId, recurring, inviteesKey, allInviteesOk]);
 
+  // Rule 13: a picked time is for the length it was picked at; a new length starts the pick over,
+  // so the request never posts the old end.
+  useEffect(() => {
+    setSlot(null);
+  }, [duration]);
+
   // Rule 13: everyone's free windows for the chosen day or recurrence range.
   useEffect(() => {
     setSlot(null);
@@ -155,7 +177,11 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     let active = true;
     setLoadingSlots(true);
     requestAvailabilityApi.getCoachAvailability({ coachId, from, to, participants: invitees })
-      .then((res) => active && setAvailability(res))
+      .then((res) => {
+        if (!active) return;
+        setAvailability(res);
+        setAnsweredFor(availabilityReadKey({ coachId, from, to, participants: invitees }));
+      })
       .catch(() => active && setAvailability(null))
       .finally(() => active && setLoadingSlots(false));
     return () => {
@@ -170,6 +196,30 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     return slotStarts(availability.freeWindows[date] ?? [], duration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availability, duration, date, recurring, weekdays.join(","), startDate, effectiveEndDate]);
+
+  const slotsState = !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
+
+  // PAD-929 (classes.class-requests rule 13b): no free time offers the coach's visible private
+  // lessons (classes.academy-class-booking rule 12); each row's one action goes through the
+  // private-lesson warning, then the side choice (classes.join-requests rule 22).
+  const answered =
+    answeredFor !== null &&
+    answeredFor ===
+      availabilityReadKey({
+        coachId,
+        from: recurrence ? startDate : date,
+        to: recurrence ? effectiveEndDate : date,
+        participants: invitees,
+      });
+  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
+  const privateLessons = useQuery({
+    queryKey: ["academy-classes", coachId, "private"],
+    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
+    enabled: showPrivateLessons,
+  });
+  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
+  const [lessonSideFor, setLessonSideFor] = useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
+  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
 
   const send = async () => {
     if (!slot) return;
@@ -230,8 +280,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
             </p>
             {usernames.map((u, i) => {
               const check = checks[u.trim()];
-              const code = checkCode(check);
-              const state = !u.trim() ? "empty" : !check ? "checking" : code ?? "ok";
+              const code = repeated[i] ? "DUPLICATE_INVITEE" : checkCode(check);
+              const state = !u.trim() ? "empty" : repeated[i] ? "DUPLICATE_INVITEE" : !check ? "checking" : code ?? "ok";
               return (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -322,71 +372,72 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               <Input id="wizard-start-date" type="date" min={today} value={startDate} data-testid="wizard-start-date" onChange={(e) => setStartDate(e.target.value)} />
             </div>
 
-            {/* Rule 14a (PAD-428): the two ways a weekly request can end, like a calendar app. */}
-            <div className="space-y-2" role="radiogroup" aria-label={t("classRequestWizard.endDate")}>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={endMode === "date"}
-                  data-testid="request-end-mode-date"
-                  onClick={() => setEndMode("date")}
-                  className={cn(
-                    "h-4 w-4 shrink-0 rounded-full border-2",
-                    endMode === "date" ? "border-primary bg-primary" : "border-muted-foreground bg-background"
-                  )}
-                />
-                <Label htmlFor="wizard-end-date" className="text-xs shrink-0">{t("classRequestWizard.endMode.date")}</Label>
+            {/* Rule 14a (PAD-428, PAD-926): the two ways a weekly request can end, as a segmented control. */}
+            <div className="space-y-2">
+              <div
+                role="radiogroup"
+                aria-label={t("classRequestWizard.endDate")}
+                className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1"
+              >
+                {(["date", "count"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={endMode === mode}
+                    data-testid={`request-end-mode-${mode}`}
+                    onClick={() => setEndMode(mode)}
+                    className={cn(
+                      "h-8 rounded px-2 text-xs font-medium",
+                      endMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
+                    )}
+                  >
+                    {t(`classRequestWizard.endMode.${mode}`)}
+                  </button>
+                ))}
+              </div>
+              {endMode === "date" ? (
                 <Input
                   id="wizard-end-date"
                   type="date"
                   min={startDate}
                   value={endDate}
-                  disabled={endMode !== "date"}
+                  aria-label={t("classRequestWizard.endMode.date")}
                   data-testid="wizard-end-date"
-                  onFocus={() => setEndMode("date")}
-                  onChange={(e) => {
-                    setEndMode("date");
-                    setEndDate(e.target.value);
-                  }}
+                  onChange={(e) => setEndDate(e.target.value)}
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={endMode === "count"}
-                  data-testid="request-end-mode-count"
-                  onClick={() => setEndMode("count")}
-                  className={cn(
-                    "h-4 w-4 shrink-0 rounded-full border-2",
-                    endMode === "count" ? "border-primary bg-primary" : "border-muted-foreground bg-background"
-                  )}
-                />
-                <Label htmlFor="wizard-end-count" className="text-xs shrink-0">{t("classRequestWizard.endMode.count")}</Label>
-                <Input
-                  id="wizard-end-count"
-                  type="number"
-                  min={1}
-                  max={MAX_REQUEST_CLASSES}
-                  step={1}
-                  value={endCountText}
-                  disabled={endMode !== "count"}
-                  data-testid="request-end-count"
-                  className="w-20"
-                  onFocus={() => setEndMode("count")}
-                  onChange={(e) => {
-                    setEndMode("count");
-                    setEndCountText(e.target.value);
-                    const n = Math.round(Number(e.target.value));
-                    if (e.target.value.trim() !== "" && Number.isFinite(n)) {
-                      setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
-                    }
-                  }}
-                  onBlur={() => setEndCountText(String(endCount))}
-                />
-                <span className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</span>
-              </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    aria-label={t("classRequestWizard.countDecrease")}
+                    data-testid="request-end-count-dec"
+                    disabled={endCount <= 1}
+                    onClick={() => setEndCount((n) => stepEndCount(n, -1))}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-8 text-center text-base font-semibold" data-testid="request-end-count" aria-live="polite">
+                    {endCount}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    aria-label={t("classRequestWizard.countIncrease")}
+                    data-testid="request-end-count-inc"
+                    disabled={endCount >= MAX_REQUEST_CLASSES}
+                    onClick={() => setEndCount((n) => stepEndCount(n, 1))}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</span>
+                </div>
+              )}
               {endMode === "count" && (
                 <p className="text-xs text-muted-foreground" data-testid="request-end-count-last-date">
                   {computedEndDate
@@ -432,11 +483,64 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           </p>
         )}
 
-        <div data-testid="wizard-slots" data-state={!allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty"}>
+        <div data-testid="wizard-slots" data-state={slotsState}>
           {loadingSlots ? (
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           ) : !allInviteesOk || !recurrenceValid ? null : starts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}</p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}</p>
+              {lessons.length > 0 && (
+                <div className="space-y-2" data-testid="wizard-private-lessons">
+                  <p className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</p>
+                  {lessons.map((c) => {
+                    const action = academyClassAction(c);
+                    return (
+                    <div
+                      key={c.id}
+                      data-testid={`wizard-private-lesson-row-${c.state}`}
+                      data-class-id={c.id}
+                      className={cn("flex items-center justify-between gap-2 rounded-lg border p-3", c.state === "full" && "border-destructive/60 bg-destructive/5")}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {formatShortDate(c.date, i18n.language)} · {c.startTime}–{c.endTime}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("classRequests.minutes", { count: lessonMinutes(c) })}
+                          {c.club?.name ? ` · ${c.club.name}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
+                          {c.state === "full" ? t("classRequests.academy.full") : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
+                        </Badge>
+                        {action === "requested" && (
+                          <p className="text-sm" data-testid="wizard-private-lesson-status" data-status="requested">
+                            {t("classRequests.academy.requested")}
+                          </p>
+                        )}
+                        {action === "on_waitlist" && (
+                          <p className="text-sm" data-testid="wizard-private-lesson-status" data-status="on_waiting_list">
+                            {t("classRequests.academy.onWaitlist")}
+                          </p>
+                        )}
+                        {action === "request" && (
+                          <Button size="sm" data-testid="wizard-private-lesson-request" onClick={() => setLessonSideFor({ c, mode: "request" })}>
+                            {t("classRequests.academy.request")}
+                          </Button>
+                        )}
+                        {action === "join_waitlist" && (
+                          <Button size="sm" variant="destructive" data-testid="wizard-private-lesson-waitlist" onClick={() => setLessonSideFor({ c, mode: "waiting" })}>
+                            {t("classRequests.academy.joinWaitlist")}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {starts.map((s) => (
@@ -470,6 +574,34 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("classRequests.send")}
         </Button>
       </div>
+
+      {lessonSideFor && (
+        <ClassSideChoice
+          open
+          onOpenChange={(o) => {
+            if (!o) setLessonSideFor(null);
+          }}
+          mode={lessonSideFor.mode}
+          event={lessonSideFor.c}
+          profileSide={lessonSideFor.c.profileSide ?? privateLessons.data?.profileSide ?? null}
+          relativeChoice={waitingListSideChoice(lessonSideFor.c)}
+          privateWarning={needsPrivateLessonWarning(lessonSideFor.c, lessonSideFor.mode === "waiting" ? "waitlist" : "request")}
+          onPrivateUnconfirmed={refreshLessons}
+          onRequestSent={() => {
+            toast({ title: t("classRequests.academy.requestSent") });
+            refreshLessons();
+          }}
+          onWaitingListJoined={() => {
+            toast({ title: t("classRequests.academy.joinedWaitlist") });
+            refreshLessons();
+          }}
+          onFailed={(err) => {
+            const code = joinRefusalOf(err)?.code;
+            toast({ title: code ? t(joinRefusalKey(code)) : t("classRequests.academy.failed"), variant: code ? "default" : "destructive" });
+            refreshLessons();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -12,7 +12,8 @@ governed_by: []
 A coach finds a player the same way on every screen where they type a player's name: "Rui Basto"
 finds "Rui Pedro Basto", "andre nunes" finds "André Nunes", "jo mor" finds "João Moreira" while they
 type, and the best match is first. The search changes **only how the text is compared** — never
-who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10-14).
+who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10-14), with one
+exception in rule 7 (PAD-831).
 
 ### Entities
 - **READS:** User (`name`, and where the screen's payload already carries them, `email`, `phone`),
@@ -58,13 +59,18 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    walk-in and waiting-list pickers, the notify modal and the messaging pickers.
 7. **Scope never changes.** Every surface keeps exactly its current filters and permissions: the
    rule runs only on rows the surface already selected (the coach's roster, minus the rows that
-   surface already excludes). No surface gains a player, a field or a coach it did not have.
+   surface already excludes). No surface gains a player, a field or a coach it did not have. One
+   exception (PAD-831, `messaging.conversations` rule 20; the owner, 2026-11-25): a coach's conversation-list search also
+   searches the people the coach may message (`messaging.conversations` rule 7), the set the
+   new-conversation picker on the same screen already lists, so it finds a student with no loaded
+   conversation. It never reaches anyone outside that set.
 8. **Surfaces (inventory, owner-confirmed 2026-10-14; web and iOS):** Players tab (server);
    add players to a class; class waiting list "add student"; validate-presences walk-in; link a
    duplicate account (claim candidates, server — moved from its own single-substring fold to this
    rule); excluded students, standing waiting list and the invites tutorial (server,
    `notify/player_search`); notify/invite modal; presences table filter; new conversation (coach
-   side); conversation list filter (coach side, the counterpart's name). Not touched: the same
+   side); conversation list search (coach side: the counterpart's name and roster nickname, plus the
+   people the coach may message, `messaging.conversations` rule 20). Not touched: the same
    messaging screens used by a student, the admin console, club search, exact username/email
    lookups, exercises/groups/competencies.
 9. **No raw comparison returns.** A guard test fails if any surface in rule 8 compares a player name

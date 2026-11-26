@@ -180,12 +180,18 @@ export function ActionCard({
   children,
   onClick,
   testId,
+  foot,
 }: {
   accent?: "attention" | "accent";
   className?: string;
   children: ReactNode;
   onClick?: () => void;
   testId?: string;
+  /**
+   * A foot drawn outside the card's padding, edge to edge (dashboard.blocks rule 14: the answer strip).
+   * The card then clips to its rounded corners, and the accent bar runs down the whole height past it.
+   */
+  foot?: ReactNode;
 }) {
   const interactive = typeof onClick === "function";
 
@@ -207,14 +213,22 @@ export function ActionCard({
       }
       className={cn(
         // Border, not shadow — this is a card in a list.
-        "rounded-2xl border border-border bg-card p-4",
+        "rounded-2xl border border-border bg-card",
+        foot ? "overflow-hidden" : "p-4",
         accent === "attention" && "border-l-4 border-l-warning",
         accent === "accent" && "border-l-4 border-l-primary",
         interactive && "cursor-pointer transition-colors hover:bg-accent/40",
-        className,
+        !foot && className,
       )}
     >
-      {children}
+      {foot ? (
+        <>
+          <div className={cn("p-4", className)}>{children}</div>
+          {foot}
+        </>
+      ) : (
+        children
+      )}
     </div>
   );
 }
@@ -224,6 +238,15 @@ export function ActionCard({
  * informs nobody whether it is good or bad, which is the whole reason the old
  * standalone counter tiles were dropped.
  */
+/**
+ * dashboard.blocks rule 15 (UI idea 7): the number on a metric tile (the coach's `week_pulse`
+ * cards, the student's `kpi_grid` tiles) is the largest text on it. 32px, 40px from 1024px, display
+ * face, tabular, one line. Arbitrary values because Tailwind's `text-3xl` is 30px and `text-4xl`
+ * 36px. `StatCard` and `KpiTiles` both read this one constant.
+ */
+export const METRIC_NUMBER_CLASS =
+  "font-display text-[32px] lg:text-[40px] font-bold leading-tight tracking-tight tabular-nums whitespace-nowrap";
+
 export function StatCard({
   label,
   value,
@@ -248,7 +271,7 @@ export function StatCard({
       className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-4"
     >
       <span className="text-[13px] font-semibold text-muted-foreground">{label}</span>
-      <span className="font-display text-2xl font-bold tracking-tight tabular-nums">
+      <span className={METRIC_NUMBER_CLASS}>
         {value}
       </span>
       <span className="text-[11px] text-muted-foreground tabular-nums">{sub}</span>

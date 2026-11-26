@@ -2,7 +2,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { COACH_NOTE_MAX_LENGTH, lightTheme } from "@levelup/config";
 import type { CoachNote } from "@levelup/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,6 +102,7 @@ function NoteSection({
           placeholder={placeholder}
           value={text}
           onChangeText={setText}
+          maxLength={COACH_NOTE_MAX_LENGTH}
           className="flex-1"
           onSubmitEditing={handleAdd}
           returnKeyType="done"

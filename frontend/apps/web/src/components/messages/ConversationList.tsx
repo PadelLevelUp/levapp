@@ -6,8 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { formatConversationTimestamp } from '@/lib/conversationTime';
-import { initialsOf, searchPeopleByName, unreadBadgeLabel } from '@levelup/config';
-import type { Conversation } from '@/types';
+import { initialsOf, searchMessages, unreadBadgeLabel } from '@levelup/config';
+import { useCoachDisplayNameByUser } from '@levelup/hooks';
+import type { CoachPlayer, Conversation, User } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
 import { PlayerSearchFeedback } from '@/components/players/PlayerSearchFeedback';
@@ -17,7 +18,7 @@ interface ConversationListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   loading?: boolean;
-  onNewConversation: (userId: string) => void;
+  onNewConversation: (userId: string) => void | Promise<void>;
   /** messaging.direct-by-username — students only; rejects with the API error. */
   onNewConversationByUsername?: (username: string) => Promise<void>;
   onLoadMore?: () => void;
@@ -30,11 +31,18 @@ interface ConversationListProps {
   /** messaging.conversations rule 17 (PAD-648): "Todas" / "Não lidas"; the page owns the choice. */
   filter?: ConversationFilter;
   onFilterChange?: (filter: ConversationFilter) => void;
+  /** messaging.conversations rule 20 (PAD-831): a coach's search also covers these people. */
+  people?: User[];
+  roster?: CoachPlayer[];
+}
+
+function errorStatus(error: unknown): number | undefined {
+  return (error as { response?: { status?: number } } | null)?.response?.status;
 }
 
 export type ConversationFilter = 'all' | 'unread';
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onConnectWithCoach, onLoadMore, hasMore, loadingMore, isCoach = false, filter = 'all', onFilterChange }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onConnectWithCoach, onLoadMore, hasMore, loadingMore, isCoach = false, filter = 'all', onFilterChange, people, roster }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -45,7 +53,32 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
   const displayName = (conv: Conversation) =>
     conv.participantName ?? t('messages.deletedUser');
 
-  const filteredConversations = searchPeopleByName(conversations, searchQuery, displayName, { coach: isCoach });
+  // Rule 20 (PAD-831): a coach's search also offers the people they may message; under "Não
+  // lidas" it filters the unread rows only.
+  const { conversations: filteredConversations, people: startPeople } = searchMessages(
+    conversations,
+    searchQuery,
+    displayName,
+    { coach: isCoach, people: filter === 'unread' ? undefined : people, roster }
+  );
+  const coachNameOf = useCoachDisplayNameByUser({ enabled: isCoach });
+
+  const [startingId, setStartingId] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const handleStart = async (userId: string) => {
+    if (startingId) return;
+    setStartingId(userId);
+    setStartError(null);
+    try {
+      await onNewConversation(userId);
+    } catch (error) {
+      setStartError(
+        errorStatus(error) === 403 ? t('messages.cannotMessageUser') : t('messages.somethingWentWrong')
+      );
+    } finally {
+      setStartingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!sentinelRef.current || !onLoadMore) return;
@@ -75,7 +108,10 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
           <Input
             placeholder={t("messages.searchConversationPlaceholder")}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setStartError(null);
+            }}
             className="pl-9"
           />
         </div>
@@ -106,12 +142,17 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
             </ToggleGroupItem>
           </ToggleGroup>
         )}
+        {startError && (
+          <p role="alert" data-testid="conversation-start-error" className="mt-2 text-sm text-destructive">
+            {startError}
+          </p>
+        )}
       </div>
 
       {/* Conversation List */}
       <ScrollArea className="flex-1 min-h-0">
         <div className="divide-y divide-border">
-          {filteredConversations.length === 0 ? (
+          {filteredConversations.length + startPeople.length === 0 ? (
             // players.search rule 10: a coach's search that finds nobody says so, with the query.
             isCoach && searchQuery.trim() ? (
               <PlayerSearchFeedback query={searchQuery} count={0} className="text-center py-8 text-muted-foreground text-sm" />
@@ -203,6 +244,33 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
               </button>
             ))
           )}
+          {startPeople.map((person) => {
+            const name = coachNameOf(person.id, person.name);
+            return (
+              <button
+                key={`start-${person.id}`}
+                onClick={() => void handleStart(String(person.id))}
+                disabled={startingId !== null}
+                data-testid={`conversation-start-${person.id}`}
+                aria-label={t('messages.startConversationWithAria', { name })}
+                className="w-full flex items-start gap-3 p-3 transition-colors text-left hover:bg-muted/50 border-l-[3px] border-transparent pl-[9px]"
+              >
+                <Avatar className="w-10 h-10 shrink-0">
+                  <AvatarImage src={person.avatarUrl} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
+                    {initialsOf(name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <span className="block text-sm truncate font-normal text-foreground">{name}</span>
+                  <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{t('messages.startConversationRow')}</p>
+                </div>
+                {startingId === String(person.id) && (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+              </button>
+            );
+          })}
           {hasMore && <div ref={sentinelRef} className="h-1" />}
           {loadingMore && (
             <div className="flex justify-center py-3">

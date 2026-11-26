@@ -48,7 +48,10 @@ describe("studentRowAction — what a dashboard row offers (dashboard.blocks rul
   it("nothing once the coach's record stands or the row is unknown", () => {
     expect(studentRowAction({ pendingConfirmation: false, attendanceState: "attended" })).toBe("none");
     expect(studentRowAction({ pendingConfirmation: false, attendanceState: "missed" })).toBe("none");
-    expect(studentRowAction({ pendingConfirmation: undefined, attendanceState: undefined })).toBe("decline");
+    expect(studentRowAction({ pendingConfirmation: undefined, attendanceState: undefined })).toBe("none");
+    expect(studentRowAction({ pendingConfirmation: false, attendanceState: null })).toBe("none");
+    expect(studentRowAction({ pendingConfirmation: true, attendanceState: undefined })).toBe("none");
+    expect(studentRowAction({ pendingConfirmation: true, attendanceState: null })).toBe("none");
   });
   it("a stale pending flag never beats a settled state", () => {
     expect(studentRowAction({ pendingConfirmation: true, attendanceState: "not_coming" })).toBe("declined");

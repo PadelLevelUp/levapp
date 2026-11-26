@@ -2,7 +2,7 @@
  * PAD-415 (messaging.conversation-detail rule 9a) — the order of an open on iOS.
  *
  * `firstUnreadMessageId` is only meaningful from the GET this open made before the thread
- * is marked read. The thread query keeps data for 30 s (staleTime), so a re-open first
+ * is marked read. The thread query keeps data for the default staleTime (QUERY_STALE_TIME_MS, 60 s; no override is set), so a re-open first
  * renders a cached copy that carries the previous visit's value. The id is frozen only
  * when this open's own fetch has settled; the mark-read waits while that fetch is in
  * flight, and goes at once when a still-fresh cache means none is coming. A refetch on
@@ -94,7 +94,7 @@ const isNumericId = (id: string): boolean => /^\d+$/.test(id);
 
 /**
  * B-190 (PAD-415): the thread query's per-open overrides. The thread's cache entry is the one the
- * SSE handlers write into, and every write makes it fresh again for the app's 30 s `staleTime` —
+ * SSE handlers write into, and every write makes it fresh again for the app's default `staleTime` (no override is set) —
  * so a coach who opens a thread soon after new messages arrived opens a FRESH entry: no GET, no
  * nothing to settle, no frozen first unread, no divider and no landing. A plain open therefore
  * always makes its own GET. A push-tap open (an explicit `?message=` target) keeps the cache, as

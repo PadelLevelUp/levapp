@@ -116,6 +116,21 @@ def _refuse(code: str, message: str, **extra):
 
 SIDES = ("left", "right", "both")
 
+#: PAD-929 (rule 22): the 409 code of an unconfirmed private join.
+REFUSAL_PRIVATE_UNCONFIRMED = "private_unconfirmed"
+
+
+def refuse_unconfirmed_private(instance, private_confirmed) -> None:
+    """PAD-929 (rule 22, NJ1): a client that declares `private-confirm` and joins a private lesson, or
+    its waiting list, without JSON ``true`` in ``privateConfirmed`` is refused before anything is written
+    and before either engine is asked. Any other client, an academy class or a confirmed call passes."""
+    from padel_app.utils.client_capabilities import PRIVATE_CONFIRM, client_declares
+
+    if private_confirmed is True or getattr(instance.lesson, "type", None) != "private":
+        return
+    if client_declares(PRIVATE_CONFIRM):
+        _refuse(REFUSAL_PRIVATE_UNCONFIRMED, "Confirm the private-lesson warning first")
+
 
 def requested_side(side, cp) -> tuple:
     """PAD-672 (rule 20): ``(side to store, check it)``. A client that declares `join-side` and names
@@ -256,7 +271,8 @@ def _clean_note(note):
     return note or None
 
 
-def create_join_request_service(player, model, original_id, date_str, *, note=None, side=None, now=None):
+def create_join_request_service(player, model, original_id, date_str, *, note=None, side=None,
+                                 private_confirmed=None, now=None):
     """Rules 1–3, 14 and 15: validate server-side, then create (or return the
     pending one). Returns ``(row, created)``. PAD-358: an optional ``note`` to
     the coach rides on a new request (a repeated request keeps the first)."""
@@ -282,6 +298,7 @@ def create_join_request_service(player, model, original_id, date_str, *, note=No
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
     if cp is None or not effective_open_spots_visible(instance, coach_id, config):
         _refuse("not_visible", "This class is not open to requests")
+    refuse_unconfirmed_private(instance, private_confirmed)
     if _is_full(instance):
         _refuse("spot_filled", "This class is already full")
     from padel_app.services.engine_switch import engine_for
@@ -799,8 +816,13 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
             f"{label}: {len(names)} pedido(s) encerrado(s) — {', '.join(n for n in names if n)}",
             f"{label}: {len(names)} request(s) closed — {', '.join(n for n in names if n)}",
         )
+        # CALENDAR-EVENT-DETAIL-48 (rule 29): the calendar's deep link (rule 10), the same string
+        # `class_href` builds (a test holds them together); `classInstanceId` was a key it never read.
+        # An f-string, as the web-push guard (test_pad595) requires of a push url.
+        start = instance.start_datetime
+        date = start.date().isoformat() if start else ""
         send_push_notification(user_id=coach_user_id, title=title, body=body[:100],
-                               url=f"/calendar?classInstanceId={instance.id}")
+                               url=f"/calendar?classId=lessoninstance-{instance.id}&date={date}")
         publish(
             {
                 "type": "join_requests_superseded",

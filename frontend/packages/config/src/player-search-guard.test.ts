@@ -20,14 +20,14 @@ const SURFACES: Record<string, { file: string; calls: string }> = {
   "web ManualNotificationModal": { file: `${WEB}components/calendar/ManualNotificationModal.tsx`, calls: "searchRoster" },
   "web presences table": { file: `${WEB}components/presences/presenceSearch.ts`, calls: "searchPlayers" },
   "web NewConversationDialog": { file: `${WEB}components/messages/NewConversationDialog.tsx`, calls: "searchPeopleByName" },
-  "web ConversationList": { file: `${WEB}components/messages/ConversationList.tsx`, calls: "searchPeopleByName" },
+  "web ConversationList": { file: `${WEB}components/messages/ConversationList.tsx`, calls: "searchMessages" },
   "config walk-in-options": { file: `${CONFIG}walk-in-options.ts`, calls: "searchPlayers" },
   "config waiting-list-origin": { file: `${CONFIG}waiting-list-origin.ts`, calls: "searchPlayers" },
   "mobile player-selector-logic": { file: `${MOBILE}src/features/calendar/player-selector-logic.ts`, calls: "searchRoster" },
   "mobile notify-modal": { file: `${MOBILE}src/features/calendar/notify-modal.tsx`, calls: "searchRoster" },
   "mobile presences": { file: `${MOBILE}src/features/presences/report-state.ts`, calls: "searchPlayers" },
   "mobile new conversation": { file: `${MOBILE}app/conversation/new.tsx`, calls: "searchPeopleByName" },
-  "mobile messages tab": { file: `${MOBILE}app/(tabs)/messages.tsx`, calls: "searchPeopleByName" },
+  "mobile messages tab": { file: `${MOBILE}app/(tabs)/messages.tsx`, calls: "searchMessages" },
 };
 // The web presences screen delegates to presenceSearch.ts; the screen itself must not compare raw.
 const ALSO_RAW_FREE = [`${WEB}components/presences/PresencePlayersTable.tsx`, `${CONFIG}player-search.ts`];

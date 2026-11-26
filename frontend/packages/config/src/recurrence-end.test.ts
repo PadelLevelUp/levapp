@@ -5,6 +5,7 @@ import {
   endDateAfterClasses,
   recurrenceEndPayload,
   seriesEndAfterClasses,
+  stepEndCount,
 } from "./recurrence-end";
 
 describe("endDateAfterClasses (classes.class-requests rule 14a, PAD-428)", () => {
@@ -113,5 +114,26 @@ describe("recurrenceEndPayload (PAD-463, classes.create rule 9)", () => {
     expect(recurrenceEndPayload({ ...base, mode: "season", endDate: "2026-12-20" })).toEqual({
       ok: true, endDate: null, recursUntilSeasonEnd: true,
     });
+  });
+});
+
+describe("stepEndCount (PAD-926, classes.class-requests rule 14a)", () => {
+  it("moves by one class and stays within 1 and MAX_REQUEST_CLASSES", () => {
+    expect(stepEndCount(4, 1)).toBe(5);
+    expect(stepEndCount(4, -1)).toBe(3);
+    expect(stepEndCount(1, -1)).toBe(1);
+    expect(stepEndCount(MAX_REQUEST_CLASSES, 1)).toBe(MAX_REQUEST_CLASSES);
+  });
+});
+
+describe("an empty or malformed start date (wizard bug, rule 14a)", () => {
+  it("[CLASSES-CLASS-REQUESTS-55] an empty or malformed start date has no occurrences and no last date", async () => {
+    const { occurrenceDates } = await import("./availability");
+    for (const startDate of ["", "2026-1-5", "not a date"]) {
+      expect(occurrenceDates({ weekdays: [1], startDate, endDate: "2026-12-01" })).toEqual([]);
+      expect(endDateAfterClasses(startDate, [1], 4)).toBeNull();
+    }
+    expect(occurrenceDates({ weekdays: [1], startDate: "2026-11-02", endDate: "" })).toEqual([]);
+    expect(occurrenceDates({ weekdays: [1], startDate: "2026-11-02", endDate: "2026-11-09" })).toEqual(["2026-11-02", "2026-11-09"]);
   });
 });

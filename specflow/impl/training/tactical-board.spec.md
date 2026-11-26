@@ -350,20 +350,17 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **Then** it becomes path 1 and the numbers on the court swap
 - **When** the coach presses ✕ on path 2
 - **Then** one path remains, no number is shown, and undo brings the removed path back
-- Code to follow: the ▲ and ✕ tests must press ✕ on the second path, assert the numbers swap, and press undo and assert the removed path returns.
 
 #### TRAINING-TACTICAL-BOARD-23: Playback plays a step's paths in order (PAD-289)
 - **Given** a step with two flat paths
 - **When** the coach presses ▶ AUTO
 - **Then** the ball travels the first path and then the second, the step taking 1,600 ms, and Passo still advances one whole step
-- Code to follow: assert that Passo advances one whole step for a step with two ball paths.
 
 #### TRAINING-TACTICAL-BOARD-24: Thumbnails and older diagrams (PAD-289)
 - **Given** one exercise saved before PAD-289 (`ball` only) and one saved after (`balls` with two paths)
 - **When** the exercise list renders
 - **Then** the first card shows its one path and the second shows both
 - **And** opening the older exercise reads `ball` as the only path and saving it writes `balls` plus the mirrored `ball`
-- Code to follow: add a unit test that renders a card with two paths, and one that opens and saves an older exercise, so the two-path thumbnail is not proved only by `e2e/exercise-management/tactical-board.spec.ts`.
 
 #### TRAINING-TACTICAL-BOARD-25: The court and the starting positions are the canvas's (rules 5, 6, 7, 14)
 - **Given** a new board
@@ -404,7 +401,6 @@ test: `frontend/packages/config/src/board-sequence.test.ts` › `numbers only th
 - **And** deleting the last step moves to the one before it, and the step index never leaves the steps that exist
 - **And** a position asked for beyond the last step is the final position
 test: `frontend/packages/config/src/board-logic.test.ts` › `presses write to the current step, and movements start from the previous step's end` (+5 more)
-- Code to follow: add a test that deletes a middle step and shows the step that followed; make the step-indicator test read a real step number instead of a mocked translation; assert in `board-logic.test.ts` that a step's movements start from the previous step's end.
 
 #### TRAINING-TACTICAL-BOARD-30: Switching mode on a board with content asks first, then starts that mode afresh (rule 3)
 - **Given** a game board with a cone on it, and a fresh game board
@@ -412,7 +408,6 @@ test: `frontend/packages/config/src/board-logic.test.ts` › `presses write to t
 - **Then** the board with the cone asks for confirmation and stays as it is until the coach confirms; after that it holds the new mode's starting position and no steps
 - **And** the fresh board counts as empty, so it has nothing to lose
 test: `frontend/packages/config/src/board-logic.test.ts` › `a fresh board has no content; a cone or a step counts as content` (+2 more)
-- Code to follow: the test `a fresh board has no content; a cone or a step counts as content` must build a step.
 
 #### TRAINING-TACTICAL-BOARD-31: Undo keeps at least twenty changes and does nothing when there is none (rule 4)
 - **Given** a board with no change yet, and a board with five more changes than the undo depth, which is at least twenty
@@ -428,7 +423,6 @@ test: `frontend/packages/config/src/board-history.test.ts` › `keeps at most HI
 - **And** the Alimentador tool moves the feeder to the tap
 - **And** the Jogador tool adds the next player, A3, at the tap and selects it
 test: `frontend/apps/web/src/components/training/board/TacticalBoard.test.tsx` › `Alimentador moves the feeder and Jogador places a player where tapped` (+3 more)
-- Code to follow: the test `Alimentador moves the feeder and Jogador places a player where tapped` (and the one named `Jogador places the next player where tapped`) must assert the placed position.
 
 #### TRAINING-TACTICAL-BOARD-33: What can be deleted depends on the mode (rules 7, 14, 16)
 - **Given** a selected player in game mode, in basket mode and in Magnético
@@ -437,7 +431,6 @@ test: `frontend/apps/web/src/components/training/board/TacticalBoard.test.tsx` �
 - **And** in basket mode the player is deleted while another remains, the last player stays, and the feeder is never deleted
 - **And** in Magnético the player is deleted
 test: `frontend/packages/config/src/board-logic.test.ts` › `removePlayer goes down to one player and never below` (+2 more)
-- Code to follow: the test of deleting any piece must delete a piece that is not a player.
 
 #### TRAINING-TACTICAL-BOARD-34: Magnético places free pieces in the chosen colour and tidies a pen stroke (rule 16)
 - **Given** the board in Magnético

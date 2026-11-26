@@ -568,6 +568,8 @@ export interface ClassInstance {
   engineVersion?: "old" | "new";
   /** PAD-920 (rule 20): the student picks own/other/both on the waiting list; false on `old`. */
   waitingListSideChoice?: boolean;
+  /** PAD-840 (`classes.delete` rule 14): the class this occurrence belongs to; absent on older servers. */
+  lessonId?: string;
   /**
    * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
    * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
@@ -583,6 +585,8 @@ export interface ClassInstance {
   endTime: string;
   status: ClassInstanceStatus;
   classType?: string;
+  /** calendar.event-detail rule 5 (PO M-7512): the class's filled spots, the calendar event's number; one aggregate, no names. */
+  participantCount?: number;
   name?: string;
   color?: string;
   levelId?: string;
@@ -788,7 +792,7 @@ export interface CalendarEvent {
   status?: ClassInstanceStatus;
   /** Spots taken: enrolled minus declined. Includes players who have not answered. */
   participantCount?: number;
-  /** Of those taken spots, how many actively confirmed. Always <= participantCount. */
+  /** Of those taken spots, how many are coming or came (calendar.view rule 25). Always <= participantCount. */
   confirmedCount?: number;
   maxPlayers?: number;
   /** Coach level for this class, used for the block's level chip. */
@@ -1459,6 +1463,8 @@ export interface MessageTemplates {
    *  recurring class. Optional: older configs lack them and the server falls back to its defaults. */
   removed_from_class?: string;
   removed_from_series?: string;
+  /** PAD-840 (rule 26): the coach cancelled a class. Optional, like the two above. */
+  class_cancelled?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────

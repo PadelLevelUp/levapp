@@ -53,12 +53,46 @@ export async function addClass(data: any) {
   return res.data;
 }
 
+/** classes.delete rule 9 (PAD-840): why the class is cancelled, and whether the students are told why. */
+export interface CancelReason {
+  reason?: string;
+  sendReason?: boolean;
+  /** Rule 13 (phase 2): the coach's edited message for this cancellation, with its placeholders. */
+  messageOverride?: string;
+}
+
 export async function removeClass(
   event: CalendarEvent,
-  scope: "single" | "future"
+  scope: "single" | "future",
+  cancel?: CancelReason
 ) {
-  const res = await getApi().post(`/app/remove_class`, { event, scope });
+  const res = await getApi().post(`/app/remove_class`, { event, scope, ...cancel });
   return res.data;
+}
+
+/**
+ * classes.delete rule 12 (PAD-840): the message the first student would get, rendered by the server,
+ * and how many students would be told.
+ */
+export async function previewClassCancellation(
+  event: CalendarEvent,
+  cancel: CancelReason
+): Promise<{ text: string; recipients: number; template?: string }> {
+  const res = await getApi().post(`/app/class_cancellation_preview`, { event, scope: "single", ...cancel });
+  return res.data;
+}
+
+/** classes.delete rule 14 (PAD-840): one kept cancellation of a class. */
+export interface ClassCancellation {
+  date: string;
+  scope: "single" | "future";
+  reason: string;
+  sentToStudents: boolean;
+}
+
+export async function getClassCancellations(lessonId: string): Promise<ClassCancellation[]> {
+  const res = await getApi().get(`/app/class/${lessonId}/cancellations`);
+  return res.data.cancellations;
 }
 
 export async function editClass(

@@ -66,9 +66,10 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     student chooses one), or an empty or absent password, is answered
     `400 {"error": "invalid_fields", "fields": [...]}` naming every such field, and nothing is
     written — the account stays `inactive`. A password shorter than 8 characters is refused the same
-    way (owner decision 2026-11-10: 8 characters everywhere; the server does not check the length
-    yet and the web and iOS forms refuse under 6 — Code to follow: `activate_user_service` refuses
-    under 8 with `invalid_fields`, and both forms refuse under 8). The username is stored as
+    way (owner decision 2026-11-10: 8 characters everywhere, sign-up's `PASSWORD_MIN_LENGTH`); the
+    web and iOS forms refuse under 8 before sending and show that refusal on the password field.
+    Code to follow: the server does not check the length yet; `activate_user_service` refuses under
+    8 with `invalid_fields`. The username is stored as
     checked: trimmed and lower-cased (`auth.register` rule 2a). A username another account holds is answered 409
     "Username already taken" (as `players.invite-completion` and self-signup do). The web and iOS
     screens already send every field, `""` when emptied (their own validation stops an empty name,
@@ -257,6 +258,13 @@ test: `frontend/apps/mobile/src/lib/web-links.test.ts` › `joins a base origin 
 - **Then** nothing is written for `password` and the stored hash is still `hash`
 - **And** a body with `password` `s3cret` writes a hash that checks against `s3cret`
 - **And** a collection relationship sent as null keeps its members
+
+#### AUTH-ACTIVATE-21: The web activation form refuses a password under 8 and shows the server's refusal on the field (rule 11, PAD-858)
+- **Given** the web activation form at `/register/:userId`
+- **When** the password and its repeat have seven characters
+- **Then** the password field shows `register.passwordMin` and nothing is sent
+- **When** the server answers 400 `invalid_fields` naming `password`
+- **Then** the password field shows `register.passwordMin`
 
 ### Notes
 - Why a derived token rather than a column: the fix had to ship without a migration in the

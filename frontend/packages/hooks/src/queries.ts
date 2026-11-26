@@ -104,7 +104,7 @@ export function useLessonInstanceById(
   options?: QueryOverrides<Awaited<ReturnType<typeof classesApi.getLessonInstanceById>>>
 ) {
   return useQuery({
-    queryKey: ["lesson-instance", instanceId ?? "none"],
+    queryKey: queryKeys.lessonInstanceById(instanceId),
     queryFn: () => classesApi.getLessonInstanceById(instanceId as number),
     enabled: typeof instanceId === "number" && instanceId > 0,
     retry: false,

@@ -26,8 +26,9 @@ from decimal import Decimal
 from sqlalchemy import MetaData, create_engine, select, text
 
 #: Rule 4: printed as "[withheld]" whatever the table. `subscription_json` is a web-push subscription
-#: (endpoint URL and its p256dh/auth keys in one JSON blob).
-_SECRET = re.compile(r"password|token|secret|_hash$|^generated_code$|^jti$|^subscription_json$")
+#: (endpoint URL and its p256dh/auth keys in one JSON blob); `endpoint` is the same URL in its own column
+#: (PAD-753; no other table has a column of that name).
+_SECRET = re.compile(r"password|token|secret|_hash$|^generated_code$|^jti$|^subscription_json$|^endpoint$")
 #: Rule 4: staff records about the person, not the person's data.
 _STAFF_TABLES = {"admin_audit_log", "deletion_audit", "alembic_version"}
 #: Rule 3: foreign keys that name the person as the OBJECT of someone else's act or as the staff

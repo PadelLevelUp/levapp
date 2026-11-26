@@ -59,6 +59,9 @@ from padel_app.services.lesson_service import (
     confirm_presences_service,
     get_lesson_instances_in_range,
     edit_class_service,
+    lesson_cancellations,
+    parse_cancel_reason,
+    parse_message_override,
     remove_class_service,
 )
 from padel_app.services.player_service import (
@@ -2428,7 +2431,7 @@ def create_class_join_request():
     data = request.get_json() or {}
     row, created = create_join_request_service(
         player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note"),
-        side=data.get("side"),
+        side=data.get("side"), private_confirmed=data.get("privateConfirmed"),  # PAD-929 (rule 22)
     )
     return jsonify(serialize_join_request(row)), (201 if created else 200)
 
@@ -2437,14 +2440,18 @@ def create_class_join_request():
 @bp.get("/academy-classes")
 @jwt_required()
 def list_academy_classes_route():
-    from padel_app.services.academy_class_service import list_academy_classes
+    from padel_app.services.academy_class_service import LESSON_LIST_TYPES, list_academy_classes
 
     player = current_player()
     if player is None or current_coach() is not None:
         abort(403, "Only a student can list a coach's academy classes")
     if not request.args.get("coachId"):
         abort(400, "coachId is required")
-    return jsonify(list_academy_classes(player, request.args.get("coachId")))
+    # PAD-929 (rule 9): exactly one of the types, checked before the roster.
+    lesson_type = request.args.get("type", LESSON_LIST_TYPES[0])
+    if lesson_type not in LESSON_LIST_TYPES:
+        abort(400, f"type must be one of {', '.join(LESSON_LIST_TYPES)}")
+    return jsonify(list_academy_classes(player, request.args.get("coachId"), lesson_type=lesson_type))
 
 
 @bp.post("/class-waiting-list")
@@ -2457,7 +2464,8 @@ def join_class_waiting_list_route():
         abort(403, "Only a student can join a waiting list")
     data = request.get_json() or {}
     entry, created = join_class_waiting_list_service(
-        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side")
+        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side"),
+        private_confirmed=data.get("privateConfirmed"),  # PAD-929 (join-requests rule 22)
     )
     return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True,
                     "side": entry.side}), (201 if created else 200)  # PAD-672: the side stored
@@ -2976,6 +2984,30 @@ def remove_class():
     _assert_owns_class_payload(require_coach(), data)
     result, status = remove_class_service(data)
     return jsonify(result), status
+
+
+@bp.post("/class_cancellation_preview")
+@jwt_required()
+def class_cancellation_preview():
+    """PAD-840 (classes.delete rule 12): the message a removal with this reason would send."""
+    from padel_app.services.system_messages import cancellation_preview
+
+    data = request.get_json() or {}
+    source = _assert_owns_class_payload(require_coach(), data)
+    parsed = parse_cancel_reason(data)
+    override = parse_message_override(data)
+    if source is None or parsed is None or override is None:
+        return jsonify({"error": "Invalid payload"}), 400
+    reason, send = parsed
+    return jsonify(cancellation_preview(source, reason if send else "", override))
+
+
+@bp.get("/class/<int:lesson_id>/cancellations")
+@jwt_required()
+def class_cancellations(lesson_id):
+    """PAD-840 (classes.delete rule 14): the kept cancellations, for the class's own coach."""
+    lesson = require_owned_class(require_coach(), "Lesson", lesson_id)
+    return jsonify({"cancellations": lesson_cancellations(lesson)})
 
 
 UNIQUE_FIELD_CHECKS = {

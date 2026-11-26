@@ -9,6 +9,10 @@
 # owner's decision 16.
 # 2026-11-13 (PAD-932): P41, P42 added, run against today's engine on feature/pad-932-manual (49b198c00 plus
 # the two files); today has no coach_invites event, so their hand invitations are not applied.
+# 2026-11-25 (engine/scenarios-proof): P43-P46 added (PAD-804, PAD-807, PAD-824, PAD-813), run against today's
+# engine at origin/staging b8b34453d plus the four files; outcomes and first failures from that run.
+# 2026-11-25 (engine effective level): P47 added, run against today's engine at origin/staging 68cd766e5 plus
+# the file and its level_inherited seed; today reads the class's effective level, so it passes.
 01-exemplo-completo:
   outcome: fail
   evaluated: 16
@@ -1342,3 +1346,50 @@ P42-coach-invites-refuses-or-reopens:
   class: structural
   note: 'structural: today invites the other class''s regular at 19:00 and has no coach_invites engine event'
   first_failure: 2026-11-01 19:00 invitations
+P43-a-yes-leaves-the-other-invitations-open:
+  outcome: fail
+  evaluated: 11
+  skipped: 0
+  derived_from:
+  - D4
+  class: behavioural
+  note: 'behavioural: after the 19:10 Yes today withdraws two of the other invitations (17 open expected, 15 open) and
+    re-invites at 20:00; the plan never withdraws an invitation (D4). This is PAD-804 on the old engine'
+  first_failure: 2026-11-01 19:10 open_unanswered
+P44-a-both-regular-lets-a-one-sided-waiting-entry-in:
+  outcome: fail
+  evaluated: 5
+  skipped: 0
+  derived_from:
+  - D12
+  class: behavioural
+  note: 'behavioural: after the right regular''s No today skips the left-only waiting-list entry W1 and invites three
+    right-siders; the plan counts the unplaced both regular under neither side, so W1 fits. This is PAD-807 on the old engine'
+  first_failure: 2026-11-02 18:00 invitations
+P45-spots-covered-by-held-invitations-wait:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - D9
+  class: behavioural
+  note: 'behavioural: at 19:00 today also invites the three stronger left-siders, because the third left spot finds its
+    group-1 students held by the other spots; the plan waits for them (D9). This is PAD-824 on the old engine'
+  first_failure: 2026-11-01 19:00 invitations
+P46-an-other-side-yes-keeps-its-side-and-withdraws-nothing:
+  outcome: fail
+  evaluated: 15
+  skipped: 0
+  derived_from:
+  - D4
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the left-siders are never invited at 08:00 and the
+    21:54 Yes has no invitation to answer'
+  first_failure: 2026-11-01 08:00 invitations
+P47-an-inherited-class-level-keeps-the-level-groups:
+  outcome: pass
+  evaluated: 2
+  skipped: 0
+  derived_from:
+  - S26
+  - D3

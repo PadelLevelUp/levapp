@@ -39,7 +39,8 @@ module.
    dropping a week with a clash, a window shorter than the duration.
 2. **The endpoint serves what the module needs, privacy kept.**
    `GET /app/availability?coachId=<id>&from=YYYY-MM-DD&to=YYYY-MM-DD&participants=<u1,u2>`
-   (student only; the coach must be on the caller's roster, else 403; `to − from` ≤ 62 days) answers
+   (student only; the coach must be on the caller's roster, else 403; `to − from` ≤ 366 days, the
+   longest a weekly request, `classes.class-requests` rule 14, may span) answers
    `{coachId, from, to, workingHours, workingHoursSource: "coach" | "default",
    participants: [...rule 12 shape...], freeWindows: {"YYYY-MM-DD": [{startTime, endTime}]}}`.
    `freeWindows` is computed server-side as working time − the coach's occurrences, blocks and
@@ -86,3 +87,10 @@ module.
 - **And** a date with no entry counts as fully busy in the weekly intersection
 - **And** starts are offered every 30 minutes for the chosen length, and never one whose end passes the window
 test: `frontend/packages/config/src/availability.test.ts` › `drops windows shorter than minMinutes (default 30)` (+5 more)
+
+#### CLASSES-AVAILABILITY-6: A weekly read covers the whole recurrence a request may ask for (rule 2, PAD-927)
+- **Given** a coach who is free every Tuesday
+- **When** their student asks availability from the start date to the last of 9, 10 or 52 Tuesday lessons, whatever the days between the start date and the first lesson
+- **Then** the answer is `200` and every one of those dates is in `freeWindows`, with the coach's whole free time
+- **And** a range of 366 days answers, and one of 367 is refused `400`
+test: `backend/padel_app/tests/test_pad927_availability_range.py` › `test_a_weekly_read_answers_with_every_date_free` (+1 more)

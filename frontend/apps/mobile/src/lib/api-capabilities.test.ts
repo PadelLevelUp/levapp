@@ -44,7 +44,7 @@ describe("mobile API client declares its capabilities (PAD-352)", () => {
     expect(initApiCall()).toMatch(/capabilities:\s*\[[^\]]*["']evaluations["'][^\]]*\]/);
   });
 
-  it("[MOBILE-RELEASE-BUILD-TARGET-11] declares the whole list of thirteen capability tokens, by value", () => {
+  it("[MOBILE-RELEASE-BUILD-TARGET-11] declares the whole list of fourteen capability tokens, by value", () => {
     const call = initApiCall();
     const match = call.match(/capabilities:\s*\[([^\]]*)\]/);
     expect(match, "no capabilities list in the initApi call").not.toBeNull();
@@ -63,6 +63,7 @@ describe("mobile API client declares its capabilities (PAD-352)", () => {
       "join-side",
       "notification-sound",
       "waiting-list-side",
+      "private-confirm",
     ]);
   });
 });

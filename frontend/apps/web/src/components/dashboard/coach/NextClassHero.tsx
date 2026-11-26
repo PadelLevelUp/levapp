@@ -103,12 +103,12 @@ function HeroCard({
 
       {/* A student asked to confirm answers right here (dashboard.blocks rule 3a). */}
       {pending && (
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex flex-col gap-2">
           <span className="text-[13px] font-semibold text-sidebar-foreground/90">
             {t("dashboard.schedule.toConfirm")}
           </span>
           <AnswerButtons
-            className="flex items-center gap-2"
+            layout="hero"
             onNavy
             busy={busyId === d.lessonInstanceId}
             onAnswer={(action) => answer(d.lessonInstanceId as number, action)}

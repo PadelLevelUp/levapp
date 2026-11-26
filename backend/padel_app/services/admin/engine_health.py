@@ -114,7 +114,8 @@ def _incidents(now) -> dict:
         found = dict(rows)
         return {kind: found.get(kind, 0) for kind in KINDS}
 
-    recent = DeliveryIncident.query.order_by(DeliveryIncident.created_at.desc(),
+    # Rule 8e: refusal reports are not incidents, so no refuser's user id leaves here.
+    recent = DeliveryIncident.query.filter(DeliveryIncident.kind.in_(KINDS)).order_by(DeliveryIncident.created_at.desc(),
                                              DeliveryIncident.id.desc()).limit(20).all()
     return {"last24h": counts(now - timedelta(hours=24)), "last7d": counts(now - timedelta(days=7)),
             "recent": [r.to_dict() for r in recent]}
@@ -142,6 +143,50 @@ def _accounts(now) -> dict:
 
 #: Rule 8: who counts as an active student (PAD-741's baseline definition, kept as is).
 ACTIVE_STUDENT_WINDOW = timedelta(days=7)
+#: Rule 13 (PAD-789): const:MESSAGE_RECIPIENT_WINDOW_DAYS, how far back a received message counts.
+MESSAGE_RECIPIENT_WINDOW_DAYS = 7
+
+
+def _by_channel(users) -> dict:
+    """Rules 8a and 13: one grouped `EXISTS` query splitting a users subquery by push channel."""
+    from padel_app.models import DeviceToken, PushSubscription
+
+    has_token = db.session.query(DeviceToken.id).filter(DeviceToken.user_id == users.c.user_id).exists()
+    has_webpush = (db.session.query(PushSubscription.id)
+                   .filter(PushSubscription.user_id == users.c.user_id).exists())
+    cells = db.session.query(has_token, has_webpush, func.count()).select_from(users).group_by(
+        has_token, has_webpush).all()
+    found = {(bool(t), bool(w)): n for t, w, n in cells}
+    return {
+        "total": sum(found.values()),
+        "noChannel": found.get((False, False), 0),
+        "webPushOnly": found.get((False, True), 0),
+        "nativeOnly": found.get((True, False), 0),
+        "nativeAndWebPush": found.get((True, True), 0),
+    }
+
+
+def _message_recipients(now):
+    """Rule 13: players someone else wrote to after now − the window, in a conversation they had
+    joined by then. Every message type counts, deleted ones too."""
+    from padel_app.models import ConversationParticipant, Message, Player
+
+    since = now - timedelta(days=MESSAGE_RECIPIENT_WINDOW_DAYS)
+    received = (
+        db.session.query(Message.id)
+        .filter(Message.conversation_id == ConversationParticipant.conversation_id,
+                Message.sender_id != ConversationParticipant.user_id,
+                Message.sent_at > since,
+                Message.sent_at >= ConversationParticipant.joined_at)
+        .exists()
+    )
+    return (
+        db.session.query(Player.user_id.label("user_id"))
+        .join(ConversationParticipant, ConversationParticipant.user_id == Player.user_id)
+        .filter(received)
+        .distinct()
+        .subquery()
+    )
 
 
 def _push(now) -> dict:
@@ -152,7 +197,7 @@ def _push(now) -> dict:
     also coach: PAD-741's definition, so the count compares with its 2026-10-22 baseline. One
     aggregate query; counts only, no ids.
     """
-    from padel_app.models import ConversationParticipant, DeviceToken, Player, PushSubscription
+    from padel_app.models import ConversationParticipant, Player
     from padel_app.models.delivery_incident import DeliveryIncident
 
     since = now - ACTIVE_STUDENT_WINDOW
@@ -163,12 +208,6 @@ def _push(now) -> dict:
         .distinct()
         .subquery()
     )
-    has_token = db.session.query(DeviceToken.id).filter(DeviceToken.user_id == active.c.user_id).exists()
-    has_webpush = (db.session.query(PushSubscription.id)
-                   .filter(PushSubscription.user_id == active.c.user_id).exists())
-    cells = db.session.query(has_token, has_webpush, func.count()).select_from(active).group_by(
-        has_token, has_webpush).all()
-    found = {(bool(t), bool(w)): n for t, w, n in cells}
 
     failures = dict(
         db.session.query(DeliveryIncident.channel, func.count())
@@ -178,17 +217,63 @@ def _push(now) -> dict:
         .all()
     )
     return {
-        "activeStudents7d": {
-            "total": sum(found.values()),
-            "noChannel": found.get((False, False), 0),
-            "webPushOnly": found.get((False, True), 0),
-            "nativeOnly": found.get((True, False), 0),
-            "nativeAndWebPush": found.get((True, True), 0),
-        },
+        "activeStudents7d": _by_channel(active),
+        # Rule 13 (PAD-789): the students someone wrote to, the people a push would serve.
+        "messageRecipients": {"windowDays": MESSAGE_RECIPIENT_WINDOW_DAYS,
+                              **_by_channel(_message_recipients(now))},
+        "permissionRefused": _permission_refused(now),
         "registrationFailures7d": {platform: failures.get(channel, 0)
                                    for platform, channel in (("ios", "apns"), ("android", "fcm"),
                                                              ("web", "webpush"))},
     }
+
+
+def _permission_refused(now) -> dict:
+    """Rule 8e (PAD-789 item 3): distinct students with a refusal report in the window and no
+    channel of that platform created or updated after their latest refusal. A fixed number of
+    statements; counts only."""
+    from padel_app.models import DeviceToken, Player, PushSubscription
+    from padel_app.models.delivery_incident import DeliveryIncident
+
+    since = now - timedelta(days=MESSAGE_RECIPIENT_WINDOW_DAYS)
+    latest = {}  # (user, platform) -> the latest refusal row's time
+    for user_id, channel, at in (
+        db.session.query(DeliveryIncident.user_id, DeliveryIncident.channel,
+                         func.max(DeliveryIncident.created_at))
+        .join(Player, Player.user_id == DeliveryIncident.user_id)
+        .filter(DeliveryIncident.kind == "push_permission_refused",
+                DeliveryIncident.created_at >= since)
+        .group_by(DeliveryIncident.user_id, DeliveryIncident.channel).all()
+    ):
+        platform = {"apns": "ios", "fcm": "android", "webpush": "web"}.get(channel)
+        if platform:
+            latest[(user_id, platform)] = at
+    users = {user_id for user_id, _ in latest}
+    native, web = {}, {}  # user -> platform -> latest channel time
+    if users:
+        for user_id, platform, at in (
+            db.session.query(DeviceToken.user_id, DeviceToken.platform, func.max(DeviceToken.updated_at))
+            .filter(DeviceToken.user_id.in_(users)).group_by(DeviceToken.user_id, DeviceToken.platform).all()
+        ):
+            native.setdefault(user_id, {})[platform] = at
+        for user_id, at in (
+            db.session.query(PushSubscription.user_id, func.max(PushSubscription.updated_at))
+            .filter(PushSubscription.user_id.in_(users)).group_by(PushSubscription.user_id).all()
+        ):
+            web[user_id] = at
+
+    def ended(user_id, platform, refused_at):
+        if platform == "web":
+            times = [web.get(user_id)]
+        else:  # a legacy NULL-platform token is a native channel for both
+            times = [native.get(user_id, {}).get(platform), native.get(user_id, {}).get(None)]
+        return any(t is not None and t > refused_at for t in times)
+
+    live = {key for key, at in latest.items() if not ended(key[0], key[1], at)}
+    out = {"windowDays": MESSAGE_RECIPIENT_WINDOW_DAYS, "total": len({u for u, _ in live})}
+    for platform in ("ios", "android", "web"):
+        out[platform] = sum(1 for _, p in live if p == platform)
+    return out
 
 
 def this_identity() -> dict:
@@ -235,6 +320,7 @@ def _open_spots(session: str, coach_id: int, names: dict, invitations, now) -> t
     """A session's open spots by type as the engine counts them (engine-spots rule 6), and how many
     are uncovered: per type, its spots minus the counting invitations whose offer counts for it."""
     from padel_app.invitation_engine import planner
+    from padel_app.invitation_engine.snapshot import SpotType
     from padel_app.services.engine_store import TableStore, settings_for
 
     snapshot = TableStore(clock=lambda: now).snapshot(session)
@@ -245,7 +331,10 @@ def _open_spots(session: str, coach_id: int, names: dict, invitations, now) -> t
     counts = planner.spot_counts(snapshot, settings) if settings is not None else planner.spot_counts(snapshot)
     out, uncovered = [], 0
     for spot_type, n in planner.spot_types(snapshot, counts):
-        covered = sum(1 for inv in invitations if spot_type in inv.offer_types)
+        # Engine-store rule 12: an offer stored with no level (sent before the effective level) is the session's.
+        covered = sum(1 for inv in invitations
+                      if spot_type in {SpotType(t.side, snapshot.level if t.level is None else t.level)
+                                       for t in inv.offer_types})
         uncovered += max(0, n - covered)
         level_id, label = names.get(spot_type.level, (None, None)) if spot_type.level is not None else (None, None)
         out.append({"side": _app_side(spot_type.side), "levelId": level_id, "levelLabel": label, "open": n})

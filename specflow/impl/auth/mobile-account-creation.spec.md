@@ -42,9 +42,7 @@ account yet cannot complete.
 3. A route re-validates its raw param through `parseUniversalLink` rather than trusting it. A
    missing, blank or multi-segment token renders the invalid state and fires no request.
 4. Form rules mirror web exactly: name ≥ 2 characters (coach invite, register), username ≥ 3,
-   password ≥ 8 (owner decision 2026-11-10: 8 characters everywhere; Code to follow:
-   `features/auth/account-setup.ts` still accepts 6, and AUTH-MOBILE-ACCOUNT-CREATION-7's tests pin
-   that), repeat password must match, and register additionally requires a valid email while phone
+   password ≥ 8 (owner decision 2026-11-10: 8 characters everywhere), repeat password must match, and register additionally requires a valid email while phone
    stays optional. Every form also asks for an adult birth date, a country and the Terms
    (`auth.activate` rules 13, 13a and 13b); the coach invite asks for an email
    (`clubs.coach-invitation`).
@@ -113,11 +111,10 @@ account yet cannot complete.
 - **Given** the player-invite, coach-invite and activation forms in the app
 - **When** a form is submitted with a name of one character, a username of two, a password of seven, a repeat that differs, or an email that is not an address where one is asked
 - **Then** each field shows its own error, named by a translation key, and nothing is sent
-- Code to follow: the forms still accept a password of six or seven and their test `rejects a password shorter than 6 characters` pins that; stale until the code follows (owner decision 2026-11-10)
 - **And** each form asks for a birth date typed day/month/year and refuses an empty, unreal or under-18 date; asks for a country, Portugal by default; and requires the Terms box
 - **When** the form is valid
 - **Then** the request carries the chosen country, the birth date as `YYYY-MM-DD`, `termsAccepted: true`, and on the coach invite the email trimmed
-- **And** a server refusal that names `country`, `terms` or `email` is shown on that field: a taken email on the email field, not as a taken username
+- **And** a server refusal that names `country`, `terms`, `email` or `password` is shown on that field: a taken email on the email field, not as a taken username; a password under 8 (the invitations' `field: "password"`, activation's `invalid_fields` naming it) on the password field
 test: `frontend/apps/mobile/src/features/auth/account-setup.test.ts` › `accepts a valid form` (+33 more)
 
 ### Notes

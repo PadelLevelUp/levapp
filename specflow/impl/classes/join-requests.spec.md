@@ -30,7 +30,9 @@ approval.**
 |---|---|---|
 | Rule 21 (an automatic accept) | replaced: with the setting on (never for a semi-automatic coach, as today: `notifications.config` rule 19), a request is the engine's `DirectJoin`, placed at once on a side the student fits, refused for the hard reasons of NJ1, and otherwise left waiting for the coach as rule 21 says; with the setting off it waits for the coach as today | `notifications.engine-settings` rule 5; NJ1 |
 
-- **NJ1. Refusal codes.** The route's own pre-checks run first, as today (`not_visible`, `spot_filled`).
+- **NJ1. Refusal codes.** The route's own pre-checks run first, on both engines, in this order:
+  `not_visible`, then for a private class `const:REFUSAL_PRIVATE_UNCONFIRMED` (rule 22), then
+  `spot_filled`.
   Then the engine answers a direct join with a code, never text. The route refuses (`409 {code}`) only
   for the hard reasons: `already_enrolled`, `class_closed`, `already_on_list`, `busy_same_hour` (the
   student is going to a class at the same time, `notifications.engine-tiers` rule 3) and
@@ -49,7 +51,12 @@ approval.**
     pede para entrar." / "This class still has spots: ask to join." (proposed); the academy wizard keeps
     its own `classRequests.academy.nowOpen` line;
   - `already_on_list`: "Já estás na lista de espera desta aula." / "You're already on this class's
-    waiting list." (proposed).
+    waiting list." (proposed);
+  - `private_unconfirmed` (only a client that shows the warning can get it, so it means a stale
+    screen, for instance a class whose type changed after it loaded): "Confirma que queres entrar
+    nesta aula privada." / "Please confirm you want to join this private class." (proposed,
+    PAD-929). On this code the client also reads the class again and opens rule 22's warning, so
+    the student can still say yes.
   Web and iOS show the same line; a code with no copy never shows its raw key.
 - **NJ3. The side at accept time (rule 7a) reads the engine's spots (PAD-808).** A new-engine session
   has no vacancy row (`notifications.engine-spots`, D1), so rule 7a's "an open spot of that side" is an
@@ -71,7 +78,8 @@ approval.**
 ### Rules
 1. **Only an eligible student may request**, and only for a class that is visible to them with an
    empty spot. Eligibility is re-checked server-side on request — a client that shows a stale
-   calendar cannot create an ineligible request.
+   calendar cannot create an ineligible request. A private class also needs the private-lesson
+   confirmation (rule 22).
 2. **Requesting a non-materialized recurrence occurrence materializes it first**
    (`get_or_materialize_instance`), because a request must attach to a real instance. This is the
    one path where a student's action creates an instance row.
@@ -310,6 +318,48 @@ approval.**
     coach, exactly as with the setting off. The request's own message (with its note, rule 15) is
     still mirrored into the conversation, so the coach reads the note as information; it shows as
     decided. The student is told as for any accept (rule 19).
+22. **A private lesson is joined only after the student said yes to its warning (PAD-929 B).**
+    - Before a student requests a place in, or joins the waiting list of, a lesson of `type`
+      `private` (from the calendar, or from `classes.academy-class-booking` rule 12), the client asks
+      once, with two answers. Copy, one key per string, shared by both shells:
+      - `calendar.privateLessonWarning.body` — pt (the ticket's text): "Esta é uma aula privada. Pode
+        ter preços e condições diferentes mediante o que foi definido pelo teu professor e clube.
+        Tens a certeza que pretendes avançar?"; en: "This is a private class. Its prices and
+        conditions may differ, as set by your coach and club. Are you sure you want to go ahead?"
+        (proposed);
+      - `calendar.privateLessonWarning.yes` — "SIM" / "YES";
+      - `calendar.privateLessonWarning.no` — "NÃO" / "NO".
+    - NÃO closes the question and sends nothing. SIM continues the normal flow (side choice,
+      request or waiting list), and the call carries `privateConfirmed: true`. Only JSON `true`
+      counts; anything else, or nothing, is unconfirmed.
+    - Server: a client that declares `const:CAP_PRIVATE_CONFIRM` and sends a private join or
+      waiting-list join unconfirmed is refused `409 const:REFUSAL_PRIVATE_UNCONFIRMED`, and no
+      request or waiting-list row is written (the occurrence may already be materialised, rule 2,
+      as for any refusal). The check is one of the route's own pre-checks (NJ1): after
+      `not_visible`, so a hidden private lesson never answers `private_unconfirmed`, and before
+      `spot_filled`, `has_spots`, `ineligible`, the already-on-the-list answer and the engine split,
+      so it holds on both engines and the engine never sees an unconfirmed private join.
+    - Exempt, server side: a **waiting-list** join by a student invited to that class (PAD-609,
+      either engine) or who gave up their place in it (PAD-684). The exemption is computed on its
+      own, not folded into visibility, since a visible private lesson must still exempt them.
+    - Surfaces. The client asks on the class sheet's request and waiting-list buttons (web
+      `ClassDetailSheet` → `ClassSideChoice`, iOS `class/[id]` → `ClassSideSheet`) and on the rule 12
+      list's rows. It never asks on the PAD-684 come-back, the direct waiting-list join offered only
+      to a student whose own presence is "not coming" (they gave up their place, so the server
+      exempts them): web `ClassDetailSheet`, `MessageBubble` (the reminder's come-back) and
+      `ComeBackSlot`; iOS `class/[id]`, `message-bubble` and the dashboard block. An invitation is
+      answered, not joined (Not covered, below).
+    - Not covered: the coach's adds, the coach's standing-list add and its fan-out, an invitation
+      accept and the coach's accept of a request never need the student's confirmation.
+    - `private-confirm` is a `compat` capability (`admin.clubs-and-switches`): switched off, the
+      server serves every client as before and refuses nothing. A client that does not declare it is
+      served as before (the App Store builds up to 35: they cannot show the warning, and refusing
+      them would stop them joining a visible private lesson at all; lead's decision 2026-11-15,
+      flagged to the owner). Both shells declare the token in the release that shows the warning,
+      never before. The token retires as `join-side`'s does.
+    - The warning comes BEFORE the side choice (owner answer to question 2, 2026-11-25): SIM opens
+      the side choice, NÃO closes with nothing sent. A `409 private_unconfirmed` answer reads the
+      class again and opens the warning again.
 
 ### Acceptance Criteria
 
@@ -597,9 +647,60 @@ test: `backend/padel_app/tests/test_pad808_accept_warns_when_the_side_is_gone.py
 - **And** when the engine refuses the student's join (the coach excluded them from the session), the request stays `pending`, no list entry is written and nothing is sent
 test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_on_a_new_engine_class_a_request_whose_side_fills_moves_through_the_engine`
 
+#### CLASSES-JOIN-REQUESTS-41: The side sheets' primary buttons have the primary fill and a legible disabled look on iOS (PAD-843, rule 20)
+- **Given** a student on iOS opening the side-choice sheet ("Em que lado queres jogar nesta aula?") or its "Não há vaga" body
+- **When** a side is chosen, and when none is yet (the action disabled)
+- **Then** "Enviar pedido" and "Estou disposto a jogar em ambos" show the design system's primary fill with white text, and the disabled one keeps that fill dimmed (half opacity) with a readable label
+- **And** the buttons set their look as a plain style object, never a `style` function, which loses its whole style under NativeWind on the phone
+test: `frontend/apps/mobile/src/features/calendar/side-sheet-button.test.tsx` › `a primary button has the primary fill and white text` (+3 more)
+
+#### CLASSES-JOIN-REQUESTS-42: An unconfirmed private join from a declaring client is refused and writes nothing (rule 22, NJ1)
+- **Given** a visible private lesson with room, a full one and a hidden one, and a client declaring `const:CAP_PRIVATE_CONFIRM`
+- **When** Bruno requests the open one, and joins the full one's waiting list, without `privateConfirmed`, or with `"true"`
+- **Then** both answer `409 const:REFUSAL_PRIVATE_UNCONFIRMED`, and no request or waiting-list row exists
+- **And** the hidden one answers `not_visible`, never `private_unconfirmed`
+- **And** the same calls with `privateConfirmed: true` create the request and the entry
+- **And** the same calls with no capability token, or with the capability switched off, behave as before PAD-929
+- **And** an academy class needs no confirmation
+- **And** a student invited to the full private, or who gave up their place in it, joins its waiting list without it
+- **And** all of the above hold for a new-engine session too
+test: `backend/padel_app/tests/test_pad929_private_lessons.py` › `test_a_private_join_needs_the_confirmation_from_a_declaring_client`
+
+#### CLASSES-JOIN-REQUESTS-43: No join on a private lesson is sent until the student says SIM to the warning (rule 22)
+- **Given** a visible private lesson on the student's calendar (open, then full), and an open and a full private lesson in the private step's no-free-time list (`classes.class-requests` rule 13b)
+- **When** the student presses request or join waiting list, then NÃO
+- **Then** no join call is made and the question closes
+- **When** they do it again and press SIM
+- **Then** the request or the waiting-list join is sent with `privateConfirmed: true`
+- **And** each list row offers its one action, request (open) or join the waiting list (full), through the same warning
+- **And** an academy class, an invitation accept and a come-back show no warning
+- **And** a `private_unconfirmed` answer reads the class again and opens the warning
+- **And** both shells declare `const:CAP_PRIVATE_CONFIRM`
+test: `frontend/apps/web/src/components/calendar/ClassSideChoice.privateConfirm.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] the private-lesson warning precedes any join`, `frontend/apps/mobile/src/features/calendar/private-confirm.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] the private-lesson warning precedes any join`, `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.privateLessons.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] a list row joins through the warning`, `frontend/apps/mobile/src/features/class-requests/wizard/private-lessons-empty.test.tsx` › `[CLASSES-JOIN-REQUESTS-43] a list row joins through the warning`
+
+### Waves (PAD-929)
+1. Backend, no client change: constants, CLASSES-ACADEMY-CLASS-BOOKING-20, -21, CLASSES-JOIN-REQUESTS-42, ELIGIBILITY-OPEN-SPOT-VISIBILITY-18 — `academy_class_service.list_academy_classes(player, coach_id, lesson_type=…)`, `helpers/calendar_helpers.load_open_spot_events_for_player` (the type filter), `academy_class_service.join_class_waiting_list_service`, `class_join_request_service.create_join_request_service`, `frontend_api.py` (the `type` arg, both POST bodies), `utils/client_capabilities.py` (`PRIVATE_CONFIRM`, registered `compat`), the admin switch copy; plus tracing the six direct waiting-list callers, written in Notes.
+2. The no-free-time list on both shells, actions hidden: CLASSES-CLASS-REQUESTS-45 — `packages/api` `listAcademyClasses(coachId, type?)` (no `type` sent for academy, so the old call is unchanged), query key `["academy-classes", coachId, type]`, web and mobile `PrivateClassStep.tsx`, the locales; the existing wizard tests that reach the empty state (`PrivateClassStep.endMode.test.tsx` and its iOS twin) mock the new read. E2E `class-request-wizard.spec.ts` and Maestro flows 62/86/121 pass through the empty state: noted, run at the stream's gate.
+3. The warning on both shells (waits for owner question 2): CLASSES-JOIN-REQUESTS-43, the list rows' actions, `private_unconfirmed` in `JOIN_REFUSAL_CODES` with its NJ2 copy (CLASSES-JOIN-REQUESTS-37 stays green), the token declared in `WEB_CAPABILITIES` (`apps/web/src/api/client.ts`) and the iOS list (`apps/mobile/src/lib/api.ts`), with MOBILE-RELEASE-BUILD-TARGET-11 (thirteen tokens) amended in that wave's own spec step; then the student-account walk on web and iOS, Visível and Invisível.
+
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.
+- **[PAD-929 wave 1, 2026-11-15] The six direct waiting-list callers, traced** (booking-m1; the lead's ask, review
+  R6). Each calls `joinClassWaitingList` with no side sheet and no `privateConfirmed`, and each is the PAD-684
+  come-back: shown only after the student's own "vou afinal" found no spot (`comeBackFromAnswer` →
+  `waiting_list`) or on a dashboard row of a class they said they would miss (`declineTarget`), so their
+  presence is `not_coming` and the server exempts them (`gave_up_place`, rule 22):
+  - web `ClassDetailSheet.tsx` `handleComeBackWaitingList` — come-back, exempt;
+  - web `MessageBubble.tsx` `handleComeBackWaitingList` (the reminder bubble) — come-back, exempt;
+  - web `ComeBackSlot.tsx` `joinWaitingList` (`item.declineTarget`) — come-back, exempt;
+  - iOS `app/class/[id].tsx` `handleComeBackWaitingList` — come-back, exempt;
+  - iOS `features/calendar/hooks.ts` `useJoinWaitingListFromDashboard` (dashboard `blocks.tsx`) — come-back, exempt;
+  - iOS `features/messages/components/message-bubble.tsx` `handleComeBackWaitingList` — come-back, exempt.
+  None reaches a private lesson for a student who is neither invited nor gave up their place. The one
+  edge: a coach who removes the student between the offer and the tap; the student is then no longer
+  part of the class, so a declaring client's join is refused `private_unconfirmed`, which is right. The
+  gave-up case is pinned by CLASSES-JOIN-REQUESTS-42's test.
 
 ### Open questions
 - What happens on a new-engine class when the engine refuses rule 20's move (NJ4)? — closed (lead,
@@ -609,5 +710,12 @@ test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py`
   closed (lead, 2026-11-14): a coach's accept now places the student on the request's side
   (`notifications.engine-answers` rule 10, `notifications.engine-store` rule 9), so the engine's open
   spot types see the side fill; CLASSES-JOIN-REQUESTS-40 has the side-fills case.
+- **(PAD-929, owner question 2)** Where the private-lesson warning sits relative to the side sheet: (a) before
+  it, a separate question (recommended by the lead); (b) inside it, the send button meaning SIM; (c) instead
+  of it for a 1-person lesson. Wave 3 waits for the answer.
+- **(PAD-929)** Enforcing rule 22 only for declaring clients is the lead's decision (2026-11-15), flagged to
+  the owner, who may reverse it (refuse every unconfirmed private join, old builds included).
+- **(PAD-929)** The en warning text and the `private_unconfirmed` copy are proposed by booking-m1, for the
+  owner's approval.
 - The direct-join refusal copy and the two codes missing copy today (NJ2) — proposed by S (PAD-913,
   2026-11-12), **for the owner's approval**.

@@ -25,6 +25,8 @@ const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite", "
 
 const variablesFor = (key: keyof MessageTemplates): string[] => {
   if (key === "side_moved") return [...CLASS_VARIABLES, "{sideName}"];
+  // PAD-840 (rule 25): {reason} is filled in the cancellation notice only.
+  if (key === "class_cancelled") return [...CLASS_VARIABLES, "{reason}"];
   return SIDE_VARIABLE_KEYS.includes(key) ? [...CLASS_VARIABLES, "{side}"] : CLASS_VARIABLES;
 };
 
@@ -45,6 +47,7 @@ const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   side_moved: "settings.templates.labels.sideMoved",
   removed_from_class: "settings.templates.labels.removedFromClass",
   removed_from_series: "settings.templates.labels.removedFromSeries",
+  class_cancelled: "settings.templates.labels.classCancelled",
 };
 
 const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
@@ -64,6 +67,7 @@ const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
   side_moved: "settings.templates.descriptions.sideMoved",
   removed_from_class: "settings.templates.descriptions.removedFromClass",
   removed_from_series: "settings.templates.descriptions.removedFromSeries",
+  class_cancelled: "settings.templates.descriptions.classCancelled",
 };
 
 const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
@@ -91,6 +95,11 @@ const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
     // PAD-928 (rule 24): the coach took the student off one date, or off a recurring class.
     labelKey: "settings.templates.groups.removedFromClass",
     keys: ["removed_from_class", "removed_from_series"],
+  },
+  {
+    // PAD-840 (rule 26): the coach cancelled a class.
+    labelKey: "settings.templates.groups.classCancelled",
+    keys: ["class_cancelled"],
   },
 ];
 

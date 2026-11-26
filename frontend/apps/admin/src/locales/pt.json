@@ -250,7 +250,8 @@
         "class-type-defaults": "Desligado: todas as apps recebem que a regra de vagas da aula vem do treinador, como as apps antigas. O valor mostrado é o mesmo.",
         "coach-invite-email": "Desligado: aceitar um convite de treinador deixa de exigir email, como nas apps antigas.",
         "terms-acceptance": "Desligado: o registo deixa de exigir aceitar os Termos e nenhuma aceitação fica registada. Impacto legal: desliga só num incidente.",
-        "country-on-completion": "Desligado: ativar uma conta e aceitar um convite deixam de exigir o país, como nas apps antigas."
+        "country-on-completion": "Desligado: ativar uma conta e aceitar um convite deixam de exigir o país, como nas apps antigas.",
+        "private-confirm": "Desligado: entrar numa aula privada, ou na lista de espera dela, deixa de exigir a confirmação do aviso de aula privada, como nas apps antigas."
       },
       "reasonShown": "Motivo: {{reason}}",
       "changed": "Última alteração {{at}} por {{by}}",
@@ -315,8 +316,12 @@
         }
       },
       "push": {
-        "title": "Alcance do push (alunos ativos em 7 dias)",
-        "active": "Alunos ativos",
+        "title": "Alcance do push",
+        "active": "Alunos ativos em 7 dias",
+        "recipients": "Alunos que receberam uma mensagem nos últimos {{days}} dias",
+        "recipientsTotal": "Destinatários de mensagens",
+        "refused": "Alunos que recusaram notificações nos últimos {{days}} dias",
+        "refusedTotal": "Notificações recusadas",
         "noChannel": "Sem canal de push",
         "webPushOnly": "Só web push",
         "native": "Com token no telemóvel",

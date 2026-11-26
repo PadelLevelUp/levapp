@@ -10,7 +10,9 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES, DEFAULT_MESSAGE_TEMPLATES_PT
+from padel_app.models.notification_config import (
+    _RETIRED_DEFAULTS, DEFAULT_MESSAGE_TEMPLATES, DEFAULT_MESSAGE_TEMPLATES_PT,
+)
 
 OLD_EN_INVITE = "Hey {name}, we have an opening in the {level} class next {weekday} at {time}. Do you want to come?"
 OLD_PT_REMINDER = "Olá {name}, lembrete: tens a aula de {level} esta {weekday} às {time}. Vens?"
@@ -83,7 +85,9 @@ def test_every_old_default_in_both_locales_is_migrated():
         assert len(table) == 7
         for key, (old, new) in table.items():
             assert "{level}" in old and "{level}" not in new
-            assert new == defaults[key], f"{key}: the migration's new text drifted from the model default"
+            # PAD-840 (rule 26): a text the model has since retired is read as its current default.
+            read = _RETIRED_DEFAULTS.get(key, {}).get(new, new)
+            assert read == defaults[key], f"{key}: the migration's new text drifted from the model default"
             conn = _scratch({key: old})
             _run(conn, "upgrade")
             assert _saved(conn) == [{key: new}]

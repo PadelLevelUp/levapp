@@ -12,7 +12,7 @@ REDACTED_COLUMNS = {
         "password_reset_code_hash",  # PAD-139
     }),
     "device_tokens": frozenset({"token"}),
-    "push_subscriptions": frozenset({"subscription_json"}),
+    "push_subscriptions": frozenset({"endpoint", "subscription_json"}),
     # PAD-269: these tables keep only the link token's SHA-256; the hash is still never served.
     "coach_invitations": frozenset({"token_hash"}),
     "player_invitations": frozenset({"token_hash"}),

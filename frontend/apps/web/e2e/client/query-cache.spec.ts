@@ -74,7 +74,7 @@ async function goToMessages(page: Page) {
   await page.waitForURL("**/messages");
 }
 
-test("PAD-586: back to players within the window makes no coach_players_paginated request", async ({ page }) => {
+test("[CLIENT-QUERY-CACHE-2] PAD-586: back to players within the window makes no coach_players_paginated request", async ({ page }) => {
   await loginAsCoach(page);
   await goToPlayers(page);
   await goToCalendar(page);
@@ -88,7 +88,7 @@ test("PAD-586: back to players within the window makes no coach_players_paginate
   await expectStableCount(page, paginated, 0);
 });
 
-test("PAD-586: back to players after the window shows the cached rows and refreshes once behind", async ({ page }) => {
+test("[CLIENT-QUERY-CACHE-3] PAD-586: back to players after the window shows the cached rows and refreshes once behind", async ({ page }) => {
   await page.clock.install();
   await loginAsCoach(page);
   await goToPlayers(page);
@@ -117,7 +117,7 @@ test("PAD-586: back to players after the window shows the cached rows and refres
   expect(paginated.count).toBe(1);
 });
 
-test("PAD-586: back to the dashboard within the window makes no dashboard request", async ({ page }) => {
+test("[CLIENT-QUERY-CACHE-4] PAD-586: back to the dashboard within the window makes no dashboard request", async ({ page }) => {
   await loginAsCoach(page);
   await expect(page.getByTestId("dashboard-new-class")).toBeVisible({ timeout: 15_000 });
   await goToMessages(page);
@@ -129,7 +129,7 @@ test("PAD-586: back to the dashboard within the window makes no dashboard reques
   await expectStableCount(page, dashboard, 0);
 });
 
-test("PAD-586: calendar, presences, calendar fetches the roster and levels once and the unread count at most once", async ({ page }) => {
+test("[CLIENT-QUERY-CACHE-5] PAD-586: calendar, presences, calendar fetches the roster and levels once and the unread count at most once", async ({ page }) => {
   await loginAsCoach(page);
   await expect(page.getByTestId("dashboard-new-class")).toBeVisible({ timeout: 15_000 });
 
@@ -148,7 +148,7 @@ test("PAD-586: calendar, presences, calendar fetches the roster and levels once 
   expect(unread.count).toBeLessThanOrEqual(1);
 });
 
-test("PAD-586: next week keeps the previous week's cards on screen until the response arrives", async ({ page }) => {
+test("[CLIENT-QUERY-CACHE-6] PAD-586: next week keeps the previous week's cards on screen until the response arrives", async ({ page }) => {
   await loginAsCoach(page);
   await goToCalendar(page);
 
@@ -185,7 +185,7 @@ test("PAD-586: next week keeps the previous week's cards on screen until the res
   await page.unroute(calendarRange);
 });
 
-test("PAD-586: presences requests the trend exactly once on load", async ({ page }) => {
+test("[CLIENT-QUERY-CACHE-7] PAD-586: presences requests the trend exactly once on load", async ({ page }) => {
   await loginAsCoach(page);
   await expect(page.getByTestId("dashboard-new-class")).toBeVisible({ timeout: 15_000 });
 
@@ -197,7 +197,7 @@ test("PAD-586: presences requests the trend exactly once on load", async ({ page
   expect(trend.count).toBe(1);
 });
 
-test("PAD-586: a live message refetches the conversations list once and never probes the conversation", async ({ page, request }) => {
+test("[CLIENT-QUERY-CACHE-8] PAD-586: a live message refetches the conversations list once and never probes the conversation", async ({ page, request }) => {
   const bearer = async (api: APIRequestContext, username: string, password: string) => {
     const res = await api.post(`${API_AUTH}/login`, { data: { username, password } });
     expect(res.ok(), `login ${username}: ${res.status()}`).toBeTruthy();
@@ -254,7 +254,7 @@ test("PAD-586: a live message refetches the conversations list once and never pr
   }
 });
 
-test("PAD-586: no query polls (no refetchInterval in the web app or the shared hooks)", async () => {
+test("[CLIENT-QUERY-CACHE-9] PAD-586: no query polls (no refetchInterval in the web app or the shared hooks)", async () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const roots = [resolve(here, "../../src"), resolve(here, "../../../../packages/hooks/src")];
   const offenders: string[] = [];

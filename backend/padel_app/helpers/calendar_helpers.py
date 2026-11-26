@@ -297,7 +297,8 @@ def build_player_calendar_events(player_id, user_id, range_start, range_end, *, 
 # ── PAD-130: open spots a student could ask for (eligibility.open-spot-visibility) ──
 
 
-def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=None, coach_id=None, include_full=False):
+def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=None, coach_id=None, include_full=False,
+                                     lesson_type=None):
     """Discoverable classes for a student, as calendar events flagged ``openSpot``.
 
     Rules 1, 4–7 and 10 of ``eligibility.open-spot-visibility``: every future,
@@ -313,6 +314,9 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
     pass every other condition but have no room. With ``include_full`` each
     event carries ``state`` (``"open"`` | ``"full"``) and ``spotsLeft``; the
     calendar's own call passes neither, so its payload is unchanged.
+
+    PAD-929 (``classes.academy-class-booking`` rules 2, 12): ``lesson_type`` keeps only the classes
+    of that ``Lesson.type``; the calendar passes none.
     """
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.notification_config import NotificationConfig
@@ -353,9 +357,11 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
 
         def consider(obj, *, override_id=None, override_date=None, occ_start=None):
             start = ensure_utc(occ_start or obj.start_datetime)
-            if start is None or start < now_wall:
+            if start is None or start <= now_wall:  # rule 7: a class starting now is closed, as join requests are
                 return
             if getattr(obj, "status", None) in ("canceled", "completed"):
+                return
+            if lesson_type is not None and getattr(getattr(obj, "lesson", obj), "type", None) != lesson_type:
                 return
             if not effective_open_spots_visible(obj, coach_id, config):
                 return

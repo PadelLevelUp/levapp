@@ -1,0 +1,50 @@
+id: P45
+title: spots covered by held invitations wait
+source: {section: "PAD-824 (owner's example: 3 left and 3 right spots, 3 invitations per spot)", lines: [1, 1]}
+what_it_tests: the third left spot does not drop to the next group while the six group-1 left-siders it would ask are still counting
+tags: [groups, timers, sides]
+derived_from: [D9]
+corrections: []
+notes: >
+  PAD-824's example on the new engine (promoted from the PAD-802 triage's throwaway P92). 6 open spots,
+  3 left and 3 right (5 + 5 regulars, capacity 16), X = 3. Group 1 (format group 3, same side at the class
+  level) has 6 left-siders and 6 right-siders; the next group (format group 4) is one level stronger, any
+  side, with 3 left-siders (a lower number is a stronger level). The old engine's third left spot found
+  nobody free in its round (the 6 were held by the first two left spots) and dropped to the next group in
+  minutes. On the new engine the 6 distinct left-siders cover all 3 left spots (engine-planning rules 5, 6
+  and 12), so group 4 waits until their invitations stop counting (T = 60m, at 20:00) and is asked on the
+  next run. The wait is each invitation's counting-until rather than the round's time from when the spot
+  reached it; in this example the result is the one the owner asked for.
+
+settings:
+  invites_per_spot: 3
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: +1, side: any}
+
+roster:
+  regulars: {L: 5, R: 5}
+students:
+  - {cohort: L3L, count: 6, level: 3, side: L}
+  - {cohort: L3R, count: 6, level: 3, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L3L, count: 6, side_named: null, group: 3}
+        - {cohort: L3R, count: 6, side_named: null, group: 3}
+      missing: {L: 3, R: 3}
+  - at: 2026-11-01 19:30
+    expect: {invitations: none}
+  - at: 2026-11-01 19:58
+    expect: {invitations: none}
+  - at: 2026-11-01 20:05
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 4}]
+final:
+  roster: {L: 5, R: 5}

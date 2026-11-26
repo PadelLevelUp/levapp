@@ -91,7 +91,8 @@ describe("wiring (source reads)", () => {
   it("ParticipantRow words from displayStateOf but keeps the stored state in the test id", () => {
     const r = read("src/features/calendar/ParticipantRow.tsx");
     expect(r).toContain("displayStateOf(state, classEnded)");
-    expect(r).toContain("classEnded = true");
+    expect(r).toContain("classEnded: boolean;"); // required, no default (calendar.event-detail rule 25)
+    expect(r).not.toContain("classEnded = true");
     expect(r).toContain("`attendance-state-${state}`");
   });
   it("the pop-up carries the contract test ids", () => {

@@ -16,6 +16,10 @@ import { seasonOccurrenceContaining, type SeasonDefinitionLike } from "./season-
 /** The largest N the wizard's "after N classes" input accepts. */
 export const MAX_REQUEST_CLASSES = 52;
 
+/** PAD-926 (rule 14a): one press of the class-count stepper, kept within 1..MAX_REQUEST_CLASSES. */
+export const stepEndCount = (count: number, delta: 1 | -1): number =>
+  Math.min(MAX_REQUEST_CLASSES, Math.max(1, count + delta));
+
 const isoWeekday = (date: string): number => {
   const [y, m, d] = date.split("-").map(Number);
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Sunday
@@ -31,10 +35,10 @@ const addDays = (date: string, n: number): string => {
  * The date of the `count`-th occurrence on `weekdays` (1 = Monday … 7 = Sunday),
  * counting from `startDate` INCLUSIVE — N counts classes, not weeks: Tue+Thu
  * from a Tuesday, 4 classes is two weeks, not four. `null` when there is
- * nothing to count: no weekday chosen, or `count < 1`.
+ * nothing to count: no weekday chosen, `count < 1`, or no valid start date (a cleared field).
  */
 export function endDateAfterClasses(startDate: string, weekdays: number[], count: number): string | null {
-  if (weekdays.length === 0 || count < 1) return null;
+  if (weekdays.length === 0 || count < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null;
   const wanted = new Set(weekdays);
   // At least one weekday is chosen, so an occurrence lands at least once a
   // week: count weeks plus a margin is always enough days to search.

@@ -17,6 +17,10 @@ AbsenceNotice = Literal["on_time", "late", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
 AlertReason = Literal["no_candidate"]
 AnsweredBy = Literal["student", "coach"]
+#: Why the coach's ask did not ask a going student (engine-timeline rule 8): the engine's own reasons
+#: (``not_coming``, ``already_confirmed``, ``preference``, ``reminder_limit``) and the route's for a
+#: student it names as skipped (``unavailable``, and the coach's marks; class-reminders-manual rule 6).
+NotAskedReason = Literal["not_coming", "already_confirmed", "preference", "reminder_limit", "unavailable"]
 #: Why a join was refused, a code the route answers as 409 {code} (classes.join-requests NJ1).
 #: A coach's invitation by hand adds its own (engine-answers rule 15), which the route lists as
 #: ``blocked[].cause`` (``notifications.manual`` NM1).
@@ -121,6 +125,16 @@ class AttendanceRequested(Effect):
     """A reminder: the plan's attendance request (§8 step 3) sent to one student."""
 
     student: str
+
+
+@dataclass(frozen=True)
+class NotAsked(Effect):
+    """The coach's ask (``CoachRequestsAttendance``, engine-timeline rule 8) did not ask this going
+    student, for ``reason``: the coach is told who was not asked and why, never a silent 0. A record;
+    nothing is sent."""
+
+    student: str
+    reason: NotAskedReason
 
 
 @dataclass(frozen=True)

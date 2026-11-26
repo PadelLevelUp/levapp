@@ -8,6 +8,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { ParticipantPopup } from "./ParticipantPopup";
+import { createConversation } from "@/api/messages";
+
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock("react-router-dom", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-router-dom")>()),
+  useNavigate: () => navigate,
+}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -92,10 +99,16 @@ describe("ParticipantPopup (rule 23)", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("offers a message and the full profile", () => {
+  it("[CALENDAR-EVENT-DETAIL-7] the message action opens a conversation with the player, the profile action opens the full profile", async () => {
+    navigate.mockClear();
     open();
     expect(screen.getByTestId("participant-popup-message").textContent).toBe("calendar.participants.sendMessage");
     expect(screen.getByTestId("participant-popup-profile").textContent).toBe("calendar.participants.fullProfile");
+    fireEvent.click(screen.getByTestId("participant-popup-message"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/messages/c9"));
+    expect(createConversation).toHaveBeenCalledWith({ otherParticipants: ["11"] });
+    fireEvent.click(screen.getByTestId("participant-popup-profile"));
+    expect(navigate).toHaveBeenCalledWith("/players/1");
   });
 });
 

@@ -33,12 +33,18 @@ describe("the side sheet", () => {
   });
 
   it("sends the chosen side; the 409 side_full offers both-sides or that side's waiting list", () => {
-    expect(SHEET).toContain("createClassJoinRequest(event, note, side)");
+    expect(SHEET).toContain("createClassJoinRequest(event, note, side, ...confirm)");
     expect(SHEET).toContain("sideFullOf(err)");
     expect(SHEET).toMatch(/testID="class-side-play-both"|"class-side-play-both"/);
     expect(SHEET).toContain('sendRequest("both")');
     expect(SHEET).toContain("joinClassWaitingList(event, side)");
     expect(SHEET).toContain("joinList(full.requestedSide)");
+  });
+
+  it("[CLASSES-JOIN-REQUESTS-41] builds every action button with SideSheetButton, never a Pressable style function (PAD-843)", () => {
+    expect(SHEET).toContain("<SideSheetButton");
+    expect(SHEET).not.toMatch(/style=\{\(\{\s*pressed/);
+    expect(read("src/features/calendar/side-sheet-button.tsx")).not.toMatch(/style=\{\(\{\s*pressed/);
   });
 
   it("drives pressed and selected visuals with inline style, never an active: class (native Modal trap)", () => {

@@ -526,6 +526,19 @@ def coach_invites(instance, player_ids, now: datetime | None = None) -> tuple[li
     return sent, refused
 
 
+def coach_asks_attendance(instance, skipped, now: datetime | None = None) -> tuple[list[int], dict[int, str]]:
+    """notifications.class-reminders-manual rule 5 (engine-timeline rule 8): the coach's "send reminders" on a
+    new-engine session, one ``CoachRequestsAttendance`` naming ``skipped`` (player id -> the route's
+    reason). Returns the students asked and, for every other going student, the reason they were not."""
+    request = rq.CoachRequestsAttendance({str(pid): reason for pid, reason in (skipped or {}).items()})
+    effects = handle(instance, request, now)
+    session = str(instance.id)
+    asked = sorted({int(e.student) for e in effects
+                    if isinstance(e, fx.AttendanceRequested) and e.session == session})
+    not_asked = {int(e.student): e.reason for e in effects if isinstance(e, fx.NotAsked) and e.session == session}
+    return asked, not_asked
+
+
 CLASS_REMOVED = "class_removed"
 
 

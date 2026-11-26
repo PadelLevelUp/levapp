@@ -7,6 +7,7 @@ import { ThumbsUp, ThumbsDown, Pencil, Plus, X } from "lucide-react";
 import { CoachNote } from "@/types";
 import { USE_MOCK_DATA } from "@/config";
 import { api } from "@/api/client";
+import { COACH_NOTE_MAX_LENGTH } from "@levelup/config";
 
 interface PlayerStrengthsWeaknessesProps {
   strengths: CoachNote[];
@@ -99,6 +100,7 @@ export function PlayerStrengthsWeaknesses({
               <div className="flex gap-2 mt-3">
                 <Input
                   data-testid="sw-add-strength-input"
+                  maxLength={COACH_NOTE_MAX_LENGTH}
                   placeholder={t("players.addStrengthPlaceholder")}
                   value={newStrength}
                   onChange={(e) => setNewStrength(e.target.value)}
@@ -147,6 +149,7 @@ export function PlayerStrengthsWeaknesses({
               <div className="flex gap-2 mt-3">
                 <Input
                   data-testid="sw-add-weakness-input"
+                  maxLength={COACH_NOTE_MAX_LENGTH}
                   placeholder={t("players.addWeaknessPlaceholder")}
                   value={newWeakness}
                   onChange={(e) => setNewWeakness(e.target.value)}
