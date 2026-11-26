@@ -107,8 +107,8 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
      (`player_service.rank_player_match` over `{name, nickname}`; a match is any tier): the server reads
      the coach's distinct requesters in one statement (a set the size of the coach's students, not of
      their requests), matches them in Python, then filters the rows by those player ids in SQL, before
-     the page is cut, in both sections and in their counts. A blank value is no filter; a value with no
-     letter or digit finds nobody. It joins the other filters (`player_id` included) and never reaches a
+     the page is cut, in both sections and in their counts. A blank value is no filter; the text is trimmed and cut at
+     const:COACH_REQUESTS_SEARCH_MAX_LENGTH characters; a value with no letter or digit finds nobody. It joins the other filters (`player_id` included) and never reaches a
      request of another coach. The table keeps its own sort; tiers do not reorder it.
    A malformed value answers `400 {code: "invalid_filter", field}`; it never silently widens the list.
 8. **A page costs the same whatever the coach's history.** The number of SQL statements one request to
