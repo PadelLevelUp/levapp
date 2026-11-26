@@ -150,9 +150,14 @@ him a text every day for something he decided." Rules 19–26 state the correcte
     whose decline is refused or raises is logged, the others are still marked, and the save still
     answers its ordinary success status; the block is never unsaved by a mark. What the rollback
     undoes is bounded: it undoes the database writes that occurrence made before the failure and not
-    yet committed. On a new-engine session the engine commits its own unit and dispatches its outbox
-    inside `engine_entry.handle`, so a failure after that commit leaves the engine's absence in
-    place. On an old-engine session the coach notice's live event and push go out from
+    yet committed. A new-engine occurrence runs outside that unit of work: the engine commits its own
+    unit (`engine_entry.handle`), so the absence is durable, and only then sends its outbox, as for the
+    student's own No; a failure after that commit leaves the engine's absence in place, and an
+    occurrence materialised before it is not un-materialised. The old engine's approval prompt and
+    invitation start are armed on the scheduler only after the occurrence's commit (`scheduler._arm_now`
+    inside a unit of work waits for the commit), because the job reads with its own session and would
+    find nothing before it. Reading what the block covers is guarded the same way as each occurrence: a
+    failure is logged and the save answers its ordinary success with `markedClasses: []`. On an old-engine session the coach notice's live event and push go out from
     `_notify_coach_of_cancellation` before the request commits, so a coach push already sent is
     not recalled. An occurrence left unmarked still gets no reminder, attendance request or
     invitation while the block covers it (rules 4, 11), and the student can decline it from its
@@ -279,7 +284,14 @@ him a text every day for something he decided." Rules 19–26 state the correcte
     blocker, and the setup guide's schedule step. PT "As aulas em que estás inscrito neste período
     ficam marcadas como Não vai." (key `availability.covered.notice` in both shells' locales; test
     id `blocker-covered-notice`). It is the same text whatever the student's classes are: no lookup,
-    no count, no button, no question.
+    no count, no button, no question. The schedule editor sheet that opens over the setup guide's step
+    saves rows too, so it carries the same line above its own save button under the test id
+    `schedule-covered-notice` (a second id because both are on screen at once). The calendar's block
+    sheet shows it when the block is one the server marks classes for, that is when `blocksAutoInvitations`
+    is true (the flag rule 19 reads), not by its `type`: an edit from iOS's block screen can leave the
+    type as `personal` on a student's blocker. The explanation of the Indisponibilidade card (rule 14,
+    `availability.blockersCard.intro`) says the same in a sentence: the classes the student is enrolled in
+    during a block are marked Não vai when it is saved.
 
 ### Acceptance Criteria
 
@@ -401,7 +413,8 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **Then** the Wednesday occurrence is materialised and both presences are `not_coming` with `declineSource` = `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`
 - **And** each has an open vacancy exactly as `cancel_attendance` would leave it (the Wednesday one held to `invitationStart` through `invite_not_before`), Wednesday recorded as a proactive decline and Thursday as late
 - **And** no message whose sender is the coach is created for either (no `reminder_declined`), and the coach has exactly one cancellation notice per occurrence (sender the student) carrying `availabilityBlock: true` beside `proactiveDecline` (Wednesday true) and `lateCancellation` (Thursday true), with the availability wording, the late one marked "(ATRASADO)", and a push only for the late Thursday one
-test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_save_declines_through_the_ordinary_path_without_a_student_message`
+- **And** in semi-automatic mode each marked class's approval prompt is built by the scheduler's own session: the job is armed only after the occurrence's commit, so a separate connection sees the vacancy when it is armed, and the coach has one prompt for the freed place
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_save_declines_through_the_ordinary_path_without_a_student_message` (+ `backend/padel_app/tests/test_pad772_marks_arm_after_commit.py` › `test_a_marked_class_in_semi_automatic_mode_gets_its_approval_prompt`)
 
 #### CALENDAR-STUDENT-BLOCKERS-20: The legacy mark call re-checks every entry on the server (rule 25)
 - **Given** a student with one block over a Wednesday class
@@ -414,16 +427,17 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 
 #### CALENDAR-STUDENT-BLOCKERS-27: A class is declined once however the marks race, and one refusal rolls back only its occurrence (rule 22)
 - **Given** a student's Wednesday class, and a second covered class that starts between the re-check and the decline (the decline path's 409)
-- **When** two saves of blocks covering the Wednesday run one after the other and concurrently, and a legacy `decline_covered` call for it follows
+- **When** two saves of blocks covering the Wednesday run one after the other and, on Postgres, at the same moment (each has read the covered set before either declines), and a legacy `decline_covered` call for it follows
 - **Then** the class is declined once: one coach notice, one vacancy; the later save does not list it in `markedClasses`, and the legacy call skips it as `already_answered`
 - **And** the class refused by the decline path is not marked, nothing of it is written, the other covered classes of the same save are marked, and the block is saved
-test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_marks_decline_a_class_once_and_a_refusal_rolls_back_only_its_occurrence`
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_marks_decline_a_class_once_and_a_refusal_rolls_back_only_its_occurrence` (+ `test_two_saves_at_once_mark_a_class_once`, Postgres only)
 
 #### CALENDAR-STUDENT-BLOCKERS-21: On a new-engine session the mark is the engine's own "not going" (rules 22, 23)
 - **Given** a covered occurrence of a session the new engine runs (`engine_for(instance) == "new"`)
 - **When** the student saves a block covering it
 - **Then** `engine_entry.student_not_going` handled it, run for real (the engine records the absence and plans the spot): one absence, `declineSource` is set and `respondedAt` is the save's instant, and a second save covering it marks nothing more
 - **And** no message whose sender is the coach is created, and no coach chat notice exists either (as for any No on the new engine); the serialized presence carries `declineSource` for the coach's detail line
+- **And** the absence is durable when the engine's outbox is sent (a separate connection reads `absent` at that moment)
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_new_engine_session_is_marked_by_the_engine`
 
 #### CALENDAR-STUDENT-BLOCKERS-22: A marked class is never reminded or asked on either engine, and deleting the block undoes nothing (rules 23, 24)
@@ -472,7 +486,8 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **When** the student saves
 - **Then** the save answers its ordinary success status, the block is stored, the first and third classes are marked and listed in `markedClasses`, and the second is unchanged (no instance materialised for it, no presence changed, no coach notice, no message) and absent from `markedClasses`
 - **And** the failure is logged with the occurrence's `(model, originalId, date)`
-test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_failing_mark_leaves_the_block_saved_and_the_other_marks_made`
+- **And** a failure while reading what the block covers (before any occurrence is tried) is logged, the save answers its ordinary success status with `markedClasses: []`, and the block is stored once
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_failing_mark_leaves_the_block_saved_and_the_other_marks_made` (+ `test_a_failure_reading_what_the_block_covers_leaves_the_save_an_ordinary_success`)
 
 #### CALENDAR-STUDENT-BLOCKERS-30: A build that still carries the question never asks it (rule 25)
 - **Given** a student enrolled in classes a block will cover, using only the calls a PAD-772 build with the dialog makes
@@ -492,6 +507,7 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **When** each form is shown
 - **Then** `blocker-covered-notice` shows `availability.covered.notice` above the save button, with no button of its own and no request made to show it
 - **And** a coach's own block in the calendar's block sheet shows no such line
+- **And** the calendar's block sheet shows the line for a block whose `blocksAutoInvitations` is true and not for one whose flag is false, whatever its `type`, and the schedule editor sheet carries it as `schedule-covered-notice`
 test: `frontend/apps/web/src/components/availability/BlockerSheet.test.tsx` › `[CALENDAR-STUDENT-BLOCKERS-32] the blocker form says classes in the period are marked` (+ `frontend/apps/mobile/src/features/availability/BlockerSheet.test.tsx`, `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx`, `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx`, `frontend/apps/web/src/components/calendar/EventDetailSheet.covered.test.tsx` › same name)
 
 ### Not this spec (PAD-772)
@@ -533,7 +549,7 @@ test: `frontend/apps/web/src/components/availability/BlockerSheet.test.tsx` › 
 - **Delete or shorten a block** — decision: leave the marks (rule 24): the seat may already be given away, and "Afinal vou" (PAD-684) is the owner's way back, with its spot check. Confirmed by the owner on 26 Nov 2026.
 - **"Afinal vou" on a class the block still covers** — the student is back in, and the backstop of rule 11 still holds that class's reminders and attendance requests back while the block covers it. Decision: leave it, because the student is the one who came back and an edit that leaves the class covered does not re-mark it (rule 20); a student who wants reminders for it narrows the block.
 - **Which classes count** — decision: any overlap, the predicate the block already uses for invitations and reminders (rules 5, 12), so a class the block holds invitations back for is the same class it marks.
-- **The other effects of a mark: the late flag and the semi-automatic burst — to the owner.** A mark is an ordinary decline (rule 23): inside the cancellation deadline it is late and pushes the coach, it counts as a (justified, old engine) absence, and in semi-automatic mode a block over many classes raises one approval prompt per class at once. Lead's pick until the owner answers: **same as any decline**, because the owner kept "one notice per class" ("good") and a different rule per source would make a block a way to dodge the late flag. Options for the owner: never late for a block mark; one approval prompt per save; leave as is.
+- **The other effects of a mark: the late flag and the semi-automatic burst — decided by the owner, 26 Nov 2026: "Keep both as with any can't go."** A mark is an ordinary decline (rule 23): inside the cancellation deadline it is late and pushes the coach, it counts as a (justified, old engine) absence and in the student's absence history, and in semi-automatic mode a block over many classes raises one approval prompt per freed place, at once. Decision: **same as any decline**, because the owner kept "one notice per class" ("good") and a different rule per source would make a block a way to dodge the late flag.
 - **Classes on the waiting list or with a pending invitation inside the block** (review N4) — today: the covered set reads only the student's presence rows and the lessons they are on the roster of (`load_lesson_instances_for_player` joins `Presence`; `load_lessons_for_player`), so a `WaitingListEntry` or an open invitation (`NotificationEvent`, `EngineInvitation`) is not in it and is not marked. The block already holds back the waiting-list offer and any new invitation for that window (rules 4, 11). Decision: leave them out — not marked, not withdrawn — because the student holds no spot there to give up and either is the student's own open request they can still act on; withdrawing them would be a second new writer. Known edge, recorded: an engine that seats a waiting-list student automatically sends `added_to_class`, which the backstop does not block, so such a student can be seated inside their block; the attendance request for it is still held back. Reversible.
 - **What the student sees** — decision: a toast with the count, on the tab and the calendar's block sheet only (rule 21), because it is the lightest confirmation and the owner's "no message" is about chat texts, which a toast is not. The setup guide's schedule `PUT` and the calendar's drag answer no body the count can ride on; they re-read the calendar instead of adding a read or a header for a line. Reversible.
 - **Older builds** — decision: made harmless, not broken (rule 25): `coveredClasses` is always `[]` and the schedule read answers `[]`, so a build with the question never asks it; `decline_covered` stays so a stale call is a no-op, until no supported build calls it.

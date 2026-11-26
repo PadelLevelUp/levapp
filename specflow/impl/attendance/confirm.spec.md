@@ -345,8 +345,11 @@ Readings:
 
 31. **A second "Não vou" changes nothing (review of PAD-772, 26 Nov 2026).** `POST
     /api/app/notify/cancel_attendance` on a presence whose `attendanceState` is already `not_coming`
-    and which is not validated answers `{"action": "declined", "proactive": false, "duplicate": true}`
-    and writes, sends and clears nothing, on both engines: no second coach notice (rule 8), no
+    and which is not validated, and whose decline has been completed (the old engine's vacancy for the
+    student exists; the new engine's absence carries its `left_reason`), answers
+    `{"action": "declined", "proactive": false, "duplicate": true}`
+    and writes, sends and clears nothing, on both engines. A decline that failed between the absence and
+    its spot is not completed, and a repeat still runs the ordinary path and frees the spot: no second coach notice (rule 8), no
     `reminder_declined` to the student, no new `respondedAt` or `response`, `declineSource` kept, no
     vacancy or engine request. The check runs after the started (409) and enrolment (403) checks, so
     those answers are unchanged. It is the server half of rule 25's gate ("not already declined"):
@@ -667,7 +670,7 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **When** each posts `cancel_attendance` for that class again (by `lessonInstanceId` and by `(model, originalId, date)`)
 - **Then** each answer is `{"action": "declined", "proactive": false, "duplicate": true}`
 - **And** the presence rows are unchanged (`declineSource`, `respondedAt`, `response`, `status`), no message is created (no second coach notice, no `reminder_declined`), no push is sent, no vacancy changes, and on the new engine no engine request is handled
-- **And** a validated `missed` row still follows rule 29, and a class that has started still answers 409
+- **And** a validated `missed` row still follows rule 29 (the ordinary decline runs and the coach is told, no `duplicate`), an old-engine row that is absent with no vacancy yet (a decline that failed half way) is retried and its spot freed, and a class that has started still answers 409
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_second_decline_on_a_declined_row_is_a_no_op`
 
 ### Open questions
