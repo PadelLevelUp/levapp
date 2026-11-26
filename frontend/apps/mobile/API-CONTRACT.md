@@ -63,10 +63,10 @@ Calendar blocks / events:
 | GET | `/api/app/calendar_event` | None | `?model=lesson\|lesson_instance\|calendar_block*&original_id=*` | serialize_calendar_event |
 
 Availability blockers (student-only, requires player profile):
-| GET/POST | `/api/app/availability_blockers` | JWT | POST: `{type*, date*, startTime*, endTime*, ...}` | serialize_calendar_block[] / 201 (POST adds `coveredClasses: [{model, originalId, date, title, start, end}]`, PAD-772) |
-| PUT/DELETE | `/api/app/availability_blockers/<id>` | JWT | PUT: same; DELETE: `{occDate?, scope?}` | block (PUT adds `coveredClasses`: only the newly covered, PAD-772; also `PUT /api/app/calendar_block/<id>` for a student's blocker) / 204 |
-| POST | `/api/app/availability_blockers/decline_covered` | JWT, student | `{occurrences: [{model, originalId, date}]}` | `{declined: [{model, originalId, date, lessonInstanceId}], skipped: [{model, originalId, date, reason}]}`, `reason` = `not_covered` / `not_enrolled` / `started` / `already_answered`; each entry re-checked on the server, declined through `cancel_attendance`, no message to the student (PAD-772) |
-| POST | `/api/app/availability_schedules/<id>/covered_classes` | JWT, student | same body as the schedule PUT | `{coveredClasses}` — the classes that save would newly cover; writes nothing (PAD-772) |
+| GET/POST | `/api/app/availability_blockers` | JWT | POST: `{type*, date*, startTime*, endTime*, ...}` | serialize_calendar_block[] / 201 (POST marks the classes it covers "Não vai" and adds `markedClasses: [{model, originalId, date, lessonInstanceId, title, start, end}]`, and `coveredClasses: []` always, PAD-772b) |
+| PUT/DELETE | `/api/app/availability_blockers/<id>` | JWT | PUT: same; DELETE: `{occDate?, scope?}` | block (PUT marks and adds `markedClasses`: only the newly covered, and `coveredClasses: []`, PAD-772b; also `PUT /api/app/calendar_block/<id>` for a student's blocker; the schedule PUT and `POST /api/app/reschedule_block/<id>` mark too and keep their own answers) / 204 |
+| POST | `/api/app/availability_blockers/decline_covered` | JWT, student | `{occurrences: [{model, originalId, date}]}` | LEGACY (no current build calls it): `{declined: [{model, originalId, date, lessonInstanceId}], skipped: [{model, originalId, date, reason}]}`, `reason` = `not_covered` / `not_enrolled` / `started` / `already_answered`; each entry re-checked on the server, declined through `cancel_attendance`, no message to the student; at most 200 entries (PAD-772) |
+| POST | `/api/app/availability_schedules/<id>/covered_classes` | JWT, student | same body as the schedule PUT | LEGACY: `{coveredClasses: []}` always; writes nothing, refuses what the PUT refuses (PAD-772b) |
 
 Coach:
 | GET | `/api/app/coach` | JWT | — | `{id, user, club: {id, name}\|null}` |
@@ -124,7 +124,7 @@ Exercises / training (all JWT):
 ### `/api/app/notify` — Notification engine (all JWT)
 
 Coach-only: `GET/POST /config`, `POST /toggle_class {model?, originalId*}`, `POST /manual {originalId*, playerIds*, model?, date?}`, `POST /send_reminders`, `GET /groups?originalId*`, `GET /activity`, `GET /waiting_list/<instance_id>`, `POST /coach_respond {notificationEventId*, action*: "yes"|"no"}`, `POST /approval/respond {bundleId*, action*: "yes_now"|"yes_at_window"|"dismiss"}`, `GET/POST /standing_waiting_list`, `DELETE /standing_waiting_list/<entry_id>`.
-Any role: `POST /respond {notificationEventId*, action*}`, `POST /respond_reminder {lessonInstanceId*, action*}`, `POST /cancel_attendance {lessonInstanceId*}` (409 if past deadline), `POST /respond_waiting_list {lessonInstanceId*, action*}`, `POST /process_rounds`.
+Any role: `POST /respond {notificationEventId*, action*}`, `POST /respond_reminder {lessonInstanceId*, action*}`, `POST /cancel_attendance {lessonInstanceId*}` (409 if past deadline; a second one on a row already `not_coming` answers `{action: "declined", proactive: false, duplicate: true}` and changes nothing, attendance.confirm rule 31), `POST /respond_waiting_list {lessonInstanceId*, action*}`, `POST /process_rounds`.
 
 ### `/api/notifications` — Push subscriptions (Web Push)
 

@@ -4509,6 +4509,9 @@ def cancel_attendance(
     ).first()
     if presence is None:
         abort(403, description="You are not enrolled in this class.")
+    if not presence.validated and presence.attendance_state == "not_coming":
+        # attendance.confirm rule 31 (PAD-772): a second "Não vou" changes nothing, on both engines.
+        return {"action": "declined", "proactive": False, "duplicate": True}
     if _on_new_engine(instance):
         # PAD-918 (swap plan §3.1): the new engine records the absence and plans the spot.
         from padel_app.services.engine_entry import student_not_going
