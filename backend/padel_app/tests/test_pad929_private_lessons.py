@@ -70,11 +70,12 @@ def test_the_academy_step_lists_academy_classes_only(app, client):
     # The seed's own "Class" is an academy class too.
     assert set(_by_title(_list(app, ids))) == {"Class", "Academy"}
 
-    student = _student(app, ids)
+    student = _student(app, ids, caps="open-spots, private-confirm")
     url = f"/api/app/academy-classes?coachId={ids['coach_id']}"
     default = client.get(url, headers=student).get_json()
     academy = client.get(url + "&type=academy", headers=student).get_json()
-    assert set(_by_title(default)) == set(_by_title(academy)) == {"Class", "Academy"}
+    undeclared = client.get(url + "&type=academy", headers=_student(app, ids)).get_json()
+    assert set(_by_title(default)) == set(_by_title(academy)) == set(_by_title(undeclared)) == {"Class", "Academy"}
     for bad in ("bogus", "", "Private", "ACADEMY"):
         assert client.get(url + f"&type={bad}", headers=student).status_code == 400, bad
 
@@ -91,6 +92,34 @@ def test_the_academy_step_lists_academy_classes_only(app, client):
         stranger = _token(app, user.id)
     assert client.get(url + "&type=bogus", headers=stranger).status_code == 400
     assert client.get(url, headers=stranger).status_code == 403
+
+
+# ── CLASSES-ACADEMY-CLASS-BOOKING-22: an older app keeps private lessons in its academy step ─────
+
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-22")
+def test_an_older_app_keeps_private_lessons_in_its_academy_step(app, client, monkeypatch):
+    from padel_app.utils import client_capabilities as cc
+
+    ids = _setup(app)
+    _add_class(app, ids, days=1, title="Academy", max_players=6)
+    visible = _private(app, ids, title="Private Visible", max_players=2)
+    _private(app, ids, title="Private Hidden", max_players=2, visible=False)
+    url = f"/api/app/academy-classes?coachId={ids['coach_id']}"
+    mixed = {"Class", "Academy", "Private Visible"}
+
+    # An App Store build from before PAD-929: no `type`, no `private-confirm`.
+    for caps in (None, "open-spots"):
+        res = client.get(url, headers=_student(app, ids, caps=caps))
+        assert res.status_code == 200 and set(_by_title(res.get_json())) == mixed, caps
+
+    # Switched off, the capability is withheld as from a client that never declared it.
+    monkeypatch.setattr(cc, "switched_off", lambda: {"private-confirm": {"off": True}})
+    switched = client.get(url, headers=_student(app, ids, caps="private-confirm")).get_json()
+    assert set(_by_title(switched)) == mixed
+    monkeypatch.undo()
+
+    # That build joins the private lesson it lists, with no confirmation to send.
+    assert _post(client, "class-join-requests", _student(app, ids), visible).status_code == 201
 
 
 # ── CLASSES-ACADEMY-CLASS-BOOKING-21: the private read ───────────────────────────────────────────

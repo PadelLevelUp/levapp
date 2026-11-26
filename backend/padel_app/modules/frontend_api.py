@@ -2460,10 +2460,17 @@ def list_academy_classes_route():
         abort(403, "Only a student can list a coach's academy classes")
     if not request.args.get("coachId"):
         abort(400, "coachId is required")
-    # PAD-929 (rule 9): exactly one of the types, checked before the roster.
-    lesson_type = request.args.get("type", LESSON_LIST_TYPES[0])
-    if lesson_type not in LESSON_LIST_TYPES:
-        abort(400, f"type must be one of {', '.join(LESSON_LIST_TYPES)}")
+    # PAD-929 (rule 9): exactly one of the types, checked before the roster. With no `type`, a
+    # client that declares `private-confirm` gets academy classes only; an older app has no private
+    # list, so it keeps both types in this one, as before PAD-929 (rule 2).
+    from padel_app.utils.client_capabilities import PRIVATE_CONFIRM, client_declares
+
+    if "type" in request.args:
+        lesson_type = request.args["type"]
+        if lesson_type not in LESSON_LIST_TYPES:
+            abort(400, f"type must be one of {', '.join(LESSON_LIST_TYPES)}")
+    else:
+        lesson_type = LESSON_LIST_TYPES[0] if client_declares(PRIVATE_CONFIRM) else None
     return jsonify(list_academy_classes(player, request.args.get("coachId"), lesson_type=lesson_type))
 
 
