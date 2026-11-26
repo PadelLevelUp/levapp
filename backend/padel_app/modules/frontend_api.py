@@ -1152,6 +1152,19 @@ def coach_players_paginated():
     return jsonify(result)
 
 
+@bp.get("/coach-requests")
+@jwt_required()
+def coach_requests():
+    """classes.coach-requests-table (PAD-795): the coach's private and academy requests, one page."""
+    from padel_app.services import coach_request_service
+
+    coach = require_coach()
+    try:
+        return jsonify(coach_request_service.list_for_coach(coach, request.args))
+    except coach_request_service.InvalidFilter as exc:
+        return jsonify({"code": "invalid_filter", "field": exc.field}), 400
+
+
 @bp.get("/coach_levels")
 @jwt_required()
 def get_coach_levels():

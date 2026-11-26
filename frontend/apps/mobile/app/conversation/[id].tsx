@@ -1269,7 +1269,7 @@ export default function ConversationScreen() {
     if (message.metadata?.classRequest?.kind === "proposed") {
       router.push({ pathname: "/(tabs)/availability", params: { proposeFor: String(id) } });
     } else {
-      router.push({ pathname: "/settings", params: { section: "classRequests", proposeFor: String(id) } });
+      router.push({ pathname: "/class-requests", params: { proposeFor: String(id) } });
     }
   };
 

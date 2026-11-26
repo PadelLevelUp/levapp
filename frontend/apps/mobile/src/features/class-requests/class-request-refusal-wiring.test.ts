@@ -9,11 +9,14 @@ import { describe, expect, it } from "vitest";
  * Source-reading: app/ screens mount hooks, and a test file under app/ would break Metro.
  */
 const SECTION = readFileSync(resolve(__dirname, "class-requests-section.tsx"), "utf8");
+const COACH_ACTIONS = readFileSync(resolve(__dirname, "use-coach-request-actions.tsx"), "utf8");
 const CONVERSATION = readFileSync(resolve(__dirname, "../../..", "app/conversation/[id].tsx"), "utf8");
 
 describe("the iOS request screens name the clash (rule 4a)", () => {
   it("[CLASSES-CLASS-REQUESTS-42] both iOS request screens read the clash lines first", () => {
-    expect(SECTION).toMatch(/classRequestRefusalLines\(err, role, i18n\.language\)[\s\S]{0,200}classRequestsApi\.classRequestRefusal\(err\)/);
+    expect(SECTION).toMatch(/classRequestRefusalLines\(err, "student", i18n\.language\)[\s\S]{0,200}classRequestsApi\.classRequestRefusal\(err\)/);
+    // PAD-795: the coach's half is the requests screen's actions hook.
+    expect(COACH_ACTIONS).toMatch(/classRequestRefusalLines\(err, "coach", i18n\.language\)[\s\S]{0,200}classRequestsApi\.classRequestRefusal\(err\)/);
     expect(CONVERSATION).toMatch(
       /classRequestRefusalLines\(err, studentAnswers \? "student" : "coach", i18n\.language\)[\s\S]{0,300}classRequestsApi\.classRequestRefusal\(err\)/
     );

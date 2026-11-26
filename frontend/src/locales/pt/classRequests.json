@@ -46,6 +46,7 @@
       "countered": "À espera do aluno",
       "accepted": "Marcada",
       "declined": "Recusado",
+      "declinedByStudent": "Recusado pelo aluno",
       "withdrawn": "Retirado pelo aluno",
       "rejected": "Recusado",
       "superseded": "Vaga ocupada"
@@ -132,6 +133,69 @@
     },
     "busySameHour": {
       "studentLine": "{{name}} já está inscrito noutra aula à mesma hora ({{title}}, {{date}} {{time}})."
+    },
+    "table": {
+      "tabOpen": "Em aberto",
+      "tabHistory": "Histórico",
+      "columns": {
+        "classDay": "Aula: dia",
+        "classTime": "Aula: hora",
+        "requestedDay": "Pedido: dia",
+        "requestedTime": "Pedido: hora",
+        "student": "Aluno",
+        "kind": "Tipo de aula",
+        "side": "Lado preferencial",
+        "status": "Estado",
+        "actions": "Ações",
+        "class": "Aula",
+        "requested": "Pedido",
+        "day": "dia",
+        "time": "hora"
+      },
+      "kind": {
+        "academy": "Academia",
+        "private": "Privada"
+      },
+      "filters": {
+        "kind": "Tipo de aula",
+        "status": "Estado",
+        "side": "Lado",
+        "sideNone": "Sem lado",
+        "student": "Aluno",
+        "all": "Todos",
+        "allStudents": "Todos os alunos",
+        "classDates": "Dia da aula",
+        "classTimes": "Hora da aula",
+        "requestDates": "Dia do pedido",
+        "from": "De",
+        "to": "Até",
+        "clear": "Limpar filtros",
+        "studentSearch": "Procurar aluno"
+      },
+      "pager": {
+        "previous": "Anterior",
+        "next": "Seguinte"
+      },
+      "empty": "Sem pedidos nesta vista.",
+      "detail": {
+        "requestedAt": "Pedido em {{when}}",
+        "decidedAt": "Decidido em {{when}}",
+        "decidedBy": "Decidido por: {{who}}",
+        "student": "Aluno",
+        "coach": "Treinador",
+        "recurrence": "Semanal ({{days}}) até {{end}}",
+        "none": "—"
+      },
+      "sheet": {
+        "open": "Filtrar/Ordenar",
+        "title": "Filtrar e ordenar",
+        "sortBy": "Ordenar por",
+        "direction": "Sentido",
+        "asc": "Crescente",
+        "desc": "Decrescente",
+        "apply": "Aplicar"
+      },
+      "moreActions": "Mais ações"
     }
   }
 }

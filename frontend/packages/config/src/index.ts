@@ -55,6 +55,8 @@ export * from "./quiet-hours";
 export * from "./class-picker";
 export * from "./unread-badge";
 export * from "./class-request-list";
+export * from "./class-request-status-key";
+export * from "./coach-requests-view";
 export * from "./join-request-message";
 export * from "./message-day";
 export * from "./recurrence-end";
