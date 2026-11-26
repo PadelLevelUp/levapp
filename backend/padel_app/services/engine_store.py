@@ -536,7 +536,7 @@ class TableStore:
         from padel_app.models.presences import Presence
 
         presence = Presence.query.filter_by(lesson_instance_id=int(session), player_id=int(student)).first()
-        if presence is None or presence.status == "absent" or _written_as_coming(presence):
+        if presence is None or presence.status == "absent" or presence.validated or _written_as_coming(presence):
             return False
         start = presence.lesson_instance.start_datetime
         if start is None or at >= wall_to_utc_naive(start):
@@ -950,8 +950,8 @@ class TableStore:
                     db.session.add(ReminderAttempt(lesson_instance_id=iid, player_id=int(e.student), number=0,
                                                    response="yes", responded_at=e.at))
                 presence = self._presence(e)              # rule 13: the presence says coming, as the old path did
-                if presence is not None and presence.status != "absent":
-                    _confirm_presence(presence, e.at)
+                if presence is not None and presence.status != "absent" and not presence.validated:
+                    _confirm_presence(presence, e.at)   # rule 14: never over the coach's own mark
         elif isinstance(e, fx.Placed):
             self._guard_same_hour(e)
             if e.how not in ("regular", "regular_returns"):
@@ -964,6 +964,11 @@ class TableStore:
             presence.assigned_side = SIDE_TO_APP[e.side]
             if presence.side in ("left", "right") and presence.side != presence.assigned_side:
                 presence.side = None            # rule 9: a side the coach chose for an earlier stay, not this one
+            if e.how == "regular_returns":
+                # Rule 14 ("Afinal vou", attendance.confirm rules 28-29): the return is the student's yes, as
+                # the old path's _retake_spot wrote it; the coach's "Não vai" mark goes with the absence.
+                presence.validated = False
+                _confirm_presence(presence, e.at)
         elif isinstance(e, fx.SideAssigned):
             presence = self._presence(e)
             before = SIDE_FROM_APP.get(presence.assigned_side)
@@ -975,7 +980,10 @@ class TableStore:
         elif isinstance(e, fx.Left):
             presence = self._presence(e)
             if presence is not None:
+                from padel_app.services.presence_events import publish_presence_changed
+
                 presence.status, presence.left_reason = "absent", e.reason
+                publish_presence_changed(presence.lesson_instance, presence.player_id)   # rule 14, after commit
         elif isinstance(e, fx.Absence):
             # Owner ruling D4 (engine-timeline rule 5, TIMELINE-20): the engine records the notice, never
             # the coach's justification. A late No is the student's "cancelled", so the app derives it
