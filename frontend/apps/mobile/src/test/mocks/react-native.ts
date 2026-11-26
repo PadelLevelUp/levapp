@@ -94,11 +94,27 @@ export function __appStateListenerCount(): number {
 const announcements: string[] = [];
 
 /** Mirrors RN's AccessibilityInfo.announceForAccessibility; what was announced is kept for tests. */
+const focused: unknown[] = [];
+
 export const AccessibilityInfo = {
   announceForAccessibility(message: string) {
     announcements.push(message);
   },
+  /** Mirrors RN's setAccessibilityFocus; the tags it was given are kept for tests. */
+  setAccessibilityFocus(tag: unknown) {
+    focused.push(tag);
+  },
 };
+
+/** Mirrors RN's findNodeHandle: the test renderer has no native tags, so every mounted ref answers 1. */
+export function findNodeHandle(_node: unknown): number {
+  return 1;
+}
+
+/** Test-only: how many times a screen reader's focus was moved. */
+export function __accessibilityFocusCount(): number {
+  return focused.length;
+}
 
 /** Test-only: what screen readers were told, in order (settings.save-on-change rule 2). */
 export function __announcements(): string[] {
@@ -110,6 +126,8 @@ export function __resetReactNativeMock(): void {
   listeners.clear();
   appStateListeners.clear();
   announcements.length = 0;
+  focused.length = 0;
+  scrollCalls.length = 0;
   AppState.currentState = "active";
   Platform.OS = "ios";
 }
@@ -144,7 +162,7 @@ export function __emitHardwareBack(): boolean {
 // each primitive renders a host element of its own name and forwards its props, so
 // `testID`, `onPress`, `onChangeText` and `accessibilityState` can be found and
 // driven from a test. Layout, style and className are accepted and ignored.
-import { createElement, forwardRef, type ReactNode } from "react";
+import { createElement, forwardRef, useImperativeHandle, useRef, type ReactNode } from "react";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
@@ -158,7 +176,27 @@ function host(name: string) {
 
 export const View = host("View");
 export const Text = host("Text");
-export const ScrollView = host("ScrollView");
+const scrollCalls: unknown[] = [];
+
+/** Test-only: the `scrollTo` calls the ScrollViews received, in order. */
+export function __scrollToCalls(): unknown[] {
+  return [...scrollCalls];
+}
+
+/**
+ * A ScrollView whose ref answers `scrollTo` and `scrollToEnd`, so a test sees a screen move its content. A test that
+ * mounts with `createNodeMock` for "ScrollView" (the calendar's day list) keeps its own node: the host element gets the
+ * ref first, and the fake only stands in when the renderer gave it no node.
+ */
+export const ScrollView = forwardRef<unknown, AnyProps>(function ScrollView(props, ref) {
+  const node = useRef<{ scrollTo?: unknown } | null>(null);
+  useImperativeHandle(ref, () => {
+    if (node.current && typeof node.current.scrollTo === "function") return node.current;
+    return { scrollTo: (o: unknown) => void scrollCalls.push(o), scrollToEnd: () => undefined };
+  }, []);
+  return createElement("ScrollView", { ...props, ref: node });
+});
+ScrollView.displayName = "ScrollView";
 // PAD-487: screens under a native header are mounted to read their keyboard offset.
 export const KeyboardAvoidingView = host("KeyboardAvoidingView");
 export const FlatList = host("FlatList");
@@ -190,5 +228,6 @@ export const StyleSheet = {
 export const Dimensions = { get: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) };
 export const useWindowDimensions = () => ({ width: 390, height: 844, scale: 3, fontScale: 1 });
 export const useColorScheme = () => "light" as const;
-export const Animated = { View: host("Animated.View"), Text: host("Animated.Text"), Value: class { constructor(public v: number) {} }, timing: () => ({ start: (cb?: () => void) => cb?.() }) };
+export const Animated = { View: host("Animated.View"), Text: host("Animated.Text"), Value: class { constructor(public v: number) {} interpolate() { return 0; } }, timing: () => ({ start: (cb?: () => void) => cb?.() }) };
 
+export const Easing = { in: (f: unknown) => f, out: (f: unknown) => f, ease: 0 };

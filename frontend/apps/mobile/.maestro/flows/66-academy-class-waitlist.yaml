@@ -94,6 +94,12 @@ onFlowComplete:
 - assertTrue: "${output.onList == true}"
 
 # ── Leave it again ──
+# The join toast ("You joined the waiting list") is a Pressable over the bottom of the screen, where this row sits since the
+# wizard's back bar: a tap under it dismisses the toast and never reaches Leave (device run t27). It clears itself after 3.5 s.
+- extendedWaitUntil:
+    notVisible:
+      id: "toast-item"
+    timeout: 15000
 - tapOn:
     id: "academy-class-leave-waitlist"
 - extendedWaitUntil:

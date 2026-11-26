@@ -19,3 +19,4 @@ export { useInviteWaitingList, joinRefusalMessageKey, JOIN_REFUSAL_CODES, type I
 export * from "./useCoachDisplayName";
 export { useMessageableUsers } from "./useMessageableUsers";
 export * from "./cancelReason";
+export { usePrivateRequestDraft, STEP_LOCK_MS, DEFAULT_END_COUNT, type PrivateStep, type PrivateRequestDraft } from "./usePrivateRequestDraft";

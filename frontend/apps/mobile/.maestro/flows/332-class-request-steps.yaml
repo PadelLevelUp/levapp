@@ -1,0 +1,113 @@
+# classes.class-requests rule 21 (UI idea 12, criterion 63): the student's "Marcar aula" wizard on iOS asks the
+# private class in three steps: people (one person), when (the first-free-day default date), time. "Continuar" is the
+# one button of the first two; Send is the third's. The note is typed on the last step and Send stays in view above
+# the keyboard, which the flow asserts and shows in a screenshot (as flow 141 does); then the request is sent, listed
+# as pending and withdrawn.
+#
+# Test ids only, never copy. The date is left at the step's first-free-day default (rules 11 + 13), as in flow 62.
+# Cleanup withdraws through the API as the student, before and after the flow.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Order: not load bearing.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.before = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
+
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- scrollUntilVisible:
+    element:
+      id: "class-request-book"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "class-request-book"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-kind"
+    timeout: 15000
+- tapOn:
+    id: "wizard-kind-private"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-people"
+    timeout: 15000
+
+# ── a: one person ──
+- assertVisible:
+    id: "wizard-continue"
+- assertVisible:
+    id: "wizard-back"
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-when"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-when"
+    timeout: 15000
+
+# ── b: the default date, then c ──
+- repeat:
+    while:
+      notVisible:
+        id: "class-request-wizard-private-time"
+    times: 4
+    commands:
+      - tapOn:
+          id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-time"
+    timeout: 15000
+
+# ── c: a free time, the note above the keyboard, send ──
+- scrollUntilVisible:
+    element:
+      id: "wizard-slots-ready"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "wizard-slot-.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "wizard-note"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "wizard-note"
+- inputText: "Maestro 332 nota"
+- assertVisible:
+    id: "wizard-send"
+- takeScreenshot: class-request-steps-note
+# Send is under the same 400 ms lock as Continuar: tap again while the screen is still there.
+- repeat:
+    while:
+      visible:
+        id: "wizard-send"
+    times: 3
+    commands:
+      - tapOn:
+          id: "wizard-send"
+
+# ── Back on the tab: pending, then withdrawn ──
+- scrollUntilVisible:
+    element:
+      id: "class-request-row-pending"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-request-withdraw"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-request-row-pending"
+    timeout: 15000
+
+- evalScript: "${output.after = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
+- assertTrue: "${output.after == 0}"

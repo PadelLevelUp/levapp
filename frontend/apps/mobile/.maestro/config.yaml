@@ -457,6 +457,9 @@ executionOrder:
     - 338-setup-guide-hide
     - 339-schedule-editor-same
     - 340-schedule-editor-varies
+    # 332 walks the private class's three steps with the note above the keyboard (classes.class-requests
+    # rule 21); it withdraws the student's open requests before and after, as 62 does.
+    - 332-class-request-steps
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

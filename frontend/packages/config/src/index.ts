@@ -118,3 +118,4 @@ export * from "./player-card";
 export * from "./class-type-chip";
 export * from "./private-lesson-warning";
 export * from "./class-request-invitees";
+export * from "./private-request-summary";
