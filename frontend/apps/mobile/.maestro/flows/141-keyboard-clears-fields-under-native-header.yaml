@@ -31,6 +31,24 @@ appId: com.padellevelup.app
     visible:
       id: "class-request-wizard-private"
     timeout: 15000
+
+# Rule 21: the private class is asked in three steps (people, when, time); "Continuar" is the one button of the first two.
+- waitForAnimationToEnd:
+    timeout: 600
+- tapOn:
+    id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-when"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 600
+- tapOn:
+    id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-time"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "wizard-note"

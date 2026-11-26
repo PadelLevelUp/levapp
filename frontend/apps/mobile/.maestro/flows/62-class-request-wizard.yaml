@@ -5,7 +5,7 @@
 # - the student opens the wizard from the Pedidos de aula card and picks a
 #   private class (the seeded student has one coach, so the coach step is skipped);
 # - an invitee who is not on the coach's roster is refused (USERNAME_NOT_FOUND)
-#   and the slots wait;
+#   and the first step cannot be passed (rule 21: people, when, time);
 # - an invitee from the roster (e2e-student-2) is accepted, a 90-minute slot is
 #   picked, and the request is sent;
 # - the tab lists it as pending, and the student withdraws it.
@@ -60,11 +60,10 @@ appId: com.padellevelup.app
     visible:
       id: "wizard-invitee-0-error-USERNAME_NOT_FOUND"
     timeout: 15000
-- scrollUntilVisible:
-    element:
-      id: "wizard-slots-waiting"
-    direction: DOWN
-    timeout: 20000
+# Rule 21: the refused name keeps the first step from being passed; the slot list is the last step's.
+- assertVisible:
+    id: "wizard-continue"
+    enabled: false
 
 # ── A player from the roster is accepted ──
 - scrollUntilVisible:
@@ -80,6 +79,22 @@ appId: com.padellevelup.app
 - extendedWaitUntil:
     visible:
       id: "wizard-invitee-0-ok"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 600
+- tapOn:
+    id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-when"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 600
+- tapOn:
+    id: "wizard-continue"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private-time"
     timeout: 15000
 
 # ── 90 minutes, the first free start time, send ──

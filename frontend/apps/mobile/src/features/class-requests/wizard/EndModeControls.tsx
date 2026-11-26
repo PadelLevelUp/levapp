@@ -38,7 +38,7 @@ export function EndModeControls({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={() => onEndCountChange(stepEndCount(endCount, delta))}
-      className="h-9 w-9 items-center justify-center rounded-md border border-input bg-background"
+      className="h-11 w-11 items-center justify-center rounded-md border border-input bg-background"
       style={{ opacity: disabled ? 0.4 : 1 }}
     >
       <Ionicons name={icon} size={18} color={lightTheme.foreground} />
@@ -56,7 +56,7 @@ export function EndModeControls({
               testID={`request-end-mode-${mode}`}
               accessibilityState={{ selected, checked: selected }}
               onPress={() => onModeChange(mode)}
-              className={cn("h-8 flex-1 items-center justify-center rounded", selected && "bg-primary")}
+              className={cn("h-11 flex-1 items-center justify-center rounded", selected && "bg-primary")}
             >
               <Text className={cn("text-xs font-medium", selected ? "text-primary-foreground" : "text-muted-foreground")}>
                 {t(`classRequestWizard.endMode.${mode}`)}
