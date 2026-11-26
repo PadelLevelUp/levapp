@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { academyClassAction, groupAcademyClassesByDay, NOTE_MAX_LENGTH } from "./academy-classes";
+import { academyClassAction, availabilityReadKey, groupAcademyClassesByDay, lessonMinutes, NOTE_MAX_LENGTH, readsPrivateLessons } from "./academy-classes";
 
 const base = {
   id: "c1",
@@ -46,5 +46,26 @@ describe("rule 10: grouped by day, in time order", () => {
 
   it("is empty for no classes", () => {
     expect(groupAcademyClassesByDay([])).toEqual([]);
+  });
+});
+
+describe("classes.class-requests rule 13b (PAD-929): when the private step reads the private lessons", () => {
+  it("only on a successful empty answer for the request on screen, with no invitees", () => {
+    expect(readsPrivateLessons({ slotsState: "empty", answered: true, people: 1 })).toBe(true);
+    expect(readsPrivateLessons({ slotsState: "empty", answered: false, people: 1 })).toBe(false);
+    expect(readsPrivateLessons({ slotsState: "empty", answered: true, people: 2 })).toBe(false);
+    for (const slotsState of ["waiting", "loading", "ready"] as const) {
+      expect(readsPrivateLessons({ slotsState, answered: true, people: 1 })).toBe(false);
+    }
+  });
+
+  it("keys an availability answer by what was asked", () => {
+    const key = availabilityReadKey({ coachId: "ana", from: "2026-11-20", to: "2026-11-20", participants: [] });
+    expect(key).toBe(availabilityReadKey({ coachId: "ana", from: "2026-11-20", to: "2026-11-20", participants: [] }));
+    expect(key).not.toBe(availabilityReadKey({ coachId: "ana", from: "2026-11-21", to: "2026-11-21", participants: [] }));
+  });
+
+  it("measures a lesson's length from its times", () => {
+    expect(lessonMinutes({ startTime: "18:00", endTime: "19:30" })).toBe(90);
   });
 });

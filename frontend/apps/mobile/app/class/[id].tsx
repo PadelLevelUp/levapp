@@ -42,6 +42,7 @@ import {
   joinRefusalOf,
   isEngineApproval,
   classTypeChipKey,
+  needsPrivateLessonWarning,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -2552,6 +2553,12 @@ export default function ClassDetailScreen() {
           onRequestSent={(request) => void handleSideRequestSent(request)}
           onWaitingListJoined={handleSideWaitingJoined}
           onFailed={(err, mode) => void handleSideFailed(err, mode)}
+          // PAD-929 (rule 22): a private lesson asks before the side; a stale answer re-reads it.
+          privateWarning={needsPrivateLessonWarning(
+            { classType: active?.classType ?? event.classType, studentRelation: event.studentRelation },
+            sideSheet === "waiting" ? "waitlist" : "request",
+          )}
+          onPrivateUnconfirmed={() => void refreshInstance()}
         />
       ) : null}
 

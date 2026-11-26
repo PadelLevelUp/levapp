@@ -33,7 +33,7 @@ describe("the side sheet", () => {
   });
 
   it("sends the chosen side; the 409 side_full offers both-sides or that side's waiting list", () => {
-    expect(SHEET).toContain("createClassJoinRequest(event, note, side)");
+    expect(SHEET).toContain("createClassJoinRequest(event, note, side, ...confirm)");
     expect(SHEET).toContain("sideFullOf(err)");
     expect(SHEET).toMatch(/testID="class-side-play-both"|"class-side-play-both"/);
     expect(SHEET).toContain('sendRequest("both")');

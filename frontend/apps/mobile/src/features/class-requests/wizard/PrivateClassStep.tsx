@@ -10,7 +10,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CLASS_REQUEST_DURATIONS,
   FIRST_FREE_DAY_HORIZON_DAYS,
@@ -18,15 +18,24 @@ import {
   endDateAfterClasses,
   firstFreeDay,
   formatShortDate,
+  availabilityReadKey,
+  lessonMinutes,
+  JOIN_REFUSAL_CODES,
+  joinRefusalKey,
+  joinRefusalOf,
+  academyClassAction,
+  needsPrivateLessonWarning,
   occurrenceDates,
+  readsPrivateLessons,
   slotStarts,
   weeklyIntersection,
   type Window,
 } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { AvailabilityResponse, ParticipantCheck } from "@levelup/types";
-import { requestAvailabilityApi } from "@levelup/api";
+import { academyClassesApi, requestAvailabilityApi } from "@levelup/api";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { EndModeControls, type EndMode } from "./EndModeControls";
@@ -36,6 +45,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { ClassSideSheet } from "@/features/calendar/ClassSideSheet";
 import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
 
@@ -127,6 +137,9 @@ export function PrivateClassStep({
   // ── Slot ──
   const [duration, setDuration] = React.useState<number>(60);
   const [availability, setAvailability] = React.useState<AvailabilityResponse | null>(null);
+  // PAD-929 (rule 13b): the read the current answer belongs to. A failed read, one still on its way,
+  // or an answer for an earlier choice is not "no free time" and never offers the private lessons.
+  const [answeredFor, setAnsweredFor] = React.useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = React.useState(false);
   const [slot, setSlot] = React.useState<Window | null>(null);
   const [note, setNote] = React.useState("");
@@ -215,7 +228,11 @@ export function PrivateClassStep({
     setLoadingSlots(true);
     requestAvailabilityApi
       .getCoachAvailability({ coachId, from, to, participants: invitees })
-      .then((res) => active && setAvailability(res))
+      .then((res) => {
+        if (!active) return;
+        setAvailability(res);
+        setAnsweredFor(availabilityReadKey({ coachId, from, to, participants: invitees }));
+      })
       .catch(() => active && setAvailability(null))
       .finally(() => active && setLoadingSlots(false));
     return () => {
@@ -265,6 +282,28 @@ export function PrivateClassStep({
   // leave the slots stuck on a spinner (web fcd894769).
   const slotsState =
     !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
+
+  // PAD-929 (classes.class-requests rule 13b), as on web: no free time offers the coach's visible
+  // private lessons (classes.academy-class-booking rule 12); each row's one action goes through the
+  // private-lesson warning, then the side sheet (classes.join-requests rule 22).
+  const answered =
+    answeredFor !== null &&
+    answeredFor ===
+      availabilityReadKey({
+        coachId,
+        from: recurrence ? startDate : date,
+        to: recurrence ? effectiveEndDate : date,
+        participants: invitees,
+      });
+  const showPrivateLessons = readsPrivateLessons({ slotsState, answered, people });
+  const privateLessons = useQuery({
+    queryKey: ["academy-classes", coachId, "private"],
+    queryFn: () => academyClassesApi.listAcademyClasses(coachId, "private"),
+    enabled: showPrivateLessons,
+  });
+  const lessons = showPrivateLessons ? privateLessons.data?.classes ?? [] : [];
+  const [lessonSideFor, setLessonSideFor] = React.useState<{ c: (typeof lessons)[number]; mode: "request" | "waiting" } | null>(null);
+  const refreshLessons = () => void queryClient.invalidateQueries({ queryKey: ["academy-classes", coachId, "private"] });
 
   return (
     <View className="gap-5" testID="wizard-private">
@@ -431,9 +470,64 @@ export function PrivateClassStep({
           ) : slotsState === "waiting" ? (
             <View style={{ height: 1 }} accessible={false} />
           ) : slotsState === "empty" ? (
-            <Text className="text-sm text-muted-foreground">
-              {t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}
-            </Text>
+            <View className="gap-3">
+              <Text className="text-sm text-muted-foreground">
+                {t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}
+              </Text>
+              {lessons.length > 0 ? (
+                <View className="gap-2" testID="wizard-private-lessons">
+                  <Text className="text-sm font-medium">{t("classRequestWizard.privateLessonsTitle")}</Text>
+                  {lessons.map((c) => {
+                    const action = academyClassAction(c);
+                    return (
+                    <View
+                      key={c.id}
+                      testID={`wizard-private-lesson-row-${c.state}`}
+                      className={cn(
+                        "flex-row items-center justify-between gap-2 rounded-lg border p-3",
+                        c.state === "full" ? "border-destructive/60 bg-destructive/5" : "border-border"
+                      )}
+                    >
+                      <View className="min-w-0 flex-1">
+                        <Text className="font-medium">
+                          {formatShortDate(c.date, nativeLocaleTag(i18n.language))} · {c.startTime}–{c.endTime}
+                        </Text>
+                        <Text className="text-sm text-muted-foreground">
+                          {t("classRequests.minutes", { count: lessonMinutes(c) })}
+                          {c.club?.name ? ` · ${c.club.name}` : ""}
+                        </Text>
+                      </View>
+                      <View className="items-end gap-2">
+                        <Badge variant={c.state === "full" ? "destructive" : "secondary"}>
+                          <Text>
+                            {c.state === "full"
+                              ? t("classRequests.academy.full")
+                              : t("classRequests.academy.spotsLeft", { count: c.spotsLeft })}
+                          </Text>
+                        </Badge>
+                        {action === "requested" ? (
+                          <Text testID="wizard-private-lesson-status" className="text-sm">{t("classRequests.academy.requested")}</Text>
+                        ) : null}
+                        {action === "on_waitlist" ? (
+                          <Text testID="wizard-private-lesson-status" className="text-sm">{t("classRequests.academy.onWaitlist")}</Text>
+                        ) : null}
+                        {action === "request" ? (
+                          <Button size="sm" testID="wizard-private-lesson-request" onPress={() => setLessonSideFor({ c, mode: "request" })}>
+                            <Text>{t("classRequests.academy.request")}</Text>
+                          </Button>
+                        ) : null}
+                        {action === "join_waitlist" ? (
+                          <Button size="sm" variant="destructive" testID="wizard-private-lesson-waitlist" onPress={() => setLessonSideFor({ c, mode: "waiting" })}>
+                            <Text>{t("classRequests.academy.joinWaitlist")}</Text>
+                          </Button>
+                        ) : null}
+                      </View>
+                    </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
           ) : (
             <View className="flex-row flex-wrap gap-1.5">
               {starts.map((s) => (
@@ -466,6 +560,32 @@ export function PrivateClassStep({
         {sending ? <Spinner size="small" color="white" /> : null}
         <Text>{t("classRequests.send")}</Text>
       </Button>
+
+      {lessonSideFor ? (
+        <ClassSideSheet
+          open
+          onClose={() => setLessonSideFor(null)}
+          mode={lessonSideFor.mode}
+          event={lessonSideFor.c}
+          profileSide={lessonSideFor.c.profileSide ?? privateLessons.data?.profileSide ?? null}
+          privateWarning={needsPrivateLessonWarning(lessonSideFor.c, lessonSideFor.mode === "waiting" ? "waitlist" : "request")}
+          onPrivateUnconfirmed={refreshLessons}
+          onRequestSent={() => {
+            toast.success(t("classRequests.academy.requestSent"));
+            refreshLessons();
+          }}
+          onWaitingListJoined={() => {
+            toast.success(t("classRequests.academy.joinedWaitlist"));
+            refreshLessons();
+          }}
+          onFailed={(err) => {
+            const code = joinRefusalOf(err)?.code;
+            if (code && (JOIN_REFUSAL_CODES as readonly string[]).includes(code)) toast.error(t(joinRefusalKey(code)));
+            else toast.error(t("classRequests.academy.failed"));
+            refreshLessons();
+          }}
+        />
+      ) : null}
     </View>
   );
 }

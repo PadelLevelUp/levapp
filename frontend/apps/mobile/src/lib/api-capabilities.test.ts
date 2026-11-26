@@ -43,4 +43,17 @@ describe("mobile API client declares its capabilities (PAD-352)", () => {
   it("declares evaluations to the shared client", () => {
     expect(initApiCall()).toMatch(/capabilities:\s*\[[^\]]*["']evaluations["'][^\]]*\]/);
   });
+
+  // MOBILE-RELEASE-BUILD-TARGET-11: the whole list, so a dropped token fails here and not in the field.
+  it("[MOBILE-RELEASE-BUILD-TARGET-11] declares all fourteen tokens", () => {
+    const list = initApiCall().match(/capabilities:\s*\[([^\]]*)\]/)?.[1] ?? "";
+    const tokens = [...list.matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
+    expect(tokens.sort()).toEqual(
+      [
+        "open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance",
+        "country-on-completion", "terms-on-completion", "adult-roster-confirmation", "student-relations",
+        "full-classes", "join-side", "notification-sound", "waiting-list-side", "private-confirm",
+      ].sort(),
+    );
+  });
 });

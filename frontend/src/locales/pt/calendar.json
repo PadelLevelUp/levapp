@@ -567,7 +567,8 @@
         "busy_same_hour": "Já estás inscrito noutra aula à mesma hora",
         "side_full": "Já não há vaga do teu lado. Podes entrar na lista de espera.",
         "has_spots": "Esta aula ainda tem vagas: pede para entrar.",
-        "already_on_list": "Já estás na lista de espera desta aula."
+        "already_on_list": "Já estás na lista de espera desta aula.",
+        "private_unconfirmed": "Confirma que queres entrar nesta aula privada."
       },
       "coachTitle_one": "{{count}} pedido para entrar",
       "coachTitle_zero": "{{count}} pedidos para entrar",
@@ -581,6 +582,11 @@
       "classClosedToast": "A aula já não está aberta — o pedido foi encerrado",
       "confirmTitle": "Aceitar um aluno que já não cumpre os critérios?",
       "confirmBody": "Aceitar um pedido é uma adição manual — os critérios dizem o que mudou; a decisão é tua."
+    },
+    "privateLessonWarning": {
+      "body": "Esta é uma aula privada. Pode ter preços e condições diferentes mediante o que foi definido pelo teu professor e clube. Tens a certeza que pretendes avançar?",
+      "yes": "SIM",
+      "no": "NÃO"
     },
     "attendanceState": {
       "planned": {

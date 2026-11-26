@@ -62,6 +62,7 @@
     "recurrenceInvalid": "Escolhe pelo menos um dia da semana e uma data de fim igual ou posterior à de início.",
     "defaultHoursNote": "Horário de trabalho não definido: {{start}}–{{end}}.",
     "noWeeklySlots": "Nenhum horário está livre em todos esses dias.",
+    "privateLessonsTitle": "Próximas aulas particulares deste treinador",
     "refusal": {
       "USERNAME_NOT_FOUND": "Um dos nomes de utilizador não pode ser adicionado.",
       "SELF_INVITE": "Não te podes convidar a ti próprio.",
