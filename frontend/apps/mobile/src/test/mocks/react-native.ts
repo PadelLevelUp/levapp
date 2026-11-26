@@ -162,7 +162,7 @@ export function __emitHardwareBack(): boolean {
 // each primitive renders a host element of its own name and forwards its props, so
 // `testID`, `onPress`, `onChangeText` and `accessibilityState` can be found and
 // driven from a test. Layout, style and className are accepted and ignored.
-import { createElement, forwardRef, useImperativeHandle, type ReactNode } from "react";
+import { createElement, forwardRef, useImperativeHandle, useRef, type ReactNode } from "react";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
@@ -183,10 +183,18 @@ export function __scrollToCalls(): unknown[] {
   return [...scrollCalls];
 }
 
-/** A ScrollView whose ref answers `scrollTo` and `scrollToEnd`, so a test sees a screen move its content. */
+/**
+ * A ScrollView whose ref answers `scrollTo` and `scrollToEnd`, so a test sees a screen move its content. A test that
+ * mounts with `createNodeMock` for "ScrollView" (the calendar's day list) keeps its own node: the host element gets the
+ * ref first, and the fake only stands in when the renderer gave it no node.
+ */
 export const ScrollView = forwardRef<unknown, AnyProps>(function ScrollView(props, ref) {
-  useImperativeHandle(ref, () => ({ scrollTo: (o: unknown) => void scrollCalls.push(o), scrollToEnd: () => undefined }));
-  return createElement("ScrollView", props);
+  const node = useRef<{ scrollTo?: unknown } | null>(null);
+  useImperativeHandle(ref, () => {
+    if (node.current && typeof node.current.scrollTo === "function") return node.current;
+    return { scrollTo: (o: unknown) => void scrollCalls.push(o), scrollToEnd: () => undefined };
+  }, []);
+  return createElement("ScrollView", { ...props, ref: node });
 });
 ScrollView.displayName = "ScrollView";
 // PAD-487: screens under a native header are mounted to read their keyboard offset.
