@@ -318,25 +318,26 @@ held on the coach's calendar while the request is open.
     c. **A que horas** (`time`): the duration and the free times (rule 13), or, when there is none, rule 13b's list under today's message; then the note, then Send.
     **The draft.** One draft per wizard session holds every answer and what is derived from the answers: the people and their usernames with their checks, single or weekly, the date and whether it is the student's own (rule 11),
     the weekdays, the start, the ending and its count, the duration, the picked time, the note, the availability read with its `answered` key (rule 13b) and `sending`. It is one shared hook, `usePrivateRequestDraft(coachId)` in `packages/hooks`,
-    owned by each shell's wizard (web `ClassRequestWizard`, iOS `app/class-request-wizard.tsx`), never by a step: the three step bodies draw it and write to it, and the shell's foot reads it (is the step answered, send, sending). Another coach
-    is another draft (the hook is keyed by the coach). Rule 13b's own state, the `type=private` read and the side-choice sheet (`ClassSideChoice` on web, `ClassSideSheet` on iOS), stays in step c's body: the draft gives it only `slotsState`,
+    owned by each shell's wizard (web `ClassRequestWizard`, iOS `app/class-request-wizard.tsx`), never by a step: the three step bodies draw it and write to it, and the shell's foot reads it (is the step answered, send, sending). **A wizard session**
+    is one opening of the wizard: web's sheet from open to close, iOS's screen from push to leave. Closing the sheet or leaving the screen ends it, and the next opening starts with an empty draft (today `ClassRequestWizard` already resets on open);
+    returning from the kind to the same coach keeps it; going to another coach starts clean, and returning to the first (coach A, B, A) starts clean too: A's answers are gone. The hook is keyed by the coach and reset on open. Rule 13b's own state, the `type=private` read and the side-choice sheet (`ClassSideChoice` on web, `ClassSideSheet` on iOS), stays in step c's body: the draft gives it only `slotsState`,
     `answered` and `people`.
     **The foot** belongs to the shell (the web sheet, the iOS screen), outside the scrolled content: one main button, full width, at least 44px
     high, above the home indicator and Android's navigation bar, and on iOS above the keyboard. It says "Continuar" in a and b and is
     today's Send (`wizard-send`) in c; a disabled button stays in view. On web the sheet's height follows the visible viewport, so a phone's keyboard does not cover it.
-    **When a step is answered:** a — one person, or every username accepted by rule 12's check, which already refuses a name repeated in another letter case or with spaces (criterion 56); b — a single date that is set and not past,
+    **When a step is answered:** a — one person, or every username accepted by rule 12's check, which already refuses a name repeated in another letter case or with spaces (criterion 56); b — a single date that is set and not before the club's today (`clubTodayISO`, the club-local day),
     or a weekly answer that is valid by rules 14 and 14a with a non-empty start (an empty start waits, criterion 55, and never throws); c — as Send is today. Criteria 55 and 56 speak of the step staying "waiting": that is step c's
     slot list (`wizard-slots`, `data-state="waiting"`), which a and b no longer show; in a and b the same fact is a disabled "Continuar" (criterion 61). Pressing "Continuar" in b makes its date the student's own, so nothing moves
-    it afterwards (rule 11). **The 400 ms lock** starts at the commit that shows a step, the first step included, and is measured on the shell's clock (the one a test fakes): a "Continuar" press less than 400 ms after it does nothing,
+    it afterwards (rule 11). **The 400 ms lock** starts at the commit that shows a step, the first step included: the shell calls the draft's `markShown()` from a layout effect when a step shows, and the lock is measured from it on the shell's clock (the one a test fakes): a "Continuar" press less than 400 ms after it does nothing,
     one at 401 ms moves one step, and two presses 100 ms apart after the lock move one step, never two.
     **Going back:** the wizard's back control (`wizard-back`) belongs to the shell too, outside the scrolled content, at least 44px by 44px: on web in a head outside the sheet's scrolled body (today the head is inside the scrolling `SheetContent`), on iOS in a bar
     under the native header (today it is a 36px control inside the ScrollView that scrolls away). It goes one step back, and from `people` to the kind; Android's back does the same through the registry of `mobile.android-runtime` rule 3.
-    iOS's native header back and the sheet's close leave the wizard, as today. Answers are kept between the three steps and when returning from the kind with the same coach; another coach starts clean. A chosen time is cleared when the people or the dates change;
+    iOS's native header back and the sheet's close leave the wizard, as today. Answers are kept between the three steps and when returning from the kind with the same coach; another coach starts clean (a wizard session, above). A chosen time is cleared when the people or the dates change;
     that a new duration clears it is rule 13's (criterion 54), not this rule's. A step opens scrolled to its top, with the focus on its title, which is announced. When c has no free time it says so as today,
     shows rule 13b's list when that rule asks for it, and offers the way back to b; "Send" stays disabled.
     **The summary:** c opens with one line of the earlier answers, in the app's language (new keys in the `classRequestWizard` namespace, both languages): the people ("Só eu" or "2 pessoas · Carla"), then "ter 24 nov", or the
     weekdays and the last date ("ter, qui até 15 out"); a pure helper in `packages/config`. The people, single or weekly, weekday, duration, time, ending and count controls are at least 44px high on a phone.
-    The note stays the last field before Send (`mobile.android-runtime`). What is sent, checked and refused does not change. The coach, kind and academy steps do not change.
+    The note stays the last field before Send (`mobile.android-runtime`). What is sent, and what the server checks and refuses, does not change (the client's new past-date check in b only keeps a refusal from being asked). The coach, kind and academy steps do not change.
     **Ids.** Existing ids stay. Web: `data-private-step` (`people`, `when`, `time`) on the root of the step body, inside the sheet's existing `data-step` element. iOS: `class-request-wizard-private-<step>` on a View around the step body INSIDE
     the ScrollView; the ScrollView keeps `class-request-wizard-<step>` (so `class-request-wizard-private` is still carried by the ScrollView alone, the exact id flows 62, 86, 121 and 141 wait for; an id regex `class-request-wizard-private.*` would match
     both nodes, and none of the flows uses one). `class-request-wizard`, which flow 61 waits for and which today sits on the View in the ScrollView that holds `wizard-back` and the coach line, goes to the new bar that holds them, outside the ScrollView,
@@ -692,8 +693,8 @@ test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.d
 
 #### CLASSES-CLASS-REQUESTS-57: The private class is three steps that keep their answers, on web (rule 21)
 - **Given** the whole wizard on web, at the private class
-- **When** the student answers each step, goes back to the first, to the kind, and forward again with the same coach and then with another
-- **Then** each step shows its own questions only, the button is disabled until it is answered, every answer is still there with the same coach and none with another, the date confirmed in b has not moved, and the last step's line names them
+- **When** the student answers each step, goes back to the first, to the kind, and forward again with the same coach and then with another, goes coach A, B, A, and closes the sheet and opens it again
+- **Then** each step shows its own questions only, the button is disabled until it is answered, every answer is still there with the same coach and none with another, none when A returns after B, and none in a reopened sheet, the date confirmed in b has not moved, and the last step's line names them
 - **And** with no free time and no invitees, step c shows rule 13b's list (criterion 45 owns the list) under today's message, "Send" stays disabled and the way back to b is offered
 test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `three steps that keep their answers`
 
@@ -701,14 +702,15 @@ test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard
 - **Given** the iOS screen at the private class
 - **When** the same answers are given and revisited
 - **Then** the same holds, with the foot and `wizard-back` outside the ScrollView and inside the keyboard-avoiding view, with Android's bottom inset
+- **And** `wizard-continue` and `wizard-send` have a minimum height of 44, `wizard-back` a minimum height and width of 44, the people, single or weekly, weekday, duration, time, ending and count controls a minimum height of 44, and each new step scrolls the ScrollView to its top
 test: `frontend/apps/mobile/src/features/class-requests/wizard/private-class-steps.test.tsx` › `three steps that keep their answers`
 
 #### CLASSES-CLASS-REQUESTS-59: What is sent is what the steps show (rule 21)
 - **Given** a single request with an invitee and a weekly one ending after N classes
 - **When** each is sent, on web and iOS
 - **Then** the two bodies equal, field for field, the fixed bodies in `frontend/packages/config/src/private-request-bodies.fixture.ts`
-- **Baseline.** Those bodies are recorded first, by a test on the OLD single-form step, before any step code exists: it answers the single form with an invitee and the weekly form ending after N classes, captures both full bodies given to `createClassRequest`, and compares them to the literals in the fixture (web: `PrivateClassStep.bodies.test.tsx`; iOS: `private-bodies.test.tsx`; both cite this criterion and pass on the old step). The steps' test then answers the same through the three steps and compares to the same fixture.
-test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `what is sent is what the steps show` (+ iOS: `private-class-steps.test.tsx` › the same title; the recordings: `PrivateClassStep.bodies.test.tsx`, `private-bodies.test.tsx`)
+- **Baseline.** Those bodies are recorded first, by a test on the OLD single-form step, before any step code exists: it answers the single form with an invitee and the weekly form ending after N classes, captures both full bodies given to `createClassRequest`, and compares them to the literals in the fixture (web: `PrivateClassStep.bodies.test.tsx`; iOS: `private-bodies.test.tsx`; both cite this criterion and pass on the old step). The clock is pinned (`vi.setSystemTime`, `Date` only, so the roster check's debounce and the query waits still run) to a fixed club day, and the test sets every date explicitly, so the literals hold on any day. The steps' test then answers the same through the three steps, under the same pinned clock, and compares to the same fixture. After the split, waves 3 and 4 delete the two recording tests in the same PR (they mount a step that no longer exists); the fixture stays, and this criterion's test line then names only the steps' tests.
+test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `what is sent is what the steps show` (+ iOS: `private-class-steps.test.tsx` › the same title; until the split, the recordings `PrivateClassStep.bodies.test.tsx` and `private-bodies.test.tsx`)
 
 #### CLASSES-CLASS-REQUESTS-60: The button stays in view in a browser (rule 21)
 - **Given** the seeded student booking at 320px and 1280px wide with many free times, and at 320px wide and 420px high
@@ -719,16 +721,6 @@ test: `frontend/apps/web/e2e/class-requests/class-request-steps.spec.ts` › `on
 - **Given** an empty and a past date, a weekly request with a cleared start (criterion 55's state), a refused username, and one name given twice in another letter case (criterion 56's state)
 - **Then** "Continuar" is disabled for each and nothing throws
 test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `invalid answers never pass a step` (+ iOS: `private-class-steps.test.tsx` › the same title)
-
-#### CLASSES-CLASS-REQUESTS-66: A double tap moves one step, and a press inside the lock does nothing (rule 21)
-- **Given** a valid answer on a step that has just shown, on the shell's faked clock
-- **When** "Continuar" is pressed less than 400 ms after the step shows
-- **Then** nothing moves
-- **When** it is pressed at 401 ms
-- **Then** the wizard moves one step
-- **When** it is pressed twice, 100 ms apart, after the lock
-- **Then** the wizard moves one step, not two
-test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `the lock and the double tap` (+ iOS: `private-class-steps.test.tsx` › the same title)
 
 #### CLASSES-CLASS-REQUESTS-62: A step change is announced (rule 21)
 - **Given** a screen reader moving to the next and the previous step
@@ -747,19 +739,36 @@ test: `frontend/apps/mobile/.maestro/flows/332-class-request-steps.yaml` › `33
 test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `the sheet follows the visible viewport`
 
 #### CLASSES-CLASS-REQUESTS-65: Android's back goes one step back, then leaves (rule 21)
-- **Given** the wizard at each step on Android, and on iOS
+- **Given** the wizard at each of people, when, time, academy and kind (kind only with more than one coach) on Android, and on iOS
 - **When** the hardware back is pressed
-- **Then** on Android it goes one step back with the answers kept, and from the first screen the navigator gets it; on iOS the registry is inert
+- **Then** on Android it goes one step back with the answers kept, and from the first screen (coach, or kind with one coach) the navigator gets it; on iOS the registry is inert
 test: `frontend/apps/mobile/src/features/class-requests/wizard/private-class-steps.test.tsx` › `Android's back goes one step back`
+
+#### CLASSES-CLASS-REQUESTS-66: A double tap moves one step, and a press inside the lock does nothing (rule 21)
+- **Given** a valid answer on a step that has just shown, on the shell's faked clock
+- **When** "Continuar" is pressed less than 400 ms after the step shows
+- **Then** nothing moves
+- **When** it is pressed at 401 ms
+- **Then** the wizard moves one step
+- **When** it is pressed twice, 100 ms apart, after the lock
+- **Then** the wizard moves one step, not two
+test: `frontend/apps/web/src/components/class-requests/wizard/ClassRequestWizard.steps.test.tsx` › `the lock and the double tap` (+ iOS: `private-class-steps.test.tsx` › the same title)
+
+#### CLASSES-CLASS-REQUESTS-67: The summary line names the earlier answers, in both languages (rule 21)
+- **Given** one person with a single date 2026-11-24; two people (the second `Carla`) with the same date; and one person weekly on Tuesday and Thursday ending 2026-10-15
+- **When** the helper writes the line in Portuguese and in English
+- **Then** Portuguese reads "Só eu · ter 24 nov", "2 pessoas · Carla · ter 24 nov" and "Só eu · ter, qui até 15 out"; English has the same three lines in its own words and order of parts (the people, then the date, or the weekdays and the last date), and both come from keys in the `classRequestWizard` namespace with the same key set in pt and en
+test: `frontend/packages/config/src/private-request-summary.test.ts` › `the summary line in pt and en`
 
 ### Waves (rule 21)
 1. **Recording, before any step code.** Files: `frontend/packages/config/src/private-request-bodies.fixture.ts` (the two bodies as literals), web `.../wizard/PrivateClassStep.bodies.test.tsx`, iOS `.../wizard/private-bodies.test.tsx`. Check: both tests pass on the OLD single-form step (criterion 59's baseline); no other file changes.
-2. **The shared logic.** Files: `frontend/packages/hooks/src/usePrivateRequestDraft.ts` (+ test), the summary helper in `frontend/packages/config/src/` (+ test), the step-answered rules in the hook. Touches neither shell's step file. Check: their unit tests (criteria 57, 61, 66 logic, the lock on a faked clock).
-3. **Web.** Files: `ClassRequestWizard.tsx`, `PrivateClassStep.tsx` split into three step bodies, `classRequestWizard` pt/en keys, `ClassRequestWizard.steps.test.tsx`, `e2e/class-requests/class-request-steps.spec.ts`, and the web specs and tests the rule lists as rewritten or lengthened. Check: criteria 57, 59, 60, 61, 62, 64, 66 on web; criterion 59 against the wave-1 fixture; web tsc.
-4. **iOS and Android.** Files: `app/class-request-wizard.tsx` (bar, foot, `class-request-wizard` id), iOS `PrivateClassStep.tsx` split, the back registry registration, `private-class-steps.test.tsx`, Maestro 332 and 62, 86, 121, 141 (61 untouched), `keyboard-offset-screens.test.tsx`, `mobile.android-runtime` rule 3's clause is already in this commit. Check: criteria 58, 59, 61, 62, 63, 65, 66 on iOS; mobile tsc; the Android lane for 65.
+2. **The shared logic.** Files: `frontend/packages/hooks/src/usePrivateRequestDraft.ts` (+ test), the summary helper in `frontend/packages/config/src/` (+ test, criterion 67), the step-answered rules in the hook, and the hook's `markShown()` that starts the lock. Touches neither shell's step file. Check: their unit tests (criteria 57, 61, 66 and 67 logic; the lock on a faked clock, from `markShown()`).
+3. **Web.** Files: `ClassRequestWizard.tsx`, `PrivateClassStep.tsx` split into three step bodies, `classRequestWizard` pt/en keys, `ClassRequestWizard.steps.test.tsx`, `e2e/class-requests/class-request-steps.spec.ts`, deleting `PrivateClassStep.bodies.test.tsx`, and the web specs and tests the rule lists as rewritten or lengthened. Check: criteria 57, 59, 60, 61, 62, 64, 66 on web; criterion 59 against the wave-1 fixture; web tsc.
+4. **iOS and Android.** Files: `app/class-request-wizard.tsx` (bar, foot, `class-request-wizard` id), iOS `PrivateClassStep.tsx` split, the back registry registration, `private-class-steps.test.tsx`, deleting `private-bodies.test.tsx`, Maestro 332 and 62, 86, 121, 141 (61 untouched), `keyboard-offset-screens.test.tsx`, `mobile.android-runtime` rule 3's clause is already in this commit. Check: criteria 58, 59, 61, 62, 63, 65, 66 on iOS; mobile tsc; the Android lane for 65.
 Web and iOS are one PR.
 
 ### Open questions
 - Rule 21 (UI idea 12) — decisions by the stream lead under the owner's yes to the sketch (2026-11-25; the owner can reverse them): three steps, not one per control, because the date and the weekly choice are one question to a student and a step per control would be eight taps;
   duration and time share a step because the times depend on it; the summary line is new, because the earlier answers leave the screen; the draft is one shared hook owned by the shell, because the foot (Send, Continuar) must read it and both shells
   must agree; `wizard-back` moves out of the scroll to a 44px bar on iOS and out of the sheet's scroller on web, because it scrolls away today.
+  The pt and en wording of the summary line (criterion 67) is the stream lead's, under the same yes; the owner can change it.

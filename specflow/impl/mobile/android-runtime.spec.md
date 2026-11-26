@@ -59,7 +59,8 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    content (they live in Portals, not in a `Modal`, so nothing closes them otherwise), the
    message context menu and the chat more-options menu, and the Semana / Mês day sheet, which
    registers only while raised above its resting height and drops back to it (rule 18 of
-   `calendar.mobile-views`), and the class-request wizard past its first screen (`classes.class-requests` rule 21). On iOS the registry is inert.
+   `calendar.mobile-views`), and the class-request wizard past its first screen, kind and
+   academy steps included (`classes.class-requests` rule 21). On iOS the registry is inert.
 
 #### Platform conventions
 4. **Date and time pickers** open Android's own dialogs (`DateTimePickerAndroid.open`, `set`
