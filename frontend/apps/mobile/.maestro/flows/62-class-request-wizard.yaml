@@ -113,6 +113,20 @@ appId: com.padellevelup.app
     timeout: 20000
 - tapOn:
     id: "wizard-duration-90"
+# The date is the first day with 60 free minutes, which late in the evening is today with less than 90 left (the club
+# day ends at 22:00 by default: CI at 20:35 UTC showed "No free time on that day"). Then the flow books 60 instead; the
+# 90-minute choice itself is covered by the unit and Playwright tests.
+- extendedWaitUntil:
+    visible:
+      id: "wizard-slots-(ready|empty)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "wizard-slots-empty"
+    commands:
+      - tapOn:
+          id: "wizard-duration-60"
 - scrollUntilVisible:
     element:
       id: "wizard-slots-ready"
