@@ -39,6 +39,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import { useBlockerSaveFollowUp } from "@/features/availability/use-blocker-save-follow-up";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import {
   BLOCK_TYPES,
@@ -104,6 +105,8 @@ export default function EventDetailScreen() {
     Number.isFinite(originalId) ? originalId : null
   );
   const editEvent = useEditEvent();
+  // PAD-772 (calendar.student-blockers rules 19-21): the question after a student's blocker save that covers classes.
+  const afterSave = useBlockerSaveFollowUp();
   const removeEvent = useRemoveEvent();
 
   const [isEditing, setIsEditing] = React.useState(false);
@@ -161,17 +164,21 @@ export default function EventDetailScreen() {
       toast.error(t("calendar.addEvent.missingFieldsTitle"), t("calendar.addEvent.missingFieldsDescription", { fields: missing }));
       return;
     }
+    let updated: { markedClasses?: unknown };
     try {
-      await editEvent.mutateAsync({
+      updated = (await editEvent.mutateAsync({
         blockId: originalId,
         data: draftToPayload(draft),
-      });
+      })) as { markedClasses?: unknown };
       setIsEditing(false);
       setDraft(null);
       toast.success(t("calendar.eventDetail.eventUpdated"));
     } catch {
       toast.error(t("calendar.eventDetail.failedUpdateEvent"));
+      return;
     }
+    // PAD-772 (calendar.student-blockers rules 19-21): a student's own blocker says how many classes it marked.
+    afterSave(updated);
   };
 
   const handleDelete = () => {
@@ -456,6 +463,14 @@ export default function EventDetailScreen() {
 
             {/* Actions */}
             {isEditing ? (
+              <View className="gap-2">
+              {/* PAD-772 (calendar.student-blockers rule 26): a block the server marks classes for (the student's availability blocker,
+                  `blocksAutoInvitations`: the flag the server reads, whatever `type` an edit left it) says what saving does. */}
+              {block?.blocksAutoInvitations === true ? (
+                <Text className="text-sm text-muted-foreground" testID="blocker-covered-notice">
+                  {t("availability.covered.notice")}
+                </Text>
+              ) : null}
               <View className="flex-row gap-3">
                 <Button
                   testID="event-detail-cancel"
@@ -483,6 +498,7 @@ export default function EventDetailScreen() {
                       : t("calendar.eventDetail.save")}
                   </Text>
                 </Button>
+              </View>
               </View>
             ) : (
               <Button

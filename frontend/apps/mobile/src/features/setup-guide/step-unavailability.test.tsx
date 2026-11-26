@@ -26,8 +26,12 @@ vi.mock("@levelup/api/src/resources/auth", async (orig) => {
 });
 vi.mock("@levelup/api/src/resources/availability", async (orig) => {
   const f = await import("@/test/setup-guide-fixtures");
-  return { ...(await orig<object>()), listBlockers: f.api.listBlockers, putSchedule: f.api.putSchedule, deleteSchedule: f.api.deleteSchedule };
+  return {
+    ...(await orig<object>()),
+    listBlockers: f.api.listBlockers, putSchedule: f.api.putSchedule, deleteSchedule: f.api.deleteSchedule,
+  };
 });
+vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@levelup/api/src/resources/dashboard", async (orig) => {
   const f = await import("@/test/setup-guide-fixtures");
   return { ...(await orig<object>()), getDashboard: f.api.getDashboard, sendProfileReminder: f.api.sendProfileReminder };
@@ -133,5 +137,26 @@ describe("step 3, unavailability (iOS)", () => {
     const [idB, bodyB] = api.putSchedule.mock.calls[0] as unknown as [string, { blockers: Record<string, unknown>[] }];
     expect(idB).toBe("b");
     expect(bodyB.blockers.map((b) => b.endDate)).toEqual(["2027-02-19"]);
+  });
+
+  it("[CALENDAR-STUDENT-BLOCKERS-26] a schedule over a class saves and moves on without asking", async () => {
+    const n = await openStep3();
+    const invalidated = vi.spyOn(n.client, "invalidateQueries");
+    await n.press("setup-preset-work_weekdays");
+    await n.press("setup-unavailability-save");
+    await settle(n);
+    // Only the PUT is made, no dialog appears, and the guide moved on once it succeeded.
+    expect(api.putSchedule).toHaveBeenCalledTimes(1);
+    expect(n.queryByTestId("blocker-covered-dialog")).toBeNull();
+    expect(nav.replace).toHaveBeenLastCalledWith("/setup-guide?step=coach_link");
+    // The server marked the classes the rows cover; the calendar, class screens and dashboard are read again.
+    const keys = invalidated.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
+    expect(keys).toEqual(expect.arrayContaining([JSON.stringify(["calendar-events"]), JSON.stringify(["dashboard"])]));
+  });
+
+  it("[CALENDAR-STUDENT-BLOCKERS-32] the schedule step says classes in the period are marked", async () => {
+    const n = await openStep3();
+    expect(textOf(n.byTestId("blocker-covered-notice"))).toContain("availability.covered.notice");
+    expect(api.putSchedule).not.toHaveBeenCalled();
   });
 });

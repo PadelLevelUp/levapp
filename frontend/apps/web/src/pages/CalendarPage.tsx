@@ -23,6 +23,7 @@ import {
   useCalendarEvents,
   useCoachLevels,
   useCoachRoster,
+  useDayList,
   type CalendarViewMode,
 } from "@levelup/hooks";
 import { CalendarPlus, Plus } from "lucide-react";
@@ -162,14 +163,24 @@ export default function CalendarPage() {
     "yyyy-MM-dd'T'23:59:59"
   );
 
+  // calendar.mobile-views rule 26c: in Dia on a phone the list reads its own range (`useDayList`), so the page's
+  // own week read is off while Dia shows, and Semana / Mês only ever get their own weeks.
+  const dayOnPhone = isMobile && calendar.viewMode === "day";
+  const dayList = useDayList({
+    active: dayOnPhone,
+    selectedDay: calendar.selectedDay,
+    selectDay: calendar.selectDay,
+  });
+
   // client.query-cache rule 5: a range change keeps the previous range on screen until the next one
   // arrives (`placeholderData: keepPreviousData`), so the grid never goes empty between weeks.
   const eventsQuery = useCalendarEvents(fetchFrom, fetchTo, {
     placeholderData: keepPreviousData,
+    enabled: !dayOnPhone,
   });
-  const allEvents = eventsQuery.data ?? NO_EVENTS;
-  const loading = eventsQuery.isPending;
-  const eventsLoadedOnce = !eventsQuery.isPending;
+  const allEvents = dayOnPhone ? dayList.events : (eventsQuery.data ?? NO_EVENTS);
+  const loading = !dayOnPhone && eventsQuery.isPending;
+  const eventsLoadedOnce = dayOnPhone ? dayList.status === "ready" : !eventsQuery.isPending;
   // Rule 5 on the desktop grid: while the next week is in flight the data on hand is the previous
   // week's, so the grid keeps showing THAT week (its columns and its cards) under the new week's
   // toolbar label, and swaps when the response lands. The phone views are day-based and follow
@@ -223,21 +234,32 @@ export default function CalendarPage() {
     void refreshEvents();
   }, [refreshEvents]);
 
-  // A local edit (add, delete, drop) patches the cached range and retires any read in flight: that
+  // A local edit (add, delete, drop) patches the cached reads and retires any read in flight: that
   // answer was taken before the edit and would otherwise erase it when it lands. The patch is
   // applied once the cancel has settled, because a cancel restores the pre-fetch state.
+  // calendar.mobile-views rule 26e: Dia holds two reads, and a class may sit in either (or in the page's own
+  // week), so the edit is applied to every loaded read, and each keeps only the days inside its own range.
   const editEvents = useCallback(
     (update: (prev: CalendarEvent[]) => CalendarEvent[]) => {
-      const key = queryKeys.calendarEvents(fetchFrom, fetchTo);
+      const filter = { queryKey: ["calendar-events"] };
       // A failed cancel falls back to a refetch rather than dropping the local edit.
       queryClient
-        .cancelQueries({ queryKey: key })
-        .then(() =>
-          queryClient.setQueryData<CalendarEvent[]>(key, (old) => update(old ?? NO_EVENTS))
-        )
+        .cancelQueries(filter)
+        .then(() => {
+          for (const query of queryClient.getQueryCache().findAll(filter)) {
+            const range = (query.queryKey[1] ?? {}) as { from?: string; to?: string };
+            const from = range.from?.slice(0, 10);
+            const to = range.to?.slice(0, 10);
+            queryClient.setQueryData<CalendarEvent[]>(query.queryKey, (old) => {
+              if (old === undefined) return old;
+              const next = update(old);
+              return from && to ? next.filter((e) => e.date >= from && e.date <= to) : next;
+            });
+          }
+        })
         .catch(() => refreshEvents());
     },
-    [queryClient, fetchFrom, fetchTo, refreshEvents]
+    [queryClient, refreshEvents]
   );
 
   // classes.class-requests rule 19 (PAD-488, B-264): a request changed on this device, the
@@ -629,6 +651,7 @@ export default function CalendarPage() {
               onNextMonth={() => calendar.navigateMonth("next")}
               events={weekEvents}
               monthEvents={monthEvents}
+              dayList={dayOnPhone ? { list: dayList, events: visibleEvents, filterKey: canManageClasses ? undefined : studentFilter } : undefined}
               onAddButtonsHiddenChange={setAddButtonsHidden}
               levels={levels}
               onEventClick={handleEventClick}

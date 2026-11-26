@@ -317,7 +317,9 @@ class TestDeclineConfirmationNeverEmpty:
 
         texts = _messages(app, message_type="text")
         assert texts, "no confirmation message was sent at all"
-        assert DEFAULT_MESSAGE_TEMPLATES_PT["reminder_declined"] in texts
+        # PAD-815 (rule 27): the pt default carries {day}, so compare it rendered up to that slot.
+        prefix = DEFAULT_MESSAGE_TEMPLATES_PT["reminder_declined"].split("{day}")[0]
+        assert any(t.startswith(prefix) and "{" not in t for t in texts), texts
         for t in _messages(app):
             assert (t or "").strip(), f"an empty message was delivered: {t!r}"
 

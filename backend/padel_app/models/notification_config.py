@@ -76,19 +76,23 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "coach_no_candidate": "{class} on {weekday} at {time}: {count} open spot(s){side} and nobody left to invite automatically.",
 }
 
+#: PAD-815 (notifications.message-templates rule 27): invite, confirm, decline, reminder,
+#: reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_invite
+#: and added_to_class are the reference coach's texts the owner approved on 26 Nov 2026, byte for
+#: byte ("Toop!" included). No migration and no read-time mapping: a stored text stays as saved.
 DEFAULT_MESSAGE_TEMPLATES_PT = {
-    "invite": "Olá {name}, abriu uma vaga na aula da próxima {weekday} às {time}. Queres vir?",
-    "confirm": "Boa! Conto contigo! Até já 🎾",
-    "decline": "Sem problema, para a próxima!",
+    "invite": "Olá {name}, abriu uma vaga {day} {date} às {time}. Queres vir?",
+    "confirm": "Toop! Contamos contigo. Até {day}! 🎾",
+    "decline": "Tranquilo, fica para a próxima!",
     "spot_filled": "Desculpa, esta vaga já foi preenchida! Aviso-te se abrir outra.",
-    "reminder": "Olá {name}, lembrete: tens a aula esta {weekday} às {time}. Vens?",
-    "reminder_followup": "Olá {name}, ainda não tive resposta — tens vaga para a aula esta {weekday} às {time}?",
-    "reminder_confirmed": "Boa, até já! 🎾",
-    "reminder_declined": "Entendido, obrigado por avisares!",
-    "waiting_list_offer": "Esta vaga acabou de ser ocupada, mas podemos pôr-te na lista de espera e avisar-te se abrir outra. Interessa?",
+    "reminder": "Olá {name}, só para lembrar que tens aula {day} às {time}. Contamos contigo?",
+    "reminder_followup": "Consegues vir {day}?",
+    "reminder_confirmed": "Confirmado!",
+    "reminder_declined": "Vale, então não conto contigo {day}.",
+    "waiting_list_offer": "Esta vaga foi preenchida, mas podemos pôr-te na lista de espera e avisar-te se abrir outra. Queres?",
     "waiting_list_confirm": "Ficaste em lista de espera. Ainda não tens lugar; avisamos-te se abrir uma vaga.",
-    "waiting_list_invite": "Olá {name}, estás na lista de espera da aula de {weekday} às {time}{side} e abriu uma vaga. És o primeiro a ser perguntado: queres vir?",
-    "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
+    "waiting_list_invite": "Olá {name}, estás na lista de espera da aula de {day} às {time}{side} e abriu uma vaga. Consegues vir?",
+    "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Obrigado! 🎾",
     "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
     "class_cancelled": "Olá {name}, a tua aula de {weekday} às {time} foi cancelada. Motivo indicado pelo professor: {reason}. Pedimos desculpa pelo incómodo!",
     "removed_from_class": "Olá {name}, foste removido da aula de {weekday}, {date}, às {time} ({club}). Qualquer dúvida, fala com o teu treinador.",

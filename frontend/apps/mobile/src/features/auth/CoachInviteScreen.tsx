@@ -220,6 +220,7 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
 
   return (
     <AccountSetupForm
+      welcome
       testID="coach-invite"
       title={t("auth.coachInvite.title", { clubName })}
       description={t("auth.coachInvite.description")}

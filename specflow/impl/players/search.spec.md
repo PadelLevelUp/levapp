@@ -29,7 +29,8 @@ exception in rule 7 (PAD-831).
 2. **Folding (B-531).** Text and query are folded the same way: special letters mapped first
    (`ł→l`, `ø→o`, `ß→ss`, `đ→d`, `æ→ae`, `œ→oe`, `ı→i`), then NFKD with combining marks dropped,
    lower-cased, every character that is neither a Unicode letter, a digit nor a space dropped
-   (PAD-516: "Ana-Rita O'Neil" folds to "anarita oneil"), spaces collapsed. Letters of any script are kept — "Łukasz" folds to "lukasz", never "ukasz".
+   (PAD-516: "Ana-Rita O'Neil" folds to "anarita oneil"; "%" and "_" are dropped the same way, never
+   matched as characters or wildcards: "Ana 100%_ Real" folds to "ana 100 real", PAD-887), spaces collapsed. Letters of any script are kept — "Łukasz" folds to "lukasz", never "ukasz".
 3. **Words.** The query is split into words. A blank query matches everyone and keeps the screen's
    own order, except in the type-ahead `notify/player_search`, which answers an empty list for a
    blank query so an empty box never lists the roster (PAD-109); a query with text but no letter
@@ -64,13 +65,15 @@ exception in rule 7 (PAD-831).
    searches the people the coach may message (`messaging.conversations` rule 7), the set the
    new-conversation picker on the same screen already lists, so it finds a student with no loaded
    conversation. It never reaches anyone outside that set.
-8. **Surfaces (inventory, owner-confirmed 2026-10-14; web and iOS):** Players tab (server);
+8. **Surfaces (inventory, owner-confirmed 2026-10-14, the requests table added 2026-11-26; web and iOS):** Players tab (server);
    add players to a class; class waiting list "add student"; validate-presences walk-in; link a
    duplicate account (claim candidates, server — moved from its own single-substring fold to this
    rule); excluded students, standing waiting list and the invites tutorial (server,
    `notify/player_search`); notify/invite modal; presences table filter; new conversation (coach
    side); conversation list search (coach side: the counterpart's name and roster nickname, plus the
-   people the coach may message, `messaging.conversations` rule 20). Not touched: the same
+   people the coach may message, `messaging.conversations` rule 20); the coach's requests table
+   ("Pedidos de Aula", server, the coach's own requesters by name or roster nickname,
+   `classes.coach-requests-table` rule 7; owner, 2026-11-26). Not touched: the same
    messaging screens used by a student, the admin console, club search, exact username/email
    lookups, exercises/groups/competencies.
 9. **No raw comparison returns.** A guard test fails if any surface in rule 8 compares a player name
@@ -116,7 +119,7 @@ exception in rule 7 (PAD-831).
 - **Then** only A's player is returned on each
 
 #### PLAYERS-SEARCH-6: No surface compares a name the raw way
-- **Given** the twelve surfaces of rule 8
+- **Given** the thirteen surfaces of rule 8
 - **When** the guard scans their files
 - **Then** none contains `.toLowerCase().includes(` on a player name
 

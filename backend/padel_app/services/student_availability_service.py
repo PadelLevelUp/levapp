@@ -161,12 +161,9 @@ def _schedule_row(user_id, schedule_id, title, row, i):
     )
 
 
-def put_student_schedule(user_id, schedule_id, data):
-    """Replace (or create) the student's schedule `schedule_id` in one unit of work: every row is
-    checked first, then the old rows are deleted and the new ones written, flag included, before
-    the one commit. A refused row writes nothing, old or new. Another user's id is 404."""
-    from padel_app.sql_db import db
-
+def parse_schedule(user_id, schedule_id, data):
+    """The rows a schedule body describes, every one checked like a single create, written nowhere
+    (rule 18's check, shared by the PUT and by the covered-classes read, PAD-772 rule 19)."""
     _check_schedule_id(schedule_id)
     if CalendarBlock.query.filter(
         CalendarBlock.schedule_id == schedule_id, CalendarBlock.user_id != user_id
@@ -180,8 +177,16 @@ def put_student_schedule(user_id, schedule_id, data):
     rows = data.get("blockers")
     if not isinstance(rows, list) or not rows:
         raise ScheduleError("blockers must be a non-empty list", field="blockers")
+    return [_schedule_row(user_id, schedule_id, title, row, i) for i, row in enumerate(rows)]
 
-    new_rows = [_schedule_row(user_id, schedule_id, title, row, i) for i, row in enumerate(rows)]
+
+def put_student_schedule(user_id, schedule_id, data):
+    """Replace (or create) the student's schedule `schedule_id` in one unit of work: every row is
+    checked first, then the old rows are deleted and the new ones written, flag included, before
+    the one commit. A refused row writes nothing, old or new. Another user's id is 404."""
+    from padel_app.sql_db import db
+
+    new_rows = parse_schedule(user_id, schedule_id, data)
     for old in _schedule_rows(user_id, schedule_id):
         db.session.delete(old)
     db.session.add_all(new_rows)

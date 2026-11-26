@@ -1,0 +1,97 @@
+# auth.invite-welcome rule 6 (AUTH-INVITE-WELCOME-5, UI idea 8): the join screen and the player invitation put their
+# words on the navy band and every action can be reached by scrolling.
+#
+# Setup mints, as the seeded coach, a join token (as flow 113) and a player invitation through the existing create route
+# (as flow 189). Part 1: e2e-student-3 opens the join link, sees the band and the Confirm button, taps it, and the
+# joined state keeps the band. Part 2: after signing out, the player invitation opens signed out: the band, the
+# longest form with a field typed into at the end, the submit button and the sign-in link under the form, reached by
+# scrolling. Teardown disconnects e2e-student-3 and deletes the placeholder.
+#
+# NOT covered (a flow cannot): the largest text size (set by hand before a run: `xcrun simctl ui booted content_size
+# extra-extra-extra-large`, reset after) and that the keyboard never covers the field in a screenshot. Assertions are by
+# testID only. Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow number 331.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/invite-welcome-setup.js
+onFlowComplete:
+  - runScript: ../scripts/invite-welcome-teardown.js
+---
+- assertTrue: "${output.joinToken && output.joinToken.length > 10 && output.playerInviteToken && output.playerInviteToken.length > 10}"
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-3
+      PASSWORD: E2eStudent3123!
+
+# ── Part 1: the join screen ──
+- openLink: "levelup://join/coach/${output.joinToken}"
+- extendedWaitUntil:
+    visible:
+      id: "invite-band"
+    timeout: 20000
+- assertVisible:
+    id: "join-coach-preview"
+- scrollUntilVisible:
+    element:
+      id: "join-coach-confirm"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "join-coach-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "join-coach-success"
+    timeout: 20000
+- assertVisible:
+    id: "invite-band"
+- scrollUntilVisible:
+    element:
+      id: "join-coach-go-calendar"
+    direction: DOWN
+    timeout: 20000
+# The joined screen is a root-stack screen without the tab header, so logout.yaml's `header-account` is not on it
+# (Android lane, 2026-11-26). Leave it for the tabs, as flows 42 and 48 leave their own root screens, then log out.
+- tapOn:
+    id: "join-coach-go-calendar"
+# The tab bar is the proof the shell is up (as flow 113 waits); which tab it lands on does not matter, the header is on all.
+- extendedWaitUntil:
+    visible:
+      id: "tab-dashboard"
+    timeout: 20000
+
+# ── Part 2: the player invitation, signed out ──
+- runFlow: ../subflows/logout.yaml
+- openLink: "levelup://invite/player/${output.playerInviteToken}"
+- extendedWaitUntil:
+    visible:
+      id: "invite-band"
+    timeout: 20000
+- assertVisible:
+    id: "player-invite"
+# The last text field takes input with the keyboard up and stays in view.
+- scrollUntilVisible:
+    element:
+      id: "player-invite-birthDate"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "player-invite-birthDate"
+- inputText: "01011990"
+- assertVisible:
+    id: "player-invite-birthDate"
+- pressKey: Enter
+# The submit button and the sign-in link are reached by scrolling, the link under the form.
+- scrollUntilVisible:
+    element:
+      id: "player-invite-submit"
+    direction: DOWN
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "invite-claim-signin"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "invite-claim-signin"
+    below:
+      id: "player-invite-submit"

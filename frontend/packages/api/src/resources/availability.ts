@@ -1,3 +1,4 @@
+import type { MarkedClass } from "@levelup/types";
 import { getApi } from "../client";
 
 // PAD-28: Student availability blockers. A blocker suppresses AUTOMATIC class
@@ -24,6 +25,9 @@ export interface AvailabilityBlocker {
   scheduleId?: string | null;
 }
 
+/** A block as the save routes answer it: PAD-772 adds the classes the save marked "Não vai" (absent on an older server). */
+export type SavedBlocker = AvailabilityBlocker & { markedClasses?: MarkedClass[] };
+
 export interface BlockerInput {
   title?: string | null;
   description?: string | null;
@@ -42,7 +46,7 @@ export async function listBlockers(): Promise<AvailabilityBlocker[]> {
 
 export async function createBlocker(
   data: BlockerInput
-): Promise<AvailabilityBlocker> {
+): Promise<SavedBlocker> {
   const res = await getApi().post("/app/availability_blockers", data);
   return res.data;
 }
@@ -50,7 +54,7 @@ export async function createBlocker(
 export async function updateBlocker(
   id: number,
   data: BlockerInput
-): Promise<AvailabilityBlocker> {
+): Promise<SavedBlocker> {
   const res = await getApi().put(`/app/availability_blockers/${id}`, data);
   return res.data;
 }

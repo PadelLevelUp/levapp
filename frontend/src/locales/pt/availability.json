@@ -65,9 +65,15 @@
       "end_before_start": "A hora de fim tem de ser depois da hora de início.",
       "end_date_before_start_date": "A data de fim tem de ser igual ou posterior à data de início."
     },
+    "covered": {
+      "marked_one": "{{count}} aula marcada como \"Não vai\"",
+      "marked_zero": "{{count}} aulas marcadas como \"Não vai\"",
+      "marked_other": "{{count}} aulas marcadas como \"Não vai\"",
+      "notice": "As aulas em que estás inscrito neste período ficam marcadas como Não vai."
+    },
     "blockersCard": {
       "title": "Indisponibilidade",
-      "intro": "Bloqueia as horas em que não podes jogar. Enquanto um bloqueio está ativo não recebes convites nem lembretes de aulas, e essas horas ficam de fora quando marcas uma aula.",
+      "intro": "Bloqueia as horas em que não podes jogar. Enquanto um bloqueio está ativo não recebes convites nem lembretes de aulas, e essas horas ficam de fora quando marcas uma aula. As aulas em que estás inscrito nesse período ficam marcadas como Não vai ao guardar.",
       "cta": "Criar bloqueio"
     },
     "sheet": {

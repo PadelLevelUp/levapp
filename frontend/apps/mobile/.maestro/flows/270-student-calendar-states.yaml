@@ -61,6 +61,8 @@ onFlowComplete:
       - waitForAnimationToEnd
 - tapOn:
     id: "calendar-day-${output.day}"
+# Rule 26 (Dia is one list of days): the tap moves the list, so wait for it to stop before reading cards.
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       text: "E2E 664 Enrolled iOS"

@@ -381,12 +381,17 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     **Not taken from the reference:**
     - `evaluation_scale_max` stays the product value, 5 (PAD-403);
     - `excluded_players_enabled` stays off, with an empty list;
-    - `message_templates` stays `NULL`, which means the built-in texts. The reference coach's texts
-      become product copy only once the owner approves them.
+    - `message_templates` stays `NULL`, which means the built-in texts. The owner approved the
+      reference coach's texts on 26 Nov 2026 ("815 approve as they are", then "code, leave"): its
+      ten Portuguese texts are now the built-in Portuguese texts in code
+      (`notifications.message-templates` rule 27), so a new coach gets them with `NULL` stored. The
+      English built-ins are unchanged.
 
     The column defaults and the `DEFAULT_*` fallbacks for NULL lists are unchanged. A coach created
     before this rule, with or without a row, reads exactly as before (rule 1 still creates a missing
-    row with the engine off). Existing coaches move only through PAD-815's data step, coach by coach.
+    row with the engine off). Existing coaches' settings move only through PAD-815's data step, coach
+    by coach; the texts need no data step: an existing coach with no stored texts reads the new
+    built-ins, and stored texts are kept as saved.
 18. **Which engine a session runs on (swap plan §7; coordinator ruling on PAD-912).** Each coach has an
     engine switch (`engine_version`: `old` or `new`; `old` for every coach until the coach is
     switched). **A coach whose configuration row is created from 20 Nov 2026 on starts on `new`,

@@ -542,6 +542,18 @@ export type CoachRequestsSection = "open" | "history";
 export type CoachRequestsSortKey = "class_date" | "class_time" | "requested_at" | "student" | "kind" | "side" | "status";
 
 /** classes.coach-requests-table (PAD-795) rules 3-7: every param is optional; the server's defaults apply. */
+/** PAD-772 (`calendar.student-blockers` rule 21): a class a block save marked "Não vai", as the save's answer lists it. */
+export interface MarkedClass {
+  model: "Lesson" | "LessonInstance";
+  originalId: number;
+  date: string;
+  lessonInstanceId: number;
+  title: string | null;
+  /** Club wall clock, `YYYY-MM-DDTHH:MM:SS`. */
+  start: string;
+  end: string;
+}
+
 export interface CoachRequestsQuery {
   section?: CoachRequestsSection;
   page?: number;
@@ -559,6 +571,8 @@ export interface CoachRequestsQuery {
   requestedFrom?: string;
   requestedTo?: string;
   playerId?: string | number;
+  /** The student's name or the coach's nickname for them (rule 7 `search`; `players.search`'s one rule, server side). */
+  search?: string;
   /** One request, whatever its section (needs `kind`). */
   id?: string | number;
 }
@@ -774,6 +788,11 @@ export interface Presence {
    */
   cancelledByStudent?: boolean;
   cancelledAt?: string | null;
+  /**
+   * PAD-772 (`attendance.confirm` rule 30): `availability_block` when the student declined through the
+   * dialog after saving a block, else null. Read only while the row is `not_coming` and not validated.
+   */
+  declineSource?: string | null;
   /**
    * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence — the
    * coach's override when `sideOverride`, else their usual side — and whether the coach may still

@@ -68,7 +68,13 @@ appId: com.padellevelup.app
     visible:
       text: "E2E Student"
     timeout: 15000
-- tapOn: "E2E Student"
+# Rule 26 (Dia is one list of days): the private class takes the student's name, so another day's class of
+# the same name can be in the list: tap below this day's pinned header, once the list has stopped moving.
+- waitForAnimationToEnd
+- tapOn:
+    text: "E2E Student"
+    below:
+      id: "calendar-day-header-${output.day}"
 - extendedWaitUntil:
     visible:
       id: "participant-open-1"

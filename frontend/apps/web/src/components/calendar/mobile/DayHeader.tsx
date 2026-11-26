@@ -9,7 +9,7 @@ import { dateFnsLocale } from "@/lib/dateLocale";
  * language, and how many things are on. The heading stays an `<h3>`: the
  * `i18n-date-locale` spec reads the localised date from it.
  */
-export function DayHeader({ day, count }: { day: Date; count: number }) {
+export function DayHeader({ day, count, empty = false }: { day: Date; count: number; empty?: boolean }) {
   const { t, i18n } = useTranslation();
   const locale = dateFnsLocale(i18n.language);
 
@@ -25,9 +25,16 @@ export function DayHeader({ day, count }: { day: Date; count: number }) {
         <h3 className="font-display text-xl font-semibold leading-tight tracking-[-0.02em] text-foreground">
           {format(day, "EEEE, d MMMM", { locale })}
         </h3>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {t("calendar.mobile.classCount", { count })}
-        </p>
+        {empty ? (
+          // Dia's empty day (rule 26): the header's own line says it, once.
+          <p data-testid="calendar-day-empty" className="mt-0.5 text-sm text-muted-foreground">
+            {t("calendar.mobile.noClassesScheduled")}
+          </p>
+        ) : (
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t("calendar.mobile.classCount", { count })}
+          </p>
+        )}
       </div>
     </div>
   );

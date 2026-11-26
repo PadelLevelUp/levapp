@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { getCalendarBlock, editCalendarBlock, deleteCalendarBlock } from '@/api/calendar';
+import { useBlockerSaveFollowUp } from '@/components/availability/useBlockerSaveFollowUp';
 import { ClassScopeDialog } from './ClassScopeDialog';
 import type { ApplyScope } from './ClassScopeDialog';
 
@@ -69,6 +70,8 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
     off_work: t('calendar.eventDetail.typeOffWork'),
   };
   const { toast } = useToast();
+  // PAD-772 (calendar.student-blockers rules 19-21): a student's own blocker says how many classes it marked.
+  const afterSave = useBlockerSaveFollowUp();
   const [block, setBlock] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -120,8 +123,9 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
       return;
     }
     setSaving(true);
+    let updated: Awaited<ReturnType<typeof editCalendarBlock>>;
     try {
-      const updated = await editCalendarBlock(event.originalId, {
+      updated = await editCalendarBlock(event.originalId, {
         type: draft.type,
         title: draft.title || null,
         description: draft.description || null,
@@ -139,9 +143,11 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
       toast({ title: t('calendar.eventDetail.eventUpdated') });
     } catch {
       toast({ variant: 'destructive', title: t('calendar.eventDetail.failedUpdateEvent') });
+      return;
     } finally {
       setSaving(false);
     }
+    afterSave(updated); // saved: what follows is said outside the try, and never says it was not
   };
 
   const handleDelete = () => {
@@ -358,15 +364,24 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
               </Button>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={cancelEdit} disabled={saving}>
-                <X className="w-4 h-4 mr-2" />
-                {t("common.cancel")}
-              </Button>
-              <Button className="flex-1" data-testid="event-detail-save" onClick={handleSave} disabled={saving}>
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? t("calendar.eventDetail.saving") : t("common.save")}
-              </Button>
+            <div className="flex flex-col gap-2">
+              {/* PAD-772 (calendar.student-blockers rule 26): a block the server marks classes for (the student's availability blocker,
+                  `blocksAutoInvitations`: the flag the server reads, whatever `type` an edit left it) says what saving does. */}
+              {block?.blocksAutoInvitations === true && (
+                <p className="text-sm text-muted-foreground" data-testid="blocker-covered-notice">
+                  {t('availability.covered.notice')}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={cancelEdit} disabled={saving}>
+                  <X className="w-4 h-4 mr-2" />
+                  {t("common.cancel")}
+                </Button>
+                <Button className="flex-1" data-testid="event-detail-save" onClick={handleSave} disabled={saving}>
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? t("calendar.eventDetail.saving") : t("common.save")}
+                </Button>
+              </div>
             </div>
           )}
         </div>

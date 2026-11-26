@@ -172,7 +172,10 @@ from padel_app.services.student_availability_service import (
     ScheduleError,
     put_student_schedule,
     delete_student_schedule,
+    parse_schedule,
 )
+from padel_app.services.blocker_covered_service import snapshot as block_snapshot
+from padel_app.services.blocker_decline_service import mark_saved
 from padel_app.services.ai_service import stream_import_analysis
 from padel_app.services.import_service import (
     bulk_create_coach_levels,
@@ -1914,8 +1917,19 @@ def get_calendar_block(block_id):
 @jwt_required()
 def put_calendar_block(block_id):
     data = request.get_json() or {}
-    block = edit_event_service(block_id, current_user().id, data)
-    return jsonify(serialize_calendar_block(block))
+    user = current_user()
+    # PAD-772 (rules 19-21): a student's own availability blocker opened from the calendar marks the
+    # classes it newly covers once saved and answers them; any other block (a coach's, a break) answers
+    # as before.
+    row = CalendarBlock.query.filter_by(id=block_id, user_id=user.id).first()
+    marks = row is not None and row.blocks_auto_invitations is True and current_player() is not None
+    before = [block_snapshot(row)] if marks else []
+    block = edit_event_service(block_id, user.id, data)
+    body = serialize_calendar_block(block)
+    if marks and block.blocks_auto_invitations:
+        body["markedClasses"] = mark_saved(user, before, [block])
+        body["coveredClasses"] = []  # rule 25: a build that still asks never asks
+    return jsonify(body)
 
 
 @bp.delete("/calendar_block/<int:block_id>")
@@ -1934,7 +1948,16 @@ def delete_calendar_block(block_id):
 @jwt_required()
 def reschedule_block(block_id):
     data = request.get_json() or {}
-    reschedule_block_service(block_id, current_user().id, data)
+    user = current_user()
+    # PAD-772 (rules 19-20): the drag of a student's own blocker marks what it newly covers; the answer
+    # stays 204 (the calendar re-reads its events).
+    row = CalendarBlock.query.filter_by(id=block_id, user_id=user.id).first()
+    marks = row is not None and row.blocks_auto_invitations is True and current_player() is not None
+    before = block_snapshot(row) if marks else None
+    rows = reschedule_block_service(block_id, user.id, data)
+    if marks and rows:
+        # A split row keeps the horizon of the row it came from (rule 19).
+        mark_saved(user, [before], [block_snapshot(r, horizon_first=before.horizon_first) for r in rows])
     return "", 204
 
 
@@ -1959,13 +1982,38 @@ def get_availability_blockers():
     return jsonify([serialize_calendar_block(b) for b in blocks])
 
 
+def _snapshots_before(user, block_id):
+    """PAD-772 rule 20: the student's block as it is before an edit writes it (none for a block that
+    is not theirs; the edit then answers 404 itself)."""
+    row = CalendarBlock.query.filter_by(id=block_id, user_id=user.id).first()
+    return [block_snapshot(row)] if row is not None else []
+
+
+@bp.post("/availability_blockers/decline_covered")
+@jwt_required()
+def decline_covered_classes():
+    """PAD-772 (calendar.student-blockers rule 25, legacy): a build that still asks sends its yes here; the
+    listed occurrences are marked "Não vai", each re-checked against the student's stored blockers, and the
+    ones that fail are skipped with a reason (a save has already marked what it covers)."""
+    from padel_app.services.blocker_decline_service import decline_covered
+
+    user = _require_student()
+    data = request.get_json(silent=True) or {}
+    return jsonify(decline_covered(user, data.get("occurrences")))
+
+
 @bp.post("/availability_blockers")
 @jwt_required()
 def create_availability_blocker():
     user = _require_student()
     data = request.get_json() or {}
     block = create_student_blocker(user.id, data)
-    return jsonify(serialize_calendar_block(block)), 201
+    # PAD-772 (calendar.student-blockers rules 19, 21): the saved block marks the classes it covers; the
+    # answer says which.
+    body = serialize_calendar_block(block)
+    body["markedClasses"] = mark_saved(user, [], [block])
+    body["coveredClasses"] = []  # rule 25: a build that still asks never asks
+    return jsonify(body), 201
 
 
 @bp.put("/availability_blockers/<int:block_id>")
@@ -1973,8 +2021,12 @@ def create_availability_blocker():
 def update_availability_blocker(block_id):
     user = _require_student()
     data = request.get_json() or {}
+    before = _snapshots_before(user, block_id)
     block = update_student_blocker(block_id, user.id, data)
-    return jsonify(serialize_calendar_block(block))
+    body = serialize_calendar_block(block)
+    body["markedClasses"] = mark_saved(user, before, [block])  # rule 20: only what is newly covered
+    body["coveredClasses"] = []  # rule 25
+    return jsonify(body)
 
 
 @bp.delete("/availability_blockers/<int:block_id>")
@@ -2004,12 +2056,30 @@ def _schedule_refusal(exc):
 @jwt_required()
 def put_availability_schedule(schedule_id):
     """PAD-839 (calendar.student-blockers rule 18): write a schedule's rows whole, or nothing."""
+    from padel_app.models import CalendarBlock as _Block
+
     user = _require_student()
+    before = [block_snapshot(b) for b in _Block.query.filter_by(user_id=user.id, schedule_id=schedule_id).all()]
     try:
         rows = put_student_schedule(user.id, schedule_id, request.get_json(silent=True) or {})
     except ScheduleError as exc:
         return _schedule_refusal(exc)
+    mark_saved(user, before, rows)  # rules 19-20: what the new rows newly cover; the answer stays a bare list
     return jsonify([serialize_calendar_block(b) for b in rows])
+
+
+@bp.post("/availability_schedules/<schedule_id>/covered_classes")
+@jwt_required()
+def availability_schedule_covered_classes(schedule_id):
+    """PAD-772 (calendar.student-blockers rule 25, legacy): a build that still asks reads this before the PUT.
+    It writes nothing, refuses what the PUT refuses, and answers no classes, so such a build asks nothing
+    (the PUT marks them)."""
+    user = _require_student()
+    try:
+        parse_schedule(user.id, schedule_id, request.get_json(silent=True) or {})
+    except ScheduleError as exc:
+        return _schedule_refusal(exc)
+    return jsonify({"coveredClasses": []})
 
 
 @bp.delete("/availability_schedules/<schedule_id>")
@@ -2460,10 +2530,17 @@ def list_academy_classes_route():
         abort(403, "Only a student can list a coach's academy classes")
     if not request.args.get("coachId"):
         abort(400, "coachId is required")
-    # PAD-929 (rule 9): exactly one of the types, checked before the roster.
-    lesson_type = request.args.get("type", LESSON_LIST_TYPES[0])
-    if lesson_type not in LESSON_LIST_TYPES:
-        abort(400, f"type must be one of {', '.join(LESSON_LIST_TYPES)}")
+    # PAD-929 (rule 9): exactly one of the types, checked before the roster. With no `type`, a
+    # client that declares `private-confirm` gets academy classes only; an older app has no private
+    # list, so it keeps both types in this one, as before PAD-929 (rule 2).
+    from padel_app.utils.client_capabilities import PRIVATE_CONFIRM, client_declares
+
+    if "type" in request.args:
+        lesson_type = request.args["type"]
+        if lesson_type not in LESSON_LIST_TYPES:
+            abort(400, f"type must be one of {', '.join(LESSON_LIST_TYPES)}")
+    else:
+        lesson_type = LESSON_LIST_TYPES[0] if client_declares(PRIVATE_CONFIRM) else None
     return jsonify(list_academy_classes(player, request.args.get("coachId"), lesson_type=lesson_type))
 
 

@@ -54,6 +54,8 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, l
         "response": presence.response,
         "respondedAt": presence.responded_at.isoformat() if presence.responded_at else None,
         "recordedBy": presence.recorded_by,
+        # PAD-772 (attendance.confirm rule 30): why a student's decline was made; null for any other.
+        "declineSource": presence.decline_source,
         "lateCancellation": (
             late_cancellation if late_cancellation is not None
             else _late_cancellation_for([presence]).get(presence.id, False)

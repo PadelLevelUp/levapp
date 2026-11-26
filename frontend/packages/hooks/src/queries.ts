@@ -28,6 +28,7 @@ import * as trainingApi from "@levelup/api/src/resources/training";
 import type { CoachPlayersPageResponse, PlayersQueryParams } from "@levelup/api/src/resources/players";
 import type { AvailabilityBlocker } from "@levelup/api/src/resources/availability";
 import { queryKeys } from "./queryKeys";
+import { refreshAfterCoveredMark } from "./requestEvents";
 
 export type QueryOverrides<T> = Omit<UseQueryOptions<T>, "queryKey" | "queryFn">;
 
@@ -224,7 +225,12 @@ export function useSaveSchedule() {
   return useMutation({
     mutationFn: ({ scheduleId, data }: { scheduleId: string; data: availabilityApi.ScheduleInput }) =>
       availabilityApi.putSchedule(scheduleId, data),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.availabilityBlockers }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.availabilityBlockers });
+      // calendar.student-blockers rule 21 (PAD-772): the save marked the classes its rows newly cover, on the
+      // server, with nothing to say on screen; the calendar, class screens and dashboard are read again.
+      void refreshAfterCoveredMark(queryClient);
+    },
   });
 }
 

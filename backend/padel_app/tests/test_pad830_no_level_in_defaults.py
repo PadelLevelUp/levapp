@@ -111,4 +111,5 @@ def test_the_default_reminder_reaches_the_student_without_the_level(app):
 
         msg = Message.query.filter_by(message_type="notification_reminder").first()
         assert msg is not None
-        assert _LEVEL not in msg.text and "tens a aula esta" in msg.text, msg.text
+        # PAD-815 (rule 27): the pt built-in now names the day with {day}.
+        assert _LEVEL not in msg.text and "só para lembrar que tens aula " in msg.text, msg.text

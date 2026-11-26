@@ -11,6 +11,10 @@ from padel_app.tools.input_tools import Block, Field, Form
 ENROLMENT_SOURCES = ("roster", "coach", "fill", "walk_in", "import", "unknown")
 
 
+# specflow/impl/constants.md: the value of `presences.decline_source` for a decline made from an availability block.
+DECLINE_SOURCE_AVAILABILITY_BLOCK = "availability_block"
+
+
 class Presence(db.Model, model.Model):
     __tablename__ = "presences"
 
@@ -69,6 +73,10 @@ class Presence(db.Model, model.Model):
     placed_at = Column(DateTime, nullable=True)
     side_moved_at = Column(DateTime, nullable=True)
     left_reason = Column(String(10), nullable=True)
+    # PAD-772 (calendar.student-blockers rule 23, attendance.confirm rule 30): why a student's decline was
+    # made; ``const:DECLINE_SOURCE_AVAILABILITY_BLOCK`` or NULL (every other decline). Never read to decide
+    # who holds a seat: that is ``left_reason``.
+    decline_source = Column(String(20), nullable=True)
     # History import D4 (attendance.presence rule 11): the coach's private note on this student's
     # presence, written by the onboarding import. Nothing reads it and no payload carries it yet.
     note = Column(Text, nullable=True)
@@ -139,6 +147,10 @@ class Presence(db.Model, model.Model):
         CheckConstraint(
             "recorded_by IS NULL OR recorded_by IN ('student', 'coach', 'system', 'import')",
             name="ck_presences_recorded_by",
+        ),
+        CheckConstraint(
+            "decline_source IS NULL OR decline_source IN ('availability_block')",
+            name="ck_presences_decline_source",
         ),
         {"extend_existing": True},
     )

@@ -24,6 +24,7 @@ export function coachRequestsParams(q: CoachRequestsQuery): Record<string, strin
   put("requested_from", q.requestedFrom);
   put("requested_to", q.requestedTo);
   put("player_id", q.playerId);
+  put("search", q.search?.trim());
   put("id", q.id);
   return out;
 }

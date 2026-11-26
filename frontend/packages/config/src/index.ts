@@ -23,6 +23,7 @@ export * from "./level-direction";
 export * from "./eligibility-tier";
 export * from "./class-request-slots";
 export * from "./availability";
+export * from "./blocker-covered";
 export * from "./academy-classes";
 export * from "./coach-notes";
 export * from "./approval-display";
@@ -32,6 +33,7 @@ export * from "./invite-simulation";
 export * from "./calendar-overlap";
 export * from "./calendar-grid";
 export * from "./calendar-month";
+export * from "./day-list";
 export * from "./notify-blocked";
 export * from "./blocker-draft";
 export * from "./availability-schedule";
@@ -63,6 +65,7 @@ export * from "./recurrence-end";
 export * from "./email-prompt";
 export * from "./class-time";
 export * from "./class-when";
+export * from "./class-when-header";
 export * from "./standing-end";
 
 /**

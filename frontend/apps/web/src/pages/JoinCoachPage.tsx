@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CheckCircle2, Loader2, QrCode, ShieldAlert, XCircle } from "lucide-react";
+import { Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { InviteWelcome } from "@/components/auth/InviteWelcome";
 import { useAuth } from "@/auth/AuthContext";
 import { rememberPostAuthRedirect } from "@/auth/postAuthRedirect";
 import {
@@ -135,109 +136,79 @@ const JoinCoachPage = () => {
   }
 
   if (!isAuthenticated) {
-    return shell(
-      <>
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <QrCode className="h-6 w-6" />
-          </div>
-          <CardTitle className="text-2xl font-bold">
-            {t("players.joinCoach.signInTitle", { coach: preview.coachName })}
-          </CardTitle>
-          <CardDescription>{t("players.joinCoach.signInDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button className="w-full" onClick={() => goToAuth("/signup")} data-testid="join-coach-create-account">
-            {t("players.joinCoach.createAccount")}
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => goToAuth("/auth")} data-testid="join-coach-sign-in">
-            {t("players.joinCoach.signIn")}
-          </Button>
-        </CardContent>
-      </>,
-      "join-coach-signed-out"
+    return (
+      <InviteWelcome
+        testId="join-coach-signed-out"
+        names={{ coach: preview.coachName, club: preview.clubName }}
+        title={t("players.joinCoach.signInTitle", { coach: preview.coachName })}
+        description={t("players.joinCoach.signInDescription")}
+      >
+        <Button className="w-full min-h-11" onClick={() => goToAuth("/signup")} data-testid="join-coach-create-account">
+          {t("players.joinCoach.createAccount")}
+        </Button>
+        <Button variant="outline" className="w-full min-h-11" onClick={() => goToAuth("/auth")} data-testid="join-coach-sign-in">
+          {t("players.joinCoach.signIn")}
+        </Button>
+      </InviteWelcome>
     );
   }
 
   if (isCoach) {
-    return shell(
-      <>
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <ShieldAlert className="h-6 w-6" />
-          </div>
-          <CardTitle className="text-2xl font-bold">{t("players.joinCoach.coachTitle")}</CardTitle>
-          <CardDescription>{t("players.joinCoach.coachDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/dashboard">{t("players.connect.goToDashboard")}</Link>
-          </Button>
-        </CardContent>
-      </>,
-      "join-coach-is-coach"
+    return (
+      <InviteWelcome
+        testId="join-coach-is-coach"
+        title={t("players.joinCoach.coachTitle")}
+        description={t("players.joinCoach.coachDescription")}
+      >
+        <Button asChild variant="outline" className="w-full min-h-11">
+          <Link to="/dashboard">{t("players.connect.goToDashboard")}</Link>
+        </Button>
+      </InviteWelcome>
     );
   }
 
   if (status === "joined" && result) {
-    return shell(
-      <>
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <CheckCircle2 className="h-6 w-6" />
-          </div>
-          <CardTitle className="text-2xl font-bold">{t("players.joinCoach.successTitle", { coach: result.coachName })}</CardTitle>
-          <CardDescription>
-            {result.alreadyMember
-              ? t("players.joinCoach.alreadyMember", { coach: result.coachName })
-              : t("players.joinCoach.successDescription", { coach: result.coachName, club: result.clubName })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild className="w-full" data-testid="join-coach-go-calendar">
-            <Link to="/calendar">{t("players.joinCoach.goToCalendar")}</Link>
-          </Button>
-        </CardContent>
-      </>,
-      "join-coach-success"
+    return (
+      <InviteWelcome
+        testId="join-coach-success"
+        title={t("players.joinCoach.successTitle", { coach: result.coachName })}
+        description={
+          result.alreadyMember
+            ? t("players.joinCoach.alreadyMember", { coach: result.coachName })
+            : t("players.joinCoach.successDescription", { coach: result.coachName, club: result.clubName })
+        }
+      >
+        <Button asChild className="w-full min-h-11" data-testid="join-coach-go-calendar">
+          <Link to="/calendar">{t("players.joinCoach.goToCalendar")}</Link>
+        </Button>
+      </InviteWelcome>
     );
   }
 
-  return shell(
-    <>
-      <CardHeader className="space-y-2 text-center">
-        {preview.clubLogoUrl ? (
-          <img src={preview.clubLogoUrl} alt="" className="mx-auto h-12 w-12 rounded-full object-cover" />
-        ) : (
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <QrCode className="h-6 w-6" />
-          </div>
-        )}
-        <CardTitle className="text-2xl font-bold">
-          {t("players.joinCoach.prompt", { coach: preview.coachName, club: preview.clubName })}
-        </CardTitle>
-        <CardDescription>{t("players.joinCoach.explain", { coach: preview.coachName })}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {error && (
-          <p className="text-center text-sm text-destructive" data-testid="join-coach-error">
-            {error}
-          </p>
-        )}
-        <Button
-          className="w-full"
-          onClick={handleJoin}
-          disabled={status === "joining"}
-          data-testid="join-coach-confirm"
-        >
-          {status === "joining" ? t("players.joinCoach.joining") : t("players.joinCoach.confirm")}
-        </Button>
-        <Button asChild variant="ghost" className="w-full">
-          <Link to="/dashboard">{t("players.connect.goToDashboard")}</Link>
-        </Button>
-      </CardContent>
-    </>,
-    "join-coach-preview"
+  return (
+    <InviteWelcome
+      testId="join-coach-preview"
+      names={{ coach: preview.coachName, club: preview.clubName, logoUrl: preview.clubLogoUrl }}
+      title={t("players.joinCoach.prompt", { coach: preview.coachName, club: preview.clubName })}
+      description={t("players.joinCoach.explain", { coach: preview.coachName })}
+    >
+      {error && (
+        <p className="text-center text-sm text-destructive" data-testid="join-coach-error">
+          {error}
+        </p>
+      )}
+      <Button
+        className="w-full min-h-11"
+        onClick={handleJoin}
+        disabled={status === "joining"}
+        data-testid="join-coach-confirm"
+      >
+        {status === "joining" ? t("players.joinCoach.joining") : t("players.joinCoach.confirm")}
+      </Button>
+      <Button asChild variant="ghost" className="w-full min-h-11">
+        <Link to="/dashboard">{t("players.connect.goToDashboard")}</Link>
+      </Button>
+    </InviteWelcome>
   );
 };
 

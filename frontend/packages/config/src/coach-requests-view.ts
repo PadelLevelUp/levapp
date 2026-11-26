@@ -21,6 +21,8 @@ export interface CoachRequestsView {
   requestedFrom?: string;
   requestedTo?: string;
   playerId?: string;
+  /** The search box's settled text (rule 7 `search`); the shells debounce it. */
+  search?: string;
 }
 
 /** Rule 6: Em aberto opens on the nearest class, Histórico on the newest request. */
@@ -67,5 +69,6 @@ export function coachRequestsQuery(view: CoachRequestsView, page = 1): CoachRequ
   if (view.requestedFrom) query.requestedFrom = view.requestedFrom;
   if (view.requestedTo) query.requestedTo = view.requestedTo;
   if (view.playerId) query.playerId = view.playerId;
+  if (view.search?.trim()) query.search = view.search.trim();
   return query;
 }

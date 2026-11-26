@@ -47,7 +47,11 @@
       "dayDots_zero": "{{count}} events",
       "noClassesScheduled": "No classes scheduled",
       "noClasses": "No classes",
-      "loadFailed": "Could not load the calendar."
+      "loadFailed": "Could not load the calendar.",
+      "weeksBefore": "Previous weeks",
+      "weeksAfter": "Following weeks",
+      "loadMoreFailed": "Could not load more weeks.",
+      "retry": "Try again"
     },
     "addClass": {
       "title": "New class",
@@ -260,6 +264,7 @@
       "proactiveDeclineDone": "Your coach has been notified. Your spot has been freed.",
       "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
       "cancelledByStudentAt": "Cancelled by the student on {{when}}",
+      "cancelledUnavailableAt": "Cancelled by the student · unavailable · {{when}}",
       "colorOption": "Color {{color}}",
       "invitedCount": "Invited ({{count}})",
       "club": "Club",

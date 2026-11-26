@@ -47,7 +47,11 @@
       "dayDots_other": "{{count}} eventos",
       "noClassesScheduled": "Sem aulas agendadas",
       "noClasses": "Sem aulas",
-      "loadFailed": "Não foi possível carregar o calendário."
+      "loadFailed": "Não foi possível carregar o calendário.",
+      "weeksBefore": "Semanas anteriores",
+      "weeksAfter": "Semanas seguintes",
+      "loadMoreFailed": "Não foi possível carregar mais semanas.",
+      "retry": "Tentar de novo"
     },
     "addClass": {
       "title": "Nova aula",
@@ -260,6 +264,7 @@
       "proactiveDeclineDone": "Avisámos o teu professor. A tua vaga foi libertada.",
       "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
       "cancelledByStudentAt": "Cancelado pelo aluno a {{when}}",
+      "cancelledUnavailableAt": "Cancelado pelo aluno · indisponível · {{when}}",
       "colorOption": "Cor {{color}}",
       "invitedCount": "Convidados ({{count}})",
       "club": "Clube",

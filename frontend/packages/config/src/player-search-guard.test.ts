@@ -30,7 +30,14 @@ const SURFACES: Record<string, { file: string; calls: string }> = {
   "mobile messages tab": { file: `${MOBILE}app/(tabs)/messages.tsx`, calls: "searchMessages" },
 };
 // The web presences screen delegates to presenceSearch.ts; the screen itself must not compare raw.
-const ALSO_RAW_FREE = [`${WEB}components/presences/PresencePlayersTable.tsx`, `${CONFIG}player-search.ts`];
+// The coach's requests table (PAD-795b) searches on the server; its screens compare no name at all.
+const ALSO_RAW_FREE = [
+  `${WEB}components/presences/PresencePlayersTable.tsx`,
+  `${CONFIG}player-search.ts`,
+  `${WEB}components/class-requests/CoachRequestsTable.tsx`,
+  `${MOBILE}src/features/class-requests/coach-requests-screen.tsx`,
+  `${MOBILE}src/features/class-requests/coach-requests-sheet.tsx`,
+];
 
 const ALLOWED_LINE = "name.toLowerCase().includes(query.toLowerCase());";
 

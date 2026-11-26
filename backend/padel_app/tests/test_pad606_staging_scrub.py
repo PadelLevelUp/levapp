@@ -102,6 +102,7 @@ NON_PERSONAL = {
     "invitations.message_ids", "engine_sessions.alerted", "engine_sessions.approved_groups", "engine_sessions.removed",
     "engine_sessions.pending", "engine_sessions.dismissed_groups",
     "engine_effects.key", "engine_effects.kind", "engine_effects.payload",
+    "presences.decline_source",  # PAD-772: a fixed token ("availability_block"), no free text
     "presences.left_reason", "presences.placed_how", "waiting_list_entries.sides", "notification_configs.engine_version", "notification_configs.timing_method",
     "notification_configs.per_tier_timing",
     "auth_rate_limit_hits.scope",
