@@ -1,12 +1,12 @@
 /**
  * classes.coach-requests-table rules 5, 7, 12 (PAD-795): the "Filtrar/Ordenar" sheet of iOS's
  * Pedidos de Aula. The coach edits a draft — sort key and direction, kind, status (the section's),
- * side, a student, class date / time range, request date range — and "Aplicar" hands it to the screen,
+ * side, class date / time range, request date range — and "Aplicar" hands it to the screen,
  * which sends what `coachRequestsQuery` builds from it: the params web sends for the same choices.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 import {
   COACH_REQUESTS_SECTION_STATUSES,
   COACH_REQUESTS_SORT_KEYS,
@@ -20,11 +20,6 @@ import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
-
-export interface SheetStudent {
-  id: string;
-  label: string;
-}
 
 const SORT_LABEL: Record<(typeof COACH_REQUESTS_SORT_KEYS)[number], string> = {
   class_date: "classDay",
@@ -61,28 +56,19 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 
 export function CoachRequestsSheet({
   view,
-  students,
   onApply,
   onClose,
 }: {
   view: CoachRequestsView;
-  students: SheetStudent[];
   onApply: (view: CoachRequestsView) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = React.useState<CoachRequestsView>(view);
-  const [search, setSearch] = React.useState("");
   const set = (patch: Partial<CoachRequestsView>) => setDraft((d) => ({ ...d, ...patch }));
   const toggle = <K extends keyof CoachRequestsView>(key: K, value: CoachRequestsView[K]) =>
     set({ [key]: draft[key] === value ? undefined : value } as Partial<CoachRequestsView>);
   const sort = coachRequestsActiveSort(draft);
-  const chosen = students.find((s) => s.id === draft.playerId);
-  const matches = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return q ? students.filter((s) => s.label.toLowerCase().includes(q)).slice(0, 8) : [];
-  }, [search, students]);
-
   const date = (id: string, key: keyof CoachRequestsView, label: string) => (
     <DatePickerInput testID={`coach-requests-sheet-${id}`} label={label} value={(draft[key] as string | undefined) ?? ""} onChange={(v) => set({ [key]: v || undefined } as Partial<CoachRequestsView>)} />
   );
@@ -143,28 +129,6 @@ export function CoachRequestsSheet({
               />
             ))}
           </Group>
-          <View className="gap-2">
-            <Text className="text-sm font-medium">{t("classRequests.table.filters.student")}</Text>
-            {chosen ? (
-              <Chip id="coach-requests-sheet-student-chosen" label={chosen.label} selected onPress={() => set({ playerId: undefined })} />
-            ) : (
-              <>
-                <TextInput
-                  testID="coach-requests-sheet-student-search"
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder={t("classRequests.table.filters.studentSearch")}
-                  autoCorrect={false}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-base"
-                />
-                <View className="flex-row flex-wrap gap-2">
-                  {matches.map((s) => (
-                    <Chip key={s.id} id={`coach-requests-sheet-student-${s.id}`} label={s.label} selected={false} onPress={() => { set({ playerId: s.id }); setSearch(""); }} />
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
           <View className="gap-2">
             <Text className="text-sm font-medium">{t("classRequests.table.filters.classDates")}</Text>
             {date("class-from", "classFrom", t("classRequests.table.filters.from"))}

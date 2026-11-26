@@ -43,14 +43,6 @@ vi.mock("@/features/calendar/eligibility-confirm-dialog", async () => {
       p.open ? React.createElement(View as unknown as React.ComponentType<Record<string, unknown>>, { testID: "eligibility-confirm-proceed", onPress: p.onConfirm }) : null,
   };
 });
-vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  getCoachPlayers: async () => [
-    { id: "r1", playerId: "bruno-id", name: "Bruno Alves", displayName: "Bruno Alves" },
-    { id: "r2", playerId: "carla-id", name: "Carla Dias", displayName: "Carla Dias" },
-  ],
-}));
-
 const coachApi = vi.hoisted(() => ({ listCoachRequests: vi.fn() }));
 vi.mock("@levelup/api/src/resources/coachRequests", () => coachApi);
 const requestsApi = vi.hoisted(() => ({
@@ -154,7 +146,7 @@ async function open(props: { proposeFor?: number | null } = {}) {
 const lastQuery = () => coachApi.listCoachRequests.mock.calls.at(-1)?.[0];
 // Every string under the element: a Pressable's text sits two elements down.
 const strings = (node: unknown): string[] =>
-  typeof node === "string" ? [node] : node && typeof node === "object" && "children" in node ? (node as { children: unknown[] }).children.flatMap(strings) : [];
+  typeof node === "string" ? [node] : node && typeof node === "object" && "children" in node ? ((node as { children: unknown[] | null }).children ?? []).flatMap(strings) : [];
 const text = (n: N, id: string) => strings(n.byTestId(id)).join("");
 
 describe("the coach's requests screen on iOS (PAD-795)", () => {
@@ -211,7 +203,7 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     await n.flush();
     expect(coachApi.listCoachRequests.mock.calls.length).toBe(calls);
 
-    // The sheet: sort by student descending, kind Academia, status Marcada, a student; apply.
+    // The sheet: sort by student descending, kind Academia, status Marcada; apply.
     await n.press("coach-requests-tab-history");
     await n.flush();
     expect(lastQuery()).toEqual({ section: "history", page: 1 });
@@ -220,20 +212,18 @@ describe("the coach's requests screen on iOS (PAD-795)", () => {
     await n.press("coach-requests-sheet-dir-desc");
     await n.press("coach-requests-sheet-kind-academy");
     await n.press("coach-requests-sheet-status-accepted");
-    await n.changeText("coach-requests-sheet-student-search", "Bru");
-    await n.press("coach-requests-sheet-student-bruno-id");
     await n.press("coach-requests-sheet-apply");
     await n.flush();
     // The literal shape web sends for the same choices (its URL → the same builder), not the builder itself.
     expect(lastQuery()).toEqual({
-      section: "history", page: 1, sortBy: "student", sortDir: "desc", kind: "academy", status: ["accepted"], playerId: "bruno-id",
+      section: "history", page: 1, sortBy: "student", sortDir: "desc", kind: "academy", status: ["accepted"],
     });
 
     // A tab change drops the status filter and returns to page 1.
     await n.press("coach-requests-tab-open");
     await n.flush();
     // The tab's own default order applies: the chosen sort is dropped with the status (rule 6).
-    expect(lastQuery()).toEqual({ section: "open", page: 1, kind: "academy", playerId: "bruno-id" });
+    expect(lastQuery()).toEqual({ section: "open", page: 1, kind: "academy" });
     expect(lastQuery().status).toBeUndefined();
   });
 

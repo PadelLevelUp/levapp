@@ -8,7 +8,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { router } from "expo-router";
-import { FlatList, Pressable, View } from "react-native";
+import { FlatList, Pressable, TextInput, View } from "react-native";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   clubDateOfInstant,
@@ -22,11 +22,12 @@ import {
 import { queryKeys } from "@levelup/hooks";
 import type { CoachRequestRow, CoachRequestsPage, CoachRequestsSection } from "@levelup/types";
 import * as coachRequestsApi from "@levelup/api/src/resources/coachRequests";
-import * as playersApi from "@levelup/api/src/resources/players";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { JoinRequestSide } from "@/features/calendar/join-request-side";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
+import { useDebouncedText } from "@/lib/useDebouncedText";
 import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
 import { CoachRequestsSheet } from "./coach-requests-sheet";
@@ -49,7 +50,11 @@ function when(iso: string | null, tag: string): string {
 export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the propose form on this request (from the chat bubble). */ proposeFor?: number | null }) {
   const { t, i18n } = useTranslation();
   const tag = nativeLocaleTag(i18n?.language);
-  const [view, setView] = React.useState<CoachRequestsView>({ section: "open" });
+  const [chosen, setView] = React.useState<CoachRequestsView>({ section: "open" });
+  // Rule 7 `search` / players.search rule 10: the box answers on each keystroke, the server 200 ms after the last.
+  const [searchText, setSearchText] = React.useState("");
+  const { debounced, settling } = useDebouncedText(searchText);
+  const view = React.useMemo<CoachRequestsView>(() => ({ ...chosen, search: debounced || undefined }), [chosen, debounced]);
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [openKey, setOpenKey] = React.useState<string | null>(null);
   const { actionsFor, panel, openProposal } = useCoachRequestActions();
@@ -59,11 +64,6 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
     queryFn: () => coachRequestsApi.listCoachRequests(coachRequestsQuery(view, 1)),
     placeholderData: keepPreviousData,
   });
-  const roster = useQuery({ queryKey: queryKeys.coachPlayers, queryFn: playersApi.getCoachPlayers, staleTime: 60_000 });
-  const students = React.useMemo(
-    () => (roster.data ?? []).map((p) => ({ id: String(p.playerId), label: p.displayName ?? p.name })),
-    [roster.data]
-  );
 
   // Pages after the first, loaded as the list ends. A new read of page 1 (a refresh, a new view)
   // drops them: the list shows page 1 until it is scrolled again (rule 14).
@@ -121,7 +121,7 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
   };
 
   const hasFilters = Boolean(
-    view.kind || view.status || view.side || view.playerId || view.classFrom || view.classTo || view.classTimeFrom || view.classTimeTo || view.requestedFrom || view.requestedTo
+    searchText.trim() || view.kind || view.status || view.side || view.playerId || view.classFrom || view.classTo || view.classTimeFrom || view.classTimeTo || view.requestedFrom || view.requestedTo
   );
 
   const detail = (r: CoachRequestRow) => {
@@ -207,6 +207,20 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
           </Pressable>
         ))}
       </View>
+      <TextInput
+        testID="coach-requests-search"
+        value={searchText}
+        onChangeText={setSearchText}
+        placeholder={t("classRequests.table.filters.studentSearch")}
+        accessibilityLabel={t("classRequests.table.filters.student")}
+        autoCorrect={false}
+        autoCapitalize="none"
+        clearButtonMode="while-editing"
+        returnKeyType="search"
+        className="h-10 rounded-md border border-input bg-background px-3 text-base"
+      />
+      {/* players.search rule 10: "searching" while the text settles or its answer is on the way, "nobody" when it came back empty. */}
+      <PlayerSearchFeedback query={searchText} searching={settling || first.isPlaceholderData} count={items.length} className="text-sm text-muted-foreground" />
       <Button variant="outline" size="sm" onPress={() => setSheetOpen(true)} testID="coach-requests-filter-open">
         <Text>{t("classRequests.table.sheet.open")}{hasFilters ? " •" : ""}</Text>
       </Button>
@@ -226,7 +240,7 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
             <Text className="text-sm text-muted-foreground">…</Text>
           ) : first.isError ? (
             <Text className="text-sm text-destructive">{t("classRequests.loadFailed")}</Text>
-          ) : (
+          ) : searchText.trim() ? null : (
             <Text className="text-sm text-muted-foreground" testID="coach-requests-empty">{t("classRequests.table.empty")}</Text>
           )
         }
@@ -238,8 +252,7 @@ export function CoachRequestsScreen({ proposeFor }: { /** Rule 16: open the prop
       />
       {sheetOpen ? (
         <CoachRequestsSheet
-          view={view}
-          students={students}
+          view={chosen}
           onClose={() => setSheetOpen(false)}
           onApply={(next) => {
             setSheetOpen(false);
