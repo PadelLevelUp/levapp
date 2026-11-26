@@ -123,8 +123,9 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
       return;
     }
     setSaving(true);
+    let updated: Awaited<ReturnType<typeof editCalendarBlock>>;
     try {
-      const updated = await editCalendarBlock(event.originalId, {
+      updated = await editCalendarBlock(event.originalId, {
         type: draft.type,
         title: draft.title || null,
         description: draft.description || null,
@@ -140,13 +141,13 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
       setDraft(null);
       onSaved();
       toast({ title: t('calendar.eventDetail.eventUpdated') });
-      setSaving(false);
-      await covered.follow(updated); // saved: whatever follows never says it was not
     } catch {
       toast({ variant: 'destructive', title: t('calendar.eventDetail.failedUpdateEvent') });
+      return;
     } finally {
       setSaving(false);
     }
+    await covered.follow(updated).catch(() => undefined); // saved: whatever follows is asked outside the try, and never says it was not
   };
 
   const handleDelete = () => {

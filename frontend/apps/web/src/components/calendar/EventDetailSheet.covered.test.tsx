@@ -64,6 +64,18 @@ describe("a blocker edited from the calendar's block sheet (PAD-772)", () => {
     );
   });
 
+  it("[CALENDAR-STUDENT-BLOCKERS-28] a failure after the save never says the block was not saved", async () => {
+    availabilityApi.declineCoveredClasses.mockResolvedValue({ declined: [{ model: "Lesson", originalId: 7, date: "2026-12-02", lessonInstanceId: 1 }], skipped: [] });
+    toast.mockImplementation((arg: { title?: string }) => {
+      if (arg.title?.startsWith("availability.covered.marked")) throw new Error("toast broke");
+    });
+    await editAndSave(blocker, { coveredClasses: [wed] });
+    await screen.findByTestId("blocker-covered-dialog");
+    fireEvent.click(screen.getByTestId("blocker-covered-decline"));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "availability.covered.marked:1" })));
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "calendar.eventDetail.failedUpdateEvent" }));
+  });
+
   it("[CALENDAR-STUDENT-BLOCKERS-28] a block that answers no covered classes (a coach's own) asks nothing", async () => {
     await editAndSave({ ...blocker, type: "personal" }, {});
     await waitFor(() => expect(toast).toHaveBeenCalledWith({ title: "calendar.eventDetail.eventUpdated" }));

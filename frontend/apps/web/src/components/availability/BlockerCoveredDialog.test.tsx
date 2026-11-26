@@ -109,4 +109,20 @@ describe("the covered-classes dialog on the Disponibilidade tab (PAD-772)", () =
     expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "availability.couldNotSaveTitle" }));
     expect(await screen.findByTestId("blocker-card-5")).toBeTruthy();
   });
+
+  it("[CALENDAR-STUDENT-BLOCKERS-24] a failure after the save never says the block was not saved", async () => {
+    api.listBlockers.mockResolvedValue([saved]);
+    api.createBlocker.mockResolvedValue({ ...saved, coveredClasses: [wed] });
+    api.declineCoveredClasses.mockResolvedValue({ declined: [{ ...wed, lessonInstanceId: 1 }], skipped: [] });
+    toast.mockImplementation((arg: { title?: string }) => {
+      if (arg.title?.startsWith("availability.covered.marked")) throw new Error("toast broke");
+    });
+    await saveABlock();
+    await screen.findByTestId("blocker-covered-dialog");
+    fireEvent.click(screen.getByTestId("blocker-covered-decline"));
+    await waitFor(() => expect(api.declineCoveredClasses).toHaveBeenCalled());
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "availability.covered.marked:1" })));
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "availability.couldNotSaveTitle" }));
+    expect(await screen.findByTestId("blocker-card-5")).toBeTruthy();
+  });
 });

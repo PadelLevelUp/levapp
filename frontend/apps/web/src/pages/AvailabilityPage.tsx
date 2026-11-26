@@ -96,9 +96,9 @@ export default function AvailabilityPage() {
 
   // The sheet validates and builds the payload (rule 16); this only persists it.
   const handleSave = async (payload: BlockerInput) => {
+    let answer: { coveredClasses?: unknown };
     try {
       setSaving(true);
-      let answer: { coveredClasses?: unknown };
       if (editing) {
         answer = await updateBlocker(editing.id, payload);
         toast({ title: t("availability.updatedToast") });
@@ -109,18 +109,19 @@ export default function AvailabilityPage() {
       setSheetOpen(false);
       setEditing(null);
       await refresh();
-      setSaving(false);
-      // The block is saved and listed; a failure from here on never says it was not.
-      await covered.follow(answer);
     } catch {
       toast({
         variant: "destructive",
         title: t("availability.couldNotSaveTitle"),
         description: t("availability.couldNotSaveDescription"),
       });
+      return;
     } finally {
       setSaving(false);
     }
+    // The block is saved and listed; what follows is asked outside the save's try, so a failure
+    // there never says it was not saved (and a failure of the question itself is not worth a second toast).
+    await covered.follow(answer).catch(() => undefined);
   };
 
   const handleDelete = async (id: number) => {
