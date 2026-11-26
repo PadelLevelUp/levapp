@@ -559,6 +559,8 @@ export interface CoachRequestsQuery {
   requestedFrom?: string;
   requestedTo?: string;
   playerId?: string | number;
+  /** The student's name or the coach's nickname for them (rule 7 `search`; `players.search`'s one rule, server side). */
+  search?: string;
   /** One request, whatever its section (needs `kind`). */
   id?: string | number;
 }

@@ -17,17 +17,17 @@ describe("the coach's requests view (PAD-795)", () => {
     expect(coachRequestsQuery({ section: "open" })).toEqual({ section: "open", page: 1 });
     expect(
       coachRequestsQuery(
-        { section: "history", sortBy: "student", sortDir: "desc", kind: "academy", status: "accepted", side: "none", playerId: "bruno-id", classFrom: "2026-10-01", classTimeTo: "20:00", requestedFrom: "2026-09-01" },
+        { section: "history", sortBy: "student", sortDir: "desc", kind: "academy", status: "accepted", side: "none", playerId: "bruno-id", search: "rit", classFrom: "2026-10-01", classTimeTo: "20:00", requestedFrom: "2026-09-01" },
         3
       )
     ).toEqual({
       section: "history", page: 3, sortBy: "student", sortDir: "desc", kind: "academy", status: ["accepted"], side: "none",
-      playerId: "bruno-id", classFrom: "2026-10-01", classTimeTo: "20:00", requestedFrom: "2026-09-01",
+      playerId: "bruno-id", search: "rit", classFrom: "2026-10-01", classTimeTo: "20:00", requestedFrom: "2026-09-01",
     });
   });
 
   it("[CLASSES-COACH-REQUESTS-TABLE-13] empty values are left out, a sort key alone sorts ascending", () => {
-    const q = coachRequestsQuery({ section: "open", sortBy: "kind", kind: undefined, status: "", classTo: "" });
+    const q = coachRequestsQuery({ section: "open", sortBy: "kind", kind: undefined, status: "", classTo: "", search: "  " });
     expect(q).toEqual({ section: "open", page: 1, sortBy: "kind", sortDir: "asc" });
   });
 
@@ -40,10 +40,10 @@ describe("the coach's requests view (PAD-795)", () => {
   it("[CLASSES-COACH-REQUESTS-TABLE-13] a tab change drops the status filter and the sort, and keeps the other filters", () => {
     expect(COACH_REQUESTS_SECTION_STATUSES.open).toEqual(["pending", "countered"]);
     expect(COACH_REQUESTS_SECTION_STATUSES.history).toEqual(["accepted", "declined", "rejected", "withdrawn", "superseded"]);
-    const next = switchCoachRequestsSection({ section: "history", status: "accepted", kind: "private", sortBy: "student" }, "open");
-    expect(next).toEqual({ section: "open", kind: "private" });
+    const next = switchCoachRequestsSection({ section: "history", status: "accepted", kind: "private", sortBy: "student", search: "rit" }, "open");
+    expect(next).toEqual({ section: "open", kind: "private", search: "rit" });
     // The new tab opens on its own default order (rule 6).
     expect(coachRequestsActiveSort(next)).toEqual({ by: "class_date", dir: "asc" });
-    expect(coachRequestsQuery(next)).toEqual({ section: "open", page: 1, kind: "private" });
+    expect(coachRequestsQuery(next)).toEqual({ section: "open", page: 1, kind: "private", search: "rit" });
   });
 });
