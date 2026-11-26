@@ -4,6 +4,7 @@
  * catch-up, the invalid notices) look as they do today. `t` returns the key and, given values, the values.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import ptAuth from "../../../../../src/locales/pt/auth.json";
 import { createElement } from "react";
 import type { ReactNode } from "react";
 import type { ReactTestInstance } from "react-test-renderer";
@@ -269,5 +270,34 @@ describe("the iOS invite screens' navy (auth.invite-welcome rules 2-4)", () => {
       expect(String(el.props?.className ?? "")).not.toMatch(/(^|\s)absolute(\s|$)/);
       el = el.parent;
     }
+  });
+});
+
+/** [AUTH-INVITE-WELCOME-6] the strings the two invitation pages show, in Portuguese, address the reader as tu. */
+describe("the invitation pages say tu", () => {
+  const VOCE = /\b(voc[êe]s?|seus?|suas?|foi convidado|complete|escolha|crie|tente|defina|juntou|aceite|indique|insira|introduza)\b/i;
+  // every key the coach invitation and the player invitation show, plus the changed ones named
+  const CHANGED = [
+    "coachInvite.title",
+    "coachInvite.description",
+    "coachInvite.welcomeDescription",
+    "coachInvite.usernameTaken",
+    "coachInvite.genericError",
+    "playerInvite.title",
+    "playerInvite.description",
+    "playerInvite.welcomeDescription",
+    "playerInvite.usernameTaken",
+    "playerInvite.genericError",
+  ];
+
+  it("[AUTH-INVITE-WELCOME-6] no key of the two pages holds a voce form", () => {
+    const groups = ptAuth.auth as unknown as Record<string, Record<string, string>>;
+    const keys = [...Object.keys(groups.coachInvite).map((k) => `coachInvite.${k}`), ...Object.keys(groups.playerInvite).map((k) => `playerInvite.${k}`)];
+    expect(keys).toEqual(expect.arrayContaining(CHANGED));
+    const bad = keys.filter((k) => {
+      const [g, key] = k.split(".");
+      return VOCE.test(groups[g][key]);
+    });
+    expect(bad).toEqual([]);
   });
 });
