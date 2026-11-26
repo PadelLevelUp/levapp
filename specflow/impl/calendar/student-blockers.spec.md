@@ -105,9 +105,12 @@ reminder fan-out reads `blocked_players_for_instance` in `notification_service.p
 Before PAD-772 a block only held invitations and reminders back (rules 4, 5, 11): a student who
 blocked days they already had classes on stayed in those classes, and the coach counted on them.
 
-19. **Saving a block answers the classes it covers.** `POST /api/app/availability_blockers` and
-    `PUT /api/app/availability_blockers/{id}` add `coveredClasses` to their answer (additive: an old
-    build ignores it). The schedule `PUT` answers a bare list of rows (rule 18), which cannot take a
+19. **Saving a block answers the classes it covers.** `POST /api/app/availability_blockers`,
+    `PUT /api/app/availability_blockers/{id}`, and `PUT /api/app/calendar_block/{id}` when the row is a
+    student's availability blocker (`blocks_auto_invitations` true; the calendar's block sheet — web
+    `EventDetailSheet`, iOS `app/event/[id].tsx` — opens a student's own blocker from their calendar
+    and saves it there) add `coveredClasses` to their answer (additive: an old build ignores it). The
+    calendar sheet asks the same way as the availability tab (rule 21). The schedule `PUT` answers a bare list of rows (rule 18), which cannot take a
     key without breaking old builds, so a schedule's list comes from a read made just before its save:
     `POST /api/app/availability_schedules/{id}/covered_classes`, student-only, with the body the `PUT`
     will send, writes nothing and answers `{coveredClasses}` for those rows (rule 20). It lists the student's
@@ -121,13 +124,19 @@ blocked days they already had classes on stayed in those classes, and the coach 
     - has not started (the club's clock, `attendance.confirm` rule 9) and is not cancelled;
     - is `planned` or `coming` for the student (`attendanceState`, `attendance.confirm` rule 25):
       not `not_coming`, and not a row the coach already marked (`validated`);
-    - starts before the earlier of the block's last occurrence and the block's first occurrence +
-      `const:BLOCKER_COVERED_HORIZON_DAYS` days (a recurring block may have no end: `calendar.blocks`
-      D83, NULL end means forever). For a schedule, each row is bounded the same way.
+    - and the block occurrence it overlaps starts on a date on or before the earlier of the block's
+      recurrence end and its first occurrence's date + `const:BLOCKER_COVERED_HORIZON_DAYS` days (a
+      recurring block may have no end: `calendar.blocks` D83, NULL end means forever), so a block
+      with the sheet's default end is listed whole, its last day included. For a schedule, each row is
+      bounded the same way.
 
     Each entry carries `model`, `originalId` and `date` exactly as the calendar event does (the
     shape `cancel_attendance` accepts, `attendance.confirm` rule 18), plus `title`, `start` and `end`
-    for the list the student reads. Ordered by start. Saving marks nothing by itself.
+    for the list the student reads. Ordered by start. Saving marks nothing by itself. The list is
+    what the calendar shows; a virtual occurrence of a lesson the student is on can still have no
+    presence for them once materialised (`build_lesson_events`, `calendar_helpers.py:200-218`
+    renders the lesson's occurrence when no instance row of theirs exists). Rule 22's re-check skips
+    such an entry as `not_enrolled`; it is not an error.
 20. **An edit answers only what it newly covers.** For a `PUT`, `coveredClasses` is the covered set
     of the block as saved minus the covered set of the same row(s) as they were before the write,
     computed in the same request. A schedule's read (rule 19) compares the body's rows against the
@@ -147,7 +156,8 @@ blocked days they already had classes on stayed in those classes, and the coach 
     of what to show from an answer is one shared helper in `@levelup/config`, so the two shells
     cannot drift. The setup guide's schedule editor (`dashboard.student-setup-guide` rules 9–11)
     makes rule 19's read, then the `PUT`, and asks the same way once the `PUT` succeeded; a failed
-    read saves without asking, like rule 17's failed conflict check.
+    read saves without asking, like the failed conflict check of the rule titled "The conflict check
+    answers only for students on the asking coach's roster" (the second rule numbered 17).
 22. **The mark: `POST /api/app/availability_blockers/decline_covered`** with
     `{occurrences: [{model, originalId, date}]}`, student-only (403 otherwise). The server never
     trusts the list: for each entry it re-checks rule 19 against the student's blockers **as stored
@@ -161,26 +171,45 @@ blocked days they already had classes on stayed in those classes, and the coach 
     `engine_entry.student_not_going`, unchanged. The answer is
     `{declined: [{model, originalId, date, lessonInstanceId}], skipped: [{model, originalId, date, reason}]}`
     with `reason` one of `not_covered`, `not_enrolled`, `started`, `already_answered`. One entry
-    failing never stops the others.
+    failing never stops the others: each entry runs in its own savepoint, and a refusal from the
+    decline path (its `abort` 409 for a started class or 403 for no enrolment, `notification_service.py`
+    `cancel_attendance`) is caught and reported under `skipped`, rolling back only that entry. Each
+    entry locks the student's presence row before its re-check, so a repeated or parallel yes for the
+    same class declines it once: the second finds it `not_coming`, skips it as `already_answered`,
+    and the coach is notified once.
 23. **What a mark made this way adds to an ordinary decline.** The decline path gains one source,
     `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`, passed only by rule 22:
-    - **No message to the student.** The student-facing acknowledgement (the coach's
-      `reminder_declined` template, `_free_spot_for_declining_player`) is not sent: the student made
-      the choice in the dialog and the toast confirms it (`attendance.confirm` rule 30).
+    - **No message to the student**, meaning no message whose sender is the coach (the coach's
+      notice below sits in the same shared conversation with the student as its sender, and is not
+      one). The student-facing acknowledgement (the coach's `reminder_declined` template,
+      `_free_spot_for_declining_player`) is not sent: the student made the choice in the dialog and
+      the toast confirms it (`attendance.confirm` rule 30).
     - **The presence records why:** `presences.decline_source` is set to the constant, and
       `respondedAt` is the instant of the mark on both engines. The serialized presence carries it as
-      `declineSource` (null for any other decline). It is cleared when the presence leaves
-      `not_coming` ("Afinal vou", `attendance.confirm` rule 28, or the coach seating the student);
-      a coach's attendance record keeps it, and the row then speaks with the coach's record
-      (`attendance.confirm` rule 30).
-    - **The coach** gets the per-cancellation notice every cancellation gets (`attendance.confirm`
-      rule 8: one message per occurrence, a push only when late), with
-      `msg_metadata.availabilityBlock: true` and wording that says the student marked themselves
-      unavailable ("<nome> marcou-se indisponível e não vai a <aula><quando>."). The block's title and
-      times are never in it (rule 8, P-CALENDAR-4). The coach's row shows the reason as a detail line
-      (`attendance.confirm` rule 30).
-    - **No reminder** reaches the student for a marked occurrence: a declined presence is never
-      asked (`notifications.reminders` rules 3 and 23), whether or not the block still covers it.
+      `declineSource` (null for any other decline). Clients read `declineSource` only while the row
+      is `not_coming` and not validated; the server clears it when the presence comes back
+      ("Afinal vou", `attendance.confirm` rule 28) as a best effort, and no reader depends on that
+      clearing.
+    - **The coach, on an old-engine session,** gets the per-cancellation notice every cancellation
+      gets there (`attendance.confirm` rule 8, `_notify_coach_of_cancellation`: one message per
+      occurrence, a push only when late), with `msg_metadata.availabilityBlock: true` beside the
+      existing `cancellation`, `lateCancellation`, `proactiveDecline` and `lessonInstanceId`, which
+      keep their meaning. The availability wording replaces the proactive and plain texts and keeps
+      the late marker: PT "<nome> marcou-se indisponível e não vai a <aula><quando>." or, late,
+      "<nome> marcou-se indisponível e não vai (ATRASADO) a <aula><quando>."; EN "<name> marked
+      themselves unavailable and will not attend <class><when>." / "… will not attend (LATE) …". The
+      push, sent only when late, keeps its title ("Cancelamento tardio" / "Late cancellation"). The
+      block's title and times are never in it (rule 8, P-CALENDAR-4).
+    - **The coach, on a new-engine session,** gets no chat notice, as for any No there:
+      `cancel_attendance` returns into `engine_entry.student_not_going` before the coach notice
+      (`notification_service.py:4497-4501` vs `:4553`), and the engine sends none
+      (`engine_entry.py:179-186`). On both engines the coach sees the reason on the student's row as
+      a detail line (`attendance.confirm` rule 30).
+    - **No reminder** reaches the student for a marked occurrence: the decline sets `confirmed` and
+      `status = absent` (`notification_service.py:4051-4053`), and the reminder pass (`_reminder_recipients`) skips a row
+      whose `status` is set (`reminder_skips`) and one that has answered (`answered_for_reminders`)
+      (`notification_service.py:3230-3233, 3269, 3317`;
+      `notifications.reminders` rules 3 and 23), whether or not the block still covers it.
 24. **Deleting or shortening a block undoes nothing.** Marks made through rule 22 stay when the block
     is deleted, shortened or moved; nothing is sent. A student who can come after all uses "Afinal
     vou" on that class (`attendance.confirm` rule 28: back in if a spot is free, else the waiting
@@ -294,7 +323,7 @@ test: `backend/padel_app/tests/test_pad839_student_setup_guide.py` › `test_a_s
 - **When** the student creates a recurring block Monday–Thursday 08:00–23:00 for three weeks, and separately a one-off block 20:00–21:00 that touches the Wednesday class only at its end instant
 - **Then** `coveredClasses` lists the not-yet-started Wednesday occurrences (virtual ones included) and the Tuesday one-off, each with `model`, `originalId`, `date`, `title`, `start`, `end`, ordered by start, and omits the declined, started and other student's classes
 - **And** the one-off block touching only at 20:00 covers nothing (half-open, same predicate as `blocked_user_ids_for_window`)
-- **And** for a recurring block with no end, nothing starting at or after its first occurrence + `const:BLOCKER_COVERED_HORIZON_DAYS` days is listed, while a block starting six weeks ahead with the sheet's default end is listed whole
+- **And** for a recurring block with no end, a class is listed only when the block occurrence it overlaps starts on or before the block's first occurrence date + `const:BLOCKER_COVERED_HORIZON_DAYS` days, while a block starting six weeks ahead with the sheet's default end is listed whole, a class late on its last day included
 - **And** no presence changed, no vacancy opened and no message was created by the save
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_create_answers_the_covered_occurrences_and_marks_nothing`
 
@@ -310,7 +339,7 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **When** the student posts both to `/api/app/availability_blockers/decline_covered`
 - **Then** both are answered under `declined`; the Wednesday occurrence is materialised and both presences are `not_coming` with `declineSource` = `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`
 - **And** each has an open vacancy exactly as `cancel_attendance` would leave it (the Wednesday one held to `invitationStart` through `invite_not_before`), Wednesday recorded as a proactive decline and Thursday as late
-- **And** no message is created in the student's direction for either (no `reminder_declined`), and the coach has exactly one cancellation notice per occurrence carrying `availabilityBlock: true`, with a push only for the late Thursday one
+- **And** no message whose sender is the coach is created for either (no `reminder_declined`), and the coach has exactly one cancellation notice per occurrence (sender the student) carrying `availabilityBlock: true` beside `proactiveDecline` (Wednesday true) and `lateCancellation` (Thursday true), with the availability wording, the late one marked "(ATRASADO)", and a push only for the late Thursday one
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_yes_declines_through_the_ordinary_path_without_a_student_message`
 
 #### CALENDAR-STUDENT-BLOCKERS-20: The mark re-checks every entry on the server (rule 22)
@@ -318,22 +347,29 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **When** they post that occurrence plus one their block does not cover, one of a class they are not in, one that has started, and one they already declined; and a coach posts to the same endpoint
 - **Then** only the covered Wednesday is declined; the others are under `skipped` with `not_covered`, `not_enrolled`, `started` and `already_answered`, and nothing was written for them (no instance materialised, no presence changed, no message)
 - **And** the coach gets 403
+- **And** a listed virtual occurrence whose materialised instance holds no presence for the student is skipped as `not_enrolled`, the other entries still declined
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_the_mark_rechecks_each_entry_and_skips_what_fails`
+
+#### CALENDAR-STUDENT-BLOCKERS-27: A repeated or parallel yes declines a class once, and one refusal rolls back only its entry (rule 22)
+- **Given** a student's covered Wednesday class, and a second entry whose class starts between the re-check and the decline (the decline path's 409)
+- **When** the same yes is posted twice, one after the other and from two concurrent requests
+- **Then** the class is declined once: one coach notice, one vacancy; the repeat answers it under `skipped` as `already_answered`
+- **And** the entry refused by the decline path is under `skipped` as `started`, nothing of it is written, and the other entries in the same request are declined
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_repeated_yes_declines_once_and_a_refusal_rolls_back_only_its_entry`
 
 #### CALENDAR-STUDENT-BLOCKERS-21: On a new-engine session the mark is the engine's own "not going" (rule 22)
 - **Given** a covered occurrence of a session the new engine runs (`engine_for(instance) == "new"`)
 - **When** the student marks it through `decline_covered`
 - **Then** `engine_entry.student_not_going` handled it (the engine records the absence and plans the spot), `declineSource` is set and `respondedAt` is the mark's instant
-- **And** no message reaches the student
+- **And** no message whose sender is the coach is created, and no coach chat notice exists either (as for any No on the new engine); the serialized presence carries `declineSource` for the coach's detail line
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_new_engine_session_is_marked_by_the_engine`
 
 #### CALENDAR-STUDENT-BLOCKERS-22: A marked class is never reminded, and deleting the block undoes nothing (rules 23, 24)
 - **Given** a class the student marked through `decline_covered`
 - **When** the student deletes the block, and the class's reminder pass then runs
 - **Then** the presence stays `not_coming` with its `declineSource`, no vacancy closes, and the pass sends the student nothing
-- **And** "Afinal vou" (`respond_reminder` with `yes`) with a free spot brings them back to `coming` and clears `declineSource`
-
-not read in the code: that the reminder pass skips a declined presence rests on `notifications.reminders` rules 3 and 23; `_reminder_recipients` was not read.
+- **And** "Afinal vou" (`respond_reminder` with `yes`) with a free spot brings them back to `coming`, and the coach's row then shows no unavailability detail
+- Today the pass already skips a declined presence: the decline writes `confirmed` and `status` (`notification_service.py:4051-4053`), and `_reminder_recipients` skips both (`answered_for_reminders`, 3230-3233; `reminder_skips`, 3269; 3317).
 test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_marked_class_is_not_reminded_and_survives_the_block_delete`
 
 #### CALENDAR-STUDENT-BLOCKERS-23: What the dialog does with a save's answer is one shared decision (rule 21)
@@ -363,7 +399,15 @@ test: `frontend/apps/mobile/src/features/availability/blocker-covered.test.tsx` 
 - **And** a failed read saves the schedule and moves on without asking
 test: `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx` › `[CALENDAR-STUDENT-BLOCKERS-26] a schedule over a class asks before moving on` (+ `frontend/apps/mobile/src/features/setup-guide/step-unavailability.test.tsx` › same name)
 
+#### CALENDAR-STUDENT-BLOCKERS-28: Editing a blocker from the calendar's block sheet answers and asks the same way (rules 19–21)
+- **Given** a student's availability blocker opened from their calendar (web `EventDetailSheet`, iOS `app/event/[id].tsx`), and a coach's own `personal` block
+- **When** the student widens the blocker over a class they are in and saves through `PUT /api/app/calendar_block/{id}`, and the coach saves their block the same way
+- **Then** the student's answer carries `coveredClasses` with that class and the same dialog follows on web and on iOS, marking only on yes
+- **And** the coach's answer carries no `coveredClasses` key
+test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_a_calendar_block_edit_of_a_blocker_answers_covered_classes` (+ `frontend/apps/web/src/components/calendar/EventDetailSheet.covered.test.tsx` and `frontend/apps/mobile/src/features/calendar/event-detail-covered.test.tsx` › `[CALENDAR-STUDENT-BLOCKERS-28] a blocker edited from the calendar asks after the save`)
+
 ### Not this spec (PAD-772)
+- `POST /api/app/add_event` (the calendar's "add event" sheet, web `AddEventSheet`, iOS `app/event/new.tsx`): it creates only `personal`, `break`, `holiday` and `off_work` blocks and never sets `blocks_auto_invitations` (`add_event_service`), so what it saves is not an availability block; a student's blocker is created only on the availability tab or the setup guide.
 - Marking occurrences that appear after the save (a new enrolment, a class created later, or anything beyond the horizon) — see Open questions.
 - Undoing marks when a block is deleted or shortened (rule 24).
 - Moving one block occurrence on the calendar (`/reschedule_block`) or deleting one occurrence: neither asks.
@@ -376,15 +420,16 @@ test: `frontend/apps/web/src/components/setup-guide/StepUnavailability.test.tsx`
 - The student's "Não vou poder ir" is `POST /api/app/notify/cancel_attendance` (`notification_engine_api.py:574`) → `cancel_attendance` (`notification_service.py:4436`): resolves or materialises the occurrence (`_resolve_occurrence_for_student`, 4401), records `proactive_decline` or `cancelled`, sends the coach `_notify_coach_of_cancellation` (`system_messages.py:225`), then `_free_spot_for_declining_player` (4029), which sets `absent`/`justified`, **sends the coach's `reminder_declined` template to the student unconditionally** (4058-4066) and opens the vacancy. On a new-engine session it returns early into `engine_entry.student_not_going` (`engine_entry.py:179`), which sends the student nothing.
 - The ticket's message at 17:42 the day before the class: the block had suppressed the reminder, so none was sent; the student declined from their own device, and 4058-4066 sent the coach's customised `reminder_declined` text ("Vale, então não conto contigo amanhã"; the PT default is "Entendido, obrigado por avisares!", `notification_config.py`). Triage: `docs/plans/engine/triage-PAD-772.md` (local).
 - A declined presence is not reminded (`notifications.reminders` rules 3, 23). The coach's row detail line is `cancellationDetail` in `@levelup/config` (`attendance-state.ts:157`), used by web `AttendanceRow.tsx` / `ParticipantPopup.tsx` and iOS `ParticipantRow.tsx` / `ParticipantSheet.tsx`.
+- A student's blocker also appears on their own calendar (`load_calendar_blocks_for_user`) and opens in the calendar's block sheet (web `EventDetailSheet.tsx:124`, iOS `app/event/[id].tsx` via `features/calendar/hooks.ts:114`), which saves through `PUT /api/app/calendar_block/{id}` (`frontend_api.py:1913`, `edit_event_service`, which keeps `blocks_auto_invitations`). `POST /api/app/add_event` (`frontend_api.py:1898`) creates only `personal`/`break`/`holiday`/`off_work` blocks (`CalendarBlockType`), never a blocker.
 - The block sheets are web `components/availability/BlockerSheet.tsx` (page `pages/AvailabilityPage.tsx`) and iOS `features/availability/BlockerSheet.tsx` (tab `app/(tabs)/availability.tsx`); the client wrapper is `packages/api/src/resources/availability.ts`.
 - `presences.left_reason` is read by the new engine to decide who holds a seat (`engine_store.py:144, 194`), so the source of a decline cannot be stored there: a new column.
 
 ### Waves (PAD-772)
-1. CALENDAR-STUDENT-BLOCKERS-19 (storage half), ATTENDANCE-CONFIRM-42 (server half) — `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`, migration adding nullable `presences.decline_source` with a CHECK, `serialize_presence`'s `declineSource`.
-2. CALENDAR-STUDENT-BLOCKERS-17, -18 — backend: the covered set (a service over the calendar helpers), `coveredClasses` on the two blocker save routes, and the schedule read.
-3. CALENDAR-STUDENT-BLOCKERS-19, -20, -21, -22, ATTENDANCE-CONFIRM-43 — backend: `decline_covered`, the decline source through `cancel_attendance` / `_free_spot_for_declining_player` / `student_not_going`, the coach notice marker, clearing on come-back.
-4. CALENDAR-STUDENT-BLOCKERS-23, ATTENDANCE-CONFIRM-42 (client half) — `@levelup/config` (`blocker-covered.ts`, `cancellationDetail`), `@levelup/api` (`declineCoveredClasses`, the answer types), `@levelup/types`.
-5. CALENDAR-STUDENT-BLOCKERS-24, -25, -26, ATTENDANCE-CONFIRM-42 (rows) — web and iOS together: the dialog on the availability tab and the setup guide, the coach's detail line, PT/EN locales.
+1. Storage for CALENDAR-STUDENT-BLOCKERS-19 and ATTENDANCE-CONFIRM-42 — `const:DECLINE_SOURCE_AVAILABILITY_BLOCK`, migration adding nullable `presences.decline_source` with a CHECK, `serialize_presence`'s `declineSource`. No criterion turns green here; the wave's own test pins the column and the serialized key.
+2. CALENDAR-STUDENT-BLOCKERS-17, -18, -28 (backend test) — backend: the covered set (a service over the calendar helpers), `coveredClasses` on the two blocker save routes and on `PUT /calendar_block/{id}` for a blocker, and the schedule read. Adds `POST /availability_schedules/{id}/covered_classes` to `frontend/apps/mobile/API-CONTRACT.md`.
+3. CALENDAR-STUDENT-BLOCKERS-19, -20, -21, -22, -27, ATTENDANCE-CONFIRM-43 (all green here) — backend: `decline_covered` (per-entry savepoint and row lock), the decline source through `cancel_attendance` / `_free_spot_for_declining_player` / `student_not_going`, the coach notice wording and marker, clearing on come-back. Adds `POST /availability_blockers/decline_covered` and the new answer keys to `frontend/apps/mobile/API-CONTRACT.md`.
+4. CALENDAR-STUDENT-BLOCKERS-23 (green here), ATTENDANCE-CONFIRM-42's `attendance-state.test.ts` test — `@levelup/config` (`blocker-covered.ts`, `cancellationDetail`), `@levelup/api` (`declineCoveredClasses`, the answer types), `@levelup/types`.
+5. CALENDAR-STUDENT-BLOCKERS-24, -25, -26, -28 (client tests), ATTENDANCE-CONFIRM-42's row tests (CONFIRM-42 and -28 are green only after this wave) — web and iOS together: the dialog on the availability tab, the calendar's block sheet and the setup guide, the coach's detail line, PT/EN locales.
 
 ### Open questions (PAD-772; the owner could not answer during this run, so each is decided with its reason)
 - **Occurrences that appear after the save inside the block** (a class created later, a new enrolment, or beyond `const:BLOCKER_COVERED_HORIZON_DAYS`) — options: (a) only what is on the student's calendar at save time is asked and marked; (b) remember the yes on the block and mark later occurrences when they become known (e.g. at the reminder pass). Decision: **(a)**, because the owner chose "ask them when they save" over "always mark", and (b) marks without asking, which is the option not chosen. Those later occurrences still get no invitation and no reminder (rules 4, 11), and a coach adding the student is warned (rule 9). Reversible by the owner.
