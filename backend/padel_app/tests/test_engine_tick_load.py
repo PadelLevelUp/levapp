@@ -407,3 +407,67 @@ def test_the_cutover_pass_reads_the_jobs_once_and_asks_only_their_coaches(live_s
     removed = cutover_pass(now=start + timedelta(minutes=1))   # the old occurrence has started: drained
     assert sorted(removed[undrained[0]]) == sorted(
         [f"reminder_{old.id}", f"invite_start_{old.id}", f"reminder_lesson_{lesson.id}_{start.date()}"])
+
+
+def _old_occurrence(coach, lesson):
+    """An occurrence of ``lesson`` that existed at the switch and was never adopted (old engine), with
+    its three old-engine jobs armed. Returns (occurrence, start, job ids)."""
+    from apscheduler.triggers.date import DateTrigger
+
+    from padel_app import scheduler
+    from padel_app.models.lesson_instances import LessonInstance
+
+    start = datetime(2026, 11, 26, 18, 0)
+    old = LessonInstance(lesson_id=lesson.id, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                         original_lesson_occurence_date=start.date(), max_players=4, status="scheduled",
+                         level_id=lesson.default_level_id, created_at=NOW - timedelta(days=3))
+    db.session.add(old)
+    db.session.commit()
+    ids = [f"reminder_{old.id}", f"invite_start_{old.id}", f"reminder_lesson_{lesson.id}_{start.date()}"]
+    for job_id in ids:
+        scheduler._scheduler.add_job(print, DateTrigger(run_date=start + timedelta(days=30)), id=job_id)
+    return old, start, ids
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-85")
+def test_a_co_coached_class_keeps_its_jobs_with_its_primary_coach(live_scheduler):
+    """A class of an undrained coach that a drained coach also coaches: the job belongs to the primary
+    coach only, so the drained co-coach's cutover removes nothing, and the primary coach's drain does."""
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.services.engine_switch import cutover_pass
+
+    primary, other = _coach(0), _coach(1)
+    lesson = _weekly(primary, datetime(2026, 11, 25, 9, 0))
+    db.session.add(Association_CoachLesson(coach_id=other[0], lesson_id=lesson.id))   # second junction row
+    db.session.commit()
+    _, start, ids = _old_occurrence(primary, lesson)
+
+    assert cutover_pass(now=NOW) == {}                       # the co-coach has no other class: drained
+    assert sorted(j.id for j in live_scheduler._scheduler.get_jobs()) == sorted(ids)
+    removed = cutover_pass(now=start + timedelta(minutes=1))
+    assert list(removed) == [primary[0]] and sorted(removed[primary[0]]) == sorted(ids)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-88")
+def test_a_failure_of_the_cutover_passs_shared_reads_does_not_stop_the_run(live_scheduler, monkeypatch, caplog):
+    """Old-engine jobs armed and the owner lookup raises: the failure is logged, the session tick and the
+    outbox still run, and the database session is usable afterwards."""
+    from padel_app.models.coaches import Coach
+    from padel_app.services import engine_runner, engine_switch
+
+    coach = _coach(0)
+    _old_occurrence(coach, _weekly(coach, datetime(2026, 11, 25, 9, 0)))
+
+    def boom(keys):
+        db.session.execute(db.text("select * from no_such_table"))   # leaves the transaction failed
+
+    ran = []
+    monkeypatch.setattr(engine_switch, "_old_job_owners", boom)
+    monkeypatch.setattr(engine_runner, "tick_sessions", lambda *a, **kw: ran.append("tick") or [])
+    monkeypatch.setattr(engine_runner, "send_outbox", lambda: ran.append("outbox") or 0)
+    caplog.set_level(logging.ERROR)
+    engine_runner.run_tick(NOW + timedelta(minutes=1))
+
+    assert ran == ["tick", "outbox"]
+    assert any("shared reads failed" in r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR)
+    assert Coach.query.count() == 1                           # the session was rolled back, not left failed

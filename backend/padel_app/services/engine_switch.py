@@ -348,47 +348,8 @@ def drain_state(coach_id: int, *, now: datetime | None = None) -> dict:
     }
 
 
-def _coach_old_keys(coach_id: int) -> tuple[set[int], set[int], set[int]]:
-    """The coach's occurrences and lessons (the coach their primary coach: a co-coached class whose
-    primary coach is someone else keeps its jobs) and the coach's vacancies, by id."""
-    from padel_app.models import Lesson
-    from padel_app.models.Association_CoachLesson import Association_CoachLesson
-    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.lesson_instances import LessonInstance
-    from padel_app.models.vacancy import Vacancy
-    from padel_app.scheduler import _lesson_primary_coach_id
-    from padel_app.services.lesson_service import primary_coach
-
-    lesson_ids = {lid for (lid,) in db.session.query(Association_CoachLesson.lesson_id)
-                  .filter(Association_CoachLesson.coach_id == coach_id).all()
-                  if _lesson_primary_coach_id(lid) == coach_id}
-    own = db.session.query(Association_CoachLessonInstance.lesson_instance_id).filter(
-        Association_CoachLessonInstance.coach_id == coach_id)
-    instances = LessonInstance.query.filter(LessonInstance.id.in_(own) | LessonInstance.lesson_id.in_(
-        db.session.query(Lesson.id).filter(Lesson.id.in_(lesson_ids or [-1])))).all()
-    instance_ids = {inst.id for inst in instances if getattr(primary_coach(inst), "id", None) == coach_id}
-    vacancy_ids = {vid for (vid,) in db.session.query(Vacancy.id).filter(Vacancy.coach_id == coach_id).all()}
-    return instance_ids, lesson_ids, vacancy_ids
-
-
-def remove_old_jobs(coach_id: int) -> list[str]:
-    """Remove every old-engine job of the coach (rule 18, CONFIG-79): the jobs keyed on their
-    occurrences, their lessons' dates and their vacancies. Returns the removed job ids."""
-    from padel_app import scheduler
-
-    instance_ids, lesson_ids, vacancy_ids = _coach_old_keys(coach_id)
-    removed = []
-    for job in scheduler.old_engine_jobs(instance_ids=instance_ids, lesson_ids=lesson_ids, vacancy_ids=vacancy_ids):
-        try:
-            scheduler._scheduler.remove_job(job.id)
-            removed.append(job.id)
-        except Exception:  # noqa: BLE001 — gone meanwhile
-            pass
-    return removed
-
-
 def _old_job_owners(keys) -> dict:
-    """The coach each old-engine job key belongs to, as ``_coach_old_keys`` assigns it: an occurrence's
+    """The coach each old-engine job key belongs to, as the cutover assigns it: an occurrence's
     primary coach (its own coach rows first, else its lesson's, each in junction id order;
     ``lesson_service.coaches_for``), a lesson's primary coach, a vacancy's coach. A fixed number of
     queries whatever the number of keys (CONFIG-85)."""
@@ -437,11 +398,16 @@ def cutover_pass(*, now: datetime | None = None) -> dict[int, list[str]]:
     from padel_app import scheduler
     from padel_app.models.notification_config import NotificationConfig
 
-    jobs = scheduler.old_engine_jobs_by_key()
-    if not jobs:
+    try:
+        jobs = scheduler.old_engine_jobs_by_key()
+        if not jobs:
+            return {}
+        owners = _old_job_owners(jobs)
+    except Exception:
+        db.session.rollback()
+        log.exception("engine_switch: the cutover pass's shared reads failed")
         return {}
     now = now or utcnow_naive()
-    owners = _old_job_owners(jobs)
     owned: dict[int, list] = {}
     for key, coach_id in owners.items():
         owned.setdefault(coach_id, []).extend(jobs[key])
