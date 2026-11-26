@@ -154,7 +154,8 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
     `/settings?section=classRequests&proposeFor=<id>`, still lands on it (rule 16). It reads the same
     endpoint and shows the same tabs with counts, the same fields per row in a compact layout (class date
     and time, request date and time, student, kind badge, side, status words), and the same filters and
-    sort chosen in one "Filtrar/Ordenar" sheet; changing the tab clears the status filter and the chosen sort. Pages load one
+    sort chosen in one "Filtrar/Ordenar" sheet, with the student search box (rule 7 `search`) on the
+    screen above the list, where it is in sight; changing the tab clears the status filter and the chosen sort. Pages load one
     after another as the list scrolls to its end (`page` + 1 until `hasNext` is false), same page size.
 13. **Actions stay where they are.** An Em aberto row offers exactly today's actions for its kind and
     status (private `pending`: accept, decline, propose another time; academy `pending`: accept, reject,
@@ -397,7 +398,7 @@ test: `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.te
 
 #### CLASSES-COACH-REQUESTS-TABLE-19: Mobile's "Filtrar/Ordenar" sheet sends the web's params, a tab change drops the status filter and the sort, and the list loads the next page at its end (rules 5, 6, 7, 12)
 - **Given** an answer with `hasNext: true`
-- **When** the coach scrolls to the end, then opens "Filtrar/Ordenar", picks sort by student descending, kind Academia, status Marcada and a student, applies, then switches tab
+- **When** the coach scrolls to the end, then opens "Filtrar/Ordenar", picks sort by student descending, kind Academia and status Marcada, applies, then switches tab
 - **Then** page 2 is requested and appended; after applying, page 1 is requested with the same `sort_by`/`sort_dir`/filter params the web sends for the same choices; after the tab switch page 1 is requested without `status` and without `sort_by`; no further page is requested once `hasNext` is false
 test: `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-19] the sheet sends the web's params and pages load at the end`
 
@@ -425,7 +426,7 @@ test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.narrow
 - **When** she types `rit` letter by letter, faster than 200 ms apart, then waits
 - **Then** one request goes out, 200 ms after the last letter, carrying `search=rit`, `page=1`, the sort and the kind, and `search` is in the URL on web; while it is in flight `player-search-searching` shows and the previous rows stay
 - **And** when the answer has no rows, `player-search-empty` reads "Nenhum jogador encontrado para «rit»" in place of the table's own empty line; clearing the box removes `search` from the request and the URL; changing the tab keeps the text and sends it with the other section; "Limpar filtros" clears it
-- **And** below 768 px on web, and in iOS's "Filtrar/Ordenar" sheet, the box is the first control of the filters, with the same behaviour
+- **And** below 768 px on web the box is the first filter of the collapsible "Filtrar/Ordenar" block, after its two sort selects; on iOS it is on the screen above the list, outside the sheet, with the same behaviour; only on web does "Limpar filtros" clear it (iOS's box has its own clear control)
 test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.search.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-23] the search box debounces, resets the page and says when nobody matches`; `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.search.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-23] the search box debounces, resets the page and says when nobody matches`
 
 ### Performance
