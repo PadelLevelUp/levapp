@@ -608,10 +608,17 @@ test: `frontend/packages/hooks/src/useDayList.test.tsx` › `modes keep their ow
 - **Then** a tapped date is at the top with no scroll animation, and each edge row reopens the list at the first day of the week just outside
 test: `frontend/apps/web/e2e/schedule-calendar/mobile-day-scroll.spec.ts` › `reduced motion jumps and the edge rows reopen the list`
 
+#### CALENDAR-MOBILE-VIEWS-49: A filter change keeps the selected day at the top (rule 26g)
+- **Given** Dia scrolled deep into a day with several cards, on the student's filter "all I'm eligible for"
+- **When** the student switches to "Only my classes" and the day's section becomes shorter than the reader's place in it
+- **Then** the selected day is the same day, its header at the list's top (the place inside the day is dropped, not carried as a distance the shorter day cannot hold), and the strip shows the same day; switching back does the same
+- **And** a refresh with the same filter still keeps the place inside the day being read
+test: `frontend/apps/web/src/components/calendar/mobile/DayList.test.tsx`, `frontend/apps/mobile/src/features/calendar/day-list.test.tsx` › `[CALENDAR-MOBILE-VIEWS-49]`
+
 ### Waves
 1. 37, 38, 44, 46, 47 — the shared list state and helper (`@levelup/hooks`, `@levelup/config`).
-2. 39, 40, 41, 43, 45, 48 — web phone, with the Playwright specs it affects.
-3. 42, 43 — iOS, starting with a spike on the installed React Native (0.81.5): sticky headers and opening at a day in a
+2. 39, 40, 41, 43, 45, 48, 49 — web phone, with the Playwright specs it affects.
+3. 42, 43, 49 — iOS, starting with a spike on the installed React Native (0.81.5): sticky headers and opening at a day in a
    list of variable heights, on the simulator, before the screen is written. `calendar.tsx` keeps `calendar-refresh` and a
    `useCalendarEvents(… keepPreviousData` read (`pull-refresh.test.ts`, `thread-screen-wiring.test.ts` read its source). Web and iOS are one PR.
 
