@@ -38,7 +38,9 @@ separate browse screen. A coach controls whether their open spots are advertised
     discovery and join requests (`classes.join-requests`). **Where a visible private class is found
     (PAD-929):** by browsing, a student who is not in it finds it only in their calendar (rules 1, 1a) and in the
     private-request wizard's no-free-time list (`classes.academy-class-booking` rule 12). It is never
-    found in the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2). A student
+    found in the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2), except by an
+    older app that declares no `private-confirm`: it has no such list, so its academy step keeps
+    listing it (same rule). A student
     enrolled in it sees it as their own class whatever the setting (`calendar.view`). Invitations
     (`calendar.view` rule 22, PAD-609) and the coach's standing list are not browsing and are
     outside this rule.

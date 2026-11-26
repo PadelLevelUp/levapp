@@ -47,7 +47,8 @@ def list_academy_classes(player, coach_id, *, lesson_type=LESSON_LIST_TYPES[0], 
     """Rules 1–4 and 7: the coach's classes for fourteen club-local days that the
     student may join, each with its state and what the student already did.
     Reads only — nothing is materialised. PAD-929: classes of ``lesson_type`` only — the academy
-    step's academy classes (rule 2), or the coach's visible private lessons (rule 12)."""
+    step's academy classes (rule 2), or the coach's visible private lessons (rule 12); ``None`` is
+    an older app's read, both types (rule 2)."""
     from padel_app.helpers.calendar_helpers import load_open_spot_events_for_player
 
     cp = _require_roster(player, coach_id)
