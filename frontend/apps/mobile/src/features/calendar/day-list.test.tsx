@@ -71,12 +71,13 @@ const EDGE_H = 44;
 let root: ReactTestRenderer;
 const scrollTo = vi.fn();
 
-type Api = { select: (d: Date) => void; setActive: (on: boolean) => void };
+type Api = { select: (d: Date) => void; setActive: (on: boolean) => void; setFilter: (f: string) => void };
 function Harness({ initial, onReady }: { initial: Date; onReady?: (api: Api) => void }) {
   const [selected, setSelected] = useState(initial);
   const [active, setActive] = useState(true);
+  const [filter, setFilter] = useState("eligible");
   const list = useDayList({ active, selectedDay: selected, selectDay: setSelected });
-  onReady?.({ select: setSelected, setActive });
+  onReady?.({ select: setSelected, setActive, setFilter });
   return (
     <>
       <View2 id="selected" value={iso(selected)} />
@@ -86,6 +87,7 @@ function Harness({ initial, onReady }: { initial: Date; onReady?: (api: Api) => 
         eventsByDay={list.eventsByDay}
         levelCodeById={new Map()}
         selectedDay={selected}
+        filterKey={filter}
         onToday={() => list.goTo(new Date(2026, 10, 25))}
       />}
     </>
@@ -113,6 +115,7 @@ async function mount(initial = new Date(2026, 10, 25)) {
   return {
     select: (d: Date) => act(async () => api.select(d)),
     setActive: (on: boolean) => act(async () => api.setActive(on)),
+    setFilter: (f: string) => act(async () => api.setFilter(f)),
   };
 }
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
@@ -277,6 +280,30 @@ describe("Dia on iOS: one list of days (rule 26)", () => {
     // Days land above (their headers push everything down by 700): the device relays out every header.
     await layoutAll(700);
     expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-11-27") + 700 + 30, animated: false });
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-49] a change of the filter puts the selected day's header at the top, whatever the reader's place in the day", async () => {
+    const { setFilter } = await mount();
+    await layoutAll();
+    // The reader stands 90pt into 25 Nov (its card is 100pt): the filter will leave that day shorter than 90pt.
+    await scrollBy(offsetOf("2026-11-25") + 90);
+    scrollTo.mockClear();
+    await setFilter("mine");
+    await layoutAll();
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-11-25"), animated: false });
+    // A later layout pass (the shorter day's neighbours move up) keeps the header there, not 90pt further.
+    scrollTo.mockClear();
+    await layoutAll(-60);
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-11-25") - 60, animated: false });
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-49] a layout pass with the same filter keeps the place inside the day", async () => {
+    await mount();
+    await layoutAll();
+    await scrollBy(offsetOf("2026-11-25") + 90);
+    scrollTo.mockClear();
+    await layoutAll(300);
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: offsetOf("2026-11-25") + 300 + 90, animated: false });
   });
 
   it("[CALENDAR-MOBILE-VIEWS-42] Hoje shows when the selected day is not today and moves to it; at today it is gone", async () => {

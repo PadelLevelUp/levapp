@@ -38,6 +38,7 @@ export function DayList({
   nextEventId,
   levelCodeById,
   onEventClick,
+  filterKey,
 }: {
   list: ReturnType<typeof useDayList>;
   /** The loaded days' events (the student's filter already applied), each day in start-time order. */
@@ -45,6 +46,8 @@ export function DayList({
   nextEventId?: string;
   levelCodeById: Map<string, string>;
   onEventClick?: (event: CalendarEvent) => void;
+  /** Rule 26g: what the student's filter is now. A change of it puts the selected day's header at the top. */
+  filterKey?: string;
 }) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
@@ -135,6 +138,16 @@ export function DayList({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetIso, jumping, status]);
+
+  // A change of the filter changes which cards each day holds (26g): the reader keeps the day, not the distance into
+  // it, which a shorter day cannot hold (the list would stand in a later day). Declared before the refresh effect
+  // below, so in the same commit it runs first and that effect puts the list on the day's header.
+  const lastFilter = useRef(filterKey);
+  useLayoutEffect(() => {
+    if (lastFilter.current === filterKey) return;
+    lastFilter.current = filterKey;
+    if (anchor.current) anchor.current = { day: anchor.current.day, delta: 0 };
+  }, [filterKey]);
 
   // A refresh keeps the place inside the day being read (26g): the section the reader was in may have moved.
   // Only a change of the days' content does this; a movement to a target (and the end of one) is not a refresh.

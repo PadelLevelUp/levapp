@@ -2,7 +2,7 @@
  * calendar.mobile-views rule 26 (web phone): Dia's one list of days. Counts are counts of calls to the calendar
  * API mock; `t` returns the key, so the words checked are the keys the screen uses.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -40,15 +40,20 @@ const eventsFor = (from: string, to: string) =>
   WEDNESDAY_CLASS.date >= from.slice(0, 10) && WEDNESDAY_CLASS.date <= to.slice(0, 10) ? [WEDNESDAY_CLASS] : [];
 
 /** The page around the list, as the screen builds it: one selected day, the hook, the list. */
-function Harness({ initial, onReady }: { initial: Date; onReady?: (api: { select: (d: Date) => void }) => void }) {
+type Api = { select: (d: Date) => void; setFilter: (f: string) => void; refresh: () => void };
+function Harness({ initial, onReady }: { initial: Date; onReady?: (api: Api) => void }) {
   const [selected, setSelected] = useState(initial);
+  const [filter, setFilter] = useState("eligible");
+  const [refreshes, setRefreshes] = useState(0);
   const list = useDayList({ active: true, selectedDay: selected, selectDay: setSelected });
-  onReady?.({ select: setSelected });
+  onReady?.({ select: setSelected, setFilter, refresh: () => setRefreshes((n) => n + 1) });
+  // A new object each time the filter or a refresh changes the days' content, as the screen's memo does.
+  const eventsByDay = useMemo(() => ({ ...list.eventsByDay }), [list.eventsByDay, filter, refreshes]);
   return (
     <>
       <span data-testid="selected">{iso(selected)}</span>
       <span data-testid="target">{list.target ? iso(list.target) : ""}</span>
-      <DayList list={list} eventsByDay={list.eventsByDay} levelCodeById={new Map()} />
+      <DayList list={list} eventsByDay={eventsByDay} levelCodeById={new Map()} filterKey={filter} />
     </>
   );
 }
@@ -57,13 +62,18 @@ function mount(initial = new Date(2026, 10, 25)) {
   const client = new QueryClient({
     defaultOptions: { queries: { ...queryClientDefaultOptions.queries, retry: false } },
   });
-  let api!: { select: (d: Date) => void };
+  let api!: Api;
   const view = render(
     <QueryClientProvider client={client}>
       <Harness initial={initial} onReady={(a) => (api = a)} />
     </QueryClientProvider>
   );
-  return { ...view, select: (d: Date) => act(async () => api.select(d)) };
+  return {
+    ...view,
+    select: (d: Date) => act(async () => api.select(d)),
+    setFilter: (f: string) => act(async () => api.setFilter(f)),
+    refresh: () => act(async () => api.refresh()),
+  };
 }
 
 const sections = () => document.querySelectorAll("[data-testid^='calendar-day-section-']");
@@ -280,6 +290,28 @@ describe("Dia's list of days on web (rule 26)", () => {
     await waitFor(() => expect(screen.getByTestId("target")).toHaveTextContent(""));
     expect(list.scrollTop).toBe(1000);
     expect(screen.getByTestId("selected")).toHaveTextContent(keys[10]);
+  });
+
+  it("[CALENDAR-MOBILE-VIEWS-49] a change of the filter puts the selected day's header at the top; a refresh with the same filter keeps the place", async () => {
+    const { setFilter, refresh } = mount();
+    await waitFor(() => expect(sections()).toHaveLength(49));
+    await waitFor(() => expect(screen.getByTestId("target")).toHaveTextContent(""));
+    const list = screen.getByTestId("calendar-day-list");
+    sections().forEach((el, i) => Object.defineProperty(el, "offsetTop", { value: i * 100, configurable: true }));
+    // The reader stands 40px into the fourth day.
+    await act(async () => {
+      list.scrollTop = 340;
+      list.dispatchEvent(new Event("scroll"));
+    });
+    // A refresh keeps the place inside the day (26g).
+    await refresh();
+    expect(list.scrollTop).toBe(340);
+    // The filter changes which cards the days hold: the reader keeps the day, at its header, not the 40px.
+    await setFilter("mine");
+    expect(list.scrollTop).toBe(300);
+    // And a refresh after that keeps that place.
+    await refresh();
+    expect(list.scrollTop).toBe(300);
   });
 
   it("[CALENDAR-MOBILE-VIEWS-46] a failed jump outside the range says so at the top, with the earlier days still below", async () => {

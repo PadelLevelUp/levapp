@@ -46,6 +46,7 @@ export function DayList({
   onToday,
   todayBottom = 26,
   refreshControl,
+  filterKey,
 }: {
   list: ReturnType<typeof useDayList>;
   /** The loaded days' events (the student's filter already applied), each day in start-time order. */
@@ -59,6 +60,8 @@ export function DayList({
   /** Hoje's distance from the bottom, so its centre is the add-event button's. */
   todayBottom?: number;
   refreshControl?: React.ReactElement<React.ComponentProps<typeof import("react-native").RefreshControl>>;
+  /** Rule 26g: what the student's filter is now. A change of it puts the selected day's header at the top. */
+  filterKey?: string;
 }) {
   const { t } = useTranslation();
   const scroller = React.useRef<ScrollHandle | null>(null);
@@ -215,6 +218,16 @@ export function DayList({
   React.useEffect(() => {
     reconcile();
   }, [reconcile]);
+
+  // A change of the filter changes which cards each day holds (rule 26g): the reader keeps the day, not the distance
+  // into it, which a shorter day cannot hold (the list would stand in a later day). A refresh keeps the place.
+  const lastFilter = React.useRef(filterKey);
+  React.useEffect(() => {
+    if (lastFilter.current === filterKey) return;
+    lastFilter.current = filterKey;
+    if (anchor.current) anchor.current = { day: anchor.current.day, delta: 0 };
+    reconcile();
+  }, [filterKey, reconcile]);
 
   // Every status ends visible (26d): if the list has not been placed a moment after its days are ready, show it.
   React.useEffect(() => {

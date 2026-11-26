@@ -647,7 +647,7 @@ export default function CalendarPage() {
               onNextMonth={() => calendar.navigateMonth("next")}
               events={weekEvents}
               monthEvents={monthEvents}
-              dayList={dayOnPhone ? { list: dayList, events: visibleEvents } : undefined}
+              dayList={dayOnPhone ? { list: dayList, events: visibleEvents, filterKey: canManageClasses ? undefined : studentFilter } : undefined}
               onAddButtonsHiddenChange={setAddButtonsHidden}
               levels={levels}
               onEventClick={handleEventClick}

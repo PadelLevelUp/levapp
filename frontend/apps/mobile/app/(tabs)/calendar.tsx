@@ -220,6 +220,8 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
             onToday={calendar.goToToday}
             // Centred on the add-event button (coach: 96pt up, 48pt tall; student: 24pt up).
             todayBottom={isCoach ? 98 : 26}
+            // Rule 26g: switching the student's filter keeps the selected day at the top.
+            filterKey={isCoach ? undefined : studentFilter}
             // PAD-786 (client.pull-to-refresh rule 1): the day list pulls at its top.
             refreshControl={
               <RefreshControl

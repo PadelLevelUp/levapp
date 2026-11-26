@@ -93,7 +93,7 @@ export function MobileCalendar({
    * Dia's continuous list (rule 26): its state, and the events of every loaded day (the student's filter
    * applied). Given only while Dia shows on a phone; Semana and Mês never get it.
    */
-  dayList?: { list: ReturnType<typeof useDayList>; events: CalendarEvent[] };
+  dayList?: { list: ReturnType<typeof useDayList>; events: CalendarEvent[]; filterKey?: string };
   levels?: CoachLevel[];
   onEventClick?: (event: CalendarEvent) => void;
   /** Rule 18: in Mês, true while the day sheet is pulled up — hide the add buttons. */
@@ -194,6 +194,7 @@ export function MobileCalendar({
         <DayList
           list={dayList.list}
           eventsByDay={listEventsByDay}
+          filterKey={dayList.filterKey}
           nextEventId={listNextEventId}
           levelCodeById={levelCodeById}
           onEventClick={onEventClick}
