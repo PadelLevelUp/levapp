@@ -159,7 +159,8 @@ mobile. Spec first with a fresh-agent review, web and iOS together, own PR, no s
     null), and, for a weekly private request, its recurrence. Nothing in it is editable.
 16. **"Propose another time" from the chat still opens the form.** The coach's request bubble sends them
     to `/class-requests?proposeFor=<id>` (web, `MessageBubble`) or
-    `/settings?section=classRequests&proposeFor=<id>` (iOS, `app/conversation/[id].tsx`). Today both
+    `/class-requests?proposeFor=<id>` (iOS, `app/conversation/[id].tsx`; installed builds push
+    `/settings?section=classRequests&proposeFor=<id>`, which still lands on the same screen). Today both
     shells find that request in the whole list they hold. The table instead reads that one request
     (`kind=private&id=<id>`, rule 7), whatever page or section it is on, and when it is `pending` opens
     the propose form on it, prefilled with its slot, as today. A request that is not pending, or not
@@ -390,8 +391,8 @@ test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.join
 
 #### CLASSES-COACH-REQUESTS-TABLE-21: "Propose another time" from the chat opens the form on that request wherever it pages (rule 16)
 - **Given** Ana with 60 open requests, and Bruno's pending private request on what would be page 3 of Em aberto
-- **When** Ana follows her bubble's "Propose another time" — web `/class-requests?proposeFor=<id>`, iOS `/settings?section=classRequests&proposeFor=<id>`
-- **Then** the table reads `kind=private&id=<id>`, opens the propose form on Bruno's request prefilled with its date, start and end, and removes `proposeFor` from the route; on iOS the route lands on the Pedidos de Aula screen
+- **When** Ana follows her bubble's "Propose another time" — web `/class-requests?proposeFor=<id>`, iOS `/class-requests?proposeFor=<id>` (installed builds: `/settings?section=classRequests&proposeFor=<id>`)
+- **Then** the table reads `kind=private&id=<id>`, opens the propose form on Bruno's request prefilled with its date, start and end, and removes `proposeFor` from the route; on iOS both routes land on the Pedidos de Aula screen
 - **And** the same link for a request that is `countered`, decided, or another coach's opens no form
 test: `frontend/apps/web/src/components/class-requests/CoachRequestsTable.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-21] proposeFor opens the form on a request on any page`; `frontend/apps/mobile/src/features/class-requests/coach-requests-screen.test.tsx` › `[CLASSES-COACH-REQUESTS-TABLE-21] proposeFor from settings lands on the screen and opens the form`
 
