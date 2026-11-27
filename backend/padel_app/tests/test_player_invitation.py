@@ -191,6 +191,33 @@ def test_accept_with_duplicate_username_409(client, app):
         assert invitation.status == "pending"
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-14")
+def test_accept_with_a_password_of_seven_400_and_still_pending(client, app):
+    """Rule 5 (PAD-886): 8 characters, the sign-up minimum, refused on `password`."""
+    user_id, coach_id = make_coach(app)
+
+    create = client.post(
+        "/api/app/incomplete_player",
+        json={"coachId": coach_id, "name": "Seven Chars"},
+        headers=_auth_header(app, user_id),
+    )
+    token = create.get_json()["token"]
+
+    resp = client.post(
+        f"/api/app/player-invitations/{token}/accept",
+        json={"birthDate": "1990-01-01", "username": "seven_player", "password": "Abc1234"},
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["field"] == "password"
+
+    from padel_app.models import PlayerInvitation, User
+
+    with app.app_context():
+        invitation = PlayerInvitation.query.filter_by(token_hash=__import__("padel_app.utils.token_hash", fromlist=["hash_token"]).hash_token(token)).one()
+        assert invitation.status == "pending"
+        assert User.query.filter_by(username="seven_player").first() is None
+
+
 @pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-4")
 def test_accept_expired_invitation_410(app):
     from padel_app.services.player_invitation_service import (

@@ -67,9 +67,7 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     `400 {"error": "invalid_fields", "fields": [...]}` naming every such field, and nothing is
     written — the account stays `inactive`. A password shorter than 8 characters is refused the same
     way (owner decision 2026-11-10: 8 characters everywhere, sign-up's `PASSWORD_MIN_LENGTH`); the
-    web and iOS forms refuse under 8 before sending and show that refusal on the password field.
-    Code to follow: the server does not check the length yet; `activate_user_service` refuses under
-    8 with `invalid_fields`. The username is stored as
+    web and iOS forms refuse under 8 before sending and show that refusal on the password field. The username is stored as
     checked: trimmed and lower-cased (`auth.register` rule 2a). A username another account holds is answered 409
     "Username already taken" (as `players.invite-completion` and self-signup do). The web and iOS
     screens already send every field, `""` when emptied (their own validation stops an empty name,
@@ -202,6 +200,8 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **Then** the answer is 400 with `fields` `["name", "password"]`, the account is still `inactive`, and its phone is untouched
 - **When** the body carries no `password` at all
 - **Then** the answer is 400 with `fields` `["password"]`
+- **When** the password has seven characters
+- **Then** the answer is 400 with `fields` `["password"]` and the account is still `inactive`; one of eight activates it
 - **When** the body carries no `username` and the account still holds its `pending-…` placeholder
 - **Then** the answer is 400 with `fields` `["username"]` — a user who already chose a username may omit it
 

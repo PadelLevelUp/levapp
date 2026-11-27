@@ -79,7 +79,6 @@ A coach who belongs to a club can invite another coach to join that club via a s
      already taken (409, rule 10); an email already registered (409).
 
 10. The new-user accept needs `name`, `username` and `password` (400 without them) and a username nobody has (409 otherwise). Neither refusal uses the invitation: it stays pending. The password is at least 8 characters, the sign-up minimum (`auth.register` rule 4; owner decision 2026-11-10: 8 everywhere, server and forms), refused with 400 on `password` by the accept and before sending by the web and iOS forms.
-    - Code to follow: the server does not check the length yet; the accept service checks `PASSWORD_MIN_LENGTH` as sign-up does (today it checks presence only).
 11. The accept is throttled per IP address with sign-up's limit (`register`): past it the answer is 429 `RATE_LIMITED`. A 409 does not use the invitation, so without the limit a pending link would tell anyone whether an email is registered.
 
 ### Acceptance Criteria
@@ -189,6 +188,8 @@ test: `backend/padel_app/tests/test_coach_invitation.py` › `test_revoke_as_mem
 - **When** a visitor accepts with no name or password, or with username `taken_username`
 - **Then** the first is 400 and the second is 409
 - **And** the invitation is still pending after the 409
+- **When** a visitor accepts with a password of seven characters
+- **Then** the answer is 400 on `password`, no account is created and the invitation is still pending
 test: `backend/padel_app/tests/test_coach_invitation.py` › `test_accept_with_missing_fields_400` (+1 more)
 
 #### CLUBS-COACH-INVITATION-18: An email is judged the same whatever the build declares (rules 8, 9)

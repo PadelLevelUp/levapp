@@ -121,6 +121,7 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     # check sign-up shares. Raises RegistrationError (400 on birthDate) before anything is written.
     from padel_app.services.registration_service import (
         _UPDATE_APP,
+        PASSWORD_MIN_LENGTH,
         RegistrationError,
         assert_email_free,
         normalised_email,
@@ -132,6 +133,11 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     from padel_app.utils.client_capabilities import COACH_INVITE_EMAIL, client_declares
     from padel_app.utils.dates import utcnow_naive
 
+    # Rule 10 (PAD-867): the sign-up minimum, refused on `password`; the invitation stays pending.
+    if not isinstance(password, str) or len(password) < PASSWORD_MIN_LENGTH:
+        raise RegistrationError(
+            f"password must be at least {PASSWORD_MIN_LENGTH} characters", 400, "password"
+        )
     birth_date = validate_adult_birth_date(
         data.get("birthDate"), utcnow_naive().date(), update_app_message=_UPDATE_APP["birthDate"]
     )
