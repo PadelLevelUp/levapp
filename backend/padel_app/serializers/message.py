@@ -85,8 +85,41 @@ def _started_open_engine_invite(meta) -> bool:
         return False
 
 
-def serialize_message(message, last_read_at, *, class_deleted=False, viewer_id=None):
+def reminder_come_back(message, viewer_id, cache: dict | None = None):
+    """attendance.confirm rule 32: the ``comeBack`` a ``notification_reminder`` message carries for its
+    student (``viewer_id``), the value the class payload serves for its occurrence; ``None`` for any other
+    viewer or message type, and when the student has not recorded a no. ``cache`` (per occurrence) lets a
+    thread read each occurrence once."""
+    if viewer_id is None or getattr(message, "message_type", None) != "notification_reminder":
+        return None
+    if viewer_id == message.sender_id:
+        return None
+    instance_id = referenced_instance_id(message)
+    if instance_id is None:
+        return None
+    if cache is not None and instance_id in cache:
+        return cache[instance_id]
+    from padel_app.models import LessonInstance, Player, Presence
+    from padel_app.services.notification_service import student_come_back
+    from padel_app.sql_db import db
+
+    value = None
+    instance = db.session.get(LessonInstance, instance_id)
+    player = Player.query.filter_by(user_id=viewer_id).first() if instance is not None else None
+    if player is not None:
+        presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player.id).first()
+        value = student_come_back(presence, instance, player_id=player.id)
+    if cache is not None:
+        cache[instance_id] = value
+    return value
+
+
+def serialize_message(message, last_read_at, *, class_deleted=False, viewer_id=None, come_backs=None):
     """One message, as ``viewer_id`` reads it (None: whatever every participant may see).
+
+    ``comeBack`` (attendance.confirm rule 32) is served only when a viewer is named: a reminder's
+    student reads it; a payload for no one in particular (a live event) leaves the key out, so a client
+    keeps what it last read. ``come_backs``: a per-occurrence cache a list shares.
 
     `class_deleted` comes from `deleted_class_message_ids` when a list is
     serialised. A single message on the realtime path (just created or edited,
@@ -111,6 +144,7 @@ def serialize_message(message, last_read_at, *, class_deleted=False, viewer_id=N
         }
 
     is_read = bool(last_read_at and message.sent_at <= last_read_at)
+    come_back = {} if viewer_id is None else {"comeBack": reminder_come_back(message, viewer_id, come_backs)}
 
     return {
         "id": message.id,
@@ -134,4 +168,5 @@ def serialize_message(message, last_read_at, *, class_deleted=False, viewer_id=N
         "classDeleted": bool(class_deleted),
         # messaging.messages rule 6 / conversation-detail rule 16 (PAD-492).
         "isAutomatic": is_automatic(message),
+        **come_back,
     }

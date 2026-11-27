@@ -192,6 +192,7 @@ def serialize_conversation_detail(
         messages = sorted(conversation.messages, key=lambda m: m.sent_at)
     # messaging.conversation-detail rule 15: one lookup for the whole page.
     deleted = deleted_class_message_ids(messages)
+    come_backs: dict = {}   # attendance.confirm rule 32: each occurrence's comeBack read once per page
 
     return {
         **serialize_conversation(conversation, user_id),
@@ -200,7 +201,8 @@ def serialize_conversation_detail(
             is_known_contact(viewer, conversation) if viewer else True
         ),
         "messages": [
-            serialize_message(m, last_read_at, class_deleted=m.id in deleted, viewer_id=user_id)
+            serialize_message(m, last_read_at, class_deleted=m.id in deleted, viewer_id=user_id,
+                              come_backs=come_backs)
             for m in messages
         ],
         "hasMore": has_more,
