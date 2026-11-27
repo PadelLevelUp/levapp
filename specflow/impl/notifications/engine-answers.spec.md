@@ -165,7 +165,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
       setting (`notifications.engine-settings` rule 11) is not read: a return takes back a place the
       student held; it is not a fill (as `RegularReturns` today).
     - **Same hour.** A student placed in another session at the same hour, a regular included, is
-      refused: nothing placed, nothing sent, no sorry (rule 10). So `comeBack` never offers a return the
+      refused: nothing placed, nothing sent to them, no sorry (rule 10). So `comeBack` never offers a return the
       store's same-hour guard would refuse (`attendance.confirm` rule 32).
     - **With a free place:** `Placed(student, side, how)`, `how` `regular_returns` for a regular (as
       today) and the new `returns` for anyone else; the side is the student's own side when they play one side
