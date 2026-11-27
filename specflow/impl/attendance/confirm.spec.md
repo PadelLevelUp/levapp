@@ -755,6 +755,15 @@ test: `frontend/apps/web/e2e/attendance/engine-afinal-vou-free-place.spec.ts` �
   for its student always carries the key. A student whose presence is absent with no left reason (the
   coach's "Não vai" mark alone) has no return in the engine (`notifications.engine-answers` rule 16), so
   on the new engine they read `waiting_list` or `on_waiting_list`, as their tap would answer.
+- **A no given in the open thread, after its `comeBack` was read (rule 32) — decision (client build agent,
+  27 Nov 2026; the owner can reverse it):** the value the thread read before the no (usually `null`: no
+  no recorded yet) is about another state, and the live `message_edited` that follows leaves the key out,
+  so read literally the bubble would show nothing until a reload, a regression on both apps. Instead
+  the client drops that value when it records the student's own answer (web: the bubble's local answer;
+  iOS: `reminderAnswerPatch` / `reminderCancelPatch` on the cached message) and the bubble shows today's
+  "Afinal vou"; the tap judges (`spot_filled` → the `waiting_list` line, and iOS writes `waiting_list`
+  into the cached message). The next read of the thread serves the engine's value. Alternative for the
+  owner: refetch the thread after a no, one more request per answer.
 - A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,
   owner away, PAD-913, 2026-11-12; the owner can reverse it): late. The owner's D4 has the engine mark
   every absence on time or late by the cutoff, and today's "a reminder decline is never late" rested on
