@@ -978,6 +978,14 @@ export interface Message {
   reactions?: { emoji: string; userId: string | number }[];
   actions?: MessageAction[];
   messageType?: string;
+  /**
+   * attendance.confirm rule 32: on a `notification_reminder` read by its student, the same
+   * `comeBack` the class payload serves for its occurrence (`ClassInstance.comeBack`); `null` for
+   * the coach, other message types, or no recorded no. A live `message_created` / `message_edited`
+   * leaves the key OUT (serialized for no viewer): keep the value last read; with none, the bubble
+   * keeps its older behaviour (`reminderBubbleComeBack` in `@levelup/config`).
+   */
+  comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
   metadata?: {
     notificationEventId?: number;
     lessonInstanceId?: number;

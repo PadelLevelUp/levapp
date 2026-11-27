@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canConfirmAttendance, comeBackAction, comeBackFromAnswer, reminderAnswerOutcome, reminderArrivedFor, studentRowAction } from "./reminder-answer";
+import { canConfirmAttendance, comeBackAction, comeBackFromAnswer, reminderAnswerOutcome, reminderArrivedFor, reminderBubbleComeBack, studentRowAction } from "./reminder-answer";
 
 /**
  * PAD-315 (`attendance.confirm` rule 26) and B-074.
@@ -197,5 +197,27 @@ describe("comeBackAction - 'Afinal vou' (rule 28, PAD-684): the server's comeBac
     expect(comeBackFromAnswer({ action: "confirmed" })).toBeNull();
     expect(comeBackFromAnswer(null)).toBeNull();
     expect(reminderAnswerOutcome({ action: "spot_filled" }).messageKey).toBe("calendar.detail.spotFilled");
+  });
+});
+
+describe("reminderBubbleComeBack - the reminder bubble's 'Afinal vou' (rule 32)", () => {
+  const live = { recordedNo: true, classInFuture: true, noGivenHere: false };
+  it("[ATTENDANCE-CONFIRM-46] the bubble offers 'Afinal vou' only for rejoin; the other values say what the server says", () => {
+    expect(reminderBubbleComeBack("rejoin", live)).toBe("rejoin");
+    expect(reminderBubbleComeBack("waiting_list", live)).toBe("waiting_list");
+    expect(reminderBubbleComeBack("on_waiting_list", live)).toBe("on_waiting_list");
+    expect(reminderBubbleComeBack(null, live)).toBeNull();
+  });
+  it("[ATTENDANCE-CONFIRM-46] an older server (no comeBack key) keeps today's button after a recorded no", () => {
+    expect(reminderBubbleComeBack(undefined, live)).toBe("rejoin");
+  });
+  it("[ATTENDANCE-CONFIRM-46] a no given in this session outdates the value read before it: today's button, the tap judges", () => {
+    expect(reminderBubbleComeBack(null, { ...live, noGivenHere: true })).toBe("rejoin");
+    expect(reminderBubbleComeBack("waiting_list", { ...live, noGivenHere: true })).toBe("rejoin");
+  });
+  it("offers nothing without a recorded no or once the class has started", () => {
+    expect(reminderBubbleComeBack("rejoin", { ...live, recordedNo: false })).toBeNull();
+    expect(reminderBubbleComeBack(undefined, { ...live, classInFuture: false })).toBeNull();
+    expect(reminderBubbleComeBack("waiting_list", { ...live, classInFuture: false })).toBeNull();
   });
 });

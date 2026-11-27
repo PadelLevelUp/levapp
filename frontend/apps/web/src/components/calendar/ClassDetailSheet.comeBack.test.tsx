@@ -4,7 +4,7 @@
  * (an older server, no field) the PAD-570 hint. Located by test id (R-013).
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { CalendarEvent } from "@levelup/types";
@@ -137,5 +137,46 @@ describe("Afinal vou (PAD-684)", () => {
     expect(await screen.findByTestId("class-declined-hint")).toBeTruthy();
     expect(screen.queryByTestId("attendance-come-back")).toBeNull();
     expect(screen.queryByTestId("attendance-come-back-waiting-list")).toBeNull();
+  });
+});
+
+/** attendance.confirm rule 32: the class detail shows "Afinal vou" only while a place is free. */
+describe("rule 32 the class detail", () => {
+  it('[ATTENDANCE-CONFIRM-46] the class detail offers "Afinal vou" only for rejoin', async () => {
+    const cases = [
+      ["rejoin", "attendance-come-back"],
+      ["waiting_list", "attendance-come-back-spot-taken"],
+      ["on_waiting_list", "attendance-come-back-on-waiting-list"],
+    ] as const;
+    for (const [comeBack, visible] of cases) {
+      api.getClassInstance.mockReset().mockResolvedValue(instance({ comeBack }));
+      renderSheet();
+      expect(await screen.findByTestId(visible)).toBeTruthy();
+      expect(!!screen.queryByTestId("attendance-come-back")).toBe(comeBack === "rejoin");
+      expect(!!screen.queryByTestId("attendance-come-back-waiting-list")).toBe(comeBack === "waiting_list");
+      cleanup();
+    }
+    // null: not offered - none of them, and no PAD-570 hint either.
+    api.getClassInstance.mockReset().mockResolvedValue(instance({ comeBack: null }));
+    renderSheet();
+    await waitFor(() => expect(api.getClassInstance).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 100));
+    for (const id of ["attendance-come-back", "attendance-come-back-spot-taken", "attendance-come-back-waiting-list", "attendance-come-back-on-waiting-list"]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+  });
+
+  it("[ATTENDANCE-CONFIRM-46] a tap answered spot_filled moves to the waiting-list line, as information, never an error", async () => {
+    api.getClassInstance
+      .mockResolvedValueOnce(instance({ comeBack: "rejoin" }))
+      .mockResolvedValue(instance({ comeBack: "waiting_list" }));
+    api.respondToReminder.mockResolvedValue({ action: "spot_filled" });
+    renderSheet();
+    fireEvent.click(await screen.findByTestId("attendance-come-back"));
+    expect(await screen.findByTestId("attendance-come-back-spot-taken")).toBeTruthy();
+    // The sheet's i18n is real: the title is the copy of `calendar.detail.spotFilled`, in the plain variant.
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: "default" })));
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
+    expect(screen.queryByTestId("attendance-come-back")).toBeNull();
   });
 });

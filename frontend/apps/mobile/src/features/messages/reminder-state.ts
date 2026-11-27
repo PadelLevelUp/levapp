@@ -152,3 +152,38 @@ export function reminderResponseOutcome(
   if (outcome.record === "not_enrolled") return { write: "not_enrolled", toastKey: null };
   return { write: null, toastKey: outcome.messageKey };
 }
+
+type CachedReminder = {
+  metadata?: Record<string, unknown>;
+  comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
+};
+
+/** The message without its `comeBack`: a value read before an answer is about another state. */
+function withoutComeBack<M extends CachedReminder>(m: M): M {
+  const { comeBack: _stale, ...rest } = m;
+  return rest as M;
+}
+
+/**
+ * attendance.confirm rule 32: what the conversation screen writes into the cached reminder after
+ * the server answered a reminder tap, or `null` to leave it as it was. A recorded answer drops the
+ * served `comeBack` (the bubble falls back to the older button; the tap judges); a `spot_filled`
+ * records nothing but the server's word that the place went (`waiting_list`), so the bubble keeps
+ * saying so after the list unmounts and remounts it.
+ */
+export function reminderAnswerPatch<M extends CachedReminder>(m: M, action: string | null | undefined): M | null {
+  if (action === "spot_filled") return { ...m, comeBack: "waiting_list" };
+  const write = reminderResponseOutcome(action).write;
+  if (write === null) return null;
+  return { ...withoutComeBack(m), metadata: { ...m.metadata, responded: true, response: write } };
+}
+
+/** The cancel from the bubble (`cancel_attendance`) records a no: same as `reminderAnswerPatch`'s. */
+export function reminderCancelPatch<M extends CachedReminder>(m: M): M {
+  return { ...withoutComeBack(m), metadata: { ...m.metadata, responded: true, response: "no" } };
+}
+
+/** Rule 32: a place that went before the tap is information (the shell's `warning`), never an error. */
+export function reminderToastVariant(action: string | null | undefined): "warning" | "error" {
+  return action === "spot_filled" ? "warning" : "error";
+}

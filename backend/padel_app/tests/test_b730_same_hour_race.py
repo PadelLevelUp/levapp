@@ -142,6 +142,10 @@ def test_a_request_that_loses_another_students_automatic_entry_goes_through(app,
     with app.app_context():
         store, (s, other), (_, waiting, excluded) = _seed(app, starts=(LATER, LATER), players=3, side="right",
                                                           capacity=2)
+        from padel_app.models.notification_config import NotificationConfig
+        # engine-store rule 17: the automatic entry this race is about plans only with the switches on.
+        db.session.add(NotificationConfig(coach_id=store.coach_of(s), auto_notify_enabled=True, engine_version="new",
+                                          engine_switched_at=NOW - timedelta(days=1)))
         db.session.add(WaitingListEntry(lesson_instance_id=int(s), player_id=int(waiting),
                                         coach_id=store.coach_of(s), is_active=True, added_by="student",
                                         joined_at=NOW - timedelta(hours=1)))

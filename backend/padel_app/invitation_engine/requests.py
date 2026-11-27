@@ -48,9 +48,11 @@ class LeaveWaitingList:
 
 @dataclass(frozen=True)
 class RegularAbsent:
-    """A regular says they are not going (plan §8 step 4)."""
+    """A regular says they are not going (plan §8 step 4); ``by`` the coach when it is the coach's absent
+    mark before the class (engine-store rule 19), which leaves the student's answer alone."""
 
     student: str
+    by: Literal["student", "coach"] = "student"
 
 
 @dataclass(frozen=True)
@@ -59,10 +61,20 @@ class RegularReturns:
 
 
 @dataclass(frozen=True)
-class Cancel:
-    """A placed non-regular is not going after all (plan §7, "cancels after accepting")."""
+class Returns:
+    """"Afinal vou" from a student who is not a regular and left the session by a cancellation or a No
+    to the attendance request (engine-answers rule 16): a free place on a side they play, or nothing."""
 
     student: str
+
+
+@dataclass(frozen=True)
+class Cancel:
+    """A placed non-regular is not going after all (plan §7, "cancels after accepting"); ``by`` as on
+    ``RegularAbsent``."""
+
+    student: str
+    by: Literal["student", "coach"] = "student"
 
 
 @dataclass(frozen=True)
@@ -180,10 +192,10 @@ class ReopenGroup:
 
 COACH_QUEUE_REQUESTS = (ApproveGroup, DismissGroup, ReopenGroup)
 
-Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
+Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Returns | Cancel
            | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | CoachSetsSide | CoachInvites
            | CoachRequestsAttendance | Appear
            | UpdateSettings
            | ApproveGroup | DismissGroup | ReopenGroup)
-STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,
-                    NoShow, ConfirmAttendance)
+STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Returns,
+                    Cancel, NoShow, ConfirmAttendance)

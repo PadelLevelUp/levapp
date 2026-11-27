@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/api/notificationEngine", () => ({ respondToReminder: api.respondToReminder }));
 vi.mock("@/api/academyClasses", () => ({ joinClassWaitingList: api.joinClassWaitingList }));
 import { ComeBackSlot } from "./ComeBackSlot";
+import { toast } from "sonner";
 
 const target = { model: "Lesson", originalId: 3, date: "2099-10-19" };
 const item = (extra: Record<string, unknown> = {}) => ({
@@ -24,7 +25,7 @@ const item = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-beforeEach(() => { api.respondToReminder.mockReset(); api.joinClassWaitingList.mockClear(); });
+beforeEach(() => { api.respondToReminder.mockReset(); api.joinClassWaitingList.mockClear(); vi.mocked(toast).mockClear(); vi.mocked(toast.error).mockClear(); });
 afterEach(cleanup);
 
 describe("PAD-684 dashboard 'Afinal vou'", () => {
@@ -68,5 +69,38 @@ describe("PAD-684 dashboard 'Afinal vou'", () => {
   it("null (not offered) renders nothing", () => {
     const { container } = render(<ComeBackSlot item={item({ comeBack: null })} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+/** attendance.confirm rule 32: the dashboard slot shows "Afinal vou" only while a place is free. */
+describe("rule 32 the dashboard slot", () => {
+  it('[ATTENDANCE-CONFIRM-46] the dashboard slot offers "Afinal vou" only for rejoin', () => {
+    const shown = () => ({
+      button: !!screen.queryByTestId("dashboard-come-back"),
+      spotTaken: !!screen.queryByTestId("dashboard-come-back-spot-taken"),
+      join: !!screen.queryByTestId("dashboard-come-back-waiting-list"),
+      onList: !!screen.queryByTestId("dashboard-come-back-on-waiting-list"),
+    });
+    const cases = [
+      ["rejoin", { button: true, spotTaken: false, join: false, onList: false }],
+      ["waiting_list", { button: false, spotTaken: true, join: true, onList: false }],
+      ["on_waiting_list", { button: false, spotTaken: false, join: false, onList: true }],
+      [null, { button: false, spotTaken: false, join: false, onList: false }],
+    ] as const;
+    for (const [comeBack, expected] of cases) {
+      render(<ComeBackSlot item={item({ comeBack })} />);
+      expect({ comeBack, ...shown() }).toEqual({ comeBack, ...expected });
+      cleanup();
+    }
+  });
+
+  it("[ATTENDANCE-CONFIRM-46] a tap answered spot_filled shows the waiting-list line, as information, never an error", async () => {
+    api.respondToReminder.mockResolvedValue({ action: "spot_filled" });
+    render(<ComeBackSlot item={item()} onAnswered={() => new Promise(() => undefined)} />);
+    fireEvent.click(screen.getByTestId("dashboard-come-back"));
+    await screen.findByTestId("dashboard-come-back-spot-taken");
+    expect(screen.queryByTestId("dashboard-come-back")).toBeNull();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith("calendar.detail.spotFilled");
   });
 });

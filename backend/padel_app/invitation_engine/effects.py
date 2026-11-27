@@ -140,10 +140,12 @@ class NotAsked(Effect):
 @dataclass(frozen=True)
 class Absence(Effect):
     """A student left the session: the notice they gave by the cutoff (owner ruling D4). The engine
-    never judges an absence justified or unjustified; the coach does, outside it."""
+    never judges an absence justified or unjustified; the coach does, outside it. ``by`` the coach when
+    the absence is the coach's mark before the class (engine-store rule 19): no answer of the student's."""
 
     student: str
     notice: AbsenceNotice
+    by: AnsweredBy = "student"
 
 
 @dataclass(frozen=True)

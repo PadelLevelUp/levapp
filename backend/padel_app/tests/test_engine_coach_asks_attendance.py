@@ -31,6 +31,14 @@ def _context(app, monkeypatch):
         yield
 
 
+def _notifications_on(coach_id):
+    from padel_app.models.notification_config import NotificationConfig
+
+    db.session.add(NotificationConfig(coach_id=coach_id, auto_notify_enabled=True, engine_version="new",
+                                      engine_switched_at=NOW - timedelta(days=1)))
+    db.session.commit()
+
+
 def _coach_user(store, session):
     from padel_app.models.coaches import Coach
 
@@ -83,6 +91,7 @@ def test_the_coachs_ask_is_stored_and_answered_as_a_scheduled_request(app):
     from padel_app.services.engine_runner import engine
 
     store, (s,), (regular, *_pool) = _seed(app, players=3, side="left", capacity=4)
+    _notifications_on(store.coach_of(s))         # engine-store rule 17: the later plan needs the switches on
     inst = db.session.get(LessonInstance, int(s))
 
     asked, not_asked = coach_asks_attendance(inst, {}, NOW)

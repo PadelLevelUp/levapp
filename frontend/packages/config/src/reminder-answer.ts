@@ -103,6 +103,24 @@ export function comeBackAction(
 }
 
 /**
+ * attendance.confirm rule 32: which "Afinal vou" branch the reminder bubble shows. Only a recorded
+ * "no" on a class that has not started is offered anything. Then the `comeBack` served on the
+ * reminder message decides (`rejoin` / `waiting_list` / `on_waiting_list`; `null` = nothing).
+ * With no value to go by - an older server or a live `message_created` (the key is absent), or a
+ * no the student gave in this session (the value read before it is about another state) - the
+ * bubble keeps its older button and the tap judges (`spot_filled` -> `comeBackFromAnswer`).
+ */
+export function reminderBubbleComeBack(
+  comeBack: "rejoin" | "waiting_list" | "on_waiting_list" | null | undefined,
+  ctx: { recordedNo: boolean; classInFuture: boolean; noGivenHere: boolean }
+): Exclude<ComeBackAction, "final_hint"> | null {
+  if (!ctx.recordedNo || !ctx.classInFuture) return null;
+  if (ctx.noGivenHere || comeBack === undefined) return "rejoin";
+  if (comeBack === "rejoin" || comeBack === "waiting_list" || comeBack === "on_waiting_list") return comeBack;
+  return null;
+}
+
+/**
  * A `yes` the server refused with `spot_filled` (the seat went): until the refetch lands,
  * show the waiting-list branch - the server's own answer, nothing invented.
  */

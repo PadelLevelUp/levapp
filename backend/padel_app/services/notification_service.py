@@ -4254,7 +4254,18 @@ def student_come_back(
     if _instance_is_over(instance, now):
         return None
     max_players = instance.effective_max_players
-    if max_players is None or _effective_filled_spots(instance) < max_players:
+    if max_players is None:
+        return "rejoin"
+    if _on_new_engine(instance):
+        # attendance.confirm rule 32: on the new engine, the tap's own predicate (engine-answers rule 16):
+        # room in the class and on a side the student plays, read as the engine reads it.
+        from padel_app.invitation_engine.answers import return_sides
+        from padel_app.services.engine_store import TableStore
+
+        student = str(player_id)
+        if return_sides(TableStore().return_snapshot(str(instance.id), student), student):
+            return "rejoin"
+    elif _effective_filled_spots(instance) < max_players:
         return "rejoin"
     if WaitingListEntry.query.filter_by(
         lesson_instance_id=instance.id, player_id=player_id, is_active=True
@@ -4320,12 +4331,15 @@ def _retake_spot(
 
 
 def _notify_coach_of_return(
-    instance: LessonInstance, player, player_user_id: int, coach_user_id: int | None, locale: str = "en"
+    instance: LessonInstance, player, player_user_id: int, coach_user_id: int | None, locale: str = "en",
+    *, coach_facing: bool = False,
 ) -> "object | None":
     """PAD-684 (attendance.confirm rule 28): tell the coach a student is coming after all.
 
     A message from the student in their shared conversation (real name, ``players.nickname``
-    rule 4) and a push to the coach, modelled on ``_notify_coach_of_cancellation``.
+    rule 4) and a push to the coach, modelled on ``_notify_coach_of_cancellation``. ``coach_facing``
+    (the new engine's notice, engine-store rule 16): the push names the student by the coach's display
+    name (``players.nickname`` rule 9c); the message keeps the real name.
     """
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
@@ -4345,6 +4359,10 @@ def _notify_coach_of_return(
         text = f"{player_name} is coming to {class_title}{when} after all."
         push_title = "Coming after all"
     push_body = text[:100]
+    if coach_facing and player is not None and player.user is not None:
+        from padel_app.services.player_service import coach_facing_text
+
+        push_body = coach_facing_text(text, coach_user_id, player.id, player.user.name)[:100]
 
     conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
     msg = Message(

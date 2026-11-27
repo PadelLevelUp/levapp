@@ -127,7 +127,7 @@ def test_a_no_closes_the_latest_invitation_and_sets_the_gate():
 ALL_STUDENT_REQUESTS = [
     rq.Answer("W1", True), rq.Answer("W1", False), rq.DirectJoin("W1"),
     rq.JoinWaitingList("W1", "coach", side="R"), rq.JoinWaitingList("W1", "students", sides="both"),
-    rq.LeaveWaitingList("W1", "students"), rq.RegularAbsent("R-1"), rq.RegularReturns("R-1"),
+    rq.LeaveWaitingList("W1", "students"), rq.RegularAbsent("R-1"), rq.RegularReturns("R-1"), rq.Returns("W1"),
     rq.Cancel("W1"), rq.NoShow("L-1"), rq.ConfirmAttendance("L-1"), rq.ConfirmAttendance(None),
 ]
 
