@@ -188,6 +188,10 @@ class Engine:
             return []
 
     def _plan(self, session: str, now: datetime, settings: EngineSettings | None = None) -> list[Effect]:
+        """The planner's run after a request or a re-plan. A session whose notifications are off is not
+        planned (engine-store rule 17): the request's own effects stand, nothing automatic goes out."""
+        if not self.store.plans(session):
+            return []
         settings = self.settings_for(session) if settings is None else settings
         return self._commit(planner.decide(self.store.snapshot(session), settings, now).effects)
 

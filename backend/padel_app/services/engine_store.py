@@ -312,24 +312,45 @@ class TableStore:
 
     # --- reading -------------------------------------------------------------------------
 
+    @staticmethod
+    def _switched_on(rows) -> list:
+        """The ``(coach_id, LessonInstance)`` rows whose notification switches are all on
+        (notifications.config rule 19, CONFIG-54; engine-store rule 17): the coach's
+        ``auto_notify_enabled`` (a coach with no row is off), the class's ``notifications_enabled`` and
+        its effective ``auto_invites``. The one predicate ``sessions()`` and ``plans()`` share, so the
+        tick and the request paths never read the switches differently (STORE-45)."""
+        from padel_app.models.notification_config import NotificationConfig
+        from padel_app.services.notification_service import effective_auto_invites
+
+        coaches = {coach_id for coach_id, _ in rows}
+        on = {c.coach_id for c in NotificationConfig.query.filter(
+            NotificationConfig.coach_id.in_(coaches or [-1]), NotificationConfig.auto_notify_enabled.is_(True)).all()}
+        return [inst for coach_id, inst in rows
+                if coach_id in on and inst.notifications_enabled is True and effective_auto_invites(inst)]
+
     def sessions(self) -> tuple[str, ...]:
         from padel_app.models import EngineSession
         from padel_app.models.lesson_instances import LessonInstance
-
-        from padel_app.models.notification_config import NotificationConfig
-        from padel_app.services.notification_service import effective_auto_invites
 
         since = utc_to_wall_naive(self.clock() - AFTER_CLASS)
         rows = (db.session.query(EngineSession.coach_id, LessonInstance)
                 .join(LessonInstance, LessonInstance.id == EngineSession.lesson_instance_id)
                 .filter(LessonInstance.start_datetime >= since, LessonInstance.status != "canceled",
-                        LessonInstance.notifications_enabled.is_(True))
+                        LessonInstance.notifications_enabled.is_(True))      # narrows the read; the predicate decides
                 .order_by(LessonInstance.start_datetime, LessonInstance.id).all())
-        coaches = {coach_id for coach_id, _ in rows}
-        # notifications.config rule 19 (CONFIG-54): the coach's switch and the class's own are the app's.
-        on = {c.coach_id for c in NotificationConfig.query.filter(
-            NotificationConfig.coach_id.in_(coaches or [-1]), NotificationConfig.auto_notify_enabled.is_(True)).all()}
-        return tuple(str(inst.id) for coach_id, inst in rows if coach_id in on and effective_auto_invites(inst))
+        return tuple(str(inst.id) for inst in self._switched_on(rows))
+
+    def plans(self, session: str) -> bool:
+        """Engine-store rule 17: a run plans ``session`` only while its switches are on, read by the
+        listing's own predicate. The listing's window and cancelled filter are not switches and stay
+        the listing's."""
+        from padel_app.models import EngineSession
+        from padel_app.models.lesson_instances import LessonInstance
+
+        rows = (db.session.query(EngineSession.coach_id, LessonInstance)
+                .join(LessonInstance, LessonInstance.id == EngineSession.lesson_instance_id)
+                .filter(EngineSession.lesson_instance_id == int(session)).all())
+        return bool(self._switched_on(rows))
 
     def has_session(self, session: str) -> bool:
         from padel_app.models import EngineSession

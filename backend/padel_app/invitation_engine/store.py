@@ -37,6 +37,10 @@ class UnitConflict(Exception):
 
 class SessionStore(Protocol):
     def sessions(self) -> tuple[str, ...]: ...
+    def plans(self, session: str) -> bool:
+        """Whether a run may plan ``session`` (engine-store rule 17): false while its notification
+        switches are off. A table store answers from the same predicate as ``sessions()``."""
+        ...
     def snapshot(self, session: str) -> SessionSnapshot: ...
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
@@ -130,6 +134,10 @@ class MemoryStore:
 
     def sessions(self) -> tuple[str, ...]:
         return tuple(self._sessions)
+
+    def plans(self, session: str) -> bool:
+        """The harness has no notification switches: every session plans (engine-store rule 17)."""
+        return True
 
     def has_session(self, session: str) -> bool:
         return session in self._sessions
