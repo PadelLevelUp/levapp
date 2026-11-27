@@ -517,8 +517,9 @@ test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans
   it): reuse the snapshot when a step applied nothing, and scope the history reads in SQL. This touches
   `Engine.tick` (`notifications.engine-planning`'s run) without changing what it decides.
 - Automatic waiting-list offers and automatic entry on a class whose switches are off (rule 17; P0, 27 Nov
-  2026) — decision (P0 fix agent, nobody reachable to review; the owner can reverse it): none, on any
-  switch. The waiting list's invitations are automatic invitations: on the old engine they go out in the
+  2026) — decided by the orchestrator, 27 Nov 2026, under the owner's words of 26 Nov ("já desliguei as
+  notificações automáticas... continua a mandar"); the owner can overrule it: on a switched-off class
+  nothing automatic happens and the coach places by hand. None, on any switch. The waiting list's invitations are automatic invitations: on the old engine they go out in the
   same gated batch as the groups' (`notifications.waiting-list` rule 4, PAD-446), so the class's
   `notifications_enabled` and the coach's `autoNotifyEnabled` stop them (`trigger_invitations`), and
   `notifications.toggle-class` rule 6 (PAD-429) says they stop with `auto_invites` off too. What that rule
@@ -526,7 +527,7 @@ test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans
   new engine the "sorry" reply to the acting student (`notifications.engine-answers`), which rule 17 does
   not stop. Automatic entry from a waiting list (`notifications.engine-settings` rule 3) has no old-engine
   counterpart since PAD-446; it stops with the switches, as the tick already did for an unlisted session
-  (`notifications.config` rule 19). Open for the owner: should automatic entry survive any of the switches?
+  (`notifications.config` rule 19). Decided with the rest: it stops.
 - Attendance requests (reminders) on a class where only automatic invitations are off (rule 17;
   `notifications.config` rule 19) — not changed by the P0 fix, open for the owner: the tick's listing
   drops the whole session, so the scheduled attendance requests stop too, whereas the old engine kept
