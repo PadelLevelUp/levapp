@@ -540,3 +540,8 @@ test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans
   stay open (nothing withdraws them), and while the session is unlisted the tick runs no timeline for it
   (their counting-until, attendance requests and absences after the class wait until it is listed again);
   the coach's semi-automatic answer on such a class sends nothing.
+- Found by the review of rule 17's fix (27 Nov 2026), open, not built: the run lists its sessions once and
+  does not ask again before planning each one, so a class switched off between the listing and its own
+  unit is still planned in that one run (a window of seconds); and while a class is off the plan's
+  housekeeping stops with it (a pending approval request and a coach alert stay as they were until the
+  switch is back on, when the next run plans the session again and refills a freed seat).
