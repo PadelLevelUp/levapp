@@ -748,6 +748,13 @@ test: `frontend/apps/web/e2e/attendance/engine-afinal-vou-free-place.spec.ts` �
   read one field with no extra request; the cost is a free-place read per reminder message that records a
   no, on the thread's load. A bubble does not refresh when a place opens or closes elsewhere; the tap's
   answer is the guard. iOS ships in the same change (`frontend/CLAUDE.md`, web and iOS ship together).
+- **The reminder message's `comeBack` with no viewer named (rule 32) — decision (build agent, 27 Nov 2026;
+  the owner can reverse it):** a payload serialized for no one in particular (a live `message_created` or
+  `message_edited`, `serialize_message(msg, None)`) leaves the `comeBack` key out rather than sending
+  `null`, so a client keeps the value it last read (or, without one, today's button); the thread's own read
+  for its student always carries the key. A student whose presence is absent with no left reason (the
+  coach's "Não vai" mark alone) has no return in the engine (`notifications.engine-answers` rule 16), so
+  on the new engine they read `waiting_list` or `on_waiting_list`, as their tap would answer.
 - A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,
   owner away, PAD-913, 2026-11-12; the owner can reverse it): late. The owner's D4 has the engine mark
   every absence on time or late by the cutoff, and today's "a reminder decline is never late" rested on

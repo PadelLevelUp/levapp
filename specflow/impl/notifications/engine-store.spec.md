@@ -637,3 +637,10 @@ test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans
   unit is still planned in that one run (a window of seconds); and while a class is off the plan's
   housekeeping stops with it (a pending approval request and a coach alert stay as they were until the
   switch is back on, when the next run plans the session again and refills a freed seat).
+- How rule 16's notice is sent (27 Nov 2026, build agent; the owner can reverse it): a return's `Placed`
+  row in `engine_effects` is an outbox row, sent by `dispatch` after the commit (once, claimed; a rollback
+  drops it; a retried apply finds its key and writes nothing). The push names the student by the coach's
+  display name on the new engine only; the old path's `_notify_coach_of_return` push keeps the real name.
+- The class detail's invitee row (`calendar.event-detail` ND1) reads a `returns` placement as placed, so an
+  invitee who cancelled and came back reads `accepted` again (CALENDAR-EVENT-DETAIL-33), not
+  `not_counting`.
