@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from padel_app.invitation_engine.effects import Absence, AbsenceNotice, Effect, LeftReason
+from padel_app.invitation_engine.effects import Absence, AbsenceNotice, AnsweredBy, Effect, LeftReason
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.snapshot import SessionSnapshot
 from padel_app.utils.dates import wall_to_utc_naive
@@ -41,8 +41,9 @@ def notice(snapshot: SessionSnapshot, settings: EngineSettings, student: str, re
 
 
 def record(snapshot: SessionSnapshot, settings: EngineSettings, student: str, reason: LeftReason,
-           now: datetime) -> tuple[Effect, ...]:
-    """The ``Absence`` effect for ``student`` leaving for ``reason`` at ``now`` (naive UTC).
+           now: datetime, by: AnsweredBy = "student") -> tuple[Effect, ...]:
+    """The ``Absence`` effect for ``student`` leaving for ``reason`` at ``now`` (naive UTC); ``by`` who
+    made them leave (the coach's absent mark, engine-store rule 19).
 
     Call it before the ``Left`` is applied, while the snapshot still shows how the student came in."""
-    return (Absence(snapshot.id, now, student, notice(snapshot, settings, student, reason, now)),)
+    return (Absence(snapshot.id, now, student, notice(snapshot, settings, student, reason, now), by),)

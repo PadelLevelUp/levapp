@@ -82,11 +82,11 @@ def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request
         p = snapshot.placement(request.student)
         if p is None or p.how not in ("regular", "regular_returns"):
             return Outcome()
-        return Outcome(_leave(snapshot, settings, request.student, "regular_no", now))
+        return Outcome(_leave(snapshot, settings, request.student, "regular_no", now, request.by))
     if isinstance(request, Cancel):
         if snapshot.placement(request.student) is None:
             return Outcome()
-        return Outcome(_leave(snapshot, settings, request.student, "cancel", now))
+        return Outcome(_leave(snapshot, settings, request.student, "cancel", now, request.by))
     if isinstance(request, ConfirmAttendance):
         who = ([request.student] if request.student is not None
                else [r.id for r in snapshot.regulars if snapshot.placement(r.id) is not None])
@@ -135,11 +135,12 @@ def coach_sets_side(snapshot: SessionSnapshot, request: CoachSetsSide, now: date
 # --- leaving ----------------------------------------------------------------------------------
 
 def _leave(snapshot: SessionSnapshot, settings: EngineSettings, student: str, reason: LeftReason,
-           now: datetime) -> tuple[Effect, ...]:
+           now: datetime, by: AnsweredBy = "student") -> tuple[Effect, ...]:
     """The absence, decided while the snapshot still shows how the student came in (engine-timeline
     rules 5, 7; engine-answers rule 6), then the departure. An automatic entrant who says No also
-    leaves the session's waiting list (engine-settings rule 3)."""
-    out: list[Effect] = list(absences.record(snapshot, settings, student, reason, now))
+    leaves the session's waiting list (engine-settings rule 3). ``by``: who made them leave, the coach
+    for the coach's absent mark (engine-store rule 19)."""
+    out: list[Effect] = list(absences.record(snapshot, settings, student, reason, now, by))
     out.append(Left(snapshot.id, now, student, reason))
     p = snapshot.placement(student)
     if p is not None and p.how == "auto_from_waiting_list":

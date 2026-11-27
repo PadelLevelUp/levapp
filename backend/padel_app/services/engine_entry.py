@@ -311,14 +311,21 @@ def _coach_of(instance) -> int:
     return primary_coach(instance).id
 
 
-def coach_marks_absent(instance, presence, now: datetime | None = None) -> None:
+def coach_marks_absent(instance, presence, now: datetime | None = None, *, justification: str | None = None) -> list:
     """The coach's attendance sheet marks a student absent: after the class started it is a no-show
-    (``NoShow``, the engine records the absence); before it, the spot opens as for the student's own No."""
+    (``NoShow``, the engine records the absence); before it, the spot opens as for the student's own No,
+    but the leaving is the coach's (engine-store rule 19): the student's answer stays as it was, and the
+    coach's record (``validated``, ``recorded_by``, ``justification``) lands in the engine's unit, one
+    commit with the freed seat. Returns the engine's effects."""
+    from padel_app.services.engine_store import coach_mark
+
     now = now or utcnow_naive()
+    student = str(presence.player_id)
     if instance.start_datetime is not None and utc_to_wall_naive(now) >= instance.start_datetime:
-        handle(instance, rq.NoShow(str(presence.player_id)), now)
-    else:
-        student_not_going(instance, presence, now)
+        return handle(instance, rq.NoShow(student), now)
+    req = rq.RegularAbsent(student, by="coach") if _is_regular(presence) else rq.Cancel(student, by="coach")
+    with coach_mark(justification):
+        return handle(instance, req, now)
 
 
 def coach_excludes(instance, player_id: int, now: datetime | None = None) -> None:

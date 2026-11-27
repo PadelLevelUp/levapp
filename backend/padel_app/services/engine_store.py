@@ -40,6 +40,7 @@ never plan one session on stale state. That lock is the last-spot claim (engine-
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import hashlib
 import json
 import logging
@@ -149,6 +150,23 @@ def _blocks_auto_invitations(user) -> bool:
 #: The engine's departures: a presence marked absent with one of these left the session; any other absence
 #: (a no-show, the coach's attendance mark) records attendance and the student stays placed.
 LEFT = ("regular_no", "cancel")
+
+
+#: The coach's own fields for the absent mark being sent to the engine (engine-store rule 19): written by
+#: the mark's ``Absence`` in the engine's unit, so the mark and the freed seat are one commit. Never the
+#: engine's: it carries no justification (owner ruling D4).
+_COACH_MARK: contextvars.ContextVar[dict | None] = contextvars.ContextVar("coach_mark", default=None)
+
+
+@contextlib.contextmanager
+def coach_mark(justification: str | None) -> Iterator[None]:
+    """While the coach's absent mark is sent to the engine: the ``Absence`` it makes writes the coach's
+    record (``validated``, ``recorded_by`` ``coach``, this ``justification``) in the same unit."""
+    token = _COACH_MARK.set({"justification": justification})
+    try:
+        yield
+    finally:
+        _COACH_MARK.reset(token)
 
 
 def _going(p) -> bool:
@@ -1060,6 +1078,16 @@ class TableStore:
             # effect's time. A no-show (at or after the start) and an automatic entrant's No ("none")
             # record no response.
             presence = self._presence(e)
+            if e.by == "coach":
+                # Rule 19 (attendance.presence rule 7): the coach's absent mark is no answer of the student's;
+                # their response, responded_at and confirmed stay as they were. The coach's record lands
+                # here, in the unit that frees the seat; the Left beside it writes status and left_reason.
+                if presence is not None:
+                    mark = _COACH_MARK.get() or {}
+                    presence.validated, presence.recorded_by = True, "coach"
+                    if mark.get("justification") is not None:      # as the sheet's own write: None keeps it
+                        presence.justification = mark["justification"]
+                return
             start = wall_to_utc_naive(db.session.get(LessonInstance, iid).start_datetime)
             if presence is not None and e.notice != "none" and e.at < start:
                 if e.notice == "late":

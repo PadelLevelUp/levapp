@@ -48,9 +48,11 @@ class LeaveWaitingList:
 
 @dataclass(frozen=True)
 class RegularAbsent:
-    """A regular says they are not going (plan §8 step 4)."""
+    """A regular says they are not going (plan §8 step 4); ``by`` the coach when it is the coach's absent
+    mark before the class (engine-store rule 19), which leaves the student's answer alone."""
 
     student: str
+    by: Literal["student", "coach"] = "student"
 
 
 @dataclass(frozen=True)
@@ -68,9 +70,11 @@ class Returns:
 
 @dataclass(frozen=True)
 class Cancel:
-    """A placed non-regular is not going after all (plan §7, "cancels after accepting")."""
+    """A placed non-regular is not going after all (plan §7, "cancels after accepting"); ``by`` as on
+    ``RegularAbsent``."""
 
     student: str
+    by: Literal["student", "coach"] = "student"
 
 
 @dataclass(frozen=True)

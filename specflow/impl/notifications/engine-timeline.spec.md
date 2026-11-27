@@ -71,7 +71,9 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    session, by its own record of its sends; never for a late No, which is always `cancelled`), so the lateness the app derives
    (`presence_late_cancellation`, true only for `cancelled` at or after the deadline that
    `notifications.config` rule 19 maps to `absence_cutoff_before`) is the notice. It leaves
-   `Presence.justification` alone.
+   `Presence.justification` alone. A coach's absent mark before the class is not the student's No: the
+   engine records its absence and notice, and the store writes no answer for it
+   (`notifications.engine-store` rule 19; `attendance.presence` rule 7).
 6. **`last_invite_at` (§8 step 6; ruling (2)).** `last_invite_before` in real hours before the class's
    real start, as the absence cutoff (rule 5), never wall-clock arithmetic. No new invitation after it.
    Going students who play both sides get their final side and are told it (const:KIND_SIDE_MOVED):
