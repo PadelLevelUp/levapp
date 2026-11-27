@@ -944,17 +944,29 @@ def add_presences(lesson_instance, payload):
         values["recorded_by"] = "coach"
 
         was_absent = presence_obj.status == "absent"
-        publish_presence_changed(lesson_instance, presence_obj.player_id)  # PAD-659 (event-detail rule 24)
-        if values.get("status") == "absent" and not was_absent:
+        to_engine = values.get("status") == "absent" and not was_absent
+        if to_engine:
             from padel_app.services.engine_switch import engine_for
+            from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 
-            if engine_for(lesson_instance) == "new":
-                # PAD-918 (swap plan §3.1): the new engine hears it first, while the student still holds
-                # the spot: a no-show after the start, the spot opening before it.
-                from padel_app.services.engine_entry import coach_marks_absent
+            to_engine = engine_for(lesson_instance) == "new"
+            now = utcnow_naive()
+            started = lesson_instance.start_datetime is not None and utc_to_wall_naive(now) >= lesson_instance.start_datetime
+        if not to_engine or started:
+            publish_presence_changed(lesson_instance, presence_obj.player_id)  # PAD-659 (event-detail rule 24)
+        if to_engine:
+            # PAD-918 (swap plan §3.1): the new engine hears it first, while the student still holds the
+            # spot: a no-show after the start, the spot opening before it. Before the start the mark is the
+            # coach's, not the student's No (engine-store rule 19): the engine's unit writes the coach's
+            # record with the freed seat, keeps the student's answer, and its Left tells the coach once.
+            from padel_app.invitation_engine import effects as fx
+            from padel_app.services.engine_entry import coach_marks_absent
 
-                coach_marks_absent(lesson_instance, presence_obj)
-                presence_obj = Presence.query.get(presence_obj.id)
+            effects = coach_marks_absent(lesson_instance, presence_obj, now, justification=data.get("justification"))
+            presence_obj = Presence.query.get(presence_obj.id)
+            if not started and not any(
+                    isinstance(e, fx.Left) and e.student == str(presence_obj.player_id) for e in effects):
+                publish_presence_changed(lesson_instance, presence_obj.player_id)   # the engine had no one to free
         presence_obj.update_with_dict(values)
         # PAD-381 (B-152): a justification describes an absence, so a PRESENT row has
         # none, whatever the body carries. It has to be said here and not in the form

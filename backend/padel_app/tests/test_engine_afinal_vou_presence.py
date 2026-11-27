@@ -550,3 +550,23 @@ def test_a_double_tap_from_two_devices_answers_confirmed_twice(wide_class, clien
         assert p.status is None and p.confirmed is True
         assert len(_return_notices(session, student)) == 1
         assert [k for k, _, _ in _coach_notes(notes, store, session)] == ["push", "expo"]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-56")
+def test_a_regulars_return_clears_the_coachs_justification(new_class, client):
+    """Rule 14 (attendance.confirm rule 29): the coach's absent mark, justified, before the start, then the
+    regular's "Afinal vou" with their place still free: the mark goes with the absence."""
+    from padel_app.services.lesson_service import add_presences
+    from padel_app.services.notification_service import student_come_back
+
+    store, session, (regular, *_), sent = new_class
+    add_presences(_instance(session), [{"playerId": int(regular), "status": "absent", "justification": "justified"}])
+    db.session.expire_all()
+    p = _presence(session, regular)
+    assert (p.status, p.justification, p.validated, p.left_reason) == ("absent", "justified", True, "regular_no")
+    assert student_come_back(p, _instance(session), player_id=int(regular)) == "rejoin"
+
+    assert _post_yes(client, session, regular) == {"action": "confirmed"}
+    p = _presence(session, regular)
+    assert (p.status, p.justification, p.validated) == (None, None, False)
+    assert p.attendance_state == "coming" and p.response == "confirmed"
