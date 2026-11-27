@@ -177,8 +177,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
       way nothing is placed, and the app answers `spot_filled` (`notifications.engine-store` rule 15).
     - **Open invitations for that place stay open** (`notifications.engine-planning` rule 10, D4: no fill
       withdraws an invitation). The invitee's later Yes finds no room and gets rule 4's sorry with the
-      waiting-list offer. The relayed request to retire them "as the old path did" contradicts D4 and is
-      **not** built here (see Open questions).
+      waiting-list offer. A return is a fill like any other (the owner, 26 Nov 2026: "It's a short cut.
+      … that player asks for a place in the class, he is eligible so he gets in. … The others that were
+      invited just weren't fast enough.").
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -465,15 +466,12 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   `regular_returns` is: `ASKED`, `freed_spots`); then `notifications.engine-store` wave 12.
 
 ### Open questions
-- **Retiring the open invitation for the place a returning student takes (rule 16; 26 Nov 2026) — for
-  the owner; contradicts a recorded owner ruling.** The orchestrator's spelling of the owner's decision
-  says a non-regular's return retires "any open invitation for that seat … as the old path did"
-  (`_retake_spot` closed the student's own vacancy through `_close_vacancy`, expiring its live
-  invitations as `spot_filled`, and marked its pending approval prompt stale). The new engine never
-  revokes an invitation at a fill (`notifications.engine-planning` rule 10, D4, owner ruling 2026-11-11;
-  its one exception is the same hour). Not resolved here: rule 16 is written D4's way (the invitation
-  stays open; its Yes gets sorry), which is how a regular's return behaves today. Option I would pick:
-  keep D4. The other option needs a second D4 exception and a withdrawn-bubble state for it.
+- **Retiring the open invitation for the place a returning student takes (rule 16; 26 Nov 2026) —
+  answered by the owner (26 Nov 2026, relayed by the orchestrator): "Yes, it's not really withdrawing the
+  invitation. It's a short cut. You can think about it like that player asks for a place in the class, he
+  is eligible so he gets in. Thats it. The others that were invited just weren't fast enough."** D4
+  (`notifications.engine-planning` rule 10) stands: the open invitations stay, and a later Yes gets the
+  sorry. Rule 16 is unchanged in behaviour.
 - **A non-regular placed elsewhere at the same hour (rule 16) — decision (spec agent, 26 Nov 2026; the
   owner can reverse it):** refused and answered `spot_filled`, because rule 10 refuses every second
   placement and `spot_filled` is the one refusal App Store builds render as information; `comeBack`
