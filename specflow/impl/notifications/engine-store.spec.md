@@ -191,7 +191,9 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
       and their Yes gets the sorry. A pending approval request whose group has no open place left is the
       planner's to withdraw (`ApprovalWithdrawn`, rule 5) on its next run, as after any other placement.
     - A repeat tap after a placement answers `{"action": "confirmed", "duplicate": true}` (the presence is
-      no longer absent; rule 13's path).
+      no longer absent; rule 13's path). So does a second tap that read the presence as absent before the
+      first one placed the student (two devices): when the engine places nobody, the route reads the
+      presence again after the unit, and `spot_filled` only while it is still absent.
 16. **Every return tells the coach (the owner, 26 Nov 2026: "Yes let's send the notification letting the
     coach know the player will come after all."; `attendance.confirm` rule 28's "The coach is told", as
     the old path's `_notify_coach_of_return` did).** When the store applies a `Placed` with `how`
@@ -497,6 +499,23 @@ test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_eve
 - **When** each student posts `yes`
 - **Then** the first answer is `spot_filled`, and neither case creates a message to the coach or sends a push
 test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_return_not_placed_tells_the_coach_nothing`
+
+#### NOTIFICATIONS-ENGINE-STORE-46: A second device's tap that loses the race answers confirmed, not spot_filled (rule 15)
+- **Given** a new-engine class with a free place, a student placed for that class only who cancelled and a
+  regular who said No
+- **When** each taps "Afinal vou" from two devices, both requests reading the presence as absent before
+  either takes the session's lock
+- **Then** the first places them and the second answers `{"action": "confirmed", "duplicate": true}`; the
+  presence is going and the coach is told once
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_double_tap_from_two_devices_answers_confirmed_twice`
+
+#### NOTIFICATIONS-ENGINE-STORE-47: Only a cancellation or a No lets a non-regular return, in both stores (rule 15)
+- **Given** the in-memory store with a session whose non-regular students left, one by a cancellation and
+  one recorded as a no-show, and whose regular said No
+- **When** the store's snapshot is read
+- **Then** only the cancelled student is among those who may return (`left_by_cancel`, as `TableStore`
+  reads `left_reason` `cancel`), and the regular is `absent`
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_only_a_cancellation_or_a_no_lets_a_non_regular_return_in_the_memory_store`
 
 #### NOTIFICATIONS-ENGINE-STORE-38: A regular's No on a class with notifications off records the absence and invites nobody (rule 17)
 Given a new-engine class with `notifications_enabled` off, its coach's `autoNotifyEnabled` on, and

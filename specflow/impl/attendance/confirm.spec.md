@@ -716,11 +716,14 @@ test: `backend/padel_app/tests/test_pad772_blocker_covers_classes.py` › `test_
 - **Then** the two left-only students get `comeBack` `rejoin`, the right-only student gets `waiting_list`
   (the class has a place, their side has none), and the student placed elsewhere at the same hour gets
   `waiting_list`; the dashboard row and the reminder message carry the same value as the class payload
+- **And** while the regular is going to the other class at that hour they get `waiting_list`, in the light
+  read and the full snapshot alike, and `rejoin` again once they say No to it; their tap meanwhile answers
+  `spot_filled` and records and sends nothing
 - **And** when a left place is offered to someone by an open invitation it still reads `rejoin`; once a left
   student is placed, the left-only students read `waiting_list` (`on_waiting_list` when on the list)
 - **And** an old-engine class's `comeBack` is unchanged (class-wide count), and a coach viewer or another
   message type gets `null`
-test: `backend/padel_app/tests/test_engine_afinal_vou_free_place.py` › `test_come_back_offers_rejoin_only_when_the_engine_would_place_the_student`
+test: `backend/padel_app/tests/test_engine_afinal_vou_free_place.py` › `test_come_back_offers_rejoin_only_when_the_engine_would_place_the_student` (+ `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_regular_going_at_the_same_hour_is_not_offered_a_return`)
 
 #### ATTENDANCE-CONFIRM-46: Every surface hides "Afinal vou" without a place and says the place went, on web and iOS (rule 32)
 - **Given** a student whose state is `not_coming` on a class that has not started
