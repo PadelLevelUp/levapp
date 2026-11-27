@@ -11,6 +11,7 @@ import {
   joinRequestBubbleState,
   lightTheme,
   lisbonNowMs,
+  reminderBubbleComeBack,
   wallClockISOMs,
   type ClassRequestLive,
   type JoinRequestLive,
@@ -277,13 +278,22 @@ function MessageBubbleImpl({
   // late cancellation, already-answered) live in reminder-state.ts.
   const isReminder = message.messageType === "notification_reminder";
   const reminder = reminderState(message.metadata, null);
-  // PAD-684 (attendance.confirm rule 28): after a recorded "no" on a class that has not started the
-  // bubble offers "Afinal vou" and renders the SERVER's answer (it has no comeBack payload).
+  // PAD-684 / attendance.confirm rule 32: after a recorded "no" on a class that has not started the
+  // bubble shows what the `comeBack` served on the reminder says ("Afinal vou" only for `rejoin`,
+  // `reminderBubbleComeBack`), and after a tap the SERVER's answer. The screen drops the served value
+  // when it records an answer and writes `waiting_list` on a `spot_filled`
+  // (`reminderAnswerPatch`), so a no given here falls back to the older button.
   const [comeBackShown, setComeBackShown] = React.useState<"waiting_list" | "on_waiting_list" | null>(null);
   const [comeBackBusy, setComeBackBusy] = React.useState(false);
   const reminderStartsAt = message.metadata?.startsAt as string | undefined;
   const reminderClassInFuture = !reminderStartsAt || wallClockISOMs(reminderStartsAt) > lisbonNowMs();
-  const canComeBack = reminder.declined && message.metadata?.response === "no" && reminderClassInFuture;
+  const comeBackKind =
+    comeBackShown ??
+    reminderBubbleComeBack(message.comeBack, {
+      recordedNo: reminder.declined && message.metadata?.response === "no",
+      classInFuture: reminderClassInFuture,
+      noGivenHere: false,
+    });
   const handleComeBack = async () => {
     if (comeBackBusy) return;
     setComeBackBusy(true);
@@ -719,7 +729,7 @@ function MessageBubbleImpl({
                     {t("messages.absent")}
                   </Text>
                 </View>
-                {canComeBack && !comeBackShown ? (
+                {comeBackKind === "rejoin" ? (
                   <Pressable
                     testID="bubble-come-back"
                     accessibilityLabel={t("calendar.detail.comeBack")}
@@ -736,7 +746,7 @@ function MessageBubbleImpl({
                     </Text>
                   </Pressable>
                 ) : null}
-                {comeBackShown === "waiting_list" ? (
+                {comeBackKind === "waiting_list" ? (
                   <View className="w-full gap-1.5">
                     <Text className="text-xs text-muted-foreground" testID="bubble-come-back-spot-taken">
                       {t("calendar.detail.spotTaken")}
@@ -758,7 +768,7 @@ function MessageBubbleImpl({
                     </Pressable>
                   </View>
                 ) : null}
-                {comeBackShown === "on_waiting_list" ? (
+                {comeBackKind === "on_waiting_list" ? (
                   <Text className="text-xs text-muted-foreground" testID="bubble-come-back-on-waiting-list">
                     {t("calendar.detail.onWaitingList")}
                   </Text>

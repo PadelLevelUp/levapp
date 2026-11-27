@@ -66,7 +66,12 @@ import {
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
 import { UnknownSenderBanner } from "@/features/messages/components/unknown-sender-banner";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
-import { reminderResponseOutcome } from "@/features/messages/reminder-state";
+import {
+  reminderAnswerPatch,
+  reminderCancelPatch,
+  reminderResponseOutcome,
+  reminderToastVariant,
+} from "@/features/messages/reminder-state";
 import { applyEngineAnswer, engineAnswerPatch, engineRefusalPatch, type EngineAlertClassRoute } from "@/features/messages/engine-message";
 import {
   anchorReducer,
@@ -1132,17 +1137,14 @@ export default function ConversationScreen() {
       // rejected backend-side, and painting the tapped choice would show a
       // state that was never recorded. PAD-68's "expired" writes nothing.
       const outcome = reminderResponseOutcome(result?.action);
-      if (outcome.toastKey) toast.error(t(outcome.toastKey));
-      if (outcome.write === null) return result?.action ?? null;
-      const response = outcome.write;
-      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
-        ...m,
-        metadata: {
-          ...m.metadata,
-          responded: true,
-          response,
-        },
-      }));
+      // attendance.confirm rule 32: a place that went before the tap is information, never an error.
+      if (outcome.toastKey) toast[reminderToastVariant(result?.action)](t(outcome.toastKey));
+      // The recorded answer (dropping the `comeBack` read before it), or on `spot_filled` the
+      // server's word that the place went; nothing for an answer that records nothing.
+      const patched = reminderAnswerPatch(message, result?.action);
+      if (patched !== null) {
+        updateMessageInCache(queryClient, conversationId, message.id, (m) => reminderAnswerPatch(m, result?.action) ?? m);
+      }
       return result?.action ?? null;
     } catch {
       toast.error(t("messages.somethingWentWrong"));
@@ -1158,10 +1160,7 @@ export default function ConversationScreen() {
     setRespondingReminderId(message.id);
     try {
       await notificationEngineApi.cancelAttendance(instanceId);
-      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
-        ...m,
-        metadata: { ...m.metadata, responded: true, response: "no" },
-      }));
+      updateMessageInCache(queryClient, conversationId, message.id, (m) => reminderCancelPatch(m));
       toast.success(t("messages.attendanceCancelled"));
     } catch {
       toast.error(t("messages.cancelAttendanceFailed"));

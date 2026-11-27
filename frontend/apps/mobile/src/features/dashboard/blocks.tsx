@@ -369,7 +369,7 @@ function AnswerButtons({
  * reminder endpoint; a refused yes (`spot_filled`) shows the waiting-list branch until the refetch lands;
  * the join is addressed by the item's `declineTarget` (the calendar-event ref, as the class detail uses).
  */
-function ComeBackSlot({
+export function ComeBackSlot({
   item,
   onNavy,
 }: {
