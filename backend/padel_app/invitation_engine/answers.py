@@ -45,6 +45,7 @@ from padel_app.invitation_engine.requests import (
     RegularAbsent,
     RegularReturns,
     Request,
+    Returns,
 )
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.snapshot import SIDES, SessionSnapshot, Side, SpotType
@@ -93,6 +94,8 @@ def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request
                              if snapshot.placement(sid) is not None and sid not in snapshot.confirmed))
     if isinstance(request, RegularReturns):
         return Outcome(_regular_returns(snapshot, request.student, now))
+    if isinstance(request, Returns):
+        return Outcome(_returns(snapshot, request.student, now))
     if isinstance(request, JoinWaitingList):
         return Outcome(_join_waiting_list(snapshot, settings, request, now))
     if isinstance(request, LeaveWaitingList):
@@ -236,17 +239,58 @@ def _run(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
 
 # --- regulars, waiting lists, direct join ----------------------------------------------------
 
+def return_sides(snapshot: SessionSnapshot, sid: str) -> frozenset[Side] | None:
+    """engine-answers rule 16, the one predicate of "Afinal vou" (the tap's, and the app's ``comeBack``,
+    attendance.confirm rule 32): ``None`` when ``sid`` has no place here to return to (going, never placed,
+    or not left by their own No or cancellation); else the sides a place is free for them now, empty when
+    none. A free place is room in the class and on a side they play (``open_sides``; an open invitation
+    holds no place, ``fill_never_held`` is not read). A regular returns from the snapshot's ``absent`` as
+    today; anyone else from ``left_by_cancel``, refused while going to another session at that hour."""
+    if snapshot.placement(sid) is not None:
+        return None
+    regular = next((r for r in snapshot.regulars if r.id == sid), None)
+    if regular is not None:
+        return open_sides(snapshot) & regular.sides if sid in snapshot.absent else None
+    student = snapshot.students.get(sid)
+    if sid not in snapshot.left_by_cancel or student is None:
+        return None
+    if sid in snapshot.busy_same_time:                    # rule 10: never two sessions at one hour
+        return frozenset()
+    return open_sides(snapshot) & student.sides
+
+
+def _return_side(sides: frozenset[str], open_: frozenset[Side]) -> Side | None:
+    """The returning student's side: their one side; a flexible student goes unplaced, as a {L, R}
+    regular's return always has (ANSWERS-35, ANSWERS-36)."""
+    return next(iter(open_)) if len(sides) == 1 else None
+
+
 def _regular_returns(snapshot: SessionSnapshot, sid: str, now: datetime) -> tuple[Effect, ...]:
     """A regular who said No wants back ("afinal vou"): their spot, if their side still has room,
     and the absence disappears. The plan is silent; the PDF's rule stands (sheet line 62, clause 3)."""
     regular = next((r for r in snapshot.regulars if r.id == sid), None)
-    if regular is None or sid not in snapshot.absent or snapshot.placement(sid) is not None:
+    sides = return_sides(snapshot, sid) if regular is not None else None
+    if sides is None:
         return ()
-    sides = open_sides(snapshot) & regular.sides
     if not sides:                                          # their spot was taken: "sorry" (sheet 63, E6)
         return (Message(snapshot.id, now, sid, KIND_SORRY),)
-    side: Side | None = next(iter(sides)) if len(regular.sides) == 1 else None
-    return (Placed(snapshot.id, now, sid, side, "regular_returns"), Absence(snapshot.id, now, sid, "none"),
+    return (Placed(snapshot.id, now, sid, _return_side(regular.sides, sides), "regular_returns"),
+            Absence(snapshot.id, now, sid, "none"), *planner.close_same_hour(snapshot, sid, now))
+
+
+def _returns(snapshot: SessionSnapshot, sid: str, now: datetime) -> tuple[Effect, ...]:
+    """engine-answers rule 16: a student who is not a regular and left by their own No or cancellation
+    takes a free place on a side they play back (``returns``), leaving the session's waiting lists; their
+    other open invitations at that hour close (rule 10). Open invitations for the place stay open (D4).
+    No place, or a regular (``RegularReturns`` is theirs): no effect."""
+    if any(r.id == sid for r in snapshot.regulars):
+        return ()
+    sides = return_sides(snapshot, sid)
+    if not sides:
+        return ()
+    side = _return_side(snapshot.students[sid].sides, sides)
+    return (Placed(snapshot.id, now, sid, side, "returns"), Absence(snapshot.id, now, sid, "none"),
+            *[WaitingListLeft(snapshot.id, now, sid, w.list) for w in snapshot.waiting_list if w.student == sid],
             *planner.close_same_hour(snapshot, sid, now))
 
 

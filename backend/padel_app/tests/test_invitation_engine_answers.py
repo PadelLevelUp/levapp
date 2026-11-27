@@ -473,3 +473,80 @@ def test_a_coachs_add_places_the_student_on_a_side():
     assert run("v", "L", CoachAdded("v", "L", firm=True), going=False)[0] == []   # not going: nothing
     assigned, messages, _ = run("y", "LR", CoachSetsSide("y", "R"), placed_side="L")
     assert (assigned, messages) == ([("y", "R", True)], [])
+
+
+# --- "Afinal vou": a return takes a free place (engine-answers rule 16) ------------------------------
+
+def _return_session(left_going=1, right_going=2, extra=(), **kw):
+    """A session of 4 (two a side): ``rui`` (left only, not a regular) placed by an invitation and then
+    cancelled; ``left_going`` students going left and ``right_going`` going right, none of them regulars
+    of the snapshot's concern; ``extra`` more students as (id, sides)."""
+    going = tuple(Placement(f"gl{i}", "L", "invitation", SENT) for i in range(left_going)) + tuple(
+        Placement(f"gr{i}", "R", "invitation", SENT) for i in range(right_going))
+    people = [_student("rui", "L"), _student("bia", "L"), *(_student(s, sides) for s, sides in extra),
+              *(_student(p.student, p.side) for p in going)]
+    fields = dict(going=going, students={s.id: s for s in people}, left_by_cancel=frozenset({"rui"}))
+    fields.update(kw)
+    return SessionSnapshot("S", 3, 4, START, regulars=(), **fields)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-35")
+def test_a_student_who_cancelled_takes_a_free_place_on_their_side_back():
+    from padel_app.invitation_engine import planner
+    from padel_app.invitation_engine.requests import Returns
+
+    other = Elsewhere("T", START, Invitation("rui", frozenset({L}), "L", 2, SENT), 4, (), same_coach=True)
+    s = _return_session(
+        invitations=(_inv("bia", L),), waiting_list=(WaitingListEntry("rui", "students", SENT),), elsewhere=(other,))
+    effects = handle(s, EngineSettings(), Returns("rui"), NOW).effects
+
+    assert _placed(effects) == [("rui", "L", "returns")]
+    assert Absence("S", NOW, "rui", "none") in effects
+    assert WaitingListLeft("S", NOW, "rui", "students") in effects               # off the session's list
+    assert InvitationClosed("T", NOW, "rui") in effects                           # rule 10: the same-hour one
+    assert not [e for e in effects if getattr(e, "student", None) == "bia"]       # D4: Bia's invitation stays open
+
+    # Bia's later Yes finds no room on the left: the sorry, nothing placed.
+    after = replace(s, going=s.going + (Placement("rui", "L", "returns", NOW),), left_by_cancel=frozenset())
+    answered = handle(after, EngineSettings(), Answer("bia", True), NOW + timedelta(minutes=1)).effects
+    assert _placed(answered) == [] and any(isinstance(e, fx.Sorry) and e.student == "bia" for e in answered)
+
+    # A `returns` placement takes a freed spot as any non-regular's does (engine-settings rule 11).
+    freed = SessionSnapshot("S", 3, 4, START, regulars=(_student("reg", "L"),), absent=frozenset({"reg"}),
+                            going=(Placement("rui", "L", "returns", NOW),),
+                            students={"reg": _student("reg", "L"), "rui": _student("rui", "L")})
+    assert planner.freed_spots(freed) == ({"L": 0, "R": 0}, 0)
+
+    # The left side full and a right place free: nothing for a left-only student ...
+    full_left = _return_session(left_going=2, right_going=1, extra=(("flex", "LR"),))
+    assert handle(full_left, EngineSettings(), Returns("rui"), NOW).effects == ()
+    # ... and a {left, right} student in Rui's place is placed with no side (flexible, as RegularReturns).
+    flexible = replace(full_left, left_by_cancel=frozenset({"flex"}))
+    assert _placed(handle(flexible, EngineSettings(), Returns("flex"), NOW).effects) == [("flex", None, "returns")]
+
+    # Nothing to return to: an invitation answered No (never placed), a student going, Rui busy at that hour.
+    declined = replace(s, left_by_cancel=frozenset(), invitations=(Invitation("rui", frozenset({L}), None, 2, SENT,
+                                                                                 answer="no"),))
+    assert handle(declined, EngineSettings(), Returns("rui"), NOW).effects == ()
+    assert handle(s, EngineSettings(), Returns("gl0"), NOW).effects == ()
+    busy = replace(s, busy_same_time=frozenset({"rui"}))
+    assert handle(busy, EngineSettings(), Returns("rui"), NOW).effects == ()
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-36")
+def test_a_regulars_return_is_unchanged():
+    from padel_app.invitation_engine.requests import RegularReturns
+
+    reg = _student("reg", "L")
+
+    def session(left_going):
+        going = (Placement("r1", "R", "invitation", SENT),) + tuple(
+            Placement(f"gl{i}", "L", "invitation", SENT) for i in range(left_going))
+        people = [reg, _student("bia", "L"), _student("r1", "R"), *(_student(f"gl{i}", "L") for i in range(left_going))]
+        return SessionSnapshot("S", 3, 4, START, regulars=(reg,), going=going, absent=frozenset({"reg"}),
+                               invitations=(_inv("bia", L),), students={p.id: p for p in people})
+
+    effects = handle(session(1), EngineSettings(), RegularReturns("reg"), NOW).effects
+    assert effects == (Placed("S", NOW, "reg", "L", "regular_returns"), Absence("S", NOW, "reg", "none"))
+    full = handle(session(2), EngineSettings(), RegularReturns("reg"), NOW).effects
+    assert full == (fx.Message("S", NOW, "reg", "sorry"),)                       # the sorry only; Bia's invitation untouched

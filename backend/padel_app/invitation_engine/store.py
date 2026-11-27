@@ -67,6 +67,7 @@ class _Session:
     invitations: list[Invitation] = field(default_factory=list)
     waiting_list: list[WaitingListEntry] = field(default_factory=list)
     absent: set[str] = field(default_factory=set)
+    left_by_cancel: set[str] = field(default_factory=set)
     said_no: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)
     excluded: set[str] = field(default_factory=set)
@@ -147,7 +148,8 @@ class MemoryStore:
         inside = set(s.going) | set(s.regulars)
         pool = tuple(st for sid, st in self._students.items()
                      if sid not in inside and sid not in self._hidden and sid not in s.excluded)
-        named = {st.id for st in pool} | inside | (s.excluded & set(self._students)) | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
+        named = ({st.id for st in pool} | inside | (s.excluded & set(self._students)) | {i.student for i in s.invitations}
+                 | {e.student for e in s.waiting_list} | s.left_by_cancel)
         others = [o for o in self._sessions.values() if o.id != s.id]
         busy = {sid for o in others if (overlaps(o.start, o.end, s.start, s.end) if o.coach == s.coach
                                         else o.start == s.start) for sid in o.going}
@@ -157,7 +159,7 @@ class MemoryStore:
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,
             regulars=tuple(s.regulars.values()), going=tuple(s.going.values()),
             invitations=tuple(s.invitations), waiting_list=tuple(s.waiting_list), pool=pool,
-            absent=frozenset(s.absent), coach_removed=frozenset(s.coach_removed), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
+            absent=frozenset(s.absent), left_by_cancel=frozenset(s.left_by_cancel), coach_removed=frozenset(s.coach_removed), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
             busy_same_time=frozenset(busy), elsewhere=elsewhere, alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
             joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),
@@ -231,6 +233,7 @@ class MemoryStore:
             elif isinstance(e, fx.Placed):
                 s.going[e.student] = Placement(e.student, e.side, e.how, e.at)
                 s.absent.discard(e.student)
+                s.left_by_cancel.discard(e.student)
             elif isinstance(e, fx.SideAssigned):
                 before = s.going[e.student].side
                 if before is not None and before != e.side:          # a first side is not a move
@@ -240,6 +243,8 @@ class MemoryStore:
                 s.going.pop(e.student, None)
                 if e.reason == "regular_no":
                     s.absent.add(e.student)
+                elif e.student not in s.regulars:           # answers rule 16: may return while a place is free
+                    s.left_by_cancel.add(e.student)
             elif isinstance(e, fx.WaitingListJoined):
                 s.waiting_list.append(WaitingListEntry(e.student, e.list, e.at, e.side, e.sides))
             elif isinstance(e, fx.WaitingListLeft):
