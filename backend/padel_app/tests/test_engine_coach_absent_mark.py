@@ -167,9 +167,35 @@ def test_the_coachs_absent_mark_before_the_class_keeps_the_students_answer(world
     assert _open_places(store, session) == 1                            # the seat is free
     assert any(e.kind == "Absence" and e.payload.get("by") == "coach" for e in _effects(session, regular))
     assert _told_student(log, store, session, regular) == ([], [], [])
-    # One live event for the coach, after one commit that already holds the coach's mark.
-    assert [to for _, to in _presence_changed(log["sent"], regular)] == [[_coach_user(store, session)]]
+    # What reaches the coach: one live event, after one commit that already holds the coach's mark, and no
+    # push; the only messages in their threads are the re-plan's invitations for the freed place.
+    coach = _coach_user(store, session)
+    to_coach = [e for e, to in log["sent"] if coach in to]
+    assert [e["type"] for e in to_coach if e["type"] != "message_created"] == ["presence_changed"]
+    assert all(e["payload"].get("messageType") == "notification_invite" for e in to_coach
+               if e["type"] == "message_created")
+    assert [to for _, to in _presence_changed(log["sent"], regular)] == [[coach]]
     assert log["validated_at_send"] == [True]
+    assert coach not in log["pushes"]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-53")
+def test_a_yes_then_the_mark_before_the_deadline_keeps_the_yes(world, client, monkeypatch):
+    """The same mark 3 days before the class, inside the deadline: never the student's on-time decline."""
+    store, session, (regular, *_), log = world
+    yes_at = THREE_DAYS_BEFORE - timedelta(minutes=30)
+    _asked_and_said_yes(session, regular, asked_at=yes_at - timedelta(minutes=10), yes_at=yes_at)
+    attempts = _attempts(session, regular)
+
+    row = _mark(client, store, session, regular, THREE_DAYS_BEFORE, monkeypatch, status="absent")
+
+    p = _presence(session, regular)
+    assert (p.status, p.validated, p.recorded_by, p.left_reason) == ("absent", True, "coach", "regular_no")
+    assert (p.response, p.responded_at, p.confirmed) == ("confirmed", yes_at, True)
+    assert row["lateCancellation"] is False and row["cancelledByStudent"] is False
+    assert _attempts(session, regular) == attempts
+    assert _open_places(store, session) == 1
+    assert _told_student(log, store, session, regular) == ([], [], [])
 
 
 def _effects(session, student):
@@ -214,11 +240,13 @@ def test_a_student_placed_for_the_class_only_keeps_their_answer(world, client, m
     # Nothing tells them they cancelled. What does reach them is the re-plan's invitation for the freed
     # place: having left by a cancellation they are in the pool again, as after their own cancel (rule 4,
     # the seat planned as today).
-    events, pushes, messages = _told_student(log, store, session, fill)
-    assert messages == [] and set(events) <= {"message_created"}
-    invites = [e for e, _ in log["sent"] if e["type"] == "message_created"
-               and e["payload"].get("messageType") == "notification_invite"]
-    assert len(events) <= len(invites)
+    from padel_app.models.players import Player
+
+    uid = db.session.get(Player, int(fill)).user_id
+    reached = [e for e, to in log["sent"] if uid in to]
+    assert reached and all(e["type"] == "message_created" and e["payload"].get("messageType") == "notification_invite"
+                           for e in reached)
+    assert _told_student(log, store, session, fill)[2] == []          # no engine message (a "sorry", a notice)
     assert len(_presence_changed(log["sent"], fill)) == 1 and log["validated_at_send"] == [True]
 
 

@@ -962,7 +962,7 @@ def add_presences(lesson_instance, payload):
             from padel_app.invitation_engine import effects as fx
             from padel_app.services.engine_entry import coach_marks_absent
 
-            effects = coach_marks_absent(lesson_instance, presence_obj, now, justification=data.get("justification"))
+            effects = coach_marks_absent(lesson_instance, presence_obj, now, justification=values.get("justification"))
             presence_obj = Presence.query.get(presence_obj.id)
             if not started and not any(
                     isinstance(e, fx.Left) and e.student == str(presence_obj.player_id) for e in effects):

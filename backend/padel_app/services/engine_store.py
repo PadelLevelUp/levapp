@@ -1085,7 +1085,7 @@ class TableStore:
                 if presence is not None:
                     mark = _COACH_MARK.get() or {}
                     presence.validated, presence.recorded_by = True, "coach"
-                    if "justification" in mark:
+                    if mark.get("justification") is not None:      # as the sheet's own write: None keeps it
                         presence.justification = mark["justification"]
                 return
             start = wall_to_utc_naive(db.session.get(LessonInstance, iid).start_datetime)
