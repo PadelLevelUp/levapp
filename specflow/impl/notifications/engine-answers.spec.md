@@ -167,8 +167,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
     - **Same hour.** A student who is not a regular and is placed in another session at the same hour
       is refused, nothing placed, nothing sent (rule 10). A regular keeps today's behaviour.
     - **With a free place:** `Placed(student, side, how)`, `how` `regular_returns` for a regular (as
-      today) and the new `returns` for anyone else; the side is the one open side when exactly one of
-      the student's sides is open to them, else none (flexible, as `RegularReturns` today);
+      today) and the new `returns` for anyone else; the side is the student's own side when they play one side
+      only, and none when they play either (as `RegularReturns` today; the coach sets it);
       `Absence(student, "none")`; the student leaves the session's waiting lists (`WaitingListLeft`, as
       `_placed`); rule 10 closes their other open invitations at the same hour. The placement is the
       student's answer: they count as confirmed (`notifications.engine-store` rules 6, 14, 15) and are
@@ -478,12 +478,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   does not offer the button then (`attendance.confirm` rule 32).
 - **`fill_never_held` off and a return (rule 16) — decision (spec agent, 26 Nov 2026; the owner can
   reverse it):** not read, as for a regular's return today: the student takes back a place they held.
-- **The side of a flexible return (rule 16, ANSWERS-35) — for the owner; built to the criterion.** Rule 16
-  says the side is "the one open side when exactly one of the student's sides is open to them, else none";
-  ANSWERS-35 says a {left, right} student with only the right free is placed with no side, which is what a
-  {left, right} regular's return does today (ANSWERS-36, "unchanged"). The two disagree for a flexible
-  student with one side open. Built (26 Nov build): one-sided student on their side, flexible student
-  unplaced, for both returns; the rule's sentence is left as written until the owner says which holds.
+- **The side of a flexible return (rule 16, ANSWERS-35) — decided by the orchestrator, 27 Nov 2026; the
+  owner can overrule it:** a student who plays either side returns with no side set, also when only one
+  side is free, as a regular's return works today; the coach sets the side. A student who plays one side
+  only returns on it. Rule 16's sentence said the one open side would be set; it now says what is built.
 - **`returns` in `freed_spots` (rule 16; the wave line's "read wherever `regular_returns` is") — decision
   (build agent, 27 Nov 2026; the owner can reverse it):** read as any non-regular placement, not as a
   regular's: a `returns` placement takes a freed spot, as the student's first placement did and their
