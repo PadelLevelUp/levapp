@@ -72,9 +72,20 @@ SIDE_FROM_APP = {"left": "L", "right": "R"}
 SIDE_TO_APP = {"L": "left", "R": "right", None: None}
 #: The engine's placement -> ``Presence.enrolment_source`` (its six values, classes.instance-enrollment rule 3).
 ENROLMENT_SOURCE = {"regular": "roster", "invitation": "fill", "direct": "fill",
-                    "auto_from_waiting_list": "fill", "regular_returns": "roster"}
+                    "auto_from_waiting_list": "fill", "regular_returns": "roster",
+                    "returns": "fill"}        # engine-store rule 15: a returning student stays a one-class student
+#: The returns (rules 14-16): each placement of one tells the coach, through the outbox, after the commit.
+RETURNS = ("regular_returns", "returns")
 #: Effects that reach a person: their ``engine_effects`` rows are the outbox.
 OUTBOX = (fx.Invited, fx.Message, fx.AttendanceRequested, fx.CoachAlert, fx.ApprovalRequest)
+
+
+def _in_outbox(e: fx.Effect) -> bool:
+    """An effect whose ``engine_effects`` row waits for ``dispatch``: one that reaches a person, and a
+    return's placement, whose coach is told (rule 16)."""
+    return isinstance(e, OUTBOX) or (isinstance(e, fx.Placed) and e.how in RETURNS)
+
+
 #: How far back ``sessions()`` looks: the timeline's duties after a class (absences) end within a day.
 AFTER_CLASS = timedelta(days=1)
 
@@ -390,6 +401,9 @@ class TableStore:
         going = tuple(self._placement(p) for p in presences if _going(p))
         absent = frozenset(str(p.player_id) for p in presences
                            if p.status == "absent" and p.left_reason == "regular_no")
+        # Engine-answers rule 16: who is not a regular and left by their own No or cancellation may return.
+        left_by_cancel = frozenset(str(p.player_id) for p in presences if p.status == "absent"
+                                   and p.left_reason == "cancel" and str(p.player_id) not in regular_ids)
         invitations = tuple(self._invitation(r) for r in EngineInvitation.query.filter_by(lesson_instance_id=iid)
                             .order_by(EngineInvitation.sent_at, EngineInvitation.id).all())
         waiting = tuple(
@@ -443,7 +457,7 @@ class TableStore:
         # PAD-932 (engine-answers rule 15): the coach may invite any student of their roster by hand, out of
         # the pool or not (a coach-excluded one too), so the snapshot names all of them.
         named = ({st.id for st in pool} | inside | {i.student for i in invitations} | {w.student for w in waiting}
-                 | {str(lk.player_id) for lk in links})
+                 | {str(lk.player_id) for lk in links} | left_by_cancel)
         missing = [int(s) for s in named if s not in students]
         if missing:                                        # a regular or a waiting student off the coach's roster
             students.update(self._students(coach_id, [], {}, extra=missing))
@@ -459,6 +473,7 @@ class TableStore:
             end=end,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
+            left_by_cancel=left_by_cancel,
             coach_removed=coach_removed,
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
             confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
@@ -478,6 +493,35 @@ class TableStore:
             blocked=frozenset(blocked),
             postponed=self._capped_today(coach_id, gates.daily_cap, {st.id for st in pool}),
         )
+
+    def return_snapshot(self, session: str, student: str) -> SessionSnapshot:
+        """What ``answers.return_sides`` reads for one student's "Afinal vou" (attendance.confirm rule 32,
+        ``comeBack``), from the occurrence's presences, the student's sides on the coach's roster and, for
+        student who left, whether they are going elsewhere at that hour: the same values
+        ``snapshot`` builds for those fields, at a handful of statements instead of the full read."""
+        from padel_app.models import EngineSession
+        from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+        from padel_app.models.lesson_instances import LessonInstance
+        from padel_app.models.presences import Presence
+
+        iid, pid = int(session), int(student)
+        coach_id = db.session.get(EngineSession, iid).coach_id
+        inst = db.session.get(LessonInstance, iid)
+        presences = Presence.query.filter_by(lesson_instance_id=iid).all()
+        own = next((p for p in presences if p.player_id == pid), None)
+        link = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=pid).first()
+        me = Student(student, None, _sides(link.side if link else None))
+        regular = own is not None and self._placement(own).how in ("regular", "regular_returns")
+        left = own is not None and own.status == "absent"
+        absent = frozenset({student}) if regular and left and own.left_reason == "regular_no" else frozenset()
+        cancelled = frozenset({student}) if not regular and left and own.left_reason == "cancel" else frozenset()
+        busy = frozenset({student}) if (absent or cancelled) and _overlapping_going(
+            coach_id, iid, inst.start_datetime, _end_of(inst), student=pid) else frozenset()
+        return SessionSnapshot(
+            id=session, level=None, capacity=inst.effective_max_players, start=inst.start_datetime,
+            end=_end_of(inst), regulars=(me,) if regular else (),
+            going=tuple(self._placement(p) for p in presences if _going(p)),
+            absent=absent, left_by_cancel=cancelled, busy_same_time=busy, students={student: me})
 
     @staticmethod
     def _own_blocks(inst, links, users) -> dict[str, list[str]]:
@@ -859,7 +903,7 @@ class TableStore:
             db.session.add(EngineEffect(
                 lesson_instance_id=int(e.session), player_id=int(student) if student else None,
                 kind=type(e).__name__, at=e.at, payload=payload, key=key,
-                dispatched_at=None if isinstance(e, OUTBOX) else e.at))
+                dispatched_at=None if _in_outbox(e) else e.at))
             self._write(e)
         db.session.flush()
 
@@ -975,7 +1019,8 @@ class TableStore:
                     _confirm_presence(presence, e.at)   # rule 14: never over the coach's own mark
         elif isinstance(e, fx.Placed):
             self._guard_same_hour(e)
-            if e.how not in ("regular", "regular_returns"):
+            if e.how not in ("regular", *RETURNS):
+                # Rule 15: a return spends no credit; the credit went when the student was first placed.
                 _spend_standing_credit(iid, int(e.student))
             inst = db.session.get(LessonInstance, iid)
             presence = ls.enrol(int(e.student), inst, ENROLMENT_SOURCE[e.how], confirmed=e.how != "regular",
@@ -985,10 +1030,12 @@ class TableStore:
             presence.assigned_side = SIDE_TO_APP[e.side]
             if presence.side in ("left", "right") and presence.side != presence.assigned_side:
                 presence.side = None            # rule 9: a side the coach chose for an earlier stay, not this one
-            if e.how == "regular_returns":
-                # Rule 14 ("Afinal vou", attendance.confirm rules 28-29): the return is the student's yes, as
-                # the old path's _retake_spot wrote it; the coach's "Não vai" mark goes with the absence.
+            if e.how in RETURNS:
+                # Rules 14, 15 ("Afinal vou", attendance.confirm rules 28-29): the return is the student's yes,
+                # as the old path's _retake_spot wrote it; the coach's "Não vai" mark and the block-decline
+                # reason go with the absence. The coach's notice is this row's, sent by dispatch (rule 16).
                 presence.validated = False
+                presence.decline_source = None
                 _confirm_presence(presence, e.at)
         elif isinstance(e, fx.SideAssigned):
             presence = self._presence(e)

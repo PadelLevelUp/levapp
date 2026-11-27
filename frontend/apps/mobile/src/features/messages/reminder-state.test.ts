@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { reminderResponseOutcome, reminderState } from "./reminder-state";
+import { reminderAnswerPatch, reminderCancelPatch, reminderResponseOutcome, reminderState, reminderToastVariant } from "./reminder-state";
 
 /**
  * PAD-151. iOS rendered no buttons at all on an attendance reminder, so a
@@ -272,5 +272,39 @@ describe("reminderState defaults to the club's clock (PAD-295)", () => {
     const base = { responded: true, response: "yes", startsAt: "2027-07-15T10:30:00" } as const;
     expect(reminderState({ ...base, cancellationDeadline: "2027-07-15T09:45:00" }, null).isLateCancellation).toBe(true);
     expect(reminderState({ ...base, cancellationDeadline: "2027-07-15T10:15:00" }, null).isLateCancellation).toBe(false);
+  });
+});
+
+/**
+ * attendance.confirm rule 32: what the conversation screen writes into the cached reminder after the
+ * server answered, so the bubble (which can unmount with the list) keeps the server's word.
+ */
+describe("the cached reminder after an answer (rule 32)", () => {
+  const read = {
+    id: "1",
+    metadata: { lessonInstanceId: 7, responded: true, response: "no" },
+    comeBack: "rejoin" as const,
+  };
+
+  it("[ATTENDANCE-CONFIRM-46] a tap answered spot_filled records the waiting_list line and no answer", () => {
+    const next = reminderAnswerPatch(read, "spot_filled");
+    expect(next).toEqual({ ...read, comeBack: "waiting_list" });
+    expect(reminderToastVariant("spot_filled")).toBe("warning");
+  });
+
+  it("[ATTENDANCE-CONFIRM-46] a recorded answer drops the comeBack read before it", () => {
+    const pending = { id: "1", metadata: { lessonInstanceId: 7, responded: false }, comeBack: null };
+    const no = reminderAnswerPatch(pending, "declined");
+    expect(no?.metadata).toEqual({ lessonInstanceId: 7, responded: true, response: "no" });
+    expect(no && "comeBack" in no).toBe(false);
+    const cancelled = reminderCancelPatch({ ...pending, metadata: { lessonInstanceId: 7, responded: true, response: "yes" } });
+    expect(cancelled.metadata).toEqual({ lessonInstanceId: 7, responded: true, response: "no" });
+    expect("comeBack" in cancelled).toBe(false);
+  });
+
+  it("an answer that records nothing changes nothing; an unknown one is an error", () => {
+    expect(reminderAnswerPatch(read, "expired")).toBeNull();
+    expect(reminderToastVariant("expired")).toBe("error");
+    expect(reminderToastVariant("something-new")).toBe("error");
   });
 });

@@ -27,7 +27,7 @@ from padel_app.invitation_engine.snapshot import SessionSnapshot
 from padel_app.invitation_engine.timeline import attendance_request_at, is_quiet
 from padel_app.utils.dates import wall_to_utc_naive
 
-ASKED = ("regular", "regular_returns", "auto_from_waiting_list", "direct", "invitation")
+ASKED = ("regular", "regular_returns", "returns", "auto_from_waiting_list", "direct", "invitation")
 
 
 def _current_slot(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> datetime | None:

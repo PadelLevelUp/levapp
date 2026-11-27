@@ -15,7 +15,9 @@ and push), with the shapes the specs give:
 - ``AttendanceRequested``: today's ``notification_reminder``, linked to the store's attempt;
 - ``CoachAlert``: an ``engine_alert`` message in the coach's Assistant conversation, pushed
   (dashboard.blocks NA3; owner decision 14);
-- ``ApprovalRequest``: the group's ``replacement_approval`` request (semi-auto-approval N4).
+- ``ApprovalRequest``: the group's ``replacement_approval`` request (semi-auto-approval N4);
+- ``Placed`` of a return (``regular_returns``, ``returns``): the coach's "afinal vai" message and push
+  (engine-store rule 16, the old path's ``_notify_coach_of_return``).
 
 Public API
 ----------
@@ -37,7 +39,8 @@ WAITING_LIST_SOURCES = ("coach_list", "students_list")
 def send_effect(row) -> None:
     """Send one outbox row (an ``engine_effects`` row ``dispatch`` claimed) to the people it reaches."""
     sender = {"Invited": _invitation, "Message": _message, "AttendanceRequested": _attendance_request,
-              "CoachAlert": _coach_alert, "ApprovalRequest": send_approval_request}.get(row.kind)
+              "CoachAlert": _coach_alert, "ApprovalRequest": send_approval_request,
+              "Placed": _return_notice}.get(row.kind)
     if sender is not None:
         sender(row)
 
@@ -365,3 +368,23 @@ def send_approval_request(row) -> None:
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
     send_push_notification(user_id=coach.user_id, title="Replacement approval needed", body=text[:100],
                            url=f"/messages/{conv.id}")
+
+
+# --- a return tells the coach (engine-store rule 16) -----------------------------------------------------
+
+def _return_notice(row) -> None:
+    """The old path's notice of "Afinal vou" (attendance.confirm rule 28): a message from the student to
+    the class's coach in their conversation (real name) and a push naming the student as the coach does
+    (players.nickname rule 9c). Only a return's placement is an outbox row; any other ``Placed`` is not."""
+    from padel_app.models.players import Player
+    from padel_app.services.engine_store import RETURNS
+    from padel_app.services.notification_service import _notify_coach_of_return
+
+    if (row.payload or {}).get("how") not in RETURNS or row.player_id is None:
+        return
+    ctx = _Ctx(row)
+    player = db.session.get(Player, row.player_id)
+    if ctx.coach is None or player is None:
+        return
+    _notify_coach_of_return(ctx.instance, player, player.user_id, ctx.coach.user_id, locale=ctx.locale,
+                            coach_facing=True)

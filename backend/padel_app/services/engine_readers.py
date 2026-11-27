@@ -14,7 +14,8 @@ from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 def invitee_outcome(row, presence, started: bool, now: datetime) -> str:
     """calendar.event-detail ND1: the first match of the table, from the invitation and the student's
     presence on the session."""
-    placed = presence is not None and presence.placed_how == "invitation"
+    # A return (engine-store rule 15, ``returns``) places again the invitee who had cancelled: still placed.
+    placed = presence is not None and presence.placed_how in ("invitation", "returns")
     if row.answer == "yes" and placed and presence.status == "absent":
         return "cancelled"
     if row.answer == "yes" and placed:

@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@levelup/hooks';
-import { classRequestRefusalLines, comeBackFromAnswer, lisbonNowMs, resolveText, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
+import { classRequestRefusalLines, comeBackFromAnswer, lisbonNowMs, reminderBubbleComeBack, resolveText, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
 import { classRequestBubbleState, isEngineApproval, isEngineInvite, joinRefusalKey, joinRequestBubbleState } from '@levelup/config';
 import { EngineInviteResponse } from './EngineInviteResponse';
 import { busySameHourDescription } from '@/components/calendar/busySameHourDescription';
@@ -243,8 +243,9 @@ export function MessageBubble({
     }
   };
 
-  // PAD-684 (attendance.confirm rule 28): after a recorded "no" on a class that has not started the
-  // bubble offers "Afinal vou" and renders the SERVER's answer (it has no comeBack payload).
+  // PAD-684 / attendance.confirm rule 32: after a recorded "no" on a class that has not started the
+  // bubble shows what the `comeBack` served on the reminder says ("Afinal vou" only for `rejoin`,
+  // `reminderBubbleComeBack`), and after a tap the SERVER's answer.
   const [comeBackShown, setComeBackShown] = useState<'waiting_list' | 'on_waiting_list' | null>(null);
   const handleComeBack = async () => {
     const instanceId = message.metadata?.lessonInstanceId;
@@ -253,7 +254,8 @@ export function MessageBubble({
     try {
       const result = await respondToReminder(instanceId, "yes");
       const outcome = reminderAnswerOutcome(result.action);
-      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      // Rule 32: a place that went before the tap is information, never an error.
+      if (outcome.toastKey) (result.action === "spot_filled" ? toast.info : toast.error)(t(outcome.toastKey));
       if (outcome.local !== null) setLocalResponse(outcome.local);
       if (comeBackFromAnswer(result) === "waiting_list") setComeBackShown("waiting_list");
     } catch {
@@ -289,7 +291,7 @@ export function MessageBubble({
       // Trust the SERVER's action, not the tap (PAD-68 "expired" records
       // nothing; PAD-259 "not_enrolled" settles without an absent badge).
       const outcome = reminderAnswerOutcome(result.action);
-      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.toastKey) (result.action === "spot_filled" ? toast.info : toast.error)(t(outcome.toastKey));
       if (outcome.local !== null) setLocalResponse(outcome.local);
     } catch {
       toast.error(t("messages.somethingWentWrong"));
@@ -609,6 +611,14 @@ export function MessageBubble({
           const deadlineIso = message.metadata?.cancellationDeadline;
           const isLateCancellation =
             !!deadlineIso && wallClockISOMs(deadlineIso) <= lisbonNowMs();
+          // Rule 32: "Afinal vou" only while the served `comeBack` says a place is free.
+          const comeBackKind =
+            comeBackShown ??
+            reminderBubbleComeBack(message.comeBack, {
+              recordedNo,
+              classInFuture,
+              noGivenHere: localResponse === "declined",
+            });
 
           return (
             <div className="flex flex-wrap gap-2 mt-1.5 ml-1">
@@ -675,8 +685,8 @@ export function MessageBubble({
                     <X className="w-3.5 h-3.5" />
                     {t("messages.absent")}
                   </span>
-                  {/* PAD-684: a recorded "no" on a class that has not started may come back. */}
-                  {classInFuture && recordedNo && !comeBackShown && (
+                  {/* PAD-684 / rule 32: a recorded "no" may come back while a place is free. */}
+                  {comeBackKind === "rejoin" && (
                     <button
                       data-testid="bubble-come-back"
                       onClick={handleComeBack}
@@ -686,7 +696,7 @@ export function MessageBubble({
                       {responding ? "…" : t("calendar.detail.comeBack")}
                     </button>
                   )}
-                  {comeBackShown === "waiting_list" && (
+                  {comeBackKind === "waiting_list" && (
                     <div className="flex flex-col gap-1.5 w-full">
                       <span data-testid="bubble-come-back-spot-taken" className="text-xs text-muted-foreground">
                         {t("calendar.detail.spotTaken")}
@@ -701,7 +711,7 @@ export function MessageBubble({
                       </button>
                     </div>
                   )}
-                  {comeBackShown === "on_waiting_list" && (
+                  {comeBackKind === "on_waiting_list" && (
                     <span data-testid="bubble-come-back-on-waiting-list" className="text-xs text-muted-foreground">
                       {t("calendar.detail.onWaitingList")}
                     </span>

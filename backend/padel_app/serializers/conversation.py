@@ -1,4 +1,4 @@
-from padel_app.serializers.message import deleted_class_message_ids, serialize_message
+from padel_app.serializers.message import deleted_class_message_ids, reminder_come_backs, serialize_message
 from padel_app.utils.dates import to_utc_iso
 
 # Distinguishes "the caller has already resolved this for the whole page" from
@@ -192,6 +192,8 @@ def serialize_conversation_detail(
         messages = sorted(conversation.messages, key=lambda m: m.sent_at)
     # messaging.conversation-detail rule 15: one lookup for the whole page.
     deleted = deleted_class_message_ids(messages)
+    # attendance.confirm rule 32: the reminders' comeBack, read once per page.
+    come_backs = reminder_come_backs(messages, user_id)
 
     return {
         **serialize_conversation(conversation, user_id),
@@ -200,7 +202,8 @@ def serialize_conversation_detail(
             is_known_contact(viewer, conversation) if viewer else True
         ),
         "messages": [
-            serialize_message(m, last_read_at, class_deleted=m.id in deleted, viewer_id=user_id)
+            serialize_message(m, last_read_at, class_deleted=m.id in deleted, viewer_id=user_id,
+                              come_backs=come_backs)
             for m in messages
         ],
         "hasMore": has_more,

@@ -44,6 +44,21 @@ describe("mergeEditedMessage", () => {
     const merged = mergeEditedMessage(cached, { ...cached, metadata: undefined });
     expect(merged.metadata).toEqual(cached.metadata);
   });
+
+  // attendance.confirm rule 32: the live payload is serialized for no viewer and leaves `comeBack`
+  // out; the reminder bubble keeps the value its student last read.
+  it("[ATTENDANCE-CONFIRM-46] a live edit without comeBack keeps the value last read", () => {
+    const reminder: Message = {
+      ...cached,
+      messageType: "notification_reminder",
+      metadata: { lessonInstanceId: 7, responded: true, response: "no" },
+      comeBack: "waiting_list",
+    };
+    const { comeBack: _omitted, ...live } = reminder;
+    const merged = mergeEditedMessage(reminder, { ...live, metadata: { ...reminder.metadata, superseded: true } });
+    expect(merged.comeBack).toBe("waiting_list");
+    expect(merged.metadata?.superseded).toBe(true);
+  });
 });
 
 // messaging.messages rule 3 (PAD-639, B-547): a deleted message keeps nothing it said in a cache.

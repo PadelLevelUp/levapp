@@ -187,32 +187,48 @@ def student_not_going(instance, presence, now: datetime | None = None) -> dict:
 
 
 def answer_attendance_request(instance, presence, action: str, now: datetime | None = None) -> dict:
-    """Yes or No to the attendance request (the reminder): a Yes confirms, or brings a regular who had
-    said No back (``RegularReturns``, ``spot_filled`` when the engine does not place them); a No is
-    ``student_not_going``. In the reminder route's shape."""
+    """Yes or No to the attendance request (the reminder): a Yes confirms, or brings back a student who
+    said No or cancelled ("Afinal vou": ``RegularReturns`` for a regular, ``Returns`` for anyone else,
+    engine-store rules 14-15); one the engine does not place, or whose placement the store refuses at
+    that hour (``UnitConflict``, a race the snapshot did not see), answers ``spot_filled``, unless the
+    presence, read again after the unit, is going (a second device's tap): ``duplicate``. A repeat yes
+    that changes nothing answers ``duplicate``. A No is ``student_not_going``. In the reminder route's
+    shape."""
+    from padel_app.invitation_engine.store import UnitConflict
+
     if action == "no":
         student_not_going(instance, presence, now)
         return {"action": "declined"}
     student = str(presence.player_id)
     now = now or utcnow_naive()
     if presence.status == "absent":
-        # "Afinal vou" (attendance.confirm rule 28; engine-store rule 14): only a regular has a return in
-        # the engine. One it does not place (their side is full), and a student who is not a regular
-        # (no engine rule: see engine-store's open questions), answer spot_filled, never confirmed.
-        if not _is_regular(presence):
+        # "Afinal vou" (attendance.confirm rules 28, 32): the engine decides under the session's lock.
+        req = rq.RegularReturns(student) if _is_regular(presence) else rq.Returns(student)
+        try:
+            effects = handle(instance, req, now)
+        except UnitConflict:
             return {"action": "spot_filled"}
-        effects = handle(instance, rq.RegularReturns(student), now)
-        placed = any(isinstance(e, fx.Placed) and e.student == student for e in effects)
-        return {"action": "confirmed"} if placed else {"action": "spot_filled"}
+        if any(isinstance(e, fx.Placed) and e.student == student for e in effects):
+            return {"action": "confirmed"}
+        # Nothing placed: a second tap (another device) read the presence before the first one placed
+        # them. Read it again, after the unit: going now is a repeat yes, else the place went.
+        from padel_app.models.presences import Presence
+
+        fresh = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=presence.player_id).first()
+        if fresh is not None and fresh.status != "absent":
+            return {"action": "confirmed", "duplicate": True}
+        return {"action": "spot_filled"}
     effects = handle(instance, rq.ConfirmAttendance(student), now)
     if not any(isinstance(e, fx.Answered) and e.student == student for e in effects):
         # engine-store rule 13: a yes the engine already counts answers nothing; the store repairs a
-        # presence an earlier yes left unwritten, in its own unit.
+        # presence an earlier yes left unwritten, in its own unit. Nothing to repair: a repeat (rule 15).
         from padel_app.services.engine_store import TableStore
 
         store = TableStore()
         with store.unit((str(instance.id),)):
-            store.repair_confirmed(str(instance.id), student, now)
+            repaired = store.repair_confirmed(str(instance.id), student, now)
+        if not repaired:
+            return {"action": "confirmed", "duplicate": True}
     return {"action": "confirmed"}
 
 

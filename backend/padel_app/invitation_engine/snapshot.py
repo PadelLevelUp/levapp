@@ -17,7 +17,7 @@ from typing import Literal
 
 Side = Literal["L", "R"]
 SIDES: tuple[Side, Side] = ("L", "R")
-PlacedHow = Literal["regular", "invitation", "direct", "auto_from_waiting_list", "regular_returns"]
+PlacedHow = Literal["regular", "invitation", "direct", "auto_from_waiting_list", "regular_returns", "returns"]
 WaitingListSides = Literal["own", "other", "both"]
 
 
@@ -167,6 +167,7 @@ class SessionSnapshot:
     waiting_list: tuple[WaitingListEntry, ...] = ()
     pool: tuple[Student, ...] = ()                    # visible club students not in the session
     absent: frozenset[str] = frozenset()              # regulars who said they are not going
+    left_by_cancel: frozenset[str] = frozenset()      # not regulars, left by a cancellation or a No (answers rule 16)
     coach_removed: frozenset[str] = frozenset()       # regulars the coach removed from this session (still in regulars)
     said_no: frozenset[str] = frozenset()             # answered No for this session (a gate, plan §3)
     busy_same_time: frozenset[str] = frozenset()      # going to another session at the same time (a gate)

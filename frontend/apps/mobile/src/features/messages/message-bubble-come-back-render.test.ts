@@ -7,10 +7,10 @@ import { describe, expect, it } from "vitest";
 const BUBBLE = readFileSync(resolve(__dirname, "components/message-bubble.tsx"), "utf8");
 const SCREEN = readFileSync(resolve(__dirname, "../../../app/conversation/[id].tsx"), "utf8");
 
-describe("the reminder bubble offers 'Afinal vou' after a recorded no (PAD-684 rule 28)", () => {
-  it("only for a recorded no on a class that has not started", () => {
-    expect(BUBBLE).toMatch(/canComeBack = reminder\.declined && message\.metadata\?\.response === "no" && reminderClassInFuture/);
-    expect(BUBBLE).toMatch(/canComeBack && !comeBackShown[\s\S]{0,200}testID="bubble-come-back"/);
+describe("the reminder bubble offers 'Afinal vou' after a recorded no (PAD-684 rule 28, rule 32)", () => {
+  it("only for a recorded no on a class that has not started, and (rule 32) only while comeBack allows it", () => {
+    expect(BUBBLE).toMatch(/reminderBubbleComeBack\(message\.comeBack, \{\s*recordedNo: reminder\.declined && message\.metadata\?\.response === "no",\s*classInFuture: reminderClassInFuture,/);
+    expect(BUBBLE).toMatch(/comeBackKind === "rejoin"[\s\S]{0,200}testID="bubble-come-back"/);
   });
 
   it("the tap answers yes through the screen's reminder handler and renders the server's answer", () => {
