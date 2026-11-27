@@ -168,6 +168,23 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     `attendance.confirm` rule 29, as the old path's `already_marked`) or one that is `absent`: its
     `confirmed`, `response` and `recorded_by` stay as they were.
 
+17. **A session whose notifications are off is never planned, on any path (owner, 27 Nov 2026: "the new
+    engine sends nothing for a class whose notifications are off, same rule as the old engine").** The
+    switches are the ones the tick's listing reads (`notifications.config` rule 19: the coach's
+    `autoNotifyEnabled`, the class's `notifications_enabled`, and the class's effective `auto_invites`,
+    NULL inheriting by the lesson's type, a private lesson off; a coach with no stored row reads as off,
+    as in the listing). The store answers whether a session plans (`plans`) from one predicate that
+    `sessions()` uses too, so the tick and the request paths never read the switches differently. While
+    any switch is off, no run plans the session: not a student's request (a No, a cancellation, a return,
+    a confirmation, an invitation's answer, a waiting-list join or leave), not the coach's add, side,
+    exclusion or semi-automatic answer, not a class edit's or a config save's re-plan. So no automatic
+    invitation, re-offer, waiting-list invitation, automatic entry from a waiting list, coach alert or
+    approval request goes out for it. The request's own effects still land: the absence and the freed
+    seat, the answer recorded, a Yes to an invitation sent before the switch went off placed (or its
+    "sorry"), and the replies to the acting student. The coach's own sends by hand still go: an invitation
+    by hand (`notifications.engine-answers` rule 15) and the attendance request by hand
+    (`notifications.engine-timeline` rule 8).
+
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
 - The locks a unit takes (`notifications.engine-answers` rule 10).
@@ -404,6 +421,49 @@ Given a new-engine class whose regular said No, when the store applies an `Answe
 request for them, then the presence stays `absent` with its `confirmed` and `response` unchanged.
 test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_an_answered_yes_is_never_written_on_an_absent_presence`
 
+#### NOTIFICATIONS-ENGINE-STORE-38: A regular's No on a class with notifications off records the absence and invites nobody (rule 17)
+Given a new-engine class with `notifications_enabled` off, its coach's `autoNotifyEnabled` on, and
+students who could be invited, when its regular says No through the app's entry point, then the presence
+is absent and the seat freed, and no invitation and no outbox row to anyone but the regular is written.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_a_no_on_a_class_with_notifications_off_invites_nobody`
+
+#### NOTIFICATIONS-ENGINE-STORE-39: A private lesson that inherits its automatic invitations invites nobody on a No (rule 17)
+Given a new-engine private lesson's occurrence with `auto_invites` NULL at both levels (off by its type),
+when its regular says No, then the absence is recorded and no invitation is written.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_a_no_on_a_private_lesson_invites_nobody`
+
+#### NOTIFICATIONS-ENGINE-STORE-40: A coach with automatic notifications off invites nobody on a No (rule 17)
+Given a new-engine class whose coach has `autoNotifyEnabled` off, when its regular says No, then the
+absence is recorded and no invitation is written.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_a_no_with_the_coachs_switch_off_invites_nobody`
+
+#### NOTIFICATIONS-ENGINE-STORE-41: After the switch goes off, a No sends no next invitation and a Yes still takes the seat (rule 17)
+Given a new-engine class whose invitations went out while its notifications were on, and students still
+left to invite, when the class's `notifications_enabled` goes off and one invitee answers No, then no
+new invitation is written; when another invitee answers Yes, they are placed in the class.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_after_the_switch_goes_off_a_no_invites_nobody_and_a_yes_takes_the_seat`
+
+#### NOTIFICATIONS-ENGINE-STORE-42: With every switch on, a regular's No invites (rule 17)
+Given a new-engine class with every switch on, when its regular says No, then invitations are written for
+the freed seat.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_with_every_switch_on_a_no_invites`
+
+#### NOTIFICATIONS-ENGINE-STORE-43: The coach's invitation by hand still goes with the class's notifications off (rule 17)
+Given a new-engine class with `notifications_enabled` off and an open seat, when the coach invites one
+student by hand, then that student's invitation is written and sent, and no other invitation is.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_the_coachs_invitation_by_hand_still_goes`
+
+#### NOTIFICATIONS-ENGINE-STORE-44: A class edit's re-plan of a class with notifications off sends nothing (rule 17)
+Given a new-engine class with an open seat and `notifications_enabled` off, when the app re-plans it (a
+class edit, `replan`), then no invitation is written.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_a_replan_of_a_class_with_notifications_off_sends_nothing`
+
+#### NOTIFICATIONS-ENGINE-STORE-45: The tick and the request paths read the same switches (rule 17)
+Given new-engine classes covering every combination of the coach's `autoNotifyEnabled`, the class's
+`notifications_enabled` and its effective `auto_invites`, and a coach with no stored row, when the store
+lists sessions and is asked whether each plans, then a session plans exactly when it is listed.
+test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans_and_the_listing_read_the_same_switches`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -427,6 +487,9 @@ test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_an_
 10. (engine "Afinal vou", 2026-11-26) STORE-28 to STORE-33 — `services/engine_store.py` (`Left`, `Placed`
    `regular_returns`, `Answered`, `repair_confirmed`), `services/engine_entry.py` (`answer_attendance_request`),
    `services/notification_service.py` (`_clear_decline_source`).
+11. (engine notifications off, 2026-11-27) STORE-38 to STORE-45 — `services/engine_store.py` (`plans`, the
+   predicate `sessions()` shares), `invitation_engine/store.py` (`plans` on the protocol and `MemoryStore`),
+   `invitation_engine/engine.py` (`_plan`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
@@ -453,3 +516,22 @@ test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_an_
   order relayed by the coordinator to widen the fix, nobody reachable to review; the owner can reverse
   it): reuse the snapshot when a step applied nothing, and scope the history reads in SQL. This touches
   `Engine.tick` (`notifications.engine-planning`'s run) without changing what it decides.
+- Automatic waiting-list offers and automatic entry on a class whose switches are off (rule 17; P0, 27 Nov
+  2026) — decision (P0 fix agent, nobody reachable to review; the owner can reverse it): none, on any
+  switch. With the class's `notifications_enabled` or the coach's `autoNotifyEnabled` off this is the old
+  engine's rule. With only `auto_invites` off the old engine still made waiting-list offers; the new engine
+  makes none, because the tick already lists no such session (`notifications.config` rule 19) and the
+  request paths now read the same predicate, so the conservative reading holds until the owner says
+  waiting-list offers should survive `auto_invites` off. Open for the owner: should they?
+- Attendance requests (reminders) on a class where only automatic invitations are off (rule 17;
+  `notifications.config` rule 19) — not changed by the P0 fix, open for the owner: the tick's listing
+  drops the whole session, so the scheduled attendance requests stop too, whereas the old engine kept
+  reminders on a class with only `auto_invites` off (it stopped them for `notifications_enabled` off). The
+  coach's attendance request by hand still goes. Making the tick run the timeline for such a session is a
+  change to the listing, not to rule 17.
+- What rule 17 does not cover (P0, 27 Nov 2026), open: an invitation already in the outbox when the switch
+  goes off (committed, not yet dispatched) is still sent, because `dispatch` reads no switch and skipping
+  it would leave an open invitation no one was told about; invitations sent before the switch went off
+  stay open (nothing withdraws them), and while the session is unlisted the tick runs no timeline for it
+  (their counting-until, attendance requests and absences after the class wait until it is listed again);
+  the coach's semi-automatic answer on such a class sends nothing.
