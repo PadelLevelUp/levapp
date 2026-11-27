@@ -243,7 +243,7 @@ class MemoryStore:
                 s.going.pop(e.student, None)
                 if e.reason == "regular_no":
                     s.absent.add(e.student)
-                elif e.student not in s.regulars:           # answers rule 16: may return while a place is free
+                elif e.reason == "cancel" and e.student not in s.regulars:   # answers rule 16, as TableStore
                     s.left_by_cancel.add(e.student)
             elif isinstance(e, fx.WaitingListJoined):
                 s.waiting_list.append(WaitingListEntry(e.student, e.list, e.at, e.side, e.sides))

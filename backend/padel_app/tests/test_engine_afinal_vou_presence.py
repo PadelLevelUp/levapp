@@ -336,20 +336,23 @@ def test_a_place_that_went_before_the_tap_answers_spot_filled(wide_class):
     assert _return_notices(session, rui) == [] and _coach_notes(notes, store, session) == []
 
 
-@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-35")
-def test_a_return_beaten_at_the_same_hour_answers_spot_filled(app, monkeypatch):
-    """The store's same-hour guard refusing a return's placement (a race the snapshot did not see) answers
-    spot_filled, never a 409 or a 500, and records nothing: a regular whose return the engine places while
-    they are going to another of the coach's classes at that hour."""
+@pytest.fixture
+def two_at_one_hour(app, monkeypatch):
+    """Two of the coach's classes at START, ``a`` and ``b``, with the same regular; the regular said No to
+    ``a`` and is still going to ``b``. Pushes recorded in ``notes`` as (user, payload)."""
     from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services import notification_service
     from padel_app.tests.helpers import pin_clock
     from padel_app.tests.test_pad916_engine_store import START, _seed
     from padel_app.utils import expo_push, push_notifications
 
     import padel_app.services.engine_entry  # noqa: F401
 
-    monkeypatch.setattr(push_notifications, "send_push_notification", lambda **kw: None)
-    monkeypatch.setattr(expo_push, "send_expo_push_to_user", lambda *a, **k: None)
+    notes = []
+    monkeypatch.setattr(push_notifications, "send_push_notification", lambda **kw: notes.append((kw["user_id"], kw)))
+    monkeypatch.setattr(notification_service, "send_push_notification",
+                        lambda **kw: notes.append((kw["user_id"], kw)))
+    monkeypatch.setattr(expo_push, "send_expo_push_to_user", lambda uid, **kw: notes.append((uid, kw)))
     with app.app_context():
         pin_clock(monkeypatch, NOW)
         store, (a, b), (regular, *_) = _seed(app, starts=(START, START), players=3, capacity=4)
@@ -357,10 +360,57 @@ def test_a_return_beaten_at_the_same_hour_answers_spot_filled(app, monkeypatch):
                                           engine_version="new", engine_switched_at=NOW - timedelta(days=1)))
         db.session.commit()
         _say_no(a, regular)                              # the regular is still going to b, at the same hour
-        before = (_presence(a, regular).status, _presence(a, regular).response)
+        notes.clear()
+        yield store, a, b, regular, notes
 
-        assert _yes(a, regular, LATER) == {"action": "spot_filled"}
-        assert (_presence(a, regular).status, _presence(a, regular).response) == before
+
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-45")
+def test_a_regular_going_at_the_same_hour_is_not_offered_a_return(two_at_one_hour):
+    """attendance.confirm rule 32, engine-answers rule 16: a regular going to another of the coach's classes
+    at that hour is offered no "Afinal vou" (``comeBack`` is not ``rejoin``), and their tap, an old build's,
+    answers spot_filled and records and sends nothing: the offer and the tap read one predicate."""
+    from padel_app.services.notification_service import student_come_back
+
+    store, a, b, regular, notes = two_at_one_hour
+    assert student_come_back(_presence(a, regular), _instance(a), player_id=int(regular), now=LATER) == "waiting_list"
+    before = (_presence(a, regular).status, _presence(a, regular).response)
+
+    assert _yes(a, regular, LATER) == {"action": "spot_filled"}
+    assert (_presence(a, regular).status, _presence(a, regular).response) == before
+    from padel_app.models.players import Player
+
+    user = db.session.get(Player, int(regular)).user_id
+    assert _return_notices(a, regular) == [] and [n for n in notes if n[0] == user] == []   # no sorry, no notice
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-35")
+def test_a_return_beaten_at_the_same_hour_answers_spot_filled(two_at_one_hour, monkeypatch):
+    """A real race: the return's first snapshot is read before the regular's placement in ``b`` (at the
+    same hour) is seen, so the engine places them; the store's same-hour guard refuses the unit and the
+    engine runs the request again on the committed state. The answer is spot_filled, never a 409 or a
+    500, and nothing is recorded."""
+    from dataclasses import replace
+
+    from padel_app.services.engine_store import TableStore
+
+    store, a, b, regular, notes = two_at_one_hour
+    real = TableStore.snapshot
+    reads = []
+
+    def stale_first_read(self, session):
+        snap = real(self, session)
+        reads.append(session)
+        if session == a and reads.count(a) == 1:          # b's placement not yet seen
+            return replace(snap, busy_same_time=snap.busy_same_time - {regular})
+        return snap
+
+    monkeypatch.setattr(TableStore, "snapshot", stale_first_read)
+    before = (_presence(a, regular).status, _presence(a, regular).response)
+
+    assert _yes(a, regular, LATER) == {"action": "spot_filled"}
+    assert reads.count(a) >= 2                             # the refused unit was run again
+    assert (_presence(a, regular).status, _presence(a, regular).response) == before
+    assert _return_notices(a, regular) == []
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-36")
@@ -456,3 +506,35 @@ def test_an_invitee_who_cancelled_and_came_back_reads_accepted(wide_class):
     assert outcome() == "cancelled"
     assert _yes(session, rui, LATER) == {"action": "confirmed"}
     assert outcome() == "accepted"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-46")
+def test_a_double_tap_from_two_devices_answers_confirmed_twice(wide_class, client, monkeypatch):
+    """Two taps of "Afinal vou" by the same student (two devices): both routes read the presence as absent
+    before either takes the lock; the first places, the second finds nothing to place. The second answers
+    ``{"action": "confirmed", "duplicate": true}`` (the student is going), never ``spot_filled``; the coach
+    is told once."""
+    from padel_app.invitation_engine import requests as rq
+    from padel_app.services import engine_entry
+    from padel_app.tests.helpers import pin_clock
+
+    store, session, (regular, rui, *_), sent, notes = wide_class
+    _place_one_off(store, session, rui)
+    _say_no(session, regular)
+    _say_no(session, rui)
+    real = engine_entry.handle
+
+    def other_device_first(instance, request, now=None):
+        if isinstance(request, (rq.Returns, rq.RegularReturns)):
+            real(instance, request, now)               # the other device's tap wins the lock
+        return real(instance, request, now)
+
+    monkeypatch.setattr(engine_entry, "handle", other_device_first)
+    for student, minute in ((rui, 1), (regular, 2)):
+        pin_clock(monkeypatch, LATER + timedelta(minutes=minute))
+        notes.clear()
+        assert _post_yes(client, session, student) == {"action": "confirmed", "duplicate": True}
+        p = _presence(session, student)
+        assert p.status is None and p.confirmed is True
+        assert len(_return_notices(session, student)) == 1
+        assert [k for k, _, _ in _coach_notes(notes, store, session)] == ["push", "expo"]

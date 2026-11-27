@@ -550,3 +550,21 @@ def test_a_regulars_return_is_unchanged():
     assert effects == (Placed("S", NOW, "reg", "L", "regular_returns"), Absence("S", NOW, "reg", "none"))
     full = handle(session(2), EngineSettings(), RegularReturns("reg"), NOW).effects
     assert full == (fx.Message("S", NOW, "reg", "sorry"),)                       # the sorry only; Bia's invitation untouched
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-47")
+def test_only_a_cancellation_or_a_no_lets_a_non_regular_return_in_the_memory_store():
+    """engine-answers rule 16, as ``TableStore`` reads it (``left_reason`` ``cancel``): a non-regular who
+    left by a cancellation may return; one recorded as a no-show may not; a regular's No stays ``absent``."""
+    from padel_app.invitation_engine.store import MemoryStore
+
+    store = MemoryStore()
+    for sid in ("rui", "bia"):
+        store.add_student(_student(sid, "L"))
+    store.add_session("S", 3, 4, START, [(_student("reg", "L"), "L")], SENT)
+    store.apply([Placed("S", SENT, "rui", "L", "invitation"), Placed("S", SENT, "bia", "L", "invitation")])
+    store.apply([fx.Left("S", NOW, "rui", "cancel"), fx.Left("S", NOW, "bia", "no_show"),
+                 fx.Left("S", NOW, "reg", "regular_no")])
+
+    snap = store.snapshot("S")
+    assert snap.left_by_cancel == frozenset({"rui"}) and snap.absent == frozenset({"reg"})

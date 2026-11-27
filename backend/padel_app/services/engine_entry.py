@@ -190,7 +190,8 @@ def answer_attendance_request(instance, presence, action: str, now: datetime | N
     """Yes or No to the attendance request (the reminder): a Yes confirms, or brings back a student who
     said No or cancelled ("Afinal vou": ``RegularReturns`` for a regular, ``Returns`` for anyone else,
     engine-store rules 14-15); one the engine does not place, or whose placement the store refuses at
-    that hour (``UnitConflict``, a race the snapshot did not see), answers ``spot_filled``. A repeat yes
+    that hour (``UnitConflict``, a race the snapshot did not see), answers ``spot_filled``, unless the
+    presence, read again after the unit, is going (a second device's tap): ``duplicate``. A repeat yes
     that changes nothing answers ``duplicate``. A No is ``student_not_going``. In the reminder route's
     shape."""
     from padel_app.invitation_engine.store import UnitConflict
@@ -207,8 +208,16 @@ def answer_attendance_request(instance, presence, action: str, now: datetime | N
             effects = handle(instance, req, now)
         except UnitConflict:
             return {"action": "spot_filled"}
-        placed = any(isinstance(e, fx.Placed) and e.student == student for e in effects)
-        return {"action": "confirmed"} if placed else {"action": "spot_filled"}
+        if any(isinstance(e, fx.Placed) and e.student == student for e in effects):
+            return {"action": "confirmed"}
+        # Nothing placed: a second tap (another device) read the presence before the first one placed
+        # them. Read it again, after the unit: going now is a repeat yes, else the place went.
+        from padel_app.models.presences import Presence
+
+        fresh = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=presence.player_id).first()
+        if fresh is not None and fresh.status != "absent":
+            return {"action": "confirmed", "duplicate": True}
+        return {"action": "spot_filled"}
     effects = handle(instance, rq.ConfirmAttendance(student), now)
     if not any(isinstance(e, fx.Answered) and e.student == student for e in effects):
         # engine-store rule 13: a yes the engine already counts answers nothing; the store repairs a

@@ -115,6 +115,16 @@ def test_come_back_offers_rejoin_only_when_the_engine_would_place_the_student(ap
         snap = store.snapshot(a)                               # one predicate: the light read is the full one's
         assert {s: bool(return_sides(snap, s)) for s in expected} == {s: v == "rejoin" for s, v in expected.items()}
 
+        # The regular going to b again, at the same hour: no "rejoin", in the light read and the full one.
+        with store.unit((b,)):
+            store.apply([fx.Placed(b, AT, regular, "L", "regular_returns")])
+        db.session.expire_all()
+        assert come_back(regular) == "waiting_list"
+        assert not return_sides(store.snapshot(a), regular)
+        answer_attendance_request(_instance(b), _presence(b, regular), "no", LATER)   # and says No to b again
+        db.session.expire_all()
+        assert come_back(regular) == "rejoin"
+
         # A coach viewer, and another message type, get null.
         assert serialize_message(_reminder(coach_user, x, a), None, viewer_id=coach_user)["comeBack"] is None
         assert serialize_message(_reminder(coach_user, x, a, "text"), None, viewer_id=_user(x))["comeBack"] is None

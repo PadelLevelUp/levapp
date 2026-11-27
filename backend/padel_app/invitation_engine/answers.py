@@ -245,18 +245,23 @@ def return_sides(snapshot: SessionSnapshot, sid: str) -> frozenset[Side] | None:
     or not left by their own No or cancellation); else the sides a place is free for them now, empty when
     none. A free place is room in the class and on a side they play (``open_sides``; an open invitation
     holds no place, ``fill_never_held`` is not read). A regular returns from the snapshot's ``absent`` as
-    today; anyone else from ``left_by_cancel``, refused while going to another session at that hour."""
+    today; anyone else from ``left_by_cancel``. Either is refused while going to another session at that
+    hour (rule 10), so the offer never shows a return the store would refuse."""
     if snapshot.placement(sid) is not None:
         return None
     regular = next((r for r in snapshot.regulars if r.id == sid), None)
     if regular is not None:
-        return open_sides(snapshot) & regular.sides if sid in snapshot.absent else None
-    student = snapshot.students.get(sid)
-    if sid not in snapshot.left_by_cancel or student is None:
-        return None
+        if sid not in snapshot.absent:
+            return None
+        sides = regular.sides
+    else:
+        student = snapshot.students.get(sid)
+        if sid not in snapshot.left_by_cancel or student is None:
+            return None
+        sides = student.sides
     if sid in snapshot.busy_same_time:                    # rule 10: never two sessions at one hour
         return frozenset()
-    return open_sides(snapshot) & student.sides
+    return open_sides(snapshot) & sides
 
 
 def _return_side(sides: frozenset[str], open_: frozenset[Side]) -> Side | None:
@@ -270,7 +275,7 @@ def _regular_returns(snapshot: SessionSnapshot, sid: str, now: datetime) -> tupl
     and the absence disappears. The plan is silent; the PDF's rule stands (sheet line 62, clause 3)."""
     regular = next((r for r in snapshot.regulars if r.id == sid), None)
     sides = return_sides(snapshot, sid) if regular is not None else None
-    if sides is None:
+    if sides is None or sid in snapshot.busy_same_time:   # going elsewhere at that hour: nothing (rule 10)
         return ()
     if not sides:                                          # their spot was taken: "sorry" (sheet 63, E6)
         return (Message(snapshot.id, now, sid, KIND_SORRY),)

@@ -497,7 +497,7 @@ class TableStore:
     def return_snapshot(self, session: str, student: str) -> SessionSnapshot:
         """What ``answers.return_sides`` reads for one student's "Afinal vou" (attendance.confirm rule 32,
         ``comeBack``), from the occurrence's presences, the student's sides on the coach's roster and, for
-        a student who is not a regular, whether they are going elsewhere at that hour: the same values
+        student who left, whether they are going elsewhere at that hour: the same values
         ``snapshot`` builds for those fields, at a handful of statements instead of the full read."""
         from padel_app.models import EngineSession
         from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
@@ -515,7 +515,7 @@ class TableStore:
         left = own is not None and own.status == "absent"
         absent = frozenset({student}) if regular and left and own.left_reason == "regular_no" else frozenset()
         cancelled = frozenset({student}) if not regular and left and own.left_reason == "cancel" else frozenset()
-        busy = frozenset({student}) if cancelled and _overlapping_going(
+        busy = frozenset({student}) if (absent or cancelled) and _overlapping_going(
             coach_id, iid, inst.start_datetime, _end_of(inst), student=pid) else frozenset()
         return SessionSnapshot(
             id=session, level=None, capacity=inst.effective_max_players, start=inst.start_datetime,
