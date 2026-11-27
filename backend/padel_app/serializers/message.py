@@ -114,6 +114,30 @@ def reminder_come_back(message, viewer_id, cache: dict | None = None):
     return value
 
 
+def reminder_come_backs(messages, viewer_id) -> dict:
+    """``reminder_come_back`` for a page, as ``deleted_class_message_ids`` does: one player and one presence
+    read for the whole page; only an occurrence the student recorded a no for (absent) reads further. The
+    result is the ``come_backs`` cache ``serialize_message`` takes."""
+    from padel_app.models import LessonInstance, Player, Presence
+    from padel_app.services.notification_service import student_come_back
+    from padel_app.sql_db import db
+
+    refs = {referenced_instance_id(m) for m in messages
+            if viewer_id is not None and not m.is_deleted and m.sender_id != viewer_id
+            and getattr(m, "message_type", None) == "notification_reminder"} - {None}
+    if not refs:
+        return {}
+    out = dict.fromkeys(refs)
+    player = Player.query.filter_by(user_id=viewer_id).first()
+    if player is None:
+        return out
+    for presence in Presence.query.filter(Presence.player_id == player.id, Presence.lesson_instance_id.in_(refs),
+                                          Presence.status == "absent").all():
+        instance = db.session.get(LessonInstance, presence.lesson_instance_id)
+        out[presence.lesson_instance_id] = student_come_back(presence, instance, player_id=player.id)
+    return out
+
+
 def serialize_message(message, last_read_at, *, class_deleted=False, viewer_id=None, come_backs=None):
     """One message, as ``viewer_id`` reads it (None: whatever every participant may see).
 

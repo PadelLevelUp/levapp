@@ -315,7 +315,9 @@ def test_a_place_that_went_before_the_tap_answers_spot_filled(wide_class):
     store, session, (regular, rui, other, *_), sent, notes = wide_class
     _place_one_off(store, session, rui)
     _say_no(session, rui)
-    _place_one_off(store, session, other, at=AT + timedelta(minutes=1))   # one left place free, then not
+    assert student_come_back(_presence(session, rui), _instance(session), player_id=int(rui),
+                             now=LATER) == "rejoin"              # served while one left place is free
+    _place_one_off(store, session, other, at=AT + timedelta(minutes=1))   # then another student takes it
     db.session.expire_all()
 
     def state():
@@ -366,8 +368,14 @@ def test_every_return_tells_the_coach_once(wide_class, client, monkeypatch):
     from padel_app.models.players import Player
     from padel_app.tests.helpers import pin_clock
 
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
     store, session, (regular, one_off, *_), sent, notes = wide_class
     coach_user = _coach_user(store, session)
+    # The coach calls the one-off student by a nickname: the push uses it, the message keeps the real name.
+    link = Association_CoachPlayer.query.filter_by(coach_id=store.coach_of(session), player_id=int(one_off)).one()
+    link.nickname, link.nickname_as_name = "Tó", True
+    db.session.commit()
     _place_one_off(store, session, one_off)
     _say_no(session, regular)
     _say_no(session, one_off)
@@ -387,6 +395,8 @@ def test_every_return_tells_the_coach_once(wide_class, client, monkeypatch):
         coach_notes = _coach_notes(notes, store, session)
         assert [(k, uid) for k, uid, _ in coach_notes] == [("push", coach_user), ("expo", coach_user)]
         assert coach_notes[0][2]["title"] == "Afinal vai"
+        shown = "Tó" if student == one_off else name
+        assert coach_notes[0][2]["body"].startswith(f"{shown} afinal vai a ")
         assert not [e for e, to in sent if "reminder_confirmed" in str(e)]
 
         notes.clear()
