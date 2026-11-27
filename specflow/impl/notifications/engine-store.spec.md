@@ -155,7 +155,8 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     as the old engine's did).** A `Left` (a regular's No, a cancellation, the reminder's No) queues one
     `presence_changed` for the class's coach, sent after the commit; the No's own fields stay as rule 4,
     the `Absence` and owner ruling D4 write them (`status` `absent`, the notice as `response`, never a
-    justification). A regular's "Afinal vou" (`RegularReturns`) that the engine places (`Placed`
+    justification). A coach's absent mark before the class is not the student's No: it frees the seat
+    the same way and writes no `response` (rule 19). A regular's "Afinal vou" (`RegularReturns`) that the engine places (`Placed`
     `regular_returns`) writes the presence as coming as the old path's return did: the coach's "Não vai"
     mark cleared (`validated` false), `confirmed`, `response` `confirmed` and `responded_at` the placement's
     time, and one `presence_changed`; so they count as confirmed (rule 6) and are not asked again for that
@@ -223,6 +224,38 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
     "sorry"), and the replies to the acting student. The coach's own sends by hand still go: an invitation
     by hand (`notifications.engine-answers` rule 15) and the attendance request by hand
     (`notifications.engine-timeline` rule 8).
+
+19. **The coach's absent mark before the class frees the seat and leaves the student's answer alone
+    (`attendance.presence` rule 7, decided 2026-09-11 by the coordinator with the owner informed: the
+    coach's record "stays `status` / `justification` / `validated` and never moves `response`", and, the
+    owner's answer of 2026-11-10, every coach attendance mark writes `recorded_by` `coach`; rule 10 here,
+    the owner 2026-11-19: the coach's recorded absence keeps the student's `response` and
+    `responded_at` as they are; `attendance.confirm` rules 13 and 29; as the old path did,
+    `lesson_service.add_presences`).** When the coach marks a going student absent on a new-engine class
+    before it starts, the engine hears it as the student leaving (rule 4: a regular's absence,
+    `left_reason` `regular_no`; anyone else a cancellation, `left_reason` `cancel`), so the seat is free
+    and planned as after a No (rule 17's switches apply). The presence then holds the coach's record and
+    the engine's departure, nothing else:
+    - `status` `absent`, the coach's `justification`, `validated` true, `recorded_by` `coach`, and the
+      `left_reason` above;
+    - `response`, `responded_at` and `confirmed` exactly as they were: a student's Yes stays `confirmed`,
+      a student never asked stays `none` (never `proactive_decline`, `declined` or `cancelled`), so the
+      mark is never a late cancellation (`lateCancellation` false) nor "cancelled by the student";
+    - the student's `ReminderAttempt` rows and reminder message unchanged;
+    - all of it in one commit with the freed seat, so no reader, the coach's live `presence_changed`
+      included, ever sees the row shaped as the student's own decline; one `presence_changed` for the
+      coach after that commit (a spec-agent decision, Open questions).
+    The engine's `Absence` for the mark is still applied (its notice stays in `engine_effects`); the store
+    writes no answer from it. The student is sent nothing, as on the old path. They may still come back
+    while a place is free ("Afinal vou": rule 14 for a regular, rule 15 for anyone else;
+    `attendance.confirm` rule 29's exception, `notifications.engine-answers` rule 16: the mark leaves the
+    `left_reason` those rules read), which clears the mark; a row the engine did not record leaving (no
+    `left_reason`) has no return (`attendance.confirm` Open questions). The coach's own "present" or clear
+    (PAD-567) before the class gives the seat back by rule 4's reading (the row is no longer absent): the
+    next run counts the student going, and invitations already out for that seat stay open (D4); the old
+    engine's vacancy code those two paths still call finds no vacancy on a new-engine class (adoption
+    closed them, rule 10). A mark
+    at or after the start is a no-show (rule 4) and is not this rule.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -560,6 +593,48 @@ Given new-engine classes covering every combination of the coach's `autoNotifyEn
 lists sessions and is asked whether each plans, then a session plans exactly when it is listed.
 test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans_and_the_listing_read_the_same_switches`
 
+#### NOTIFICATIONS-ENGINE-STORE-53: The coach's absent mark before the class keeps the student's answer (rule 19)
+- **Given** a new-engine class of 4, full, with every switch on, a cancellation deadline of 24 h, and a
+  regular who answered Yes to the attendance request (`response` `confirmed`, a yes `ReminderAttempt`)
+- **When** the coach marks that regular absent, justified, 10 h before the class (after the deadline)
+  through the attendance sheet
+- **Then** the presence is `absent`, `justification` justified, `validated` true, `recorded_by` `coach`,
+  `left_reason` `regular_no`; its `response` is still `confirmed` with the same `responded_at`, and
+  `confirmed` is unchanged; `lateCancellation` and `cancelledByStudent` are false; the
+  `ReminderAttempt` and the reminder message are unchanged; the snapshot counts the regular absent and
+  not going and the place open; nothing is sent to the student; exactly one `presence_changed` reaches
+  the coach, after one commit, and the row read at that commit already has `validated` true
+- **And** a regular who was never asked, marked the same way 3 days before the class, keeps `response`
+  `none` (not `proactive_decline`); and a student placed for that class only, marked the same way, reads
+  `left_reason` `cancel` with their `response` unchanged
+test: `backend/padel_app/tests/test_engine_coach_absent_mark.py` › `test_the_coachs_absent_mark_before_the_class_keeps_the_students_answer`
+
+#### NOTIFICATIONS-ENGINE-STORE-54: The seat the coach's mark freed is planned; the coach's present or clear gives it back (rules 4, 19)
+- **Given** the class above inside its invitation window, every switch on, with pool students
+- **When** the coach marks a regular absent before the class; then marks them present again; and, in a
+  second such class, marks a regular absent and then clears the mark (PAD-567); and `engine_tick` runs
+- **Then** the absent mark's own unit invites for the freed place (its re-plan, rule 17); after the
+  present or the clear the snapshot counts the regular going, the place is not open, and no run writes a
+  further invitation for it; the invitations already out stay open, and an invitee's later Yes gets the
+  sorry (D4)
+test: `backend/padel_app/tests/test_engine_coach_absent_mark.py` › `test_the_seat_the_coachs_mark_freed_is_planned_and_given_back`
+
+#### NOTIFICATIONS-ENGINE-STORE-55: A student the coach marked absent comes back while a place is free (rules 15, 19)
+- **Given** a new-engine class with a free place, and a student placed for that class only whom the coach
+  marked absent before the start
+- **When** the student posts `yes` to `/api/app/notify/respond_reminder`
+- **Then** the answer is `{"action": "confirmed"}`, the presence is going with `validated` false, no
+  `justification`, `response` `confirmed`, and the coach is told once (rule 16)
+test: `backend/padel_app/tests/test_engine_coach_absent_mark.py` › `test_a_student_the_coach_marked_absent_comes_back_while_a_place_is_free`
+
+#### NOTIFICATIONS-ENGINE-STORE-56: A regular's return clears the coach's justification (rule 14)
+- **Given** a new-engine class whose regular the coach marked absent, justified, before the start, with
+  their place still free
+- **When** the regular posts `yes`
+- **Then** the presence's `justification` is cleared with `status` and `validated`, and the row reads
+  `coming`
+test: `backend/padel_app/tests/test_engine_afinal_vou_presence.py` › `test_a_regulars_return_clears_the_coachs_justification`
+
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
@@ -596,6 +671,15 @@ test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans
    `regular_returns`/`returns` queue the notice after commit, beside `presence_changed`),
    `services/notification_service.py` (`_notify_coach_of_return` reused, its push body by the coach's display
    name), outbox or after-commit hook so a retried apply sends once.
+
+15. (coach's absent mark before the class, "gap E", 2026-11-27) STORE-53 to STORE-56 —
+   `services/lesson_service.py` (`add_presences`: on a new-engine class the coach's fields are written in
+   the engine's unit, one commit), `services/engine_entry.py` (`coach_marks_absent` names the coach and
+   carries the coach's fields), `invitation_engine/requests.py` and `invitation_engine/answers.py`
+   (`RegularAbsent` and `Cancel` say who left them; `_leave` passes it on), `invitation_engine/effects.py`
+   (`Absence` says who), `services/engine_store.py` (`Absence` by the coach writes no answer). STORE-56
+   pins what `Placed` already writes. About 6 files, 4 tests (`test_engine_coach_absent_mark.py`, new;
+   one in `test_engine_afinal_vou_presence.py`).
 
 ### Open questions
 - A stale `presences.side` after a cancel (rule 9) — left as is (lead, 2026-11-14): a student who joined
@@ -663,3 +747,22 @@ test: `backend/padel_app/tests/test_engine_notifications_off.py` › `test_plans
 - The class detail's invitee row (`calendar.event-detail` ND1) reads a `returns` placement as placed, so an
   invitee who cancelled and came back reads `accepted` again (CALENDAR-EVENT-DETAIL-33), not
   `not_counting`.
+- **The coach's absent mark before the class ("gap E", rule 19; 27 Nov 2026, spec agent) — no question:
+  a recorded rule settles it.** Today (`lesson_service.py:948-958` → `engine_entry.py:314-321` →
+  `answers.py:137-148` → `engine_store.py:1055-1072`) the mark reaches the engine as the student's own
+  No, and the store writes the engine's notice as the student's answer through `record_response`
+  (`recorded_by` `student`), in a unit that commits before the sheet writes the coach's fields. Sequence:
+  a regular taps "Vou" (`response` `confirmed`); 10 h before the class, past a 24 h deadline, the coach
+  marks them absent; the row ends `response` `cancelled` at the coach's instant, so the class detail and
+  the coach's overview show a late cancellation the student never made, and for a moment the row reads
+  as the student's own decline. `attendance.presence` rule 7 (decided 2026-09-11 by the coordinator,
+  owner informed; its `recorded_by` half the owner's answer of 2026-11-10) says the coach's mark never
+  moves `response`; the owner's switch ruling of 2026-11-19 (rule 10) keeps a coach's recorded absence
+  with the student's answer as it was; and the old path never moved it (`lesson_service.py:938-944`). The
+  freed seat (rule 4, STORE-10) and the student's way back (STORE-29) were already right. Rule 19 states
+  it.
+- **How rule 19 lands the mark (27 Nov 2026, spec agent; the owner can reverse it):** the coach's fields
+  are written in the engine's unit, so the mark, the freed seat and the coach's live event are one
+  commit, and the row is never seen as the student's own decline in between (today two commits, the
+  first one the student's shape). The alternative, keeping two commits and only not writing `response`,
+  is smaller but leaves a moment where an absent, not validated row reaches the coach's open screen.
