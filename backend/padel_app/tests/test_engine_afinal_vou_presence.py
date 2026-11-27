@@ -380,7 +380,8 @@ def test_a_regular_going_at_the_same_hour_is_not_offered_a_return(two_at_one_hou
     from padel_app.models.players import Player
 
     user = db.session.get(Player, int(regular)).user_id
-    assert _return_notices(a, regular) == [] and [n for n in notes if n[0] == user] == []   # no sorry, no notice
+    # Nothing to the student (no sorry) and no return notice; the planner's own run may alert the coach.
+    assert _return_notices(a, regular) == [] and [n for n in notes if n[0] == user] == []
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-35")
@@ -404,11 +405,22 @@ def test_a_return_beaten_at_the_same_hour_answers_spot_filled(two_at_one_hour, m
             return replace(snap, busy_same_time=snap.busy_same_time - {regular})
         return snap
 
+    guard = TableStore._guard_same_hour
+    refused = []
+
+    def counting_guard(self, e):
+        try:
+            guard(self, e)
+        except Exception:
+            refused.append((e.session, e.student, e.how))
+            raise
+
     monkeypatch.setattr(TableStore, "snapshot", stale_first_read)
+    monkeypatch.setattr(TableStore, "_guard_same_hour", counting_guard)
     before = (_presence(a, regular).status, _presence(a, regular).response)
 
     assert _yes(a, regular, LATER) == {"action": "spot_filled"}
-    assert reads.count(a) >= 2                             # the refused unit was run again
+    assert refused == [(a, regular, "regular_returns")]    # the store refused once; the rerun placed nothing
     assert (_presence(a, regular).status, _presence(a, regular).response) == before
     assert _return_notices(a, regular) == []
 
